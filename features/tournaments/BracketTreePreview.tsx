@@ -1,0 +1,60 @@
+import { Text, View } from 'react-native';
+
+import { Card } from '@/components/ui/Card';
+import { roundLabel, singleEliminationRoundCount, type BracketPlayer } from '@/utils/bracket';
+
+export interface BracketMatchPreview {
+  id: string;
+  roundIndex: number;
+  a?: string;
+  b?: string;
+  winner?: string;
+}
+
+/** Polished read-only bracket preview for MVP; data from Edge `generateBracket` later. */
+export function BracketTreePreview({ players, matches }: { players: BracketPlayer[]; matches: BracketMatchPreview[] }) {
+  const rounds = singleEliminationRoundCount(players.length) || 1;
+  const byRound: BracketMatchPreview[][] = Array.from({ length: rounds }, () => []);
+  matches.forEach((m) => {
+    byRound[m.roundIndex]?.push(m);
+  });
+
+  return (
+    <View className="gap-3">
+      <Text className="text-lg font-bold text-white">Bracket</Text>
+      <View className="flex-row gap-2" style={{ flexWrap: 'wrap' }}>
+        {byRound.map((ms, ri) => (
+          <View key={ri} className="min-w-[140px] flex-1 gap-2">
+            <Text className="text-center text-xs font-semibold text-neon-cyan">
+              {roundLabel(ri, rounds)}
+            </Text>
+            {ms.length === 0 ? (
+              <Card className="border-dashed border-neon-lime/30">
+                <Text className="text-center text-xs text-white/40">Awaiting seeds</Text>
+              </Card>
+            ) : (
+              ms.map((m) => (
+                <Card key={m.id} className="gap-1 border-l-4 border-neon-lime/60">
+                  <Line label={m.a ?? 'TBD'} active={m.winner === m.a} />
+                  <Line label={m.b ?? 'BYE'} active={m.winner === m.b} dim={!m.b} />
+                </Card>
+              ))
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Line({ label, active, dim }: { label: string; active?: boolean; dim?: boolean }) {
+  return (
+    <Text
+      className={`text-sm ${
+        active ? 'font-bold text-neon-lime' : dim ? 'text-white/30' : 'text-white/80'
+      }`}
+    >
+      {label}
+    </Text>
+  );
+}
