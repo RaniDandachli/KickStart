@@ -24,7 +24,7 @@ export default function TournamentDetailScreen() {
   function onJoin() {
     if (!t || !userId) return;
     if (t.state !== 'open' && t.state !== 'full') {
-      Alert.alert('KickClash', 'Tournament is not accepting joins right now.');
+      Alert.alert('Run it', 'Tournament is not accepting joins right now.');
       return;
     }
     join.mutate(t.id, {
@@ -45,7 +45,7 @@ export default function TournamentDetailScreen() {
             <Badge label={formatFormat(t.format)} />
           </View>
           <Text className="mb-2 text-2xl font-black text-white">{t.name}</Text>
-          <Text className="mb-4 text-sm text-white/70">{t.description}</Text>
+          <Text className="mb-4 text-sm text-slate-300">{t.description}</Text>
           <Card className="mb-4">
             <Row k="Prize" v={t.prize_description} />
             <Row k="Capacity" v={`Slots: ${t.current_player_count} / ${t.max_players}`} />
@@ -60,16 +60,16 @@ export default function TournamentDetailScreen() {
             {t.starts_at ? <Row k="Start" v={new Date(t.starts_at).toLocaleString()} /> : null}
             {t.rules_summary ? <Row k="Summary" v={t.rules_summary} /> : null}
           </Card>
-          <Text className="mb-2 text-lg font-bold text-white">Rules</Text>
+          <Text className="mb-2 text-lg font-bold text-slate-900">Rules</Text>
           {rq.data?.length ? (
             rq.data.map((r) => (
               <Card key={r.id} className="mb-2">
-                <Text className="font-semibold text-white">{r.title}</Text>
-                <Text className="mt-1 text-sm text-white/70">{r.body}</Text>
+                <Text className="font-semibold text-slate-900">{r.title}</Text>
+                <Text className="mt-1 text-sm text-slate-600">{r.body}</Text>
               </Card>
             ))
           ) : (
-            <Text className="text-sm text-white/50">No detailed rules rows.</Text>
+            <Text className="text-sm text-slate-400">No detailed rules rows.</Text>
           )}
           <View className="mt-4 gap-2">
             <AppButton title="Join tournament" loading={join.isPending} onPress={onJoin} />
@@ -88,8 +88,8 @@ export default function TournamentDetailScreen() {
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <View className="mb-2">
-      <Text className="text-xs uppercase text-white/40">{k}</Text>
-      <Text className="text-sm text-white">{v}</Text>
+      <Text className="text-xs uppercase text-slate-400">{k}</Text>
+      <Text className="text-sm text-slate-900">{v}</Text>
     </View>
   );
 }

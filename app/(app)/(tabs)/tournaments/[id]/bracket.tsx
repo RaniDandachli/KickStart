@@ -25,9 +25,9 @@ export default function BracketScreen() {
 
   return (
     <Screen>
-      <Text className="mb-2 text-xs text-white/40">Tournament {id}</Text>
+      <Text className="mb-2 text-xs text-slate-400">Tournament {id}</Text>
       <BracketTreePreview players={players} matches={matches} />
-      <Text className="mt-4 text-sm text-white/50">
+      <Text className="mt-4 text-sm text-slate-400">
         TODO: Replace mock bracket with `tournament_matches` + `generateBracket` Edge output.
       </Text>
     </Screen>

@@ -8,8 +8,8 @@ export default function ForgotPasswordScreen() {
   return (
     <Screen>
       <Card>
-        <Text className="text-base font-semibold text-white">Password reset</Text>
-        <Text className="mt-2 text-sm text-white/60">
+        <Text className="text-base font-semibold text-slate-900">Password reset</Text>
+        <Text className="mt-2 text-sm text-slate-600">
           TODO: Configure Supabase redirect URLs and call `resetPasswordForEmail` from a submit form.
         </Text>
       </Card>

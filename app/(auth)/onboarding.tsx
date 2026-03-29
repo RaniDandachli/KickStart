@@ -17,7 +17,7 @@ export default function OnboardingScreen() {
 
   async function save() {
     if (!userId) {
-      Alert.alert('KickClash', 'Not signed in');
+      Alert.alert('Run it', 'Not signed in');
       return;
     }
     setLoading(true);
@@ -30,7 +30,7 @@ export default function OnboardingScreen() {
       router.replace('/(app)/(tabs)');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not save';
-      Alert.alert('KickClash', msg);
+      Alert.alert('Run it', msg);
     } finally {
       setLoading(false);
     }

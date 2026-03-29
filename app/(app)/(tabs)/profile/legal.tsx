@@ -8,8 +8,8 @@ export default function LegalScreen() {
     <Screen>
       <Text className="mb-4 text-2xl font-bold text-white">Legal</Text>
       <Card>
-        <Text className="text-sm text-white/70">
-          Placeholder for Terms, Privacy, Age gate, and prize eligibility copy. KickClash does not operate cash wagering
+        <Text className="text-sm text-slate-600">
+          Placeholder for Terms, Privacy, Age gate, and prize eligibility copy. Run it does not operate cash wagering
           or pooled entry-fee prize pools.
         </Text>
       </Card>

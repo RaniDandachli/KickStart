@@ -12,7 +12,7 @@ export default function CustomRoomScreen() {
     <Screen>
       <Text className="mb-4 text-2xl font-bold text-white">Custom room</Text>
       <Card>
-        <Text className="mb-2 text-sm text-white/70">
+        <Text className="mb-2 text-sm text-slate-600">
           TODO: Exchange join codes via Edge Function + `match_sessions` custom mode.
         </Text>
         <KCTextInput label="Room code" autoCapitalize="characters" value={code} onChangeText={setCode} />

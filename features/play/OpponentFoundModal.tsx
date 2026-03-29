@@ -7,24 +7,30 @@ import type { MatchOpponentPreview } from '@/store/matchmakingStore';
 export function OpponentFoundModal({
   visible,
   opponent,
+  prizeUsd,
   onAccept,
   onDecline,
 }: {
   visible: boolean;
   opponent: MatchOpponentPreview | null;
+  /** Winner prize for stakes matches (optional). */
+  prizeUsd?: number;
   onAccept: () => void;
   onDecline: () => void;
 }) {
   return (
     <Modal animationType="fade" transparent visible={visible}>
-      <View className="flex-1 items-center justify-center bg-black/70 px-6">
-        <Card className="w-full max-w-md border-neon-lime/40">
-          <Text className="mb-1 text-xs uppercase text-neon-lime">Match found</Text>
-          <Text className="text-2xl font-black text-white">Ready to clash?</Text>
+      <View className="flex-1 items-center justify-center bg-slate-900/35 px-6">
+        <Card className="w-full max-w-md border-emerald-200">
+          <Text className="mb-1 text-xs uppercase text-emerald-600">Match found</Text>
+          <Text className="text-2xl font-black text-slate-900">Ready to clash?</Text>
+          {prizeUsd != null ? (
+            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Playing for ${prizeUsd} (winner)</Text>
+          ) : null}
           {opponent ? (
-            <View className="my-4 rounded-xl bg-ink-900/80 p-3">
-              <Text className="text-lg font-bold text-white">{opponent.username}</Text>
-              <Text className="text-sm text-white/60">
+            <View className="my-4 rounded-xl bg-slate-50 p-3">
+              <Text className="text-lg font-bold text-slate-900">{opponent.username}</Text>
+              <Text className="text-sm text-slate-600">
                 Rating {opponent.rating} · {opponent.region}
               </Text>
             </View>

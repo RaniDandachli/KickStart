@@ -21,7 +21,7 @@ export default function DisputeScreen() {
     <Screen>
       <Text className="mb-4 text-2xl font-bold text-white">Match dispute</Text>
       <Card className="mb-4">
-        <Text className="text-sm text-white/70">
+        <Text className="text-sm text-slate-600">
           Evidence fields (replays, screenshots) attach later via storage signed URLs.
         </Text>
       </Card>

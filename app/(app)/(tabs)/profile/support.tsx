@@ -8,7 +8,7 @@ export default function SupportScreen() {
     <Screen>
       <Text className="mb-4 text-2xl font-bold text-white">Support</Text>
       <Card>
-        <Text className="text-sm text-white/70">
+        <Text className="text-sm text-slate-600">
           TODO: Link help center / email / in-app ticket via moderation tools.
         </Text>
       </Card>

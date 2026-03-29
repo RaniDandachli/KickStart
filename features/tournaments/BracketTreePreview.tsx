@@ -21,7 +21,7 @@ export function BracketTreePreview({ players, matches }: { players: BracketPlaye
 
   return (
     <View className="gap-3">
-      <Text className="text-lg font-bold text-white">Bracket</Text>
+      <Text className="text-lg font-bold text-slate-100">Bracket</Text>
       <View className="flex-row gap-2" style={{ flexWrap: 'wrap' }}>
         {byRound.map((ms, ri) => (
           <View key={ri} className="min-w-[140px] flex-1 gap-2">
@@ -29,12 +29,12 @@ export function BracketTreePreview({ players, matches }: { players: BracketPlaye
               {roundLabel(ri, rounds)}
             </Text>
             {ms.length === 0 ? (
-              <Card className="border-dashed border-neon-lime/30">
-                <Text className="text-center text-xs text-white/40">Awaiting seeds</Text>
+              <Card className="border-dashed border-emerald-200">
+                <Text className="text-center text-xs text-slate-400">Awaiting seeds</Text>
               </Card>
             ) : (
               ms.map((m) => (
-                <Card key={m.id} className="gap-1 border-l-4 border-neon-lime/60">
+                <Card key={m.id} className="gap-1 border-l-4 border-emerald-400">
                   <Line label={m.a ?? 'TBD'} active={m.winner === m.a} />
                   <Line label={m.b ?? 'BYE'} active={m.winner === m.b} dim={!m.b} />
                 </Card>
@@ -51,7 +51,7 @@ function Line({ label, active, dim }: { label: string; active?: boolean; dim?: b
   return (
     <Text
       className={`text-sm ${
-        active ? 'font-bold text-neon-lime' : dim ? 'text-white/30' : 'text-white/80'
+        active ? 'font-bold text-emerald-600' : dim ? 'text-slate-300' : 'text-slate-700'
       }`}
     >
       {label}

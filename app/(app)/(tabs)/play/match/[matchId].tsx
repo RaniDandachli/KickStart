@@ -41,7 +41,7 @@ export default function MatchPlayScreen() {
 
   return (
     <Screen>
-      <Text className="mb-2 text-xs text-white/40">Gameplay placeholder</Text>
+      <Text className="mb-2 text-xs text-slate-400">Gameplay placeholder</Text>
       <GameplayPlaceholder
         session={session}
         onFinish={onFinish}

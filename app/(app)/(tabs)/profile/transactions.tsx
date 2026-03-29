@@ -16,7 +16,7 @@ export default function TransactionsScreen() {
   return (
     <Screen>
       <Text className="mb-2 text-2xl font-bold text-white">Rewards ledger</Text>
-      <Text className="mb-4 text-sm text-white/60">
+      <Text className="mb-4 text-sm text-slate-300">
         Credits, gems, cosmetics, subscriptions — no withdrawals or cash wallet.
       </Text>
       {q.isLoading && (
@@ -30,8 +30,8 @@ export default function TransactionsScreen() {
         <Card key={t.id} className="mb-2">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-2">
-              <Text className="font-semibold text-white">{t.description}</Text>
-              <Text className="text-xs text-white/40">{new Date(t.created_at).toLocaleString()}</Text>
+              <Text className="font-semibold text-slate-900">{t.description}</Text>
+              <Text className="text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</Text>
             </View>
             <Badge label={`${t.amount >= 0 ? '+' : ''}${t.amount} ${t.currency}`} tone={toneFor(t.kind)} />
           </View>

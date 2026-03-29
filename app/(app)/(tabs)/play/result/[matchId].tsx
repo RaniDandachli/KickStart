@@ -21,12 +21,12 @@ export default function MatchResultScreen() {
     <Screen>
       <Text className="mb-4 text-3xl font-black text-white">{won ? 'Victory!' : 'Defeat'}</Text>
       <Card className="mb-4">
-        <Text className="text-sm text-white/60">Match</Text>
-        <Text className="font-mono text-neon-lime">{matchId}</Text>
-        <Text className="mt-4 text-lg text-white">
+        <Text className="text-sm text-slate-600">Match</Text>
+        <Text className="font-mono text-emerald-600">{matchId}</Text>
+        <Text className="mt-4 text-lg text-slate-900">
           Score {sa ?? '?'} — {sb ?? '?'}
         </Text>
-        <Text className="mt-2 text-sm text-white/50">
+        <Text className="mt-2 text-sm text-slate-500">
           TODO: Call `recordMatchResult` Edge Function to write `match_results` + ranked delta when verified.
         </Text>
       </Card>

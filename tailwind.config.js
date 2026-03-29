@@ -4,6 +4,7 @@ module.exports = {
     './app/**/*.{js,jsx,ts,tsx}',
     './components/**/*.{js,jsx,ts,tsx}',
     './features/**/*.{js,jsx,ts,tsx}',
+    './minigames/**/*.{js,jsx,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
   theme: {
@@ -24,6 +25,16 @@ module.exports = {
         pitch: {
           DEFAULT: '#0d3b2e',
           light: '#16664f',
+        },
+        sport: {
+          bg: '#FAF5FF',
+          card: '#FFFFFF',
+          border: '#E9D5FF',
+          text: '#1E1B4B',
+          muted: '#7C3AED',
+          accent: '#C026D3',
+          'accent-dark': '#86198F',
+          'accent-soft': '#F5D0FE',
         },
       },
     },

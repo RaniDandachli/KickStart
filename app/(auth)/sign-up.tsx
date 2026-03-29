@@ -1,6 +1,6 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Text } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { KCTextInput } from '@/components/ui/KCTextInput';
@@ -36,7 +36,7 @@ export default function SignUpScreen() {
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Sign up failed';
-      Alert.alert('KickClash', msg);
+      Alert.alert('Run it', msg);
     } finally {
       setLoading(false);
     }
@@ -44,14 +44,17 @@ export default function SignUpScreen() {
 
   return (
     <Screen>
-      <Text className="mb-2 text-xl font-bold text-white">Create your striker</Text>
-      <Text className="mb-4 text-sm text-white/50">Username must be unique — used on leaderboards.</Text>
+      <View className="mb-4 rounded-2xl border-2 border-amber-400 bg-fuchsia-600 px-4 py-3">
+        <Text className="text-center text-xs font-black uppercase tracking-widest text-amber-200">Join the floor</Text>
+        <Text className="text-center text-2xl font-black text-white">Create your profile</Text>
+      </View>
+      <Text className="mb-4 text-sm font-medium text-slate-300">Username must be unique — used on leaderboards.</Text>
       <KCTextInput label="Username" autoCapitalize="none" value={username} onChangeText={setUsername} />
       <KCTextInput label="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <KCTextInput label="Password" secureTextEntry value={password} onChangeText={setPassword} />
       <AppButton title="Sign up" loading={loading} onPress={() => void onSubmit()} />
       <Link href="/(auth)/sign-in" className="mt-4">
-        <Text className="text-center text-sm text-neon-cyan">Already have an account?</Text>
+        <Text className="text-center text-sm font-bold text-amber-300">Already have an account?</Text>
       </Link>
     </Screen>
   );

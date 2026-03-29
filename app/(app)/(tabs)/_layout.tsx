@@ -1,54 +1,68 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
 import { theme } from '@/lib/theme';
 
+const ICON = 20;
+
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: 'rgba(255,255,255,0.08)',
+        tabBarStyle: getDefaultTabBarStyle(insets.bottom),
+        tabBarActiveTintColor: theme.colors.gold,
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarLabelStyle: {
+          fontWeight: '800',
+          fontSize: 10,
+          marginTop: 2,
+          marginBottom: 2,
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarIconStyle: { marginTop: 0 },
+        tabBarItemStyle: {
+          paddingVertical: 4,
+          justifyContent: 'center',
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Ionicons name="home" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="tournaments"
         options={{
           title: 'Events',
-          tabBarIcon: ({ color, size }) => <Ionicons name="trophy" color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Ionicons name="trophy" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
-          title: 'Play',
-          tabBarIcon: ({ color, size }) => <Ionicons name="football" color={color} size={size} />,
+          title: 'Arcade',
+          tabBarIcon: ({ color }) => <Ionicons name="game-controller" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
-        name="leaderboard"
+        name="prizes"
         options={{
-          title: 'Ranks',
-          tabBarIcon: ({ color, size }) => <Ionicons name="podium" color={color} size={size} />,
+          title: 'Prizes',
+          tabBarIcon: ({ color }) => <Ionicons name="gift" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'You',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person" color={color} size={ICON} />,
         }}
       />
     </Tabs>

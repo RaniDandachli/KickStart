@@ -3,8 +3,10 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
+import { theme } from '@/lib/theme';
 import { AppProviders } from '@/providers/AppProviders';
 
 import '../global.css';
@@ -29,13 +31,20 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <AppProviders>
-      <StatusBar barStyle="light-content" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#06080f' } }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-      </Stack>
-    </AppProviders>
+    <SafeAreaProvider>
+      <AppProviders>
+        <StatusBar barStyle="dark-content" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#060d18' },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+        </Stack>
+      </AppProviders>
+    </SafeAreaProvider>
   );
 }

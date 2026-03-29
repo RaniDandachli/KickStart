@@ -15,10 +15,10 @@ export default function SettingsScreen() {
     <Screen>
       <Text className="mb-4 text-2xl font-bold text-white">Settings</Text>
       <Card className="mb-4">
-        <Text className="mb-3 font-semibold text-white">Notifications</Text>
+        <Text className="mb-3 font-semibold text-slate-900">Notifications</Text>
         <RowToggle label="Match invites" value={pushMatch} onValueChange={setPushMatch} />
         <RowToggle label="Tournament updates" value={pushTournament} onValueChange={setPushTournament} />
-        <Text className="mt-2 text-xs text-white/40">
+        <Text className="mt-2 text-xs text-slate-400">
           TODO: persist preferences → `notifications` + device tokens.
         </Text>
       </Card>
@@ -40,7 +40,7 @@ function RowToggle({
 }) {
   return (
     <View className="mb-3 flex-row items-center justify-between">
-      <Text className="text-white">{label}</Text>
+      <Text className="text-slate-900">{label}</Text>
       <Switch value={value} onValueChange={onValueChange} />
     </View>
   );

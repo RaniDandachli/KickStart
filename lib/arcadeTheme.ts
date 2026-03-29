@@ -1,0 +1,18 @@
+/** Reference-inspired arcade floor: deep navy, lime, orange, sky, gold trim. */
+export const arcade = {
+  navy0: '#060d18',
+  navy1: '#0a1628',
+  navy2: '#0f2847',
+  navy3: '#152a4a',
+  lime: '#A3E635',
+  limeDark: '#65A30D',
+  orange: '#FB923C',
+  orangeDeep: '#EA580C',
+  sky: '#38BDF8',
+  skyDeep: '#0284C7',
+  gold: '#FACC15',
+  goldBorder: '#D4A574',
+  white: '#FFFFFF',
+  textMuted: '#94A3B8',
+  cardShadow: 'rgba(0,0,0,0.45)',
+} as const;

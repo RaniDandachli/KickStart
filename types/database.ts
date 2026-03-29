@@ -254,6 +254,17 @@ type AchievementRow = {
   created_at: string;
 };
 
+/** Arcade / single-player scores (see `submitMinigameScore` Edge Function for validation). */
+export type MinigameScoreRow = {
+  id: string;
+  user_id: string;
+  game_type: string;
+  score: number;
+  duration_ms: number;
+  taps: number;
+  created_at: string;
+};
+
 /** Supabase `Database` generic: includes `Relationships` for postgrest-js. Regenerate via CLI when schema changes. */
 export interface Database {
   public: {
@@ -288,6 +299,11 @@ export interface Database {
       >;
       match_sessions: PublicTable<MatchSessionRow, Partial<MatchSessionRow>, Partial<MatchSessionRow>>;
       match_results: PublicTable<MatchResultRow, Partial<MatchResultRow>, Partial<MatchResultRow>>;
+      minigame_scores: PublicTable<
+        MinigameScoreRow,
+        Pick<MinigameScoreRow, 'user_id' | 'game_type' | 'score' | 'duration_ms' | 'taps'>,
+        Partial<Pick<MinigameScoreRow, 'score' | 'duration_ms' | 'taps'>>
+      >;
       user_stats: PublicTable<UserStatsRow, Partial<UserStatsRow>, Partial<UserStatsRow>>;
       leaderboard_snapshots: PublicTable<
         LeaderboardSnapshotRow,

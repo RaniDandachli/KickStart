@@ -22,7 +22,7 @@ export default function SignInScreen() {
       router.replace('/(app)/(tabs)');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Sign in failed';
-      Alert.alert('KickClash', msg);
+      Alert.alert('Run it', msg);
     } finally {
       setLoading(false);
     }
@@ -30,15 +30,18 @@ export default function SignInScreen() {
 
   return (
     <Screen>
-      <Text className="mb-6 text-3xl font-black text-neon-lime">KickClash</Text>
+      <View className="mb-6 rounded-2xl border-2 border-amber-400 bg-violet-700 px-4 py-3">
+        <Text className="text-center text-xs font-black uppercase tracking-widest text-amber-300">Welcome back</Text>
+        <Text className="text-center text-3xl font-black text-white">Run it</Text>
+      </View>
       <KCTextInput label="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <KCTextInput label="Password" secureTextEntry value={password} onChangeText={setPassword} />
       <AppButton title="Sign in" loading={loading} onPress={() => void onSubmit()} />
       <Link href="/(auth)/sign-up" className="mt-4">
-        <Text className="text-center text-sm text-neon-cyan">Need an account?</Text>
+        <Text className="text-center text-sm font-bold text-amber-300">Need an account?</Text>
       </Link>
       <Link href="/(auth)/forgot-password" className="mt-2">
-        <Text className="text-center text-sm text-white/50">Forgot password (placeholder)</Text>
+        <Text className="text-center text-sm text-slate-400">Forgot password (placeholder)</Text>
       </Link>
     </Screen>
   );

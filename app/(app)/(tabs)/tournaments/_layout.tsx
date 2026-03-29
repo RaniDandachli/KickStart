@@ -1,13 +1,13 @@
 import { Stack } from 'expo-router';
 
+import { theme } from '@/lib/theme';
+
 export default function TournamentsStackLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        headerStyle: { backgroundColor: '#06080f' },
-        headerTintColor: '#f4f6ff',
-        contentStyle: { backgroundColor: '#06080f' },
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     />
   );
