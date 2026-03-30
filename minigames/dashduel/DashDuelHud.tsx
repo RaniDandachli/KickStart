@@ -12,6 +12,8 @@ type Props = {
   onBack: () => void;
   /** Tighter layout for landscape fullscreen. */
   compact?: boolean;
+  /** 0–1 fraction of max speed reached — drives speed pip color. */
+  speedFrac?: number;
 };
 
 function formatClock(ms: number): string {
@@ -21,9 +23,48 @@ function formatClock(ms: number): string {
   return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
+function SpeedPips({ frac }: { frac: number }) {
+  const filled = Math.round(frac * 4);
+  return (
+    <View style={pipStyles.row}>
+      {[0, 1, 2, 3].map((i) => (
+        <View
+          key={i}
+          style={[
+            pipStyles.pip,
+            {
+              backgroundColor: i < filled
+                ? i < 2 ? 'rgba(0,240,255,0.9)' : 'rgba(255,0,110,0.9)'
+                : 'rgba(255,255,255,0.15)',
+              shadowColor: i < filled ? (i < 2 ? '#00f0ff' : '#ff006e') : 'transparent',
+              shadowOpacity: i < filled ? 0.8 : 0,
+              shadowRadius: 4,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const pipStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 3, alignItems: 'center', marginTop: 3 },
+  pip: { width: 6, height: 6, borderRadius: 3 },
+});
+
 export function DashDuelHud(props: Props) {
-  const { distance, score, streak, practiceLabel, prizeLabel, timeLeftMs, onBack, compact } = props;
+  const { distance, score, streak, practiceLabel, prizeLabel, timeLeftMs, onBack, compact, speedFrac = 0 } = props;
   const c = compact ? stylesCompact : null;
+
+  const isUrgent = timeLeftMs < 10_000;
+  const isCritical = timeLeftMs < 5_000;
+
+  const clockColor = isCritical
+    ? 'rgba(248,113,113,0.95)'
+    : isUrgent
+      ? 'rgba(251,191,36,0.95)'
+      : 'rgba(148,163,184,0.75)';
+
   return (
     <View style={[styles.top, c?.top]}>
       <Pressable
@@ -36,22 +77,32 @@ export function DashDuelHud(props: Props) {
         <Ionicons name="chevron-back" size={compact ? 22 : 24} color="#F8FAFC" />
         <Text style={[styles.exitLabel, compact && styles.exitLabelCompact]}>Exit</Text>
       </Pressable>
+
       <View style={styles.center}>
         <Text style={[styles.dist, c?.dist]}>{distance}m</Text>
         <Text style={[styles.scoreLine, c?.scoreLine]}>
-          {score} pts
-          {streak >= 2 ? <Text style={styles.streak}> streak</Text> : null}
+          {score} pts{streak >= 2 ? <Text style={styles.streak}>  ×{streak}</Text> : null}
         </Text>
+        <SpeedPips frac={speedFrac} />
       </View>
+
       <View style={styles.rightCol}>
         {prizeLabel ? (
-          <LinearGradient colors={['rgba(52,211,153,0.25)', 'rgba(34,211,238,0.15)']} style={styles.prizePill}>
+          <LinearGradient
+            colors={['rgba(255,0,110,0.22)', 'rgba(157,78,221,0.18)']}
+            style={styles.prizePill}
+          >
             <Text style={styles.prizeText}>{prizeLabel}</Text>
           </LinearGradient>
         ) : practiceLabel ? (
           <Text style={styles.practice}>{practiceLabel}</Text>
         ) : null}
-        <Text style={styles.clockSmall}>{formatClock(timeLeftMs)}</Text>
+        <View style={styles.clockRow}>
+          {isCritical ? (
+            <Ionicons name="flash" size={12} color={clockColor} accessibilityLabel="Critical time" />
+          ) : null}
+          <Text style={[styles.clockSmall, { color: clockColor }]}>{formatClock(timeLeftMs)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -73,9 +124,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(15,23,42,0.92)',
+    backgroundColor: 'rgba(6,2,14,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.4)',
+    borderColor: 'rgba(255,0,110,0.4)',
     gap: 2,
   },
   backBtnCompact: {
@@ -96,22 +147,28 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.5,
-    textShadowColor: 'rgba(34,211,238,0.45)',
-    textShadowRadius: 10,
+    textShadowColor: 'rgba(255,0,110,0.65)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
   },
   scoreLine: { color: 'rgba(148,163,184,0.95)', fontSize: 12, fontWeight: '700' },
-  streak: { color: 'rgba(52,211,153,0.95)' },
+  streak: { color: 'rgba(0,240,255,0.95)' },
   rightCol: { alignItems: 'flex-end', minWidth: 88 },
   prizePill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.35)',
+    borderColor: 'rgba(255,0,110,0.35)',
   },
-  prizeText: { color: '#5EEAD4', fontSize: 11, fontWeight: '800' },
+  prizeText: { color: '#ff006e', fontSize: 11, fontWeight: '800' },
   practice: { color: 'rgba(148,163,184,0.95)', fontSize: 11, fontWeight: '700' },
-  clockSmall: { color: 'rgba(148,163,184,0.7)', fontSize: 10, marginTop: 2, fontVariant: ['tabular-nums'] },
+  clockRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  clockSmall: {
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+  },
 });
 
 const stylesCompact = StyleSheet.create({

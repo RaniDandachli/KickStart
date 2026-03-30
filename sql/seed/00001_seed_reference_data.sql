@@ -27,7 +27,7 @@ on conflict (slug) do nothing;
 
 insert into public.tournaments (
   id, season_id, name, description, state, format, entry_type,
-  entry_cost_credits, prize_description, max_players, current_player_count,
+  entry_fee_wallet_cents, prize_description, max_players, current_player_count,
   rules_summary, starts_at
 ) values (
   '22222222-2222-4222-8222-222222222222',
@@ -48,7 +48,7 @@ insert into public.tournaments (
   '33333333-3333-4333-8333-333333333333',
   '11111111-1111-4111-8111-111111111111',
   'Credit Cup (100 credits)',
-  'Entry costs credits only — no gambling or peer wagering.',
+  'Entry costs credits only — skill-based play; redeemable prize credits.',
   'open',
   'single_elimination',
   'credits',
@@ -66,7 +66,7 @@ select v.tournament_id, v.sort_order, v.title, v.body
 from (values
   ('22222222-2222-4222-8222-222222222222'::uuid, 0, 'Match format', 'Best of 3 goals or 3 minutes — engine TBD.'),
   ('22222222-2222-4222-8222-222222222222'::uuid, 1, 'Disconnects', 'Report via app; moderation may reschedule.'),
-  ('33333333-3333-4333-8333-333333333333'::uuid, 0, 'Credits', 'Entry deducted on join; refunded if cancelled by admin.')
+  ('33333333-3333-4333-8333-333333333333'::uuid, 0, 'Wallet entry', 'Entry deducted from cash wallet on join; refunded if cancelled by admin.')
 ) as v(tournament_id, sort_order, title, body)
 where not exists (
   select 1 from public.tournament_rules r

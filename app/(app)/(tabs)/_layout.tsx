@@ -3,7 +3,6 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
-import { theme } from '@/lib/theme';
 
 const ICON = 20;
 
@@ -15,7 +14,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: getDefaultTabBarStyle(insets.bottom),
-        tabBarActiveTintColor: theme.colors.gold,
+        tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle: {
           fontWeight: '800',

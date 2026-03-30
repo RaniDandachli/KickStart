@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { arcade } from '@/lib/arcadeTheme';
+import { runit } from '@/lib/runitArcadeTheme';
 
 /**
  * Single source of truth for the bottom tab bar look + safe-area padding.
@@ -9,9 +9,9 @@ import { arcade } from '@/lib/arcadeTheme';
 export function getDefaultTabBarStyle(bottomInset: number) {
   const bottomPad = Math.max(bottomInset, Platform.OS === 'ios' ? 14 : 12) + 2;
   return {
-    backgroundColor: arcade.navy1,
+    backgroundColor: runit.bgDeep,
     borderTopWidth: 2,
-    borderTopColor: arcade.goldBorder,
+    borderTopColor: 'rgba(157, 78, 237, 0.45)',
     paddingTop: 8,
     paddingBottom: bottomPad,
     paddingHorizontal: 6,

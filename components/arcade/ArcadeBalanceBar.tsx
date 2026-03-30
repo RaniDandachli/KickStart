@@ -1,65 +1,85 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { arcade } from '@/lib/arcadeTheme';
+import { runit, runitFont, runitGlowPinkSoft, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 interface Props {
   balanceLabel?: string;
   onAddPress?: () => void;
 }
 
-export function ArcadeBalanceBar({ balanceLabel = '1,240 credits', onAddPress }: Props) {
+export function ArcadeBalanceBar({ balanceLabel = '12,456 PRIZE CREDITS', onAddPress }: Props) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.balance}>
-        <Text style={styles.diamond}>◆ </Text>
-        {balanceLabel}
-      </Text>
-      <Pressable onPress={onAddPress} accessibilityRole="button">
-        <LinearGradient colors={[arcade.limeDark, '#84CC16']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
-          <Text style={styles.addText}>+ ADD</Text>
-        </LinearGradient>
-      </Pressable>
-    </View>
+    <LinearGradient
+      colors={[runit.neonPink, runit.neonPurple]}
+      start={{ x: 0, y: 0.5 }}
+      end={{ x: 1, y: 0.5 }}
+      style={[styles.outer, runitGlowPinkSoft]}
+    >
+      <View style={styles.inner}>
+        <Text style={styles.coin}>🪙</Text>
+        <Text style={styles.balance} numberOfLines={1}>
+          {balanceLabel.toUpperCase()}
+        </Text>
+        <Pressable onPress={onAddPress} accessibilityRole="button" style={({ pressed }) => [styles.addWrap, pressed && styles.addPressed]}>
+          <LinearGradient colors={[runit.neonCyan, '#0891b2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
+            <Text style={styles.addText}>+</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(6,13,24,0.85)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(250,204,21,0.25)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  outer: {
+    borderRadius: 16,
+    padding: 2,
     marginBottom: 16,
   },
-  balance: {
-    color: arcade.lime,
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  diamond: { color: arcade.gold },
-  addBtn: {
-    paddingVertical: 8,
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(6, 2, 14, 0.55)',
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  coin: { fontSize: 20, marginRight: 8 },
+  balance: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1,
+    fontFamily: runitFont.black,
+    ...runitTextGlowPink,
+  },
+  addWrap: {
     borderRadius: 999,
+    overflow: 'hidden',
+    marginLeft: 8,
+  },
+  addPressed: {
+    opacity: 0.85,
+    ...runitGlowPinkSoft,
+  },
+  addBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 4,
+    borderColor: 'rgba(255,255,255,0.45)',
   },
   addText: {
     color: '#fff',
     fontWeight: '900',
-    fontSize: 12,
-    letterSpacing: 0.5,
+    fontSize: 22,
+    fontFamily: runitFont.black,
+    lineHeight: 24,
   },
 });

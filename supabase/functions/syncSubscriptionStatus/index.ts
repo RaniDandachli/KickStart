@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       user_id: userData.user.id,
       kind: 'subscription_event',
       amount: 0,
-      currency: 'credits',
+      currency: 'wallet_cents',
       description: `Subscription ${parsed.data.status}`,
       metadata: parsed.data,
     });

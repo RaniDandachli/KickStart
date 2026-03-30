@@ -7,15 +7,15 @@ export const DD = {
   PLAYER_H: 14,
   PLAYER_OFFSET_X: 68,
   /** Snappier arc (Geometry Dash–style: fast fall, crisp jump). */
-  GRAVITY: 0.00118,
-  JUMP_VY: -0.5,
-  MAX_FALL: 1.05,
+  GRAVITY: 0.00148,
+  JUMP_VY: -0.58,
+  MAX_FALL: 1.3,
   /** Scroll units per ms at start — ramps up. */
-  BASE_SCROLL_PER_MS: 0.108,
-  SCROLL_RAMP_PER_MS2: 0.000000095,
-  MAX_SCROLL_PER_MS: 0.28,
+  BASE_SCROLL_PER_MS: 0.135,
+  SCROLL_RAMP_PER_MS2: 0.00000016,
+  MAX_SCROLL_PER_MS: 0.38,
   /** Late tap still registers shortly after landing (ms). */
-  JUMP_BUFFER_MS: 140,
+  JUMP_BUFFER_MS: 120,
   /** Round cap — if both alive, higher distance wins. */
   ROUND_MS: 90_000,
   /** Course length in world units (enough for long runs). */

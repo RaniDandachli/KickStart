@@ -11,10 +11,18 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import {
+  awardRedeemTicketsForPrizeRun,
+  TILE_CLASH_POINTS_PER_TICKET,
+  ticketsFromTileClashScore,
+} from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useAuthStore } from '@/store/authStore';
+import { useProfile } from '@/hooks/useProfile';
 
 const COLS = 4;
 /** Abstract vertical range (game logic). */
@@ -82,8 +90,10 @@ function spawnRow(m: GameModel, baseY?: number): void {
   }
 }
 
-export default function TileClashGame() {
+export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
   useHidePlayTabBar();
+  const uid = useAuthStore((s) => s.user?.id);
+  const profileQ = useProfile(uid);
   const { width: sw } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [boardSize, setBoardSize] = useState({ w: Math.max(200, sw - 16), h: 0 });
@@ -122,10 +132,13 @@ export default function TileClashGame() {
         taps: tapCountRef.current,
         intervals: [...intervalsRef.current],
       };
+      if (playMode === 'prize') {
+        awardRedeemTicketsForPrizeRun(ticketsFromTileClashScore(m.score));
+      }
       setPhase('over');
       bump();
     },
-    [bump],
+    [bump, playMode],
   );
 
   const step = useCallback(
@@ -172,6 +185,16 @@ export default function TileClashGame() {
   }, [bump]);
 
   const startGame = useCallback(() => {
+    if (playMode === 'prize') {
+      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+      if (!ok) {
+        Alert.alert(
+          'Not enough prize credits',
+          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+        );
+        return;
+      }
+    }
     const m = createGame();
     spawnRow(m, HIT_TOP - 14);
     modelRef.current = m;
@@ -182,7 +205,7 @@ export default function TileClashGame() {
     setSubmitOk(false);
     setPhase('playing');
     bump();
-  }, [bump]);
+  }, [bump, playMode]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -353,6 +376,11 @@ export default function TileClashGame() {
           {phase === 'ready' ? (
             <Pressable style={styles.tapToStartLayer} onPress={startGame}>
               <View style={styles.tapToStartHint} pointerEvents="none">
+                <Text style={styles.tapMode}>
+                  {playMode === 'prize'
+                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
+                    : 'Practice · free'}
+                </Text>
                 <Text style={styles.tapToStartTitle}>TAP TO START</Text>
                 <Text style={styles.tapToStartSub}>Hit the glowing tile in the gold zone</Text>
               </View>
@@ -369,6 +397,11 @@ export default function TileClashGame() {
             <View style={styles.card}>
               <Text style={styles.goTitle}>Run over</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+              {playMode === 'prize' ? (
+                <Text style={styles.goTickets}>
+                  +{ticketsFromTileClashScore(endStatsRef.current.score)} redeem tickets (this run)
+                </Text>
+              ) : null}
               <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
               <AppButton
                 title={submitOk ? 'Score submitted' : 'Submit Score'}
@@ -476,6 +509,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(6,13,24,0.4)',
   },
+  tapMode: {
+    color: 'rgba(253, 224, 71, 0.95)',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   tapToStartTitle: {
     color: arcade.gold,
     fontSize: 20,
@@ -525,6 +565,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 6,
+  },
+  goTickets: {
+    color: '#FDE047',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  practiceNote: {
+    marginTop: 8,
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

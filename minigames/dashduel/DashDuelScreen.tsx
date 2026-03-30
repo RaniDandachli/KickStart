@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Text, View, useWindowDimensions } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +10,15 @@ import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
 import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
 import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';
-import type { DashRunState } from '@/minigames/dashduel/engine';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import {
+  awardRedeemTicketsForPrizeRun,
+  DASH_DUEL_POINTS_PER_TICKET,
+  ticketsFromDashDuelDisplayedScore,
+} from '@/lib/ticketPayouts';
+import { scoreForPlayer, type DashRunState } from '@/minigames/dashduel/engine';
+import { useProfile } from '@/hooks/useProfile';
+import { useAuthStore } from '@/store/authStore';
 
 type Phase = 'home' | 'lobby' | 'countdown' | 'playing' | 'results';
 
@@ -21,6 +29,9 @@ function nextSeed(): number {
 export default function DashDuelScreen() {
   useHidePlayTabBar();
   const router = useRouter();
+  const uid = useAuthStore((s) => s.user?.id);
+  const profileQ = useProfile(uid);
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
@@ -29,6 +40,8 @@ export default function DashDuelScreen() {
   const [seed, setSeed] = useState(nextSeed);
   const [winner, setWinner] = useState<'p1' | 'p2' | 'draw' | null>(null);
   const [finalState, setFinalState] = useState<DashRunState | null>(null);
+  const [ticketsEarned, setTicketsEarned] = useState(0);
+  const appliedRouteMode = useRef(false);
 
   const runFlow = phase !== 'home';
 
@@ -39,24 +52,68 @@ export default function DashDuelScreen() {
   }, []);
 
   const goVs = useCallback(() => {
+    const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+    if (!ok) {
+      Alert.alert(
+        'Not enough prize credits',
+        `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+      );
+      return;
+    }
     setMode('vs');
     setSeed(nextSeed());
     setPhase('lobby');
-  }, []);
+  }, [profileQ.data?.prize_credits]);
+
+  /** From Arcade: ?mode=practice | ?mode=prize — skip the home picker once. */
+  useEffect(() => {
+    if (appliedRouteMode.current) return;
+    const m = String(modeParam ?? '');
+    if (m === 'practice') {
+      appliedRouteMode.current = true;
+      goPractice();
+    } else if (m === 'prize') {
+      appliedRouteMode.current = true;
+      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+      if (!ok) {
+        Alert.alert(
+          'Not enough prize credits',
+          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+        );
+        router.back();
+        return;
+      }
+      setMode('vs');
+      setSeed(nextSeed());
+      setPhase('lobby');
+    }
+  }, [modeParam, goPractice, router, profileQ.data?.prize_credits]);
 
   const lobbyStart = useCallback(() => setPhase('countdown'), []);
 
   const onCountdownDone = useCallback(() => setPhase('playing'), []);
 
-  const onRoundComplete = useCallback((w: 'p1' | 'p2' | 'draw', s: DashRunState) => {
-    setWinner(w);
-    setFinalState(s);
-    setPhase('results');
-  }, []);
+  const onRoundComplete = useCallback(
+    (w: 'p1' | 'p2' | 'draw', s: DashRunState) => {
+      if (mode === 'vs') {
+        const pts = scoreForPlayer(s.p1, s.scroll);
+        const n = ticketsFromDashDuelDisplayedScore(pts);
+        awardRedeemTicketsForPrizeRun(n);
+        setTicketsEarned(n);
+      } else {
+        setTicketsEarned(0);
+      }
+      setWinner(w);
+      setFinalState(s);
+      setPhase('results');
+    },
+    [mode],
+  );
 
   const rematch = useCallback(() => {
     setWinner(null);
     setFinalState(null);
+    setTicketsEarned(0);
     setSeed(nextSeed());
     setPhase('countdown');
   }, []);
@@ -64,6 +121,7 @@ export default function DashDuelScreen() {
   const exitToMenu = useCallback(() => {
     setWinner(null);
     setFinalState(null);
+    setTicketsEarned(0);
     setPhase('home');
   }, []);
 
@@ -96,8 +154,13 @@ export default function DashDuelScreen() {
                 </Text>
               </View>
               <View style={{ flex: isLandscape ? 0.9 : undefined, width: '100%', maxWidth: 360 }}>
-                <AppButton title="Practice run" onPress={goPractice} />
-                <AppButton className="mt-3" title="1v1 vs AI (match)" variant="secondary" onPress={goVs} />
+                <AppButton title="Practice run (free)" onPress={goPractice} />
+                <AppButton
+                  className="mt-3"
+                  title={`Prize run vs AI · ${PRIZE_RUN_ENTRY_CREDITS} credits`}
+                  variant="secondary"
+                  onPress={goVs}
+                />
                 <AppButton className="mt-6" title="Back to arcade" variant="ghost" onPress={() => router.back()} />
               </View>
             </View>
@@ -131,6 +194,7 @@ export default function DashDuelScreen() {
               visible={phase === 'results'}
               winner={winner}
               state={finalState}
+              ticketsEarned={mode === 'vs' ? ticketsEarned : undefined}
               onRematch={rematch}
               onExit={exitToMenu}
             />

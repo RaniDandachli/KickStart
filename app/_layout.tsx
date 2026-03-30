@@ -1,3 +1,8 @@
+import {
+  Orbitron_400Regular,
+  Orbitron_700Bold,
+  Orbitron_900Black,
+} from '@expo-google-fonts/orbitron';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -18,6 +23,9 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, err] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Orbitron_400Regular,
+    Orbitron_700Bold,
+    Orbitron_900Black,
   });
 
   useEffect(() => {

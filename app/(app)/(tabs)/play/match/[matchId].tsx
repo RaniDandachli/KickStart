@@ -6,25 +6,31 @@ import { Screen } from '@/components/ui/Screen';
 import { GameplayPlaceholder } from '@/features/play/GameplayPlaceholder';
 import type { KickClashMatchSession, MatchFinishPayload } from '@/types/match';
 import { useAuthStore } from '@/store/authStore';
+import { useMatchmakingStore } from '@/store/matchmakingStore';
 
 export default function MatchPlayScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
-  const userId = useAuthStore((s) => s.user?.id ?? 'local-player');
+  const userId = useAuthStore((s) => s.user?.id ?? 'guest');
+  const activeMatch = useMatchmakingStore((s) => s.activeMatch);
 
-  const session = useMemo<KickClashMatchSession>(
-    () => ({
+  const session = useMemo<KickClashMatchSession>(() => {
+    const opp = activeMatch?.matchId === matchId ? activeMatch.opponent : null;
+    const opponentId = opp?.id ?? 'opponent';
+    return {
       id: matchId,
       mode: 'casual',
       localPlayerId: userId,
-      opponentId: 'opponent',
+      opponentId,
+      opponentDisplayName: opp?.username ?? 'Opponent',
+      listedPrizeUsd: activeMatch?.listedPrizeUsd,
+      entryFeeUsd: activeMatch?.entryFeeUsd,
       scoreSelf: 0,
       scoreOpponent: 0,
       startedAt: Date.now(),
-      durationSec: 180,
-    }),
-    [matchId, userId]
-  );
+      durationSec: 90,
+    };
+  }, [matchId, userId, activeMatch]);
 
   const [done, setDone] = useState(false);
 
@@ -36,12 +42,20 @@ export default function MatchPlayScreen() {
       sa: String(result.finalScore.self),
       sb: String(result.finalScore.opponent),
     });
+    if (result.winnerId === 'draw') qp.set('draw', '1');
+    const oppName = session.opponentDisplayName ?? 'Opponent';
+    qp.set('opp', encodeURIComponent(oppName));
+    if (session.listedPrizeUsd != null) qp.set('prize', String(session.listedPrizeUsd));
     router.replace(`/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`);
   }
 
   return (
-    <Screen>
-      <Text className="mb-2 text-xs text-slate-400">Gameplay placeholder</Text>
+    <Screen scroll={false}>
+      <Text className="mb-1 text-xs uppercase text-slate-400">Head-to-head (prototype)</Text>
+      <Text className="mb-3 text-lg font-black text-white">
+        vs {session.opponentDisplayName}
+        {session.listedPrizeUsd != null ? ` · Prize $${session.listedPrizeUsd}` : ''}
+      </Text>
       <GameplayPlaceholder
         session={session}
         onFinish={onFinish}

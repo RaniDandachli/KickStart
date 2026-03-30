@@ -10,11 +10,13 @@ type Props = {
   visible: boolean;
   winner: 'p1' | 'p2' | 'draw';
   state: DashRunState;
+  /** Set for prize (vs AI) runs — redeem tickets granted from score. */
+  ticketsEarned?: number;
   onRematch: () => void;
   onExit: () => void;
 };
 
-export function DashDuelResults({ visible, winner, state, onRematch, onExit }: Props) {
+export function DashDuelResults({ visible, winner, state, ticketsEarned, onRematch, onExit }: Props) {
   const s1 = scoreForPlayer(state.p1, state.scroll);
   const s2 = scoreForPlayer(state.p2, state.scroll);
   const title = winner === 'p1' ? 'You win' : winner === 'p2' ? 'Rival wins' : 'Draw';
@@ -114,5 +116,12 @@ const styles = StyleSheet.create({
   val: { color: '#5EEAD4', fontSize: 24, fontWeight: '900' },
   sub: { color: '#94A3B8', fontSize: 13, fontWeight: '700', marginTop: 2 },
   sep: { color: 'rgba(148,163,184,0.6)', fontWeight: '900' },
-  seed: { color: 'rgba(100,116,139,0.95)', fontSize: 10, textAlign: 'center', marginBottom: 16, fontWeight: '600' },
+  seed: { color: 'rgba(100,116,139,0.95)', fontSize: 10, textAlign: 'center', marginBottom: 8, fontWeight: '600' },
+  ticketsLine: {
+    color: '#FDE047',
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
 });

@@ -2,7 +2,7 @@
 
 Production-oriented MVP shell for a competitive 1v1 arcade soccer-style game: **Expo Router + React Native**, **TanStack Query**, **Zustand**, **NativeWind**, **Zod**, and **Supabase** (Auth, Postgres, Realtime hooks, Edge Function stubs). Gameplay physics are intentionally stubbed behind a reusable match session model and placeholder screen.
 
-**Monetization & compliance:** no gambling, wagering, P2P betting, pooled cash prizes, or cash-entry tournaments. Tournaments use free entry, credits, sponsors, or admin-granted prizes only. Stripe is scoped to subscriptions, cosmetics, battle pass–style entitlements, and similar non-cash SKUs.
+**Monetization & compliance:** skill-based contests and virtual / admin-granted prizes; no games of chance for cash, pooled gambling-style prizes, or unlicensed cash-entry tournaments. Tournaments use free entry, credits, sponsors, or admin-granted prizes only. Stripe is scoped to subscriptions, cosmetics, battle pass–style entitlements, and similar non-cash SKUs.
 
 ---
 

@@ -1,43 +1,29 @@
-import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HeadToHeadPlayModal } from '@/components/arcade/HeadToHeadPlayModal';
+import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
-import { DashDuelGameIcon, TapDashGameIcon, TileClashGameIcon } from '@/components/arcade/MinigameIcons';
-import { arcade } from '@/lib/arcadeTheme';
+import {
+  BallRunGameIcon,
+  DashDuelGameIcon,
+  TapDashGameIcon,
+  TileClashGameIcon,
+  TurboArenaGameIcon,
+} from '@/components/arcade/MinigameIcons';
+import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useActiveSeason } from '@/hooks/useActiveSeason';
-import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
 import { useTournaments } from '@/hooks/useTournaments';
-import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
-
-/** Subtle hex-grid hint (no image asset). */
-function HoneycombTexture() {
-  const cells = Array.from({ length: 28 }, (_, i) => i);
-  return (
-    <View style={styles.hexLayer} pointerEvents="none">
-      {cells.map((i) => {
-        const col = i % 7;
-        const row = Math.floor(i / 7);
-        return (
-          <View
-            key={i}
-            style={[
-              styles.hexCell,
-              {
-                left: col * 52 + (row % 2) * 26,
-                top: row * 30,
-              },
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-}
+import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
+import { formatUsdFromCents } from '@/lib/money';
+import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { useAuthStore } from '@/store/authStore';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -50,131 +36,167 @@ export default function HomeScreen() {
   const nextTournament = tournamentsQ.data?.[0];
   const displayName = profile?.display_name ?? profile?.username ?? 'Player';
 
+  const walletCents = useWalletDisplayCents();
+  const walletDisplay = formatUsdFromCents(walletCents);
+  const [h2hGate, setH2hGate] = useState<{
+    path: string;
+    title: string;
+    entryUsd: number;
+    prizeUsd: number;
+  } | null>(null);
+
   return (
-    <LinearGradient colors={[arcade.navy0, '#050a14', arcade.navy1]} style={styles.screenRoot} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}>
+    <LinearGradient colors={['#06020e', '#12081f', '#0c0618', '#050208']} locations={[0, 0.35, 0.65, 1]} style={styles.screenRoot} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}>
       <StatusBar style="light" />
+      <HomeNeonBackground />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <HoneycombTexture />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <HomePlayHero
-            onStakePress={(entry, win) =>
+            walletDisplay={walletDisplay}
+            onEntryTierPress={(entry, prize) =>
               router.push(
-                `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&win=${encodeURIComponent(String(win))}`,
+                `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
               )
             }
             onQuickMatch={() => router.push('/(app)/(tabs)/play/casual')}
           />
 
-          <Text style={styles.sectionTitle}>Cash games</Text>
-          <Text style={styles.sectionSub}>Same three games as Arcade — play for real money vs players</Text>
+          <View style={styles.sectionLabel}>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
+            <View style={styles.sectionLine} />
+          </View>
+          <Text style={styles.sectionSub}>Entry fee vs players — winner receives the listed prize</Text>
 
-          {/* Tap Dash */}
-          <Pressable style={styles.cardOuter} onPress={() => router.push('/(app)/(tabs)/play/minigames/tap-dash')}>
-            <LinearGradient colors={['#1e3a8a', '#2563eb', '#38bdf8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameCard}>
-              <View style={styles.gameRow}>
-                <View style={styles.gameIconCol}>
-                  <TapDashGameIcon size={56} />
-                </View>
-                <View style={styles.gameTextCol}>
-                  <Text style={styles.gameTitle}>Tap Dash</Text>
-                  <Text style={styles.gameEntry}>Entry: $1</Text>
-                </View>
-                <LinearGradient colors={['#4ADE80', '#22C55E', '#15803D']} style={styles.winBtn}>
-                  <Text style={styles.winBtnText}>Win $1.80</Text>
+          {[
+            {
+              title: 'Tap Dash',
+              entryUsd: 1,
+              prizeUsd: 1.8,
+              entryLabel: '$1',
+              prizeLabel: '$1.80',
+              icon: <TapDashGameIcon size={48} />,
+              route: '/(app)/(tabs)/play/minigames/tap-dash',
+              c1: '#1e1b4b',
+              c2: '#4c1d95',
+            },
+            {
+              title: 'Tile Clash',
+              entryUsd: 2,
+              prizeUsd: 3.5,
+              entryLabel: '$2',
+              prizeLabel: '$3.50',
+              icon: <TileClashGameIcon size={48} />,
+              route: '/(app)/(tabs)/play/minigames/tile-clash',
+              c1: '#0f172a',
+              c2: '#5b21b6',
+            },
+            {
+              title: 'Dash Duel',
+              entryUsd: 5,
+              prizeUsd: 8.5,
+              entryLabel: '$5',
+              prizeLabel: '$8.50',
+              icon: <DashDuelGameIcon size={48} />,
+              route: '/(app)/(tabs)/play/minigames/dash-duel',
+              c1: '#020617',
+              c2: '#0c4a6e',
+            },
+            {
+              title: 'Neon Ball Run',
+              entryUsd: 3,
+              prizeUsd: 5,
+              entryLabel: '$3',
+              prizeLabel: '$5.00',
+              icon: <BallRunGameIcon size={48} />,
+              route: '/(app)/(tabs)/play/minigames/ball-run',
+              c1: '#1a0b2e',
+              c2: '#831843',
+            },
+            {
+              title: 'Turbo Arena',
+              entryUsd: 3,
+              prizeUsd: 5,
+              entryLabel: '$3',
+              prizeLabel: '$5.00',
+              icon: <TurboArenaGameIcon size={48} />,
+              route: '/(app)/(tabs)/play/minigames/turbo-arena',
+              c1: '#020617',
+              c2: '#7c2d12',
+            },
+          ].map((g) => (
+            <Pressable
+              key={g.title}
+              style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
+              onPress={() =>
+                setH2hGate({
+                  path: g.route,
+                  title: g.title,
+                  entryUsd: g.entryUsd,
+                  prizeUsd: g.prizeUsd,
+                })
+              }
+            >
+              <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
+                <LinearGradient colors={[g.c1, g.c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
+                  <View style={styles.gameRow}>
+                    <View style={styles.gameIconCol}>{g.icon}</View>
+                    <View style={styles.gameTextCol}>
+                      <Text style={[styles.gameTitle, runitTextGlowPink]}>{g.title}</Text>
+                      <Text style={styles.gameEntry}>Entry {g.entryLabel}</Text>
+                    </View>
+                    <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
+                      <Text style={styles.prizeBtnText}>Prize {g.prizeLabel}</Text>
+                    </LinearGradient>
+                  </View>
                 </LinearGradient>
-              </View>
-            </LinearGradient>
-          </Pressable>
+              </LinearGradient>
+            </Pressable>
+          ))}
 
-          {/* Tile Clash */}
-          <Pressable style={styles.cardOuter} onPress={() => router.push('/(app)/(tabs)/play/minigames/tile-clash')}>
-            <LinearGradient colors={['#0f172a', '#1e293b', '#334155']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameCard}>
-              <View style={styles.gameRow}>
-                <View style={styles.gameIconCol}>
-                  <TileClashGameIcon size={56} />
-                </View>
-                <View style={styles.gameTextCol}>
-                  <Text style={styles.gameTitle}>Tile Clash</Text>
-                  <Text style={styles.gameEntry}>Entry: $2</Text>
-                </View>
-                <LinearGradient colors={['#38BDF8', '#0284C7', '#0369A1']} style={styles.winBtn}>
-                  <Text style={styles.winBtnText}>Win $3.50</Text>
-                </LinearGradient>
-              </View>
-            </LinearGradient>
-          </Pressable>
+          <View style={[styles.sectionLabel, { marginTop: 8 }]}>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>LIVE EVENT</Text>
+            <View style={styles.sectionLine} />
+          </View>
 
-          {/* Dash Duel */}
-          <Pressable style={styles.cardOuter} onPress={() => router.push('/(app)/(tabs)/play/minigames/dash-duel')}>
-            <LinearGradient colors={['#020617', '#0f172a', '#312e81']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameCard}>
-              <View style={styles.gameRow}>
-                <View style={styles.gameIconCol}>
-                  <DashDuelGameIcon size={56} />
-                </View>
-                <View style={styles.gameTextCol}>
-                  <Text style={styles.gameTitle}>Dash Duel</Text>
-                  <Text style={styles.gameEntry}>Entry: $5</Text>
-                </View>
-                <LinearGradient colors={['#22D3EE', '#0891B2', '#0E7490']} style={styles.winBtn}>
-                  <Text style={styles.winBtnText}>Win $8.50</Text>
-                </LinearGradient>
-              </View>
-            </LinearGradient>
-          </Pressable>
-
-          <Text style={styles.sectionTitle}>Live Tournament</Text>
-
-          <Pressable style={styles.cardOuterGlow} onPress={() => router.push('/(app)/(tabs)/tournaments')}>
-            <LinearGradient colors={['#1a0f05', '#292524', '#0f172a']} style={styles.tourneyCard}>
-              <View style={styles.tourneyRow}>
-                <View style={styles.tourneyLeft}>
-                  <Text style={styles.bigTrophy}>🏆</Text>
-                  <Text style={styles.cashSmall}>💵</Text>
+          <Pressable style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]} onPress={() => router.push('/(app)/(tabs)/tournaments')}>
+            <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
+              <View style={styles.tourneyCard}>
+                <View style={styles.trophyIcon} accessibilityLabel="Tournament">
+                  <Ionicons name="trophy" size={34} color="#fbbf24" />
                 </View>
                 <View style={styles.tourneyMid}>
-                  <Text style={styles.tourneyTitle} numberOfLines={2}>
-                    {nextTournament?.name ?? '$100 Daily Tournament'}
+                  <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
+                    {nextTournament?.name ?? 'Daily Tournament'}
                   </Text>
                   <Text style={styles.tourneyMeta}>
                     {nextTournament
-                      ? `Entry: ${nextTournament.entry_cost_credits} cr · ${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
-                      : 'Entry: $5 · Players: 18/20'}
+                      ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
+                      : '18/20 players · open'}
                   </Text>
                 </View>
-                <LinearGradient colors={['#F97316', '#DC2626']} style={styles.joinBtn}>
-                  <Text style={styles.joinBtnText}>JOIN NOW</Text>
+                <LinearGradient colors={[runit.neonPink, runit.neonPurple]} style={styles.joinBtn}>
+                  <Text style={styles.joinBtnText}>JOIN</Text>
                 </LinearGradient>
               </View>
             </LinearGradient>
           </Pressable>
 
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-
-          <View style={styles.cardOuterGold}>
-            <View style={styles.statsCard}>
-              <View style={styles.statsTop}>
-                <View style={styles.statsNumbers}>
-                  <StatBox label="Wins" value="2" />
-                  <StatBox label="Loss" value="1" />
-                  <StatBox label="Streak" value="3" />
-                </View>
-                <View style={styles.rankBadge}>
-                  <LinearGradient colors={['#FDE68A', '#D97706', '#92400E']} style={styles.shield}>
-                    <Ionicons name="star" size={22} color="#FFFBEB" />
-                    <Text style={styles.rankText}>Challenger III</Text>
-                  </LinearGradient>
-                  <View style={styles.seasonalRibbon}>
-                    <Text style={styles.seasonalText}>SEASONAL</Text>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
-              <Pressable style={styles.statsJoinRow} onPress={() => router.push('/(app)/(tabs)/prizes')}>
-                <Ionicons name="trophy-outline" size={16} color={arcade.gold} />
-                <Text style={styles.statsJoinText}>JOIN NOW</Text>
-              </Pressable>
-            </View>
+          <View style={[styles.sectionLabel, { marginTop: 8 }]}>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
+            <View style={styles.sectionLine} />
           </View>
+
+          <View style={styles.statsRow}>
+            {[['2', 'WINS', runit.neonCyan], ['1', 'LOSSES', runit.neonPink], ['3', 'STREAK', runit.neonPurple]].map(([val, lbl, col]) => (
+              <LinearGradient key={lbl} colors={[col, 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGrad}>
+                <View style={styles.statInner}>
+                  <Text style={[styles.statVal, { color: col as string }]}>{val}</Text>
+                  <Text style={styles.statLbl}>{lbl}</Text>
+                </View>
+              </LinearGradient>
+            ))}
+          </View>
+          <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
 
           <View style={styles.seasonCard}>
             {seasonQ.isLoading ? (
@@ -185,220 +207,70 @@ export default function HomeScreen() {
                 <Text style={styles.muted}>Ends {new Date(seasonQ.data.ends_at).toLocaleDateString()}</Text>
               </>
             ) : (
-              <Text style={styles.muted}>Season info when synced</Text>
+              <Text style={styles.muted}>Season info loading…</Text>
             )}
           </View>
 
           <View style={{ height: 32 }} />
         </ScrollView>
+
+        <HeadToHeadPlayModal
+          visible={!!h2hGate}
+          gameTitle={h2hGate?.title ?? ''}
+          entryUsd={h2hGate?.entryUsd ?? 0}
+          prizeUsd={h2hGate?.prizeUsd ?? 0}
+          onClose={() => setH2hGate(null)}
+          onPractice={() => {
+            if (!h2hGate) return;
+            router.push(`${h2hGate.path}?mode=practice` as never);
+            setH2hGate(null);
+          }}
+          onHeadToHeadPrize={() => {
+            if (!h2hGate) return;
+            const e = encodeURIComponent(String(h2hGate.entryUsd));
+            const p = encodeURIComponent(String(h2hGate.prizeUsd));
+            router.push(`/(app)/(tabs)/play/casual?entry=${e}&prize=${p}` as never);
+            setH2hGate(null);
+          }}
+        />
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statBox}>
-      <Text style={styles.statVal}>{value}</Text>
-      <Text style={styles.statLbl}>{label}</Text>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 14, paddingBottom: 100, paddingTop: 6 },
-  hexLayer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-    opacity: 0.35,
-  },
-  hexCell: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 165, 116, 0.12)',
-    transform: [{ rotate: '30deg' }],
-  },
-  cardOuterGold: {
-    borderRadius: 18,
-    padding: 2,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(212, 165, 116, 0.85)',
-    shadowColor: '#FACC15',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cardOuter: {
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(212, 165, 116, 0.45)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  cardOuterGlow: {
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#FBBF24',
-    shadowColor: '#FBBF24',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  sectionTitle: {
-    color: arcade.white,
-    fontSize: 17,
-    fontWeight: '900',
-    marginBottom: 4,
-    marginTop: 4,
-    letterSpacing: 0.3,
-  },
-  sectionSub: {
-    color: 'rgba(148, 163, 184, 0.95)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 12,
-    lineHeight: 17,
-  },
-  gameCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    minHeight: 88,
-    justifyContent: 'center',
-  },
-  gameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  gameIconCol: { width: 56, alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  sectionTitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase', textShadowColor: runit.neonCyan, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
+  sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
+  sectionSub: { color: 'rgba(148,163,184,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 12, lineHeight: 17 },
+  gameWrap: { marginBottom: 10 },
+  gameBorder: { borderRadius: 16, padding: 2, shadowColor: 'rgba(255,0,110,0.4)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 12, elevation: 8 },
+  gameCard: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, minHeight: 80 },
+  gameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  gameIconCol: { width: 52, alignItems: 'center', justifyContent: 'center' },
   gameTextCol: { flex: 1 },
-  gameTitle: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  stackTitle: { color: '#292524' },
-  gameEntry: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '700' },
-  gameEntryDark: { color: 'rgba(41, 37, 36, 0.95)', fontSize: 13, fontWeight: '700' },
-  winBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    minWidth: 96,
-    alignItems: 'center',
-  },
-  winBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  tourneyCard: {
-    padding: 14,
-    borderRadius: 14,
-  },
-  tourneyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tourneyLeft: { flexDirection: 'row', alignItems: 'flex-end' },
-  bigTrophy: { fontSize: 40 },
-  cashSmall: { fontSize: 18, marginLeft: -8, marginBottom: 4 },
+  gameTitle: { color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 3, letterSpacing: 0.5 },
+  gameEntry: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
+  prizeBtn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', minWidth: 90, alignItems: 'center' },
+  prizeBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  tourneyCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: 'rgba(8,4,18,0.88)' },
+  trophyIcon: { justifyContent: 'center' },
   tourneyMid: { flex: 1 },
-  tourneyTitle: {
-    color: '#FDE68A',
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  tourneyMeta: { color: 'rgba(226, 232, 240, 0.9)', fontSize: 12, fontWeight: '600' },
-  joinBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  joinBtnText: { color: '#FFFFFF', fontWeight: '900', fontSize: 11 },
-  statsCard: {
-    backgroundColor: 'rgba(6, 13, 24, 0.92)',
-    borderRadius: 16,
-    padding: 14,
-  },
-  statsTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  statsNumbers: { flexDirection: 'row', gap: 20 },
-  statBox: { alignItems: 'flex-start' },
-  statVal: { color: arcade.white, fontSize: 22, fontWeight: '900' },
-  statLbl: { color: arcade.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  rankBadge: { alignItems: 'center' },
-  shield: {
-    width: 88,
-    height: 96,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 8,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  rankText: {
-    color: '#FFFBEB',
-    fontSize: 9,
-    fontWeight: '900',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  seasonalRibbon: {
-    marginTop: 4,
-    backgroundColor: 'rgba(148, 163, 184, 0.35)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  seasonalText: { color: '#E2E8F0', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
-  statsFoot: { color: arcade.textMuted, fontSize: 12, marginBottom: 10 },
-  statsJoinRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 165, 116, 0.5)',
-    backgroundColor: 'rgba(212, 165, 116, 0.08)',
-  },
-  statsJoinText: { color: arcade.gold, fontWeight: '900', fontSize: 12 },
-  seasonCard: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-    backgroundColor: 'rgba(15, 40, 71, 0.35)',
-  },
-  seasonName: { color: arcade.white, fontWeight: '800', fontSize: 15 },
-  muted: { color: arcade.textMuted, fontSize: 13 },
+  tourneyTitle: { color: runit.neonCyan, fontSize: 16, fontWeight: '900', marginBottom: 4 },
+  tourneyMeta: { color: 'rgba(203,213,225,0.85)', fontSize: 12, fontWeight: '600' },
+  joinBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
+  joinBtnText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  statGrad: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+  statVal: { fontSize: 22, fontWeight: '900' },
+  statLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
+  statsFoot: { color: 'rgba(148,163,184,0.85)', fontSize: 12, marginBottom: 12, textAlign: 'center' },
+  seasonCard: { marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(157,78,237,0.3)', backgroundColor: 'rgba(8,4,18,0.7)' },
+  seasonName: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13 },
 });

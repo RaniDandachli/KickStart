@@ -14,11 +14,15 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
+import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 
 /** 60 FPS reference frame duration (ms). */
@@ -375,12 +379,12 @@ function PassBurstView({
 }
 
 
-export default function TapDashGame() {
+export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
   useHidePlayTabBar();
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
-  const credits = profileQ.data?.credits ?? 0;
+  const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
   const [laneSize, setLaneSize] = useState({ w: sw - 16, h: Math.max(320, Math.min(sh * 0.72, 620)) });
@@ -416,10 +420,14 @@ export default function TapDashGame() {
       m.streak = 0;
       const durationMs = Math.max(0, Date.now() - startTimeRef.current);
       endStatsRef.current = { score: m.score, durationMs, taps: m.taps };
+      if (playMode === 'prize') {
+        const t = ticketsFromTapDashScore(m.score);
+        awardRedeemTicketsForPrizeRun(t);
+      }
       setPhase('over');
       bump();
     },
-    [bump],
+    [bump, playMode],
   );
 
   const step = useCallback(
@@ -507,6 +515,16 @@ export default function TapDashGame() {
 
   const onTap = useCallback(() => {
     if (phase === 'ready') {
+      if (playMode === 'prize') {
+        const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+        if (!ok) {
+          Alert.alert(
+            'Not enough prize credits',
+            `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free. Earn credits by winning prize runs.`,
+          );
+          return;
+        }
+      }
       modelRef.current = createGame();
       startTimeRef.current = Date.now();
       modelRef.current.worldTimeMs = 0;
@@ -519,7 +537,7 @@ export default function TapDashGame() {
     if (phase === 'playing') {
       queueFlap();
     }
-  }, [phase, bump, queueFlap]);
+  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits]);
 
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -576,8 +594,8 @@ export default function TapDashGame() {
             )}
           </View>
           <View style={styles.creditsPill}>
-            <Ionicons name="wallet-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
-            <Text style={styles.creditsText}>{credits.toLocaleString()}</Text>
+            <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+            <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
           </View>
         </View>
 
@@ -661,6 +679,11 @@ export default function TapDashGame() {
           {phase === 'ready' ? (
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintBrand}>TAP DASH</Text>
+              <Text style={styles.hintMode}>
+                {playMode === 'prize'
+                  ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
+                  : 'Practice · free · no credits spent'}
+              </Text>
               <Text style={styles.hintSub}>Neon sprint · precision run</Text>
               <Text style={styles.hintBody}>Tap to thrust · thread the gates</Text>
               <Text style={styles.hintCta}>Tap to start</Text>
@@ -673,17 +696,28 @@ export default function TapDashGame() {
             <View style={styles.card}>
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
-              <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
-              <AppButton
-                title={submitOk ? 'Score submitted' : 'Submit Score'}
-                variant="secondary"
-                loading={submitting}
-                disabled={submitOk || submitting}
-                onPress={submitScore}
-              />
-              {submitting ? (
-                <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+              {playMode === 'prize' ? (
+                <Text style={styles.goTickets}>
+                  +{ticketsFromTapDashScore(endStatsRef.current.score)} redeem tickets (this run)
+                </Text>
               ) : null}
+              <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
+              {playMode === 'prize' ? (
+                <>
+                  <AppButton
+                    title={submitOk ? 'Score submitted' : 'Submit Score'}
+                    variant="secondary"
+                    loading={submitting}
+                    disabled={submitOk || submitting}
+                    onPress={submitScore}
+                  />
+                  {submitting ? (
+                    <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.practiceNote}>Practice run — not submitted to prize leaderboards.</Text>
+              )}
             </View>
           </View>
         ) : null}
@@ -851,6 +885,15 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(34, 211, 238, 0.6)',
     textShadowRadius: 14,
   },
+  hintMode: {
+    color: 'rgba(253, 224, 71, 0.95)',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
   hintSub: {
     color: 'rgba(148, 163, 184, 0.95)',
     fontSize: 13,
@@ -903,6 +946,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 6,
+  },
+  goTickets: {
+    color: '#FDE047',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  practiceNote: {
+    marginTop: 8,
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

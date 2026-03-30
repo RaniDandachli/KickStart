@@ -3,12 +3,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { ARCADE_STAKE_TIERS } from '@/components/arcade/stakeTiers';
+import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { arcade } from '@/lib/arcadeTheme';
 
-export { ARCADE_STAKE_TIERS };
+export { MATCH_ENTRY_TIERS };
 
-export function ArcadeStakesQuickPlay() {
+export function ArcadeEntryQuickPlay() {
   const router = useRouter();
 
   return (
@@ -17,15 +17,15 @@ export function ArcadeStakesQuickPlay() {
         <Text style={styles.sectionTitle}>1v1 · Online</Text>
         <View style={styles.ruleLine} />
       </View>
-      <Text style={styles.sub}>Pay entry · matchmake · winner takes the prize</Text>
+      <Text style={styles.sub}>Pay entry · matchmake · winner receives the listed prize</Text>
       <Text style={styles.hint}>Vs AI below is practice — no entry</Text>
 
-      {ARCADE_STAKE_TIERS.map((tier) => (
+      {MATCH_ENTRY_TIERS.map((tier) => (
         <Pressable
           key={tier.entry}
           onPress={() =>
             router.push(
-              `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(tier.entry))}&win=${encodeURIComponent(String(tier.win))}`,
+              `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(tier.entry))}&prize=${encodeURIComponent(String(tier.prize))}`,
             )
           }
           style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}
@@ -38,13 +38,13 @@ export function ArcadeStakesQuickPlay() {
           >
             <View style={styles.cardLeft}>
               <View style={styles.badge}>
-                <Ionicons name="flash" size={18} color="#FFFBEB" />
+                <Ionicons name={tier.icon} size={18} color="#FFFBEB" />
               </View>
               <View>
                 <Text style={styles.entryLine}>
                   Entry <Text style={styles.entryUsd}>${tier.entry}</Text>
                 </Text>
-                <Text style={styles.winLine}>Win ${tier.win}</Text>
+                <Text style={styles.prizeLine}>Prize ${tier.prize}</Text>
               </View>
             </View>
             <LinearGradient colors={['#15803d', '#16a34a', '#22c55e']} style={styles.findBtn}>
@@ -54,7 +54,7 @@ export function ArcadeStakesQuickPlay() {
         </Pressable>
       ))}
 
-      <Text style={styles.disclaimer}>Demo queue — no charge yet. Fees & rake at launch.</Text>
+      <Text style={styles.disclaimer}>Demo queue — no charge yet. Platform fees may apply at launch.</Text>
     </View>
   );
 }
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  winLine: {
+  prizeLine: {
     color: '#ECFDF5',
     fontSize: 17,
     fontWeight: '900',

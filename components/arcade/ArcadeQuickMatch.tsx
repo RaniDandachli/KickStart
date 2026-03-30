@@ -1,35 +1,63 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { arcade } from '@/lib/arcadeTheme';
+import { runit, runitFont, runitGlowCyanSoft, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 interface Props {
-  /** Open Home tab for real-money 1v1 (same games, cash stakes). */
-  onCashHome: () => void;
+  /** Head-to-head 1v1 (Home tab). */
+  onOneVsOne: () => void;
+  /** Quick solo minigame. */
+  onSoloPlay: () => void;
   onTournament: () => void;
 }
 
-export function ArcadeQuickMatch({ onCashHome, onTournament }: Props) {
+export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props) {
   return (
     <View style={styles.section}>
       <View style={styles.ruleRow}>
-        <Text style={styles.sectionTitle}>Real money</Text>
+        <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>QUICK PLAY</Text>
         <View style={styles.ruleLine} />
       </View>
       <View style={styles.row}>
-        <Pressable onPress={onCashHome} style={({ pressed }) => [styles.greyBtn, pressed && styles.pressed]}>
-          <Text style={styles.greyTitle}>Home</Text>
-          <Text style={styles.greySub}>Cash 1v1 vs players</Text>
+        <Pressable onPress={onOneVsOne} style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}>
+          <LinearGradient
+            colors={[runit.neonPink, 'rgba(255,0,110,0.35)', 'rgba(6,2,14,0.95)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[styles.card1, runitGlowPinkSoft]}
+          >
+            <Ionicons name="flash" size={28} color="#fff" style={styles.cardIcon} />
+            <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1</Text>
+            <Text style={styles.cardSub}>BATTLE</Text>
+          </LinearGradient>
         </Pressable>
-        <Pressable onPress={onTournament} style={({ pressed }) => [styles.orangeWrap, pressed && styles.pressed]}>
-          <LinearGradient colors={[arcade.orangeDeep, arcade.orange, '#FBBF24']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.orangeBtn}>
-            <Ionicons name="trophy" size={22} color="#fff" style={styles.trophy} />
-            <Text style={styles.orangeTitle}>Events</Text>
-            <Text style={styles.orangeSub}>Tournaments</Text>
+        <Pressable onPress={onSoloPlay} style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}>
+          <LinearGradient
+            colors={[runit.neonCyan, 'rgba(0,240,255,0.25)', 'rgba(6,2,14,0.95)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[styles.card1, runitGlowCyanSoft]}
+          >
+            <Ionicons name="star" size={26} color="#fff" style={styles.cardIcon} />
+            <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>SOLO</Text>
+            <Text style={styles.cardSub}>PLAY</Text>
           </LinearGradient>
         </Pressable>
       </View>
+
+      <Pressable onPress={onTournament} style={({ pressed }) => [styles.eventsRow, pressed && styles.pressed]}>
+        <LinearGradient
+          colors={[runit.neonPurple, runit.neonPink]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.eventsGrad}
+        >
+          <Ionicons name="trophy" size={20} color="#fff" />
+          <Text style={[styles.eventsText, { fontFamily: runitFont.black }]}>EVENTS · TOURNAMENTS</Text>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+        </LinearGradient>
+      </Pressable>
     </View>
   );
 }
@@ -38,49 +66,64 @@ const styles = StyleSheet.create({
   section: { marginTop: 8 },
   ruleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
   sectionTitle: {
-    color: arcade.textMuted,
-    fontSize: 14,
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
   ruleLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(148,163,184,0.4)',
+    backgroundColor: 'rgba(157,78,237,0.45)',
     marginLeft: 4,
   },
-  row: { flexDirection: 'row', gap: 12 },
-  greyBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(248,250,252,0.95)',
+  row: { flexDirection: 'row', gap: 10 },
+  cardOuter: { flex: 1, borderRadius: 16, overflow: 'hidden' },
+  card1: {
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    minHeight: 120,
+  },
+  cardIcon: { marginBottom: 6 },
+  cardTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  cardSub: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 3,
+    marginTop: 2,
+  },
+  cardSubDark: { color: 'rgba(255,255,255,0.9)' },
+  eventsRow: {
+    marginTop: 12,
     borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(148,163,184,0.5)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    elevation: 3,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
-  greyTitle: { color: arcade.navy1, fontSize: 18, fontWeight: '900' },
-  greySub: { color: '#64748B', fontSize: 11, fontWeight: '700', marginTop: 4 },
-  orangeWrap: { flex: 1, borderRadius: 14, overflow: 'hidden' },
-  orangeBtn: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+  eventsGrad: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    elevation: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 8,
   },
-  trophy: { marginBottom: 4 },
-  orangeTitle: { color: '#fff', fontSize: 17, fontWeight: '900' },
-  orangeSub: { color: 'rgba(255,255,255,0.95)', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
+  eventsText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  pressed: { opacity: 0.92, transform: [{ scale: 0.98 }] },
 });

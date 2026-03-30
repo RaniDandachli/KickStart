@@ -22,6 +22,17 @@ export default function SettingsScreen() {
           TODO: persist preferences → `notifications` + device tokens.
         </Text>
       </Card>
+      <Card className="mb-4">
+        <Text className="mb-2 font-semibold text-slate-900">Prize shipping</Text>
+        <Text className="mb-3 text-sm text-slate-500">
+          Physical prizes ship to the address you save. You can also add it when you redeem.
+        </Text>
+        <AppButton
+          title="Shipping address"
+          variant="secondary"
+          onPress={() => router.push('/(app)/(tabs)/profile/shipping-address')}
+        />
+      </Card>
       <AppButton title="Dispute a match" variant="secondary" onPress={() => router.push('/(app)/(tabs)/profile/dispute')} />
       <AppButton className="mt-2" title="Legal" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/legal')} />
       <AppButton className="mt-2" title="Support" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/support')} />

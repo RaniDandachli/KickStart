@@ -13,6 +13,11 @@ export default function PlayStackLayout() {
         headerTitleStyle: { fontWeight: '900', color: '#F5F3FF', fontSize: 18 },
         contentStyle: { backgroundColor: arcade.navy1 },
       }}
-    />
+    >
+      {/* Hub + queues use in-screen headers so we always show a back control (tab deep-links have no stack history). */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="casual" options={{ headerShown: false }} />
+      <Stack.Screen name="ranked" options={{ headerShown: false }} />
+    </Stack>
   );
 }

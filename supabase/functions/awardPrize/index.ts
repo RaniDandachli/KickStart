@@ -7,7 +7,10 @@ const Body = z.object({
   tournament_id: z.string().uuid(),
   user_id: z.string().uuid(),
   description: z.string().min(3),
-  credits: z.number().int().min(0).default(0),
+  /** Cash wallet (cents) — withdrawable pool when payouts exist. */
+  wallet_cents: z.number().int().min(0).default(0),
+  /** Arcade-only redeemable credits. */
+  prize_credits: z.number().int().min(0).default(0),
   gems: z.number().int().min(0).default(0),
 });
 

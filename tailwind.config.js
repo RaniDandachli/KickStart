@@ -21,6 +21,10 @@ module.exports = {
           cyan: '#2ee6d6',
           magenta: '#ff3dac',
           amber: '#ffb020',
+          /** RuniT Arcade (see DESIGN_SYSTEM.md) */
+          pink: '#ff006e',
+          runitCyan: '#00f0ff',
+          purple: '#9d4edd',
         },
         pitch: {
           DEFAULT: '#0d3b2e',

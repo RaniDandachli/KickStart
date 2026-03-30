@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
     if (!t) return errorResponse('Tournament not found', 404);
     if (t.state !== 'open' && t.state !== 'full') return errorResponse('Tournament locked', 409);
 
-    if (t.entry_type === 'credits' && t.entry_cost_credits > 0) {
-      const { data: prof } = await admin.from('profiles').select('credits').eq('id', userData.user.id).single();
-      if (!prof || prof.credits < t.entry_cost_credits) return errorResponse('Insufficient credits', 402);
+    if (t.entry_type === 'credits' && t.entry_fee_wallet_cents > 0) {
+      const { data: prof } = await admin.from('profiles').select('wallet_cents').eq('id', userData.user.id).single();
+      if (!prof || prof.wallet_cents < t.entry_fee_wallet_cents) return errorResponse('Insufficient wallet balance', 402);
       // TODO: debit credits in transaction row via RPC for atomicity.
     }
 

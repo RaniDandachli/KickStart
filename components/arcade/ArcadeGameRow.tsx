@@ -1,28 +1,29 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import { arcade } from '@/lib/arcadeTheme';
+import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
-type WinTone = 'lime' | 'sky' | 'orange';
+export type RunitBorderAccent = 'pink' | 'cyan' | 'purple';
 
 interface Props {
   title: string;
   entryLabel: string;
   winLabel: string;
-  /** Background gradient colors for the row */
+  /** Inner panel gradient (game identity) */
   bgColors: readonly [string, string, ...string[]];
-  winTone: WinTone;
+  /** Neon border / CTA mapping */
+  borderAccent: RunitBorderAccent;
   iconSlot: ReactNode;
   onPress: () => void;
   titleColor?: string;
   entryColor?: string;
 }
 
-const winGradients: Record<WinTone, readonly [string, string]> = {
-  lime: ['#22C55E', '#16A34A'],
-  sky: [arcade.skyDeep, arcade.sky],
-  orange: [arcade.orangeDeep, arcade.orange],
+const borderGrad: Record<RunitBorderAccent, readonly [string, string]> = {
+  pink: [runit.neonPink, runit.neonPurple],
+  cyan: [runit.neonCyan, 'rgba(0,240,255,0.25)'],
+  purple: [runit.neonPurple, runit.neonPink],
 };
 
 export function ArcadeGameRow({
@@ -30,22 +31,38 @@ export function ArcadeGameRow({
   entryLabel,
   winLabel,
   bgColors,
-  winTone,
+  borderAccent,
   iconSlot,
   onPress,
   titleColor = '#fff',
-  entryColor = 'rgba(15,23,42,0.85)',
+  entryColor = 'rgba(226,232,240,0.9)',
 }: Props) {
+  const b = borderGrad[borderAccent];
+  const titleGlow = borderAccent === 'cyan' ? runitTextGlowCyan : runitTextGlowPink;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.press, pressed && { opacity: 0.92 }]}>
-      <LinearGradient colors={bgColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.card}>
-        <View style={styles.left}>
-          <View style={styles.iconWrap}>{iconSlot}</View>
-          <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
-        </View>
-        <Text style={[styles.entry, { color: entryColor }]}>{entryLabel}</Text>
-        <LinearGradient colors={winGradients[winTone]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.winBtn}>
-          <Text style={styles.winText}>{winLabel}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.press, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
+    >
+      <LinearGradient colors={b} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.borderWrap, runitGlowPinkSoft]}>
+        <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+          <View style={styles.left}>
+            <View style={styles.iconWrap}>{iconSlot}</View>
+            <View style={styles.titleBlock}>
+              <Text style={[styles.title, { color: titleColor, fontFamily: runitFont.black }, titleGlow]}>
+                {title}
+              </Text>
+              <Text style={[styles.entry, { color: entryColor }]}>{entryLabel}</Text>
+            </View>
+          </View>
+          <LinearGradient
+            colors={[runit.neonPink, runit.neonPurple]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.playBtn}
+          >
+            <Text style={[styles.playText, { fontFamily: runitFont.black }]}>{winLabel}</Text>
+          </LinearGradient>
         </LinearGradient>
       </LinearGradient>
     </Pressable>
@@ -54,27 +71,27 @@ export function ArcadeGameRow({
 
 const styles = StyleSheet.create({
   press: { marginBottom: 12 },
+  borderWrap: {
+    borderRadius: 16,
+    padding: 2,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 12,
+    minHeight: 76,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    minHeight: 72,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  titleBlock: { flex: 1, minWidth: 0 },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -84,36 +101,28 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    letterSpacing: 0.5,
     flexShrink: 1,
   },
   entry: {
-    color: 'rgba(15,23,42,0.85)',
     fontSize: 11,
-    fontWeight: '800',
-    marginRight: 8,
-    maxWidth: 72,
-    textAlign: 'center',
+    fontWeight: '700',
+    marginTop: 2,
   },
-  winBtn: {
+  playBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
-    minWidth: 96,
+    minWidth: 88,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    elevation: 3,
+    marginLeft: 8,
   },
-  winText: {
+  playText: {
     color: '#fff',
     fontWeight: '900',
-    fontSize: 12,
-    letterSpacing: 0.2,
+    fontSize: 11,
+    letterSpacing: 1.2,
   },
 });

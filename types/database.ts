@@ -12,7 +12,10 @@ export type TransactionKind =
   | 'reward_grant'
   | 'cosmetic_purchase'
   | 'subscription_event'
-  | 'admin_adjustment';
+  | 'admin_adjustment'
+  | 'prize_credit_earn'
+  | 'prize_credit_spend'
+  | 'redeem_ticket_spend';
 
 type PublicTable<
   Row extends Record<string, unknown>,
@@ -34,7 +37,14 @@ export type ProfileRow = {
   region: string;
   suspended_until: string | null;
   cheating_review_flag: boolean;
-  credits: number;
+  /** Cash wallet: head-to-head entry fees, tournament entry, withdrawals (cents). */
+  wallet_cents: number;
+  /** Arcade play currency (prize run entry); not for catalog redemption. */
+  prize_credits: number;
+  /** Prizes catalog only; separate from prize credits. */
+  redeem_tickets: number;
+  /** JSON object — see `ShippingAddress` in app code. */
+  shipping_address: Json | null;
   gems: number;
   created_at: string;
   updated_at: string;
@@ -71,7 +81,8 @@ export type TournamentRow = {
   state: TournamentState;
   format: TournamentFormat;
   entry_type: EntryType;
-  entry_cost_credits: number;
+  /** Entry fee from cash wallet (cents), not arcade prize credits. */
+  entry_fee_wallet_cents: number;
   prize_description: string;
   max_players: number;
   current_player_count: number;
@@ -139,7 +150,7 @@ export type TransactionRow = {
   user_id: string;
   kind: TransactionKind;
   amount: number;
-  currency: 'credits' | 'gems';
+  currency: 'wallet_cents' | 'gems' | 'prize_credits' | 'redeem_tickets';
   description: string;
   metadata: Json;
   created_at: string;
@@ -155,6 +166,31 @@ export type CosmeticRow = {
   price_gems: number | null;
   stripe_price_id: string | null;
   is_active: boolean;
+  created_at: string;
+};
+
+export type PrizeCatalogRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  image_url: string;
+  cost_redeem_tickets: number;
+  sort_order: number;
+  is_active: boolean;
+  stock_remaining: number | null;
+  requires_shipping: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrizeRedemptionRow = {
+  id: string;
+  user_id: string;
+  prize_catalog_id: string;
+  redeem_tickets_spent: number;
+  status: 'pending' | 'fulfilled' | 'cancelled';
+  shipping_snapshot: Json | null;
   created_at: string;
 };
 
@@ -329,13 +365,26 @@ export interface Database {
         Partial<{ equipped: boolean }>
       >;
       transactions: PublicTable<TransactionRow, Partial<TransactionRow>, Partial<TransactionRow>>;
+      prize_catalog: PublicTable<PrizeCatalogRow, Partial<PrizeCatalogRow>, Partial<PrizeCatalogRow>>;
+      prize_redemptions: PublicTable<
+        PrizeRedemptionRow,
+        Pick<PrizeRedemptionRow, 'user_id' | 'prize_catalog_id' | 'redeem_tickets_spent'> & Partial<
+          Pick<PrizeRedemptionRow, 'status' | 'shipping_snapshot'>
+        >,
+        Partial<Pick<PrizeRedemptionRow, 'status' | 'shipping_snapshot'>>
+      >;
       subscriptions: PublicTable<SubscriptionRow, Partial<SubscriptionRow>, Partial<SubscriptionRow>>;
       notifications: PublicTable<NotificationRow, Partial<NotificationRow>, Partial<NotificationRow>>;
       reports: PublicTable<ReportRow, Partial<ReportRow>, Partial<ReportRow>>;
       admin_audit_logs: PublicTable<AuditRow, Partial<AuditRow>, Partial<AuditRow>>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      redeem_prize_offer: {
+        Args: { p_prize_id: string };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

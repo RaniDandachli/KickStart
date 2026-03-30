@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,6 +71,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   useRafLoop(loop, engineOn);
 
   const s = runRef.current;
+  const speedFrac = Math.max(0, Math.min(1, (s.scrollSpeed - DD.BASE_SCROLL_PER_MS) / (DD.MAX_SCROLL_PER_MS - DD.BASE_SCROLL_PER_MS)));
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 2 }]}>
@@ -82,6 +84,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
         onBack={onExit}
         timeLeftMs={Math.max(0, DD.ROUND_MS - s.timeMs)}
         compact
+        speedFrac={speedFrac}
       />
       <DashDuelOpponentStrip
         p1Alive={s.p1.alive}
@@ -99,29 +102,35 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
             jumpRef.current = true;
           }}
         >
-          <GdStyleLayer scroll={s.scroll} playW={playW} playH={playH} />
-          <View style={styles.streaks} pointerEvents="none">
-            {Array.from({ length: 14 }, (_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.streak,
-                  {
-                    top: 12 + (i % 5) * 28,
-                    opacity: 0.05 + (i % 4) * 0.03,
-                  },
-                ]}
-              />
-            ))}
-          </View>
+          <GdStyleLayer scroll={s.scroll} playW={playW} playH={playH} speedFrac={speedFrac} />
+
+          {/* Speed-pulse vignette — brightens at high speed */}
+          {speedFrac > 0.5 ? (
+            <LinearGradient
+              colors={[`rgba(255,0,110,${(speedFrac - 0.5) * 0.18})`, 'transparent', 'transparent', `rgba(0,240,255,${(speedFrac - 0.5) * 0.12})`]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          ) : null}
+
           <PlayfieldContent scale={scale} scroll={s.scroll} course={s.course} p1={s.p1} nearFlash={s.p1.dangerFlash} />
+
+          {/* Danger flash — red tint when near hazard */}
+          {s.p1.dangerFlash > 0.1 ? (
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(239,68,68,${s.p1.dangerFlash * 0.22})` }]}
+              pointerEvents="none"
+            />
+          ) : null}
         </Pressable>
       </View>
 
       <View style={[styles.hintBlock, { marginBottom: Math.max(4, insets.bottom) }]}>
         <Text style={styles.tapHint}>Tap to jump</Text>
         <Text style={styles.legendHint}>
-          Rhythm taps · Dark pit = jump · Teal = spike · Purple = low jump · Cyan = ledge
+          Red pit = jump over · Cyan spike = avoid · Purple ceiling = duck under
         </Text>
       </View>
     </View>
@@ -148,23 +157,10 @@ function PlayfieldContent({
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      {Array.from({ length: 40 }, (_, i) => (
-        <View
-          key={`p${i}`}
-          style={[
-            styles.particle,
-            {
-              left: `${(i * 47) % 100}%`,
-              top: `${(i * 17) % 90}%`,
-              opacity: 0.05 + (i % 6) * 0.025,
-            },
-          ]}
-        />
-      ))}
-
       {course.map((o) => {
         if (o.x1 < viewL || o.x0 > viewR) return null;
         const left = (o.x0 - scroll) * scale;
+
         if (o.kind === 'gap') {
           const gw = (o.x1 - o.x0) * scale;
           return (
@@ -175,13 +171,15 @@ function PlayfieldContent({
                 {
                   left,
                   width: gw,
-                  height: 48 * scale,
+                  height: 52 * scale,
                   top: groundY,
                 },
               ]}
             >
+              {/* Red glow rim on top of pit */}
+              <View style={[styles.gapRim, { width: gw }]} />
               <Text style={[styles.hazardTag, { fontSize: Math.max(8, 10 * scale) }]}>PIT</Text>
-              <Text style={[styles.hazardTagSub, { fontSize: Math.max(7, 8 * scale) }]}>jump</Text>
+              <Text style={[styles.hazardTagSub, { fontSize: Math.max(6, 7 * scale) }]}>↑ jump</Text>
             </View>
           );
         }
@@ -197,7 +195,14 @@ function PlayfieldContent({
                   top: o.yTop * scale,
                 },
               ]}
-            />
+            >
+              <LinearGradient
+                colors={['rgba(0,240,255,0.85)', 'rgba(0,240,255,0.4)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
           );
         }
         if (o.kind === 'spike') {
@@ -207,14 +212,19 @@ function PlayfieldContent({
           return (
             <View key={o.key} style={[styles.spikeWrap, { left, top, width: w, height: h }]}>
               <LinearGradient
-                colors={['#5EEAD4', '#22D3EE', '#6366F1']}
+                colors={['#ff006e', '#e8007a', '#9d4edd']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.spikeInner, { borderRadius: 2 }]}
               />
               <View style={[styles.spikeEdge, StyleSheet.absoluteFill]} />
               <View style={styles.spikeLabelBox} pointerEvents="none">
-                <Text style={[styles.hazardTagSpike, { fontSize: Math.max(7, 8 * scale) }]}>SPIKE</Text>
+                <Ionicons
+                  name="warning"
+                  size={Math.max(8, 10 * scale)}
+                  color="rgba(255,255,255,0.92)"
+                  accessibilityLabel="Hazard"
+                />
               </View>
             </View>
           );
@@ -235,7 +245,7 @@ function PlayfieldContent({
               ]}
             >
               <LinearGradient
-                colors={['rgba(99,102,241,0.55)', 'rgba(34,211,238,0.2)']}
+                colors={['rgba(157,78,221,0.75)', 'rgba(99,102,241,0.45)', 'rgba(0,240,255,0.15)']}
                 style={[styles.ceil, StyleSheet.absoluteFill]}
               />
               <Text style={[styles.hazardTagCeil, { fontSize: Math.max(7, 8 * scale), bottom: Math.min(6, ch * 0.35) }]}>
@@ -247,37 +257,46 @@ function PlayfieldContent({
         return null;
       })}
 
-      {/* Block-style ground */}
+      {/* Ground — neon cyan/pink rim */}
       <View style={[styles.groundShadow, { top: groundY + 2, width: DD.PLAY_W * scale, height: blockH }]} />
       <LinearGradient
-        colors={['#0f172a', '#1e293b', '#0f172a']}
+        colors={['#06020e', '#0c0520', '#06020e']}
         style={[styles.groundBlock, { top: groundY, width: DD.PLAY_W * scale, height: blockH }]}
       />
-      <View style={[styles.groundTopLine, { top: groundY, width: DD.PLAY_W * scale }]} />
       <LinearGradient
-        colors={['rgba(255,255,255,0.5)', 'rgba(34,211,238,0.35)', 'transparent']}
+        colors={['#ff006e', '#9d4edd', '#00f0ff']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.groundTopLine, { top: groundY, width: DD.PLAY_W * scale }]}
+      />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.45)', 'rgba(0,240,255,0.3)', 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.groundRim, { top: groundY - 1, width: DD.PLAY_W * scale }]}
       />
 
+      {/* Player trail — neon pink/cyan alternating */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
           <View
             key={i}
             style={[
               styles.trail,
               {
-                left: DD.PLAYER_OFFSET_X * scale - 7 - i * 6,
+                left: DD.PLAYER_OFFSET_X * scale - 7 - i * 7,
                 top: p1.y * scale - 7,
-                opacity: 0.1 + i * 0.07,
-                transform: [{ scale: 1 - i * 0.07 }],
+                opacity: 0.08 + i * 0.09,
+                transform: [{ scale: 1 - i * 0.06 }],
+                backgroundColor: i % 2 === 0 ? 'rgba(255,0,110,0.55)' : 'rgba(0,240,255,0.5)',
+                borderColor: i % 2 === 0 ? 'rgba(255,0,110,0.4)' : 'rgba(0,240,255,0.35)',
               },
             ]}
           />
         ))}
       </View>
 
+      {/* Player — RuniT pink→purple gradient, neon border */}
       <View
         style={[
           styles.player,
@@ -287,69 +306,65 @@ function PlayfieldContent({
             width: DD.PLAYER_W * scale * (1 - 0.06 * p1.squash),
             height: DD.PLAYER_H * scale * (1 + 0.08 * p1.squash),
             opacity: p1.alive ? 1 : 0.35,
-            borderColor: nearFlash > 0.2 ? '#FCA5A5' : '#F8FAFC',
+            borderColor: nearFlash > 0.2 ? '#FCA5A5' : '#00f0ff',
+            shadowColor: nearFlash > 0.2 ? '#ef4444' : '#ff006e',
           },
         ]}
       >
-        <LinearGradient colors={['#4ADE80', '#22D3EE', '#818CF8']} style={StyleSheet.absoluteFill} />
-        <View style={styles.playerFace} />
+        <LinearGradient
+          colors={['#ff006e', '#c026d3', '#9d4edd']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.playerShine} />
+        {/* Cyan edge highlight */}
+        <View style={styles.playerEdge} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, width: '100%', alignItems: 'center', backgroundColor: '#000' },
+  root: { flex: 1, width: '100%', alignItems: 'center', backgroundColor: '#06020e' },
   fieldOuter: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   fieldWrap: {
-    borderRadius: 8,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(34,211,238,0.45)',
-    shadowColor: '#22D3EE',
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    borderColor: 'rgba(255,0,110,0.55)',
+    shadowColor: '#ff006e',
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
-  streaks: { ...StyleSheet.absoluteFillObject },
-  streak: {
-    position: 'absolute',
-    right: 0,
-    width: 2,
-    height: 20,
-    backgroundColor: 'rgba(52,211,153,0.35)',
-  },
-  particle: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: '#F8FAFC',
+    elevation: 14,
   },
   gap: {
     position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.88)',
+    backgroundColor: 'rgba(0,0,0,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderTopWidth: 2,
-    borderColor: 'rgba(248,113,113,0.55)',
+    overflow: 'hidden',
+  },
+  gapRim: {
+    position: 'absolute',
+    top: 0,
+    height: 3,
+    backgroundColor: 'rgba(248,113,113,0.9)',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
   hazardTag: {
     color: 'rgba(248,113,113,0.95)',
     fontWeight: '900',
     letterSpacing: 1,
+    marginTop: 4,
   },
   hazardTagSub: {
-    color: 'rgba(254,202,202,0.85)',
+    color: 'rgba(254,202,202,0.8)',
     fontWeight: '800',
     marginTop: 1,
-  },
-  hazardTagSpike: {
-    color: 'rgba(15,23,42,0.92)',
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
   spikeLabelBox: {
     ...StyleSheet.absoluteFillObject,
@@ -361,58 +376,66 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
+    borderBottomWidth: 2,
+    borderColor: 'rgba(157,78,221,0.75)',
+    shadowColor: '#9d4edd',
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
   },
   hazardTagCeil: {
     position: 'absolute',
     alignSelf: 'center',
-    color: 'rgba(254,249,195,0.95)',
+    color: 'rgba(216,180,254,0.95)',
     fontWeight: '900',
     letterSpacing: 0.3,
   },
   plat: {
     position: 'absolute',
-    height: 7,
+    height: 6,
     borderRadius: 2,
-    backgroundColor: 'rgba(34,211,238,0.55)',
-    borderWidth: 2,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,240,255,0.6)',
+    shadowColor: '#00f0ff',
+    shadowOpacity: 0.55,
+    shadowRadius: 6,
   },
   spikeWrap: {
     position: 'absolute',
     overflow: 'hidden',
     borderRadius: 2,
     borderWidth: 2,
-    borderColor: '#F8FAFC',
-    shadowColor: '#22D3EE',
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
+    borderColor: 'rgba(255,0,110,0.85)',
+    shadowColor: '#ff006e',
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   spikeInner: { flex: 1 },
   spikeEdge: {
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.35)',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   ceil: {
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
   },
   groundShadow: {
     position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 2,
   },
   groundBlock: {
     position: 'absolute',
-    borderTopWidth: 2,
-    borderColor: 'rgba(15,23,42,0.9)',
+    borderTopWidth: 0,
   },
   groundTopLine: {
     position: 'absolute',
     height: 3,
-    backgroundColor: 'rgba(52,211,153,0.75)',
+    shadowColor: '#ff006e',
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   groundRim: {
     position: 'absolute',
@@ -423,26 +446,18 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 2,
-    backgroundColor: 'rgba(52,211,153,0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
     transform: [{ rotate: '45deg' }],
   },
   player: {
     position: 'absolute',
     borderRadius: 3,
     overflow: 'hidden',
-    borderWidth: 3,
-    shadowColor: '#34D399',
-    shadowOpacity: 0.75,
-    shadowRadius: 12,
+    borderWidth: 2.5,
+    shadowOpacity: 0.95,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  },
-  playerFace: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.25)',
+    elevation: 12,
   },
   playerShine: {
     position: 'absolute',
@@ -451,7 +466,15 @@ const styles = StyleSheet.create({
     width: '38%',
     height: '38%',
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  playerEdge: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: 'rgba(0,240,255,0.7)',
   },
   hintBlock: {
     marginTop: 4,
@@ -460,14 +483,14 @@ const styles = StyleSheet.create({
     maxWidth: 420,
   },
   tapHint: {
-    color: 'rgba(148,163,184,0.9)',
+    color: 'rgba(226,232,240,0.9)',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',
   },
   legendHint: {
-    marginTop: 4,
+    marginTop: 3,
     color: 'rgba(148,163,184,0.75)',
     fontSize: 9,
     fontWeight: '600',

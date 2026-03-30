@@ -4,16 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { arcade } from '@/lib/arcadeTheme';
-
-/**
- * Default shell for in-app screens: deep navy arcade floor + light status bar.
- * Scroll content gets bottom padding so lists clear above the tab bar comfortably.
- *
- * Put **headings and body copy** that sit **directly on the gradient** in light colors
- * (`text-white`, `text-slate-100`, `text-slate-300`). Reserve `text-slate-900` for text
- * on light surfaces (e.g. `Card`).
- */
 export function Screen({
   children,
   scroll = true,
@@ -36,7 +26,8 @@ export function Screen({
 
   return (
     <LinearGradient
-      colors={[arcade.navy0, arcade.navy2, arcade.navy1]}
+      colors={['#06020e', '#12081f', '#0c0618', '#050208']}
+      locations={[0, 0.35, 0.65, 1]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={styles.flex}
@@ -51,8 +42,5 @@ export function Screen({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
 });

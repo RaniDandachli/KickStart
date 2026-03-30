@@ -12,14 +12,14 @@ function parseUsd(v: string | string[] | undefined): number | undefined {
 export default function CasualQueueScreen() {
   const params = useLocalSearchParams();
   const entry = parseUsd(params.entry);
-  const win = parseUsd(params.win);
-  const hasPair = entry != null && win != null;
+  const prize = parseUsd(params.prize) ?? parseUsd(params.win);
+  const hasPair = entry != null && prize != null;
 
   return (
     <QueueScreen
       mode="casual"
-      stakeEntryUsd={hasPair ? entry : undefined}
-      stakeWinUsd={hasPair ? win : undefined}
+      entryFeeUsd={hasPair ? entry : undefined}
+      listedPrizeUsd={hasPair ? prize : undefined}
     />
   );
 }

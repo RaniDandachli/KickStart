@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
+  Ellipse,
   LinearGradient as SvgLinearGradient,
   Path,
   Rect,
@@ -97,6 +98,76 @@ export function TileClashGameIcon({ size = 40 }: IconProps) {
 /**
  * Dash Duel — forward shard runner + neon track hint.
  */
+/**
+ * Neon Ball Run — synthwave tunnel + magenta sphere.
+ */
+export function BallRunGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id="brPath" x1="50%" y1="0%" x2="50%" y2="100%">
+            <Stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+            <Stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.95" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="brBall" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#f0abfc" />
+            <Stop offset="55%" stopColor="#e879f9" />
+            <Stop offset="100%" stopColor="#a21caf" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#0f0518" />
+        <Path d="M 10 14 L 24 8 L 38 14 L 38 38 L 10 38 Z" fill="url(#brPath)" opacity={0.9} />
+        <Path
+          d="M 14 18 L 24 14 L 34 18"
+          stroke="rgba(34,211,238,0.5)"
+          strokeWidth="1"
+          fill="none"
+        />
+        <Circle cx="24" cy="30" r="9" fill="url(#brBall)" />
+        <Circle cx="21" cy="27" r="3" fill="#FFFFFF" opacity={0.35} />
+      </Svg>
+    </View>
+  );
+}
+
+/** Turbo Arena — neon car + ball hint (side‑view). */
+export function TurboArenaGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id="taBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#020617" />
+            <Stop offset="100%" stopColor="#0f172a" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="taBall" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#bae6fd" />
+            <Stop offset="100%" stopColor="#0284c7" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="taCar" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor="#fb923c" />
+            <Stop offset="100%" stopColor="#ea580c" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="url(#taBg)" />
+        <Ellipse cx="24" cy="30" rx="14" ry="5" fill="rgba(34,211,238,0.15)" />
+        <Circle cx="28" cy="22" r="7" fill="url(#taBall)" />
+        <Path
+          d="M 10 32 L 22 28 L 34 30 L 36 34 L 8 36 Z"
+          fill="url(#taCar)"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="0.8"
+        />
+        <Circle cx="14" cy="35" r="3" fill="#1e293b" stroke="#fbbf24" strokeWidth="0.8" />
+        <Circle cx="30" cy="35" r="3" fill="#1e293b" stroke="#fbbf24" strokeWidth="0.8" />
+      </Svg>
+    </View>
+  );
+}
+
 export function DashDuelGameIcon({ size = 40 }: IconProps) {
   const s = size;
   return (

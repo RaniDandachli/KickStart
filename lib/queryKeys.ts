@@ -10,4 +10,5 @@ export const queryKeys = {
   seasonActive: () => ['seasonActive'] as const,
   ratings: (userId: string) => ['ratings', userId] as const,
   userStats: (userId: string) => ['userStats', userId] as const,
+  prizeCatalog: () => ['prizeCatalog'] as const,
 };

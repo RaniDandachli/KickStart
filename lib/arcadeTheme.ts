@@ -15,4 +15,6 @@ export const arcade = {
   white: '#FFFFFF',
   textMuted: '#94A3B8',
   cardShadow: 'rgba(0,0,0,0.45)',
+  neonMagenta: '#E879F9',
+  neonCyan: '#22D3EE',
 } as const;

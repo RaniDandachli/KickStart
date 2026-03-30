@@ -1,7 +1,6 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { type PropsWithChildren } from 'react';
-import { ActivityIndicator, Pressable, Text, type PressableProps } from 'react-native';
-
-import { theme } from '@/lib/theme';
+import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -11,21 +10,6 @@ export interface AppButtonProps extends PressableProps {
   loading?: boolean;
   className?: string;
 }
-
-const variantClass: Record<Variant, string> = {
-  /** Solid green + white label — reads on navy screens (avoid dark purple on unclear lime fills). */
-  primary: 'bg-emerald-500 border-2 border-emerald-300 active:bg-emerald-600',
-  secondary: 'bg-sky-600 border-2 border-sky-400 active:bg-sky-700',
-  ghost: 'bg-white/10 border-2 border-amber-400/40 active:bg-white/15',
-  danger: 'bg-rose-600/90 border-2 border-rose-400 active:bg-rose-700',
-};
-
-const textClass: Record<Variant, string> = {
-  primary: 'text-white font-black',
-  secondary: 'text-white font-bold',
-  ghost: 'text-amber-100 font-bold',
-  danger: 'text-white font-bold',
-};
 
 export function AppButton({
   title,
@@ -37,23 +21,129 @@ export function AppButton({
   className,
   ...rest
 }: PropsWithChildren<AppButtonProps>) {
+  const isDisabled = disabled || loading;
+
+  if (variant === 'primary') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDisabled}
+        onPress={onPress}
+        style={({ pressed }) => [styles.base, isDisabled && styles.disabled, pressed && styles.pressed]}
+        className={className ?? ''}
+        {...rest}
+      >
+        <LinearGradient
+          colors={isDisabled ? ['#555', '#333'] : ['#ff006e', '#9d4edd']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradInner}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : title ? (
+            <Text style={styles.textPrimary}>{title}</Text>
+          ) : (
+            children
+          )}
+        </LinearGradient>
+      </Pressable>
+    );
+  }
+
+  if (variant === 'secondary') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDisabled}
+        onPress={onPress}
+        style={({ pressed }) => [styles.base, styles.secondary, isDisabled && styles.disabled, pressed && styles.pressed]}
+        className={className ?? ''}
+        {...rest}
+      >
+        {loading ? <ActivityIndicator color="#00f0ff" /> : title ? <Text style={styles.textSecondary}>{title}</Text> : children}
+      </Pressable>
+    );
+  }
+
+  if (variant === 'ghost') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDisabled}
+        onPress={onPress}
+        style={({ pressed }) => [styles.base, styles.ghost, isDisabled && styles.disabled, pressed && styles.pressed]}
+        className={className ?? ''}
+        {...rest}
+      >
+        {loading ? <ActivityIndicator color="rgba(255,255,255,0.8)" /> : title ? <Text style={styles.textGhost}>{title}</Text> : children}
+      </Pressable>
+    );
+  }
+
+  // danger
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled || loading}
+      disabled={isDisabled}
       onPress={onPress}
-      className={`min-h-[52px] justify-center rounded-2xl px-6 py-3.5 ${variantClass[variant]} ${disabled ? 'opacity-40' : ''} ${className ?? ''}`}
-      style={variant === 'primary' ? theme.shadow.punch : variant === 'secondary' ? theme.shadow.soft : undefined}
+      style={({ pressed }) => [styles.base, styles.danger, isDisabled && styles.disabled, pressed && styles.pressed]}
+      className={className ?? ''}
       {...rest}
     >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <>
-          {title ? <Text className={`text-center text-base ${textClass[variant]}`}>{title}</Text> : null}
-          {children}
-        </>
-      )}
+      {loading ? <ActivityIndicator color="#fff" /> : title ? <Text style={styles.textDanger}>{title}</Text> : children}
     </Pressable>
   );
 }
+
+const base = {
+  minHeight: 52,
+  borderRadius: 14,
+  justifyContent: 'center' as const,
+  alignItems: 'center' as const,
+  overflow: 'hidden' as const,
+  marginTop: 4,
+};
+
+const styles = StyleSheet.create({
+  base,
+  gradInner: {
+    ...base,
+    width: '100%',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
+    shadowColor: 'rgba(255,0,110,0.5)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+  secondary: {
+    backgroundColor: 'rgba(0,240,255,0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(0,240,255,0.55)',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  ghost: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 2,
+    borderColor: 'rgba(157,78,237,0.45)',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  danger: {
+    backgroundColor: 'rgba(220,38,38,0.75)',
+    borderWidth: 2,
+    borderColor: 'rgba(252,165,165,0.5)',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  disabled: { opacity: 0.4 },
+  pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
+  textPrimary: { color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: 0.5, textAlign: 'center' },
+  textSecondary: { color: '#00f0ff', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
+  textGhost: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 15 },
+  textDanger: { color: '#fff', fontWeight: '800', fontSize: 15 },
+});

@@ -17,7 +17,7 @@ export default function TransactionsScreen() {
     <Screen>
       <Text className="mb-2 text-2xl font-bold text-white">Rewards ledger</Text>
       <Text className="mb-4 text-sm text-slate-300">
-        Credits, gems, cosmetics, subscriptions — no withdrawals or cash wallet.
+        Wallet, prize credits, redeem tickets, and gems — ledger entries for your account.
       </Text>
       {q.isLoading && (
         <>
@@ -33,20 +33,34 @@ export default function TransactionsScreen() {
               <Text className="font-semibold text-slate-900">{t.description}</Text>
               <Text className="text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</Text>
             </View>
-            <Badge label={`${t.amount >= 0 ? '+' : ''}${t.amount} ${t.currency}`} tone={toneFor(t.kind)} />
+            <Badge label={`${t.amount >= 0 ? '+' : ''}${t.amount} ${formatCurrencyLabel(t.currency)}`} tone={toneFor(t.kind)} />
           </View>
         </Card>
       ))}
       {!q.isLoading && !q.data?.length ? (
-        <EmptyState title="No transactions yet" description="Complete matches or buy cosmetics." />
+        <EmptyState title="No transactions yet" description="Play matches and redeem prizes to see activity here." />
       ) : null}
     </Screen>
   );
 }
 
+function formatCurrencyLabel(c: 'wallet_cents' | 'gems' | 'prize_credits' | 'redeem_tickets'): string {
+  if (c === 'wallet_cents') return 'wallet ¢';
+  if (c === 'prize_credits') return 'prize';
+  if (c === 'redeem_tickets') return 'tickets';
+  return c;
+}
+
 function toneFor(k: TransactionKind): 'success' | 'warning' | 'neon' | 'default' {
-  if (k === 'credit_earn' || k === 'gem_earn' || k === 'reward_grant') return 'success';
+  if (k === 'credit_earn' || k === 'gem_earn' || k === 'reward_grant' || k === 'prize_credit_earn') return 'success';
   if (k === 'subscription_event') return 'neon';
-  if (k === 'cosmetic_purchase' || k === 'credit_spend' || k === 'gem_spend') return 'warning';
+  if (
+    k === 'cosmetic_purchase' ||
+    k === 'credit_spend' ||
+    k === 'gem_spend' ||
+    k === 'prize_credit_spend' ||
+    k === 'redeem_ticket_spend'
+  )
+    return 'warning';
   return 'default';
 }

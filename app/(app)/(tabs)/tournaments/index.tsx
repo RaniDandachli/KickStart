@@ -1,13 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Badge } from '@/components/ui/Badge';
-import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useTournaments } from '@/hooks/useTournaments';
+import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+
 export default function TournamentsListScreen() {
   const router = useRouter();
   const { highlight } = useLocalSearchParams<{ highlight?: string }>();
@@ -15,54 +17,78 @@ export default function TournamentsListScreen() {
 
   return (
     <Screen>
-      <Text className="mb-4 text-2xl font-black text-white">Tournaments</Text>
-      <Text className="mb-4 text-sm font-medium text-slate-300">
-        Prizes are descriptive rewards or admin-awarded — never user-funded cash pools.
-      </Text>
+      <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>EVENTS</Text>
+      <Text style={styles.sub}>Skill-based tournaments — admin-awarded prizes</Text>
+
       {isLoading && (
         <>
           <SkeletonBlock className="mb-3 h-24" />
           <SkeletonBlock className="mb-3 h-24" />
         </>
       )}
-      {isError && (
-        <EmptyState
-          title="Could not load events"
-          description="Check Supabase URL/key in .env and RLS policies."
-        />
-      )}
+      {isError && <EmptyState title="Could not load events" description="Check .env and RLS policies." />}
+
       {data?.map((t) => {
-        const isHi = highlight && t.id === highlight;
+        const isHi = !!(highlight && t.id === highlight);
         return (
-          <Card key={t.id} className={`mb-3 ${isHi ? 'border-2 border-emerald-400' : ''}`}>
-            <View className="mb-2 flex-row flex-wrap items-center gap-2">
-              <Text className="flex-1 text-lg font-bold text-slate-900">{t.name}</Text>
-              <Badge label={formatTournamentState(t.state)} tone="warning" />
-              <Badge label={formatEntryType(t.entry_type)} tone="neon" />
-            </View>
-            <Text className="text-xs text-slate-500">
-              {formatFormat(t.format)} · {t.current_player_count}/{t.max_players} players
-            </Text>
-            {t.starts_at ? (
-              <Text className="mt-1 text-xs text-slate-400">
-                Starts {new Date(t.starts_at).toLocaleString()}
-              </Text>
-            ) : null}
-            <Text className="mt-2 text-sm text-slate-600" numberOfLines={3}>
-              {t.prize_description}
-            </Text>
-            <Text
-              className="mt-3 text-xs font-bold text-sky-300"
-              onPress={() => router.push(`/(app)/(tabs)/tournaments/${t.id}`)}
+          <Pressable key={t.id} onPress={() => router.push(`/(app)/(tabs)/tournaments/${t.id}`)} style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}>
+            <LinearGradient
+              colors={isHi ? [runit.neonCyan, runit.neonPurple] : [runit.neonPurple, 'rgba(157,78,237,0.3)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.cardBorder}
             >
-              View details →
-            </Text>
-          </Card>
+              <View style={styles.cardInner}>
+                <View style={styles.cardTop}>
+                  <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>{t.name}</Text>
+                  <View style={[styles.statePill, { borderColor: stateColor(t.state) }]}>
+                    <Text style={[styles.statePillText, { color: stateColor(t.state) }]}>{formatTournamentState(t.state).toUpperCase()}</Text>
+                  </View>
+                </View>
+                <View style={styles.cardMeta}>
+                  <Text style={styles.cardMetaTxt}>{formatFormat(t.format)} · {t.current_player_count}/{t.max_players} players</Text>
+                  <Text style={[styles.cardMetaTxt, { color: runit.neonCyan }]}>{formatEntryType(t.entry_type)}</Text>
+                </View>
+                {t.starts_at ? <Text style={styles.cardDate}>⏱  {new Date(t.starts_at).toLocaleString()}</Text> : null}
+                <Text style={styles.cardPrize} numberOfLines={2}>{t.prize_description}</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.viewLink}>View details</Text>
+                  <Ionicons name="chevron-forward" size={14} color={runit.neonPink} />
+                </View>
+              </View>
+            </LinearGradient>
+          </Pressable>
         );
       })}
+
       {!isLoading && !data?.length ? (
         <EmptyState title="No tournaments" description="Run seed SQL or call createTournament (admin)." />
       ) : null}
     </Screen>
   );
 }
+
+function stateColor(state: string) {
+  if (state === 'open') return '#39ff14';
+  if (state === 'active') return '#00f0ff';
+  if (state === 'full') return '#ffbe0b';
+  return 'rgba(148,163,184,0.8)';
+}
+
+const styles = StyleSheet.create({
+  title: { color: runit.neonPink, fontSize: 30, fontWeight: '900', letterSpacing: 3, marginBottom: 4 },
+  sub: { color: 'rgba(203,213,225,0.85)', fontSize: 13, marginBottom: 18 },
+  cardWrap: { marginBottom: 14 },
+  cardBorder: { borderRadius: 16, padding: 2 },
+  cardInner: { backgroundColor: 'rgba(8,4,18,0.88)', borderRadius: 14, padding: 14 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  cardName: { flex: 1, color: '#fff', fontSize: 16, fontWeight: '900' },
+  statePill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  statePillText: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  cardMeta: { flexDirection: 'row', gap: 12, marginBottom: 6 },
+  cardMetaTxt: { color: 'rgba(148,163,184,0.85)', fontSize: 12, fontWeight: '700' },
+  cardDate: { color: 'rgba(148,163,184,0.75)', fontSize: 11, marginBottom: 6 },
+  cardPrize: { color: 'rgba(203,213,225,0.9)', fontSize: 13, lineHeight: 18, marginBottom: 10 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  viewLink: { color: runit.neonPink, fontSize: 13, fontWeight: '800' },
+});

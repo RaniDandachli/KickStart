@@ -13,7 +13,7 @@ export function OpponentFoundModal({
 }: {
   visible: boolean;
   opponent: MatchOpponentPreview | null;
-  /** Winner prize for stakes matches (optional). */
+  /** Listed prize for fee-paid skill matches (optional). */
   prizeUsd?: number;
   onAccept: () => void;
   onDecline: () => void;
@@ -25,7 +25,7 @@ export function OpponentFoundModal({
           <Text className="mb-1 text-xs uppercase text-emerald-600">Match found</Text>
           <Text className="text-2xl font-black text-slate-900">Ready to clash?</Text>
           {prizeUsd != null ? (
-            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Playing for ${prizeUsd} (winner)</Text>
+            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Listed prize ${prizeUsd} (winner)</Text>
           ) : null}
           {opponent ? (
             <View className="my-4 rounded-xl bg-slate-50 p-3">

@@ -1,17 +1,26 @@
 import { type PropsWithChildren } from 'react';
-import { View, type ViewProps } from 'react-native';
+import { StyleSheet, View, type ViewProps } from 'react-native';
 
-import { theme } from '@/lib/theme';
-
-/** Light “cabinet card” on the navy arcade floor. */
-export function Card({ children, className, ...rest }: PropsWithChildren<ViewProps & { className?: string }>) {
+export function Card({ children, className, style, ...rest }: PropsWithChildren<ViewProps & { className?: string }>) {
   return (
-    <View
-      className={`rounded-2xl border-2 border-amber-400/55 bg-white p-5 ${className ?? ''}`}
-      style={theme.shadow.card}
-      {...rest}
-    >
+    <View style={[styles.card, style]} className={className ?? ''} {...rest}>
       {children}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(157, 78, 237, 0.4)',
+    backgroundColor: 'rgba(12, 6, 22, 0.85)',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: 'rgba(157, 78, 237, 0.35)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+});

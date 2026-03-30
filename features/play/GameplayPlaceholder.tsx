@@ -12,7 +12,8 @@ export interface GameplayPlaceholderProps {
 }
 
 /**
- * TODO: Replace with real physics engine + networked state. Hooks preserved for engine integration.
+ * Stand-in until a real synced minigame exists: timer + score goals determine winner.
+ * Ties count as a draw (no prize).
  */
 export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: GameplayPlaceholderProps) {
   const [scoreSelf, setScoreSelf] = useState(session.scoreSelf);
@@ -20,6 +21,9 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
   const [paused, setPaused] = useState(false);
   const [remaining, setRemaining] = useState(session.durationSec);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const finished = useRef(false);
+
+  const oppLabel = session.opponentDisplayName ?? 'Opponent';
 
   useEffect(() => {
     if (paused) return;
@@ -38,19 +42,21 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
   }, [paused]);
 
   useEffect(() => {
-    if (remaining === 0) {
-      const winnerId =
-        scoreSelf === scoreOpponent
-          ? session.localPlayerId
-          : scoreSelf > scoreOpponent
-            ? session.localPlayerId
-            : session.opponentId;
-      onFinish({
-        winnerId,
-        finalScore: { self: scoreSelf, opponent: scoreOpponent },
-        reason: 'time',
-      });
+    if (remaining !== 0 || finished.current) return;
+    finished.current = true;
+    let winnerId: string;
+    if (scoreSelf === scoreOpponent) {
+      winnerId = 'draw';
+    } else if (scoreSelf > scoreOpponent) {
+      winnerId = session.localPlayerId;
+    } else {
+      winnerId = session.opponentId;
     }
+    onFinish({
+      winnerId,
+      finalScore: { self: scoreSelf, opponent: scoreOpponent },
+      reason: 'time',
+    });
   }, [remaining, onFinish, scoreSelf, scoreOpponent, session.localPlayerId, session.opponentId]);
 
   const togglePause = useCallback(() => {
@@ -64,15 +70,15 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
   return (
     <View className="gap-3">
       <Card>
-        <Text className="mb-1 text-xs uppercase text-slate-500">Prototype arena</Text>
-        <Text className="text-2xl font-black text-fuchsia-600">Arcade engine stub</Text>
-        <Text className="mt-1 text-sm text-slate-600">
-          Timer + score only. TODO: inputs, ball physics, networking reconciliation.
+        <Text className="mb-1 text-xs uppercase text-slate-500">Skill contest (stub)</Text>
+        <Text className="text-xl font-black text-fuchsia-500">
+          Tap +Goal to simulate points — highest score when time hits 0 wins.
         </Text>
+        <Text className="mt-1 text-sm text-slate-600">Replace with your real minigame + server verification.</Text>
       </Card>
       <Card className="items-center">
         <Text className="text-5xl font-black text-slate-900">{remaining}s</Text>
-        <Text className="text-slate-500">Match id · {session.id}</Text>
+        <Text className="text-slate-500">Match · {session.id}</Text>
       </Card>
       <View className="flex-row justify-between gap-3">
         <Card className="flex-1 items-center">
@@ -81,7 +87,9 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
           <AppButton title="+Goal" variant="secondary" onPress={() => setScoreSelf((s) => s + 1)} />
         </Card>
         <Card className="flex-1 items-center">
-          <Text className="text-xs text-slate-500">Opp</Text>
+          <Text className="text-xs text-slate-500" numberOfLines={1}>
+            {oppLabel}
+          </Text>
           <Text className="text-4xl font-bold text-fuchsia-600">{scoreOpponent}</Text>
           <AppButton title="+Goal" variant="secondary" onPress={() => setScoreOpponent((s) => s + 1)} />
         </Card>
