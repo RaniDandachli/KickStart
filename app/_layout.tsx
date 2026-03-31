@@ -6,11 +6,12 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
+import { NeonArcadeSplash } from '@/components/splash/NeonArcadeSplash';
 import { theme } from '@/lib/theme';
 import { AppProviders } from '@/providers/AppProviders';
 
@@ -27,13 +28,20 @@ export default function RootLayout() {
     Orbitron_700Bold,
     Orbitron_900Black,
   });
+  const [splashDone, setSplashDone] = useState(false);
+
+  const onSplashComplete = useCallback(() => {
+    setSplashDone(true);
+  }, []);
 
   useEffect(() => {
     if (err) throw err;
   }, [err]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
+    if (loaded) {
+      void SplashScreen.hideAsync();
+    }
   }, [loaded]);
 
   if (!loaded) return null;
@@ -41,7 +49,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProviders>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle="light-content" />
         <Stack
           screenOptions={{
             headerShown: false,
@@ -53,6 +61,7 @@ export default function RootLayout() {
           <Stack.Screen name="(app)" />
         </Stack>
       </AppProviders>
+      {!splashDone ? <NeonArcadeSplash onComplete={onSplashComplete} /> : null}
     </SafeAreaProvider>
   );
 }

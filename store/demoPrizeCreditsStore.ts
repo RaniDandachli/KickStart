@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
-/** Guest / offline demo balance — mirrors `profiles.prize_credits` when backend is off. */
-const START_PRIZE_CREDITS = 1240;
+/** Guest start balance before welcome/daily grants (`applyArcadePrizeCreditGrants`). */
+const START_PRIZE_CREDITS = 0;
 
 type State = {
   credits: number;

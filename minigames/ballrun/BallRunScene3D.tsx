@@ -1,480 +1,434 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
-import type { MutableRefObject } from 'react';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
-import * as THREE from 'three';
+// ─────────────────────────────────────────────────────────────
+//  NeonBallRunScreen.tsx  –  vs-AI race, 30-second survival
+//  Renderer: @react-three/fiber (R3F) — side-by-side 3D canvases
+//  Mirrors TapDashScreen.tsx conventions exactly
+// ─────────────────────────────────────────────────────────────
 
+import { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
-  GROUNDED_CY,
-  stepBallRun,
-  type BallRunState,
-  type Lane,
-  type Obstacle,
-} from '@/minigames/ballrun/BallRunEngine';
-import { mulberry32 } from '@/minigames/core/seededRng';
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type GestureResponderEvent,
+} from 'react-native';
+import { Canvas, useFrame } from '@react-three/fiber/native';
+import * as THREE from 'three';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const LANE_W = 2.35;
-const Z_SCALE = 0.0105;
-const BALL_WORLD_R = 0.36;
-const JUMP_SCALE = 0.026;
-/** Ball sits farther “down the track” so it’s not glued to the screen edge. */
-const BALL_ANCHOR_Z = -0.72;
-/** Visual ramp: obstacles farther along -Z sit slightly lower on the slope. */
-const RAMP_Y_PER_WORLD_Z = 0.045;
-const RUNWAY_TILT = 0.14;
-const LANE_SMOOTH = 13;
-/** Camera sits back so more runway shows ahead of the ball. */
-const CAM_BACK = 5.35;
-const CAM_HEIGHT = 2.05;
-const CAM_LOOK_Z = -18;
+import { AppButton } from '@/components/ui/AppButton';
+import { Countdown } from '@/minigames/ui/Countdown';
+import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
+import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
+import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useRafLoop } from '@/minigames/core/useRafLoop';
 
-function laneX(lane: Lane): number {
-  return (lane - 1) * LANE_W;
+import { BALL_RUN } from './ballRunConstants';
+import {
+  AiDifficulty,
+  createNeonBallRunState,
+  getBallX,
+  mergedGapBlockedLanes,
+  queueJump,
+  queueShift,
+  runBallRunAi,
+  stepNeonBallRun,
+  surfaceY,
+  type NeonBallRunState,
+  type RampSegment,
+} from './BallRunEngine';
+
+const MATCH_MS = 30_000;
+
+// ── Minimal 3D lane scene for split-screen ────────────────────
+// Simpler than the full game — fixed overhead-ish camera,
+// showing a compressed bird's-eye-ish 3D view of the lane
+
+function LaneCamera({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  useFrame(({ camera }) => {
+    const s = stateRef.current;
+    if (!s) return;
+    const bx = getBallX(s);
+    camera.position.x += (bx - camera.position.x) * 0.1;
+    camera.position.z = s.ballZ + 8;
+    camera.lookAt(bx, s.ballY, s.ballZ - 3);
+  });
+
+  return null;
 }
 
-function ballWorldY(s: BallRunState): number {
-  return BALL_WORLD_R + Math.max(0, (GROUNDED_CY - s.ballCy) * JUMP_SCALE);
-}
-
-function ObstacleMesh({ o }: { o: Obstacle }) {
-  const x = laneX(o.lane);
-  const z = -o.z * Z_SCALE;
-  const tall = o.kind === 'wall';
-  const w = 1.35;
-  const h = tall ? 1.85 : 0.55;
-  const d = 0.55;
-  const y = h / 2 + 0.02 + z * RAMP_Y_PER_WORLD_Z;
-  const col = tall ? '#4c1d95' : '#a21caf';
+function MiniRamp({ seg, color }: { seg: RampSegment; color: string }) {
+  const len = seg.zStart - seg.zEnd;
+  const midZ = (seg.zStart + seg.zEnd) / 2;
+  const midY = (seg.yStart + seg.yEnd) / 2;
+  const pitch = Math.atan2(seg.yStart - seg.yEnd, len);
+  const w = (BALL_RUN.laneCount - 1) * BALL_RUN.laneSpacing + 2;
   return (
-    <mesh position={[x, y, z]} castShadow>
-      <boxGeometry args={[w, h, d]} />
-      <meshStandardMaterial
-        color={col}
-        emissive={tall ? '#34d399' : '#22d3ee'}
-        emissiveIntensity={0.35}
-        metalness={0.35}
-        roughness={0.45}
-      />
+    <mesh position={[0, midY + 0.08, midZ]} rotation={[-pitch, 0, 0]}>
+      <boxGeometry args={[w, 0.18, len]} />
+      <meshStandardMaterial color="#12003a" emissive={color} emissiveIntensity={0.35} />
     </mesh>
   );
 }
 
-function NeonBuildings({ seed }: { seed: number }) {
-  const items = useMemo(() => {
-    const rng = mulberry32(seed ^ 0x9e3779b9);
-    const out: { x: number; z: number; h: number; w: number }[] = [];
-    for (let i = 0; i < 48; i++) {
-      const z = -2 - i * 2.8 - rng() * 1.2;
-      const side = i % 2 === 0 ? -1 : 1;
-      const x = side * (5.5 + rng() * 2.8);
-      const h = 1.8 + rng() * 5.5;
-      const w = 0.9 + rng() * 0.7;
-      out.push({ x, z, h, w });
-    }
-    return out;
-  }, [seed]);
-
+function MiniObstacle({ x, z, yBase, kind }: { x: number; z: number; yBase: number; kind: string }) {
+  const color = kind === 'spike' ? '#ff1155' : kind === 'moving' ? '#ff4400' : '#6600cc';
   return (
-    <>
-      {items.map((b, i) => (
-        <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow>
-          <boxGeometry args={[b.w, b.h, b.w]} />
-          <meshStandardMaterial
-            color="#030308"
-            emissive="#38bdf8"
-            emissiveIntensity={0.12}
-            metalness={0.2}
-            roughness={0.85}
-            wireframe
-          />
+    <mesh position={[x, yBase + 0.55, z]}>
+      <boxGeometry args={[BALL_RUN.tileWidth * 0.8, kind === 'spike' ? 0.9 : 1.1, 0.5]} />
+      <meshBasicMaterial color={color} />
+    </mesh>
+  );
+}
+
+function MiniGapPit({ seg, laneHalf }: { seg: RampSegment; laneHalf: number }) {
+  const blocked = mergedGapBlockedLanes(seg);
+  if (blocked.length === 0) return null;
+  const len = seg.zStart - seg.zEnd;
+  const midZ = (seg.zStart + seg.zEnd) / 2;
+  const midY = (seg.yStart + seg.yEnd) / 2;
+  const pitch = Math.atan2(seg.yStart - seg.yEnd, len);
+  const sorted = [...blocked].sort((a, b) => a - b);
+  const minL = sorted[0]!;
+  const maxL = sorted[sorted.length - 1]!;
+  const centerLane = (minL + maxL) / 2;
+  const cx = (centerLane - laneHalf) * BALL_RUN.laneSpacing;
+  const width = (maxL - minL + 1) * BALL_RUN.laneSpacing - 0.12;
+  return (
+    <group position={[cx, midY, midZ]} rotation={[-pitch, 0, 0]}>
+      <mesh position={[0, -0.22, 0]}>
+        <boxGeometry args={[width, 0.35, len * 0.9]} />
+        <meshStandardMaterial color="#240008" emissive="#ff0066" emissiveIntensity={1.1} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (width / 2 + 0.05), 0.12, 0]}>
+          <boxGeometry args={[0.1, 0.4, len * 0.9]} />
+          <meshStandardMaterial color="#ff4488" emissive="#ff88cc" emissiveIntensity={1.4} />
         </mesh>
       ))}
-    </>
-  );
-}
-
-/** TRON-style floor grid for the main rolling platform. */
-function useRunwayGridTexture() {
-  return useMemo(() => {
-    const cells = 64;
-    const data = new Uint8Array(cells * cells * 4);
-    for (let y = 0; y < cells; y++) {
-      for (let x = 0; x < cells; x++) {
-        const i = (y * cells + x) * 4;
-        const edge = x % 8 === 0 || y % 8 === 0;
-        if (edge) {
-          data[i] = 180;
-          data[i + 1] = 240;
-          data[i + 2] = 255;
-          data[i + 3] = 255;
-        } else {
-          data[i] = 4;
-          data[i + 1] = 6;
-          data[i + 2] = 12;
-          data[i + 3] = 255;
-        }
-      }
-    }
-    const tex = new THREE.DataTexture(data, cells, cells);
-    tex.needsUpdate = true;
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(18, 48);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    return tex;
-  }, []);
-}
-
-function useHazardStripeTexture() {
-  return useMemo(() => {
-    const w = 32;
-    const h = 8;
-    const data = new Uint8Array(w * h * 4);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        const stripe = Math.floor(x / 4) % 2;
-        if (stripe === 0) {
-          data[i] = 250;
-          data[i + 1] = 204;
-          data[i + 2] = 21;
-          data[i + 3] = 255;
-        } else {
-          data[i] = 15;
-          data[i + 1] = 15;
-          data[i + 2] = 18;
-          data[i + 3] = 255;
-        }
-      }
-    }
-    const tex = new THREE.DataTexture(data, w, h);
-    tex.needsUpdate = true;
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.repeat.set(6, 1);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-  }, []);
-}
-
-function useBallStripeTexture() {
-  return useMemo(() => {
-    const w = 128;
-    const h = 64;
-    const data = new Uint8Array(w * h * 4);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const band = Math.floor(x / 10) % 2;
-        const i = (y * w + x) * 4;
-        if (band === 0) {
-          data[i] = 12;
-          data[i + 1] = 24;
-          data[i + 2] = 40;
-          data[i + 3] = 255;
-        } else {
-          data[i] = 0;
-          data[i + 1] = 220;
-          data[i + 2] = 255;
-          data[i + 3] = 255;
-        }
-      }
-    }
-    const tex = new THREE.DataTexture(data, w, h);
-    tex.needsUpdate = true;
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(3, 2);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    return tex;
-  }, []);
-}
-
-function RollingBall({
-  modelRef,
-  visualXRef,
-}: {
-  modelRef: MutableRefObject<BallRunState>;
-  visualXRef: MutableRefObject<number>;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const rollAcc = useRef(0);
-  const stripeMap = useBallStripeTexture();
-
-  useFrame((_, delta) => {
-    const m = modelRef.current;
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    const targetX = laneX(m.ballLane);
-    const t = 1 - Math.exp(-LANE_SMOOTH * delta);
-    visualXRef.current = THREE.MathUtils.lerp(visualXRef.current, targetX, t);
-    const by = ballWorldY(m);
-    mesh.position.set(visualXRef.current, by, BALL_ANCHOR_Z);
-    const rollRate = 18 + m.speed * 220;
-    rollAcc.current += delta * rollRate;
-    mesh.rotation.x = -rollAcc.current;
-    const lean = (visualXRef.current - targetX) * 0.22;
-    mesh.rotation.y = THREE.MathUtils.lerp(mesh.rotation.y, (m.ballLane - 1) * 0.07 + lean, 0.08);
-    mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, -(m.ballLane - 1) * 0.11, 0.12);
-  });
-
-  return (
-    <mesh ref={meshRef} castShadow>
-      <sphereGeometry args={[BALL_WORLD_R, 40, 40]} />
-      <meshStandardMaterial
-        map={stripeMap}
-        color="#ffffff"
-        emissive="#0891b2"
-        emissiveIntensity={0.22}
-        metalness={0.45}
-        roughness={0.32}
-      />
-    </mesh>
-  );
-}
-
-function FollowCamera({
-  modelRef,
-  visualXRef,
-  phase,
-  paused,
-}: {
-  modelRef: MutableRefObject<BallRunState>;
-  visualXRef: MutableRefObject<number>;
-  phase: string;
-  paused: boolean;
-}) {
-  const { camera } = useThree();
-
-  useFrame(() => {
-    if (phase !== 'playing' || paused) return;
-    const m = modelRef.current;
-    const bx = visualXRef.current;
-    const by = ballWorldY(m);
-    const cx = bx;
-    const cy = by + CAM_HEIGHT;
-    const cz = BALL_ANCHOR_Z + CAM_BACK;
-    camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.1);
-    camera.lookAt(bx, by + 0.08 + RUNWAY_TILT * 1.8, CAM_LOOK_Z);
-  });
-
-  return null;
-}
-
-function GameLoop({
-  modelRef,
-  phase,
-  paused,
-  onDead,
-  bump,
-}: {
-  modelRef: MutableRefObject<BallRunState>;
-  phase: string;
-  paused: boolean;
-  onDead: () => void;
-  bump: () => void;
-}) {
-  const deadSent = useRef(false);
-  const frameN = useRef(0);
-
-  useEffect(() => {
-    if (phase === 'ready') deadSent.current = false;
-  }, [phase]);
-
-  useFrame((_, delta) => {
-    if (phase !== 'playing' || paused) return;
-    const m = modelRef.current;
-    stepBallRun(delta * 1000, m);
-    frameN.current += 1;
-    if (frameN.current % 2 === 0) bump();
-    if (!m.alive && !deadSent.current) {
-      deadSent.current = true;
-      onDead();
-    }
-  });
-
-  return null;
-}
-
-function RunwayPlatform({
-  gridMap,
-  hazardMap,
-}: {
-  gridMap: THREE.Texture;
-  hazardMap: THREE.Texture;
-}) {
-  const tilt = -Math.PI / 2 + RUNWAY_TILT;
-  return (
-    <group>
-      {/* Wide foreground deck — reads as the “platform” under the ball */}
-      <mesh rotation={[tilt, 0, 0]} position={[0, 0.01, -2]} receiveShadow>
-        <planeGeometry args={[18, 28]} />
-        <meshStandardMaterial
-          map={gridMap}
-          color="#ffffff"
-          emissive="#0c4a6e"
-          emissiveIntensity={0.06}
-          metalness={0.25}
-          roughness={0.65}
-        />
-      </mesh>
-
-      {/* Long main strip into the distance */}
-      <mesh rotation={[tilt, 0, 0]} position={[0, -0.015, -38]} receiveShadow>
-        <planeGeometry args={[22, 200]} />
-        <meshStandardMaterial
-          map={gridMap}
-          color="#ffffff"
-          emissive="#082f3f"
-          emissiveIntensity={0.08}
-          metalness={0.2}
-          roughness={0.82}
-        />
-      </mesh>
-
-      {/* Hazard-style band (decorative) */}
-      <mesh rotation={[tilt, 0, 0]} position={[0, 0.018, -9]}>
-        <planeGeometry args={[5.2, 2.2]} />
-        <meshStandardMaterial
-          map={hazardMap}
-          color="#ffffff"
-          emissive="#fbbf24"
-          emissiveIntensity={0.12}
-          metalness={0.15}
-          roughness={0.55}
-        />
-      </mesh>
-
-      {/* Edge rails */}
-      <mesh rotation={[tilt, 0, 0]} position={[-3.35, 0.035, -28]}>
-        <boxGeometry args={[0.12, 0.08, 120]} />
-        <meshStandardMaterial color="#020617" emissive="#22d3ee" emissiveIntensity={0.45} />
-      </mesh>
-      <mesh rotation={[tilt, 0, 0]} position={[3.35, 0.035, -28]}>
-        <boxGeometry args={[0.12, 0.08, 120]} />
-        <meshStandardMaterial color="#020617" emissive="#22d3ee" emissiveIntensity={0.45} />
-      </mesh>
     </group>
   );
 }
 
-function SceneContent({
-  modelRef,
-  phase,
-  paused,
-  onDead,
-  bump,
-  tick,
-}: {
-  modelRef: MutableRefObject<BallRunState>;
-  phase: string;
-  paused: boolean;
-  onDead: () => void;
-  bump: () => void;
-  tick: number;
-}) {
-  const seed = modelRef.current.seed;
-  const gridMap = useRunwayGridTexture();
-  const hazardMap = useHazardStripeTexture();
-  const visualBallXRef = useRef(laneX(modelRef.current.ballLane));
+function MiniBall({ stateRef, color }: { stateRef: React.MutableRefObject<NeonBallRunState | null>; color: string }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s || !ref.current) return;
+    ref.current.position.set(getBallX(s), s.ballY, s.ballZ);
+    ref.current.rotation.x = (s.ballSpin * Math.PI) / 180;
+  });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[BALL_RUN.ballRadius, 14, 14]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} roughness={0.1} metalness={0.8} />
+    </mesh>
+  );
+}
 
-  useEffect(() => {
-    if (phase === 'ready') {
-      visualBallXRef.current = laneX(modelRef.current.ballLane);
-    }
-  }, [phase]);
-
-  const grid = useMemo(() => {
-    const g = new THREE.GridHelper(120, 60, '#22d3ee', '#0e7490');
-    g.rotation.x = RUNWAY_TILT;
-    g.position.set(0, 0.02, -35);
-    return g;
-  }, []);
+function MiniTrack({ stateRef, ballColor }: { stateRef: React.MutableRefObject<NeonBallRunState | null>; ballColor: string }) {
+  const laneHalf = (BALL_RUN.laneCount - 1) / 2;
+  const s = stateRef.current;
 
   return (
     <>
-      <color attach="background" args={['#06060f']} />
-      <fog attach="fog" args={['#06060f', 16, 62]} />
+      <color attach="background" args={['#02001a']} />
+      <fog attach="fog" args={['#02001a', 15, 35]} />
+      <ambientLight intensity={0.2} color="#0a0030" />
+      <pointLight intensity={2.5} distance={10} color={ballColor} position={[0, 3, 0]} />
 
-      <ambientLight intensity={0.38} />
-      <directionalLight position={[4, 14, 6]} intensity={1.15} color="#bae6fd" />
-      <pointLight position={[0, 4, 1]} intensity={0.55} color="#00f0ff" />
-
-      <NeonBuildings seed={seed} />
-
-      <RunwayPlatform gridMap={gridMap} hazardMap={hazardMap} />
-
-      {/* Base fill under grid texture */}
-      <mesh
-        rotation={[-Math.PI / 2 + RUNWAY_TILT, 0, 0]}
-        position={[0, -0.04, -32]}
-        receiveShadow
-      >
-        <planeGeometry args={[30, 200]} />
-        <meshStandardMaterial
-          color="#030308"
-          emissive="#041015"
-          emissiveIntensity={0.05}
-          metalness={0.15}
-          roughness={0.92}
-        />
-      </mesh>
-
-      <primitive object={grid} />
-
-      <mesh rotation={[-Math.PI / 2 + RUNWAY_TILT * 0.85, 0, 0]} position={[0, 0.045, BALL_ANCHOR_Z - 0.15]}>
-        <planeGeometry args={[4.8, 0.5]} />
-        <meshStandardMaterial color="#e2e8f0" emissive="#22d3ee" emissiveIntensity={0.1} />
-      </mesh>
-
-      {modelRef.current.obstacles.map((o) => (
-        <ObstacleMesh key={`${o.id}-${tick}`} o={o} />
+      {s?.segments.map((seg) => (
+        <MiniRamp key={`r-${seg.id}`} seg={seg} color={ballColor} />
       ))}
 
-      <RollingBall modelRef={modelRef} visualXRef={visualBallXRef} />
-      <FollowCamera modelRef={modelRef} visualXRef={visualBallXRef} phase={phase} paused={paused} />
-      <GameLoop modelRef={modelRef} phase={phase} paused={paused} onDead={onDead} bump={bump} />
+      {s?.segments.map((seg) => {
+        const zMid = (seg.zStart + seg.zEnd) / 2;
+        const gapNodes = mergedGapBlockedLanes(seg).length > 0 ? (
+          <MiniGapPit key={`gap-${seg.id}`} seg={seg} laneHalf={laneHalf} />
+        ) : null;
+        const solid = (kind: typeof seg.obstacle, data: typeof seg.obstacleData, az: number | null) => {
+          if (!kind || !data || kind === 'gap') return null;
+          const zUse = az ?? zMid;
+          const yBase = surfaceY(seg, zUse);
+          const lanes = kind === 'moving' ? [Math.round(data.movingLane)] : data.blockedLanes;
+          return lanes.map((lane) => (
+            <MiniObstacle
+              key={`obs-${seg.id}-${kind}-${lane}-${zUse}`}
+              x={(lane - laneHalf) * BALL_RUN.laneSpacing}
+              z={zUse}
+              yBase={yBase}
+              kind={kind}
+            />
+          ));
+        };
+        return (
+          <group key={`seg-${seg.id}`}>
+            {gapNodes}
+            {solid(seg.obstacle, seg.obstacleData, seg.obstacleAnchorZ)}
+            {solid(seg.obstacle2, seg.obstacleData2, seg.obstacleAnchorZ2)}
+          </group>
+        );
+      })}
+
+      {/* Ball */}
+      <MiniBall stateRef={stateRef} color={ballColor} />
+      <LaneCamera stateRef={stateRef} />
     </>
   );
 }
 
-type Props = {
-  modelRef: MutableRefObject<BallRunState>;
-  phase: 'ready' | 'playing' | 'paused' | 'over';
-  paused: boolean;
-  onDead: () => void;
-  bump: () => void;
-  tick: number;
-};
+// ── Mini canvas wrapper ────────────────────────────────────────
 
-export function BallRunScene3D({ modelRef, phase, paused, onDead, bump, tick }: Props) {
+function MiniCanvas({
+  stateRef,
+  ballColor,
+  label,
+  who,
+}: {
+  stateRef: React.MutableRefObject<NeonBallRunState | null>;
+  ballColor: string;
+  label: string;
+  who: 1 | 2;
+}) {
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.laneCard, { borderColor: who === 1 ? 'rgba(0,255,255,0.4)' : 'rgba(255,0,204,0.4)' }]}>
       <Canvas
-        style={styles.canvas}
-        gl={{ antialias: true, alpha: false }}
-        camera={{
-          position: [0, CAM_HEIGHT + 0.45, BALL_ANCHOR_Z + CAM_BACK - 0.2],
-          fov: 50,
-          near: 0.1,
-          far: 200,
-        }}
+        style={{ flex: 1 }}
+        camera={{ position: [0, 5, 10], fov: 70, near: 0.1, far: 80 }}
+        gl={{ antialias: false }} // perf for split-screen
       >
-        <Suspense fallback={null}>
-          <SceneContent
-            modelRef={modelRef}
-            phase={phase}
-            paused={paused}
-            onDead={onDead}
-            bump={bump}
-            tick={tick}
-          />
-        </Suspense>
+        <MiniTrack stateRef={stateRef} ballColor={ballColor} />
       </Canvas>
+      {/* Dead overlay */}
+      {stateRef.current && !stateRef.current.alive && (
+        <View style={styles.deadOverlay}>
+          <Text style={[styles.deadText, { color: ballColor }]}>OUT</Text>
+        </View>
+      )}
+      <Text style={[styles.laneLabel, { color: ballColor, backgroundColor: who === 1 ? 'rgba(0,255,255,0.08)' : 'rgba(255,0,204,0.08)' }]}>
+        {label}
+      </Text>
     </View>
   );
 }
 
+// ── Main screen ───────────────────────────────────────────────
+
+export default function NeonBallRunScreen() {
+  useHidePlayTabBar();
+  const router = useRouter();
+  const { width: sw } = useWindowDimensions();
+
+  const [phase, setPhase] = useState<'intro' | 'countdown' | 'playing' | 'done'>('intro');
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('medium');
+  const [uiTick, setUiTick] = useState(0);
+
+  const p1Ref = useRef<NeonBallRunState | null>(null);
+  const p2Ref = useRef<NeonBallRunState | null>(null);
+  const elapsedRef = useRef(0);
+
+  // P1 swipe
+  const sx = useRef(0);
+  const sy = useRef(0);
+  const swipeFired = useRef(false);
+
+  const startRun = useCallback(() => {
+    p1Ref.current = createNeonBallRunState();
+    p2Ref.current = createNeonBallRunState();
+    elapsedRef.current = 0;
+    setUiTick(t => t + 1);
+    setPhase('countdown');
+  }, []);
+
+  const onCountdownDone = useCallback(() => setPhase('playing'), []);
+
+  const loop = useCallback((dtMs: number) => {
+    const p1 = p1Ref.current;
+    const p2 = p2Ref.current;
+    if (!p1 || !p2) return;
+
+    elapsedRef.current += dtMs;
+    const dtSec = dtMs / 1000;
+
+    stepNeonBallRun(p1, dtSec);
+    if (p2.alive) {
+      runBallRunAi(p2, difficulty);
+      stepNeonBallRun(p2, dtSec);
+    }
+
+    if (elapsedRef.current >= MATCH_MS || (!p1.alive && !p2.alive)) {
+      setPhase('done');
+    }
+    setUiTick(t => t + 1);
+  }, [difficulty]);
+
+  useRafLoop(loop, phase === 'playing');
+
+  const onTouchStart = useCallback((e: GestureResponderEvent) => {
+    sx.current = e.nativeEvent.pageX;
+    sy.current = e.nativeEvent.pageY;
+    swipeFired.current = false;
+  }, []);
+
+  const onTouchMove = useCallback((e: GestureResponderEvent) => {
+    if (swipeFired.current || !p1Ref.current?.alive) return;
+    const dx = e.nativeEvent.pageX - sx.current;
+    const dy = e.nativeEvent.pageY - sy.current;
+    if (Math.abs(dx) > 22 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      swipeFired.current = true;
+      queueShift(p1Ref.current, dx > 0 ? 1 : -1);
+    } else if (dy < -28 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      swipeFired.current = true;
+      queueJump(p1Ref.current);
+    }
+  }, []);
+
+  const onTouchEnd = useCallback((e: GestureResponderEvent) => {
+    if (!swipeFired.current && p1Ref.current?.alive) {
+      const dx = Math.abs(e.nativeEvent.pageX - sx.current);
+      const dy = Math.abs(e.nativeEvent.pageY - sy.current);
+      if (dx < 12 && dy < 12) queueJump(p1Ref.current!);
+    }
+  }, []);
+
+  const p1 = p1Ref.current;
+  const p2 = p2Ref.current;
+  const timeLeftMs = Math.max(0, MATCH_MS - elapsedRef.current);
+
+  const winnerTitle =
+    p1 && p2 && phase === 'done'
+      ? !p1.alive && p2.alive ? 'AI wins!'
+        : p1.alive && !p2.alive ? 'You win! 🏆'
+        : Math.floor(p1.score) > Math.floor(p2.score) ? 'You win! 🏆'
+        : Math.floor(p2.score) > Math.floor(p1.score) ? 'AI wins!'
+        : 'Draw!'
+      : '';
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+
+      {/* ── Intro ── */}
+      {phase === 'intro' && (
+        <View style={styles.intro}>
+          <LinearGradient colors={['#02001a', '#08003a', '#02001a']} style={StyleSheet.absoluteFill} />
+          <Text style={styles.introTitle}>NEON BALL RUN</Text>
+          <Text style={styles.introSub}>30-SECOND SURVIVAL RACE</Text>
+
+          <Text style={styles.diffLabel}>DIFFICULTY</Text>
+          <View style={styles.diffRow}>
+            {(['easy', 'medium', 'hard'] as AiDifficulty[]).map(d => (
+              <Pressable
+                key={d}
+                style={[styles.diffBtn, difficulty === d && styles.diffBtnActive]}
+                onPress={() => setDifficulty(d)}
+              >
+                <Text style={[styles.diffBtnText, difficulty === d && styles.diffBtnTextActive]}>
+                  {d.toUpperCase()}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <AppButton title="▶  RACE" onPress={startRun} />
+          <Text style={styles.introHint}>Swipe ← → to dodge · Tap to jump · Outlast the AI</Text>
+        </View>
+      )}
+
+      {/* ── Game ── */}
+      {(phase === 'countdown' || phase === 'playing' || phase === 'done') && (
+        <View style={{ flex: 1 }}>
+          {p1 && p2 && (
+            <MiniGameHUD
+              timeLeftMs={timeLeftMs}
+              scoreP1={Math.floor(p1.score)}
+              scoreP2={Math.floor(p2.score)}
+              subtitle="Neon Ball Run · 30s"
+            />
+          )}
+
+          <Pressable
+            style={styles.lanesRow}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <MiniCanvas stateRef={p1Ref} ballColor="#00ffff" label="YOU · swipe" who={1} />
+            <MiniCanvas stateRef={p2Ref} ballColor="#ff00cc" label={`AI · ${difficulty.toUpperCase()}`} who={2} />
+          </Pressable>
+
+          {phase === 'playing' && (
+            <Text style={styles.swipeHint}>swipe ← → on left side to steer · tap to jump</Text>
+          )}
+        </View>
+      )}
+
+      <Countdown active={phase === 'countdown'} onComplete={onCountdownDone} />
+
+      <MiniResultsModal
+        visible={phase === 'done' && !!p1 && !!p2}
+        title={winnerTitle}
+        scoreP1={p1 ? Math.floor(p1.score) : 0}
+        scoreP2={p2 ? Math.floor(p2.score) : 0}
+        onRematch={startRun}
+        onMenu={() => router.replace('/(app)/(tabs)/play/minigames')}
+        onHome={() => router.replace('/(app)/(tabs)')}
+      />
+    </SafeAreaView>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#0A0A0A' },
-  canvas: { flex: 1 },
+  safe: { flex: 1, backgroundColor: '#02001a' },
+
+  intro: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    gap: 16, paddingHorizontal: 24,
+  },
+  introTitle: {
+    fontSize: 34, fontWeight: '900', letterSpacing: 5, color: '#00ffff',
+    textShadowColor: '#00ffff', textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 },
+  },
+  introSub: { fontSize: 10, letterSpacing: 5, color: 'rgba(255,0,204,0.75)', fontWeight: '700' },
+  introHint: { fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginTop: 4 },
+
+  diffLabel: { fontSize: 9, letterSpacing: 4, color: 'rgba(255,255,255,0.3)', fontWeight: '700' },
+  diffRow: { flexDirection: 'row', gap: 10 },
+  diffBtn: {
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 6,
+    borderWidth: 1, borderColor: 'rgba(0,255,255,0.15)',
+  },
+  diffBtnActive: { borderColor: '#00ffff', backgroundColor: 'rgba(0,255,255,0.08)' },
+  diffBtnText: { color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700', letterSpacing: 2 },
+  diffBtnTextActive: { color: '#00ffff' },
+
+  lanesRow: {
+    flex: 1, flexDirection: 'row',
+    justifyContent: 'center', gap: 6,
+    paddingHorizontal: 6, paddingTop: 4,
+  },
+  laneCard: {
+    flex: 1, borderRadius: 12, borderWidth: 1.5,
+    overflow: 'hidden',
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
+  },
+  deadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deadText: { fontWeight: '900', fontSize: 16, letterSpacing: 3 },
+  laneLabel: {
+    paddingVertical: 5, textAlign: 'center',
+    fontSize: 11, fontWeight: '800', letterSpacing: 1,
+  },
+
+  swipeHint: {
+    textAlign: 'center', fontSize: 10,
+    color: 'rgba(0,255,255,0.3)', letterSpacing: 0.4, paddingVertical: 6,
+  },
 });

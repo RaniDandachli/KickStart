@@ -26,15 +26,15 @@ const styles = StyleSheet.create({
   wrap: {
     borderRadius: 16,
     padding: 3,
-    marginBottom: 20,
+    marginBottom: 14,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.25)',
   },
   innerBorder: {
     borderRadius: 13,
     backgroundColor: 'rgba(5, 2, 12, 0.45)',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   kicker: {
     color: 'rgba(255,255,255,0.95)',

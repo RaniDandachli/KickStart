@@ -14,27 +14,37 @@ import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
 export default function MatchResultScreen() {
-  const { matchId, winner, sa, sb, draw, prize, opp } = useLocalSearchParams<{
+  const { matchId, winner, sa, sb, draw, prize, entry, opp } = useLocalSearchParams<{
     matchId: string;
     winner?: string;
     sa?: string;
     sb?: string;
     draw?: string;
     prize?: string;
+    /** Entry fee USD — passed through for rematch after draw. */
+    entry?: string;
     opp?: string;
   }>();
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id ?? 'guest');
   const clearActiveMatch = useMatchmakingStore((s) => s.setActiveMatch);
-  const addPrizeCents = useDemoWalletStore((s) => s.addPrizeCents);
+  const addWalletCents = useDemoWalletStore((s) => s.addWalletCents);
 
   const isDraw = draw === '1' || winner === 'draw';
   const won = !isDraw && winner === uid;
   const lost = !isDraw && !won;
   const rawOpp = Array.isArray(opp) ? opp[0] : opp;
   const oppName = rawOpp ? decodeURIComponent(rawOpp) : 'Opponent';
-  const prizeUsd = prize != null ? Number(prize) : NaN;
+  const rawPrize = Array.isArray(prize) ? prize[0] : prize;
+  const rawEntry = Array.isArray(entry) ? entry[0] : entry;
+  const prizeUsd = rawPrize != null ? Number(rawPrize) : NaN;
+  const entryUsd = rawEntry != null ? Number(rawEntry) : NaN;
   const hasPrize = Number.isFinite(prizeUsd) && prizeUsd > 0;
+  const hasPaidRematch =
+    Number.isFinite(entryUsd) && entryUsd > 0 && Number.isFinite(prizeUsd) && prizeUsd > 0;
+  const rematchHref = hasPaidRematch
+    ? `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}`
+    : '/(app)/(tabs)/play/casual';
 
   const payoutApplied = useRef(false);
   useEffect(() => {
@@ -45,8 +55,8 @@ export default function MatchResultScreen() {
       return;
     }
     payoutApplied.current = true;
-    addPrizeCents(Math.round(prizeUsd * 100));
-  }, [won, isDraw, hasPrize, prizeUsd, addPrizeCents]);
+    addWalletCents(Math.round(prizeUsd * 100));
+  }, [won, isDraw, hasPrize, prizeUsd, addWalletCents]);
 
   useEffect(() => {
     return () => {
@@ -79,7 +89,7 @@ export default function MatchResultScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.walletTitle}>Wallet updated</Text>
               <Text style={styles.walletBody}>
-                +{formatUsdFromCents(Math.round(prizeUsd * 100))} added from this win (local demo).
+                +{formatUsdFromCents(Math.round(prizeUsd * 100))} fixed reward credited (local demo).
               </Text>
             </View>
           </View>
@@ -89,16 +99,27 @@ export default function MatchResultScreen() {
           <Text style={styles.serverNote}>Prize will credit after server verification (Stripe + Edge Function next).</Text>
         ) : null}
 
-        {isDraw && hasPrize ? (
-          <Text style={styles.serverNote}>Draw — no prize awarded. Play a rematch to settle it.</Text>
+        {isDraw ? (
+          <View style={styles.drawBox}>
+            <Ionicons name="git-compare-outline" size={22} color={runit.neonCyan} />
+            <Text style={styles.drawTitle}>Same score — it&apos;s a draw</Text>
+            <Text style={styles.drawBody}>
+              {hasPrize
+                ? "No winner, so the fixed reward was not awarded. Rematch with the same contest fee and reward tier."
+                : 'No winner this time. Queue again for another match.'}
+            </Text>
+          </View>
         ) : null}
 
         {lost ? <Text style={styles.serverNote}>Tip: tap +Goal faster next run — this screen is a prototype.</Text> : null}
       </LinearGradient>
 
       <View style={styles.btnCol}>
-        <AppButton title="Arcade" onPress={() => router.replace('/(app)/(tabs)/play')} />
-        <AppButton title="Home" variant="secondary" onPress={() => router.replace('/(app)/(tabs)')} />
+        {isDraw ? (
+          <AppButton title={hasPaidRematch ? 'Rematch — same fee & reward tier' : 'Go again — find a match'} onPress={() => router.replace(rematchHref)} />
+        ) : null}
+        <AppButton title="Arcade" onPress={() => router.replace('/(app)/(tabs)/play')} variant={isDraw ? 'secondary' : 'primary'} />
+        <AppButton title="Home" variant="ghost" onPress={() => router.replace('/(app)/(tabs)')} />
       </View>
     </Screen>
   );
@@ -143,5 +164,16 @@ const styles = StyleSheet.create({
   walletTitle: { color: runit.neonCyan, fontSize: 13, fontWeight: '900', marginBottom: 4 },
   walletBody: { color: 'rgba(226,232,240,0.95)', fontSize: 13, lineHeight: 18 },
   serverNote: { marginTop: 14, color: 'rgba(148,163,184,0.95)', fontSize: 12, lineHeight: 17 },
+  drawBox: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,240,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,240,255,0.28)',
+    gap: 8,
+  },
+  drawTitle: { color: runit.neonCyan, fontSize: 15, fontWeight: '900' },
+  drawBody: { color: 'rgba(226,232,240,0.95)', fontSize: 13, lineHeight: 19 },
   btnCol: { gap: 10, width: '100%' },
 });

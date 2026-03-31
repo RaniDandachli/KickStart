@@ -46,6 +46,7 @@ export default function MatchPlayScreen() {
     const oppName = session.opponentDisplayName ?? 'Opponent';
     qp.set('opp', encodeURIComponent(oppName));
     if (session.listedPrizeUsd != null) qp.set('prize', String(session.listedPrizeUsd));
+    if (session.entryFeeUsd != null) qp.set('entry', String(session.entryFeeUsd));
     router.replace(`/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`);
   }
 
@@ -54,7 +55,7 @@ export default function MatchPlayScreen() {
       <Text className="mb-1 text-xs uppercase text-slate-400">Head-to-head (prototype)</Text>
       <Text className="mb-3 text-lg font-black text-white">
         vs {session.opponentDisplayName}
-        {session.listedPrizeUsd != null ? ` · Prize $${session.listedPrizeUsd}` : ''}
+        {session.listedPrizeUsd != null ? ` · Fixed reward $${session.listedPrizeUsd}` : ''}
       </Text>
       <GameplayPlaceholder
         session={session}

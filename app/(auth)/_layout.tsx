@@ -1,8 +1,16 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { theme } from '@/lib/theme';
 
 export default function AuthLayout() {
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
+
   return (
     <Stack
       screenOptions={{

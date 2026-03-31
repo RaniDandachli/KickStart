@@ -17,7 +17,7 @@ export function ArcadeEntryQuickPlay() {
         <Text style={styles.sectionTitle}>1v1 · Online</Text>
         <View style={styles.ruleLine} />
       </View>
-      <Text style={styles.sub}>Pay entry · matchmake · winner receives the listed prize</Text>
+      <Text style={styles.sub}>Contest fee · matchmake · top score earns the listed fixed reward (KickClash-funded)</Text>
       <Text style={styles.hint}>Vs AI below is practice — no entry</Text>
 
       {MATCH_ENTRY_TIERS.map((tier) => (
@@ -42,9 +42,9 @@ export function ArcadeEntryQuickPlay() {
               </View>
               <View>
                 <Text style={styles.entryLine}>
-                  Entry <Text style={styles.entryUsd}>${tier.entry}</Text>
+                  Fee <Text style={styles.entryUsd}>${tier.entry}</Text>
                 </Text>
-                <Text style={styles.prizeLine}>Prize ${tier.prize}</Text>
+                <Text style={styles.prizeLine}>Fixed reward ${tier.prize}</Text>
               </View>
             </View>
             <LinearGradient colors={['#15803d', '#16a34a', '#22c55e']} style={styles.findBtn}>
@@ -54,7 +54,9 @@ export function ArcadeEntryQuickPlay() {
         </Pressable>
       ))}
 
-      <Text style={styles.disclaimer}>Demo queue — no charge yet. Platform fees may apply at launch.</Text>
+      <Text style={styles.disclaimer}>
+        Demo queue — no charge yet. Skill contests only; rewards are fixed by tier, not pooled from other players.
+      </Text>
     </View>
   );
 }

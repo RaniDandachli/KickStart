@@ -308,6 +308,13 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             </View>
+            <Pressable
+              style={({ pressed }) => [styles.addFundsBtn, pressed && { opacity: 0.88 }]}
+              onPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              <Text style={styles.addFundsBtnText}>ADD FUNDS</Text>
+            </Pressable>
             <View style={styles.walletBtns}>
               <Pressable style={({ pressed }) => [styles.wBtn, styles.wBtnPrimary, pressed && { opacity: 0.85 }]} onPress={() => router.push('/(app)/(tabs)/play')}>
                 <Ionicons name="game-controller-outline" size={16} color="#fff" />
@@ -455,6 +462,19 @@ const styles = StyleSheet.create({
   pillWide: { flex: 1 },
   pillLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 3 },
   pillVal: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  addFundsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: 'rgba(0,240,255,0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(0,240,255,0.55)',
+  },
+  addFundsBtnText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   walletBtns: { flexDirection: 'row', gap: 10 },
   wBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   wBtnPrimary: { backgroundColor: runit.neonPink, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },

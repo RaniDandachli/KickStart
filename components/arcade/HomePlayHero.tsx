@@ -1,10 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { arcade } from '@/lib/arcadeTheme';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+
+const WINNER_ROTATION_MS = 3800;
+
+const RECENT_WINNERS_LOOP = [
+  { name: 'Alex', amount: 38, mins: 2 },
+  { name: 'Maya', amount: 19, mins: 5 },
+  { name: 'Jordan', amount: 95, mins: 8 },
+  { name: 'Sam', amount: 12, mins: 12 },
+  { name: 'Riley', amount: 47, mins: 3 },
+  { name: 'Casey', amount: 22, mins: 6 },
+] as const;
 
 const TIER_PANEL_STYLES = [
   { rotate: '-3deg', colors: ['#0f766e', '#14b8a6', '#5eead4'] as const, shadow: '#2dd4bf', iconColor: '#ecfdf5' },
@@ -21,6 +33,8 @@ type Props = {
   playersBattling?: number;
   matchesStarting?: number;
   walletDisplay?: string;
+  /** Opens add-funds / wallet top-up when the wallet pill is pressed. */
+  onWalletPress?: () => void;
   onEntryTierPress: (entry: number, prize: number) => void;
   onQuickMatch: () => void;
 };
@@ -31,26 +45,73 @@ export function HomePlayHero({
   playersBattling = 1284,
   matchesStarting = 42,
   walletDisplay = '$12.40',
+  onWalletPress,
   onEntryTierPress,
   onQuickMatch,
 }: Props) {
+  const [winnerIdx, setWinnerIdx] = useState(0);
+  const tickOpacity = useRef(new Animated.Value(1)).current;
+  const skipFirstWinnerAnim = useRef(true);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setWinnerIdx((i) => (i + 1) % RECENT_WINNERS_LOOP.length);
+    }, WINNER_ROTATION_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (skipFirstWinnerAnim.current) {
+      skipFirstWinnerAnim.current = false;
+      return;
+    }
+    tickOpacity.setValue(0.35);
+    Animated.timing(tickOpacity, {
+      toValue: 1,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, [winnerIdx, tickOpacity]);
+
+  const w = RECENT_WINNERS_LOOP[winnerIdx];
+  const winnerLine = `${w.name} earned $${w.amount} reward · ${w.mins} min ago`;
+
+  const walletPill = (
+    <LinearGradient
+      colors={[runit.neonPink, runit.neonPurple]}
+      start={{ x: 0, y: 0.5 }}
+      end={{ x: 1, y: 0.5 }}
+      style={styles.walletPillOuter}
+    >
+      <View style={styles.walletPillInner}>
+        <Ionicons name="wallet-outline" size={14} color="#FDE047" />
+        <Text style={styles.walletPillCompact}>
+          Wallet <Text style={styles.walletPillVal}>{walletDisplay}</Text>
+        </Text>
+      </View>
+    </LinearGradient>
+  );
+
   return (
     <View style={styles.root}>
-      <View style={styles.walletBar}>
-        <LinearGradient
-          colors={[runit.neonPink, runit.neonPurple]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={styles.walletPillOuter}
-        >
-          <View style={styles.walletPillInner}>
-            <Ionicons name="wallet-outline" size={18} color="#FDE047" />
-            <View style={styles.walletPillText}>
-              <Text style={styles.walletPillLbl}>Wallet</Text>
-              <Text style={styles.walletPillVal}>{walletDisplay}</Text>
-            </View>
+      <View style={styles.topBand}>
+        <Animated.View style={[styles.winnerTicker, { opacity: tickOpacity }]} accessibilityLiveRegion="polite">
+          <View style={styles.winnerTickerRow}>
+            <Ionicons name="trophy" size={14} color="#fbbf24" />
+            <Text style={styles.winnerTickerText} numberOfLines={1}>
+              {winnerLine}
+            </Text>
           </View>
-        </LinearGradient>
+        </Animated.View>
+        <View style={styles.walletSlot}>
+          {onWalletPress ? (
+            <Pressable onPress={onWalletPress} accessibilityRole="button" accessibilityLabel="Add funds to wallet">
+              {({ pressed }) => <View style={pressed ? { opacity: 0.88 } : undefined}>{walletPill}</View>}
+            </Pressable>
+          ) : (
+            walletPill
+          )}
+        </View>
       </View>
 
       <View style={styles.logoFrame}>
@@ -65,7 +126,7 @@ export function HomePlayHero({
           <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
           <View style={styles.logoRule} />
           <Text style={styles.brandHome}>HOME</Text>
-          <Text style={styles.brandTag}>Head-to-head skill matches · 1v1 · same games as Arcade</Text>
+          <Text style={styles.brandTag}>1v1 skill contests · fixed rewards funded by KickClash · same games as Arcade</Text>
         </View>
       </View>
 
@@ -81,33 +142,45 @@ export function HomePlayHero({
       <Text style={styles.heroTag}>Find a match in seconds</Text>
 
       <View style={styles.statsPanel}>
-        <View style={styles.statLine}>
-          <Ionicons name="people-outline" size={18} color="#fb923c" />
-          <Text style={styles.statTxt}>
-            <Text style={styles.statNum}>{playersBattling.toLocaleString()}</Text> players online
-          </Text>
+        <View style={styles.statsRow2}>
+          <View style={styles.statCell}>
+            <View style={styles.statRowInline}>
+              <Ionicons name="people" size={13} color="#4ade80" />
+              <Text style={styles.statTxtSm} numberOfLines={1}>
+                <Text style={styles.statNum}>{playersBattling.toLocaleString()}</Text> online
+              </Text>
+            </View>
+          </View>
+          <View style={styles.statCell}>
+            <View style={styles.statRowInline}>
+              <Ionicons name="cash-outline" size={13} color="#FDE047" />
+              <Text style={styles.statTxtSm} numberOfLines={1}>
+                <Text style={styles.statNum}>${(prizesAwardedDemoUsd / 1000).toFixed(1)}k</Text> rewards · 10m
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.statLine}>
-          <Ionicons name="trophy-outline" size={18} color="#fbbf24" />
-          <Text style={styles.statTxt}>
-            <Text style={styles.statNum}>${prizesAwardedDemoUsd.toLocaleString()}</Text> in prizes (demo, last 10 min)
-          </Text>
-        </View>
-        <View style={styles.statLine}>
-          <Ionicons name="timer-outline" size={18} color="#38bdf8" />
-          <Text style={styles.statTxt}>
-            <Text style={styles.statNum}>{matchesStarting}</Text> matches starting…
-          </Text>
-        </View>
-        <View style={styles.statLine}>
-          <Ionicons name="pulse" size={18} color="#4ADE80" />
-          <Text style={styles.statTxt}>
-            <Text style={styles.statNum}>{matchesLive}</Text> matches live now
-          </Text>
+        <View style={styles.statsRow2}>
+          <View style={styles.statCell}>
+            <View style={styles.statRowInline}>
+              <Ionicons name="flame" size={13} color="#fb923c" />
+              <Text style={styles.statTxtSm} numberOfLines={1}>
+                <Text style={styles.statNum}>{matchesStarting}</Text> starting
+              </Text>
+            </View>
+          </View>
+          <View style={styles.statCell}>
+            <View style={styles.statRowInline}>
+              <Ionicons name="flash" size={13} color={runit.neonCyan} />
+              <Text style={styles.statTxtSm} numberOfLines={1}>
+                <Text style={styles.statNum}>{matchesLive}</Text> live
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
-      <Text style={styles.pickTier}>Choose entry level</Text>
+      <Text style={styles.pickTier}>Choose contest tier</Text>
       <View style={styles.tiersWrap}>
         <ScrollView
           horizontal
@@ -139,119 +212,148 @@ export function HomePlayHero({
                   </View>
                   <Text style={styles.tierShort}>{tier.shortLabel.toUpperCase()}</Text>
                   <Text style={styles.tierUsd}>${tier.entry}</Text>
-                  <Text style={styles.tierLbl}>ENTRY</Text>
-                  <Text style={styles.tierPrizeHint}>Prize ${tier.prize}</Text>
+                  <Text style={styles.tierLbl}>FEE</Text>
+                  <Text style={styles.tierPrizeHint}>Fixed reward ${tier.prize}</Text>
                 </LinearGradient>
               </Pressable>
             );
           })}
         </ScrollView>
       </View>
+      <Text style={styles.complianceHint}>
+        Skill contests only. Rewards are fixed by tier and funded by KickClash — not pooled with other players&apos; fees.
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { marginBottom: 20 },
-  walletBar: {
+  topBand: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 8,
+    marginTop: -2,
   },
+  winnerTicker: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(8,4,18,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(157,78,237,0.28)',
+  },
+  winnerTickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  winnerTickerText: {
+    flex: 1,
+    minWidth: 0,
+    color: 'rgba(226,232,240,0.92)',
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  walletSlot: { flexShrink: 0 },
   walletPillOuter: {
-    borderRadius: 14,
-    padding: 2,
+    borderRadius: 11,
+    padding: 1.5,
     maxWidth: '100%',
-    shadowColor: 'rgba(255,0,110,0.45)',
+    shadowColor: 'rgba(255,0,110,0.4)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   walletPillInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     backgroundColor: 'rgba(6,2,14,0.72)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderRadius: 9,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  walletPillText: { alignItems: 'flex-start' },
-  walletPillLbl: {
-    color: 'rgba(226,232,240,0.85)',
-    fontSize: 9,
+  walletPillCompact: {
+    color: 'rgba(226,232,240,0.88)',
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 2,
+    letterSpacing: 0.3,
   },
   walletPillVal: {
     color: '#FDE047',
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   logoFrame: {
-    borderRadius: 20,
-    padding: 3,
-    marginBottom: 18,
-    borderWidth: 2,
-    borderColor: 'rgba(236,72,153,0.45)',
+    borderRadius: 16,
+    padding: 2,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(236,72,153,0.4)',
     overflow: 'hidden',
     shadowColor: arcade.neonMagenta,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 8,
   },
   logoFrameGrad: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
+    borderRadius: 14,
   },
   logoInner: {
     backgroundColor: 'rgba(6,13,24,0.92)',
-    borderRadius: 17,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
   },
   brandRunit: {
     color: runit.neonPink,
-    fontSize: 26,
+    fontSize: 19,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 1.2,
   },
   brandArcade: {
     color: runit.neonCyan,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: 10,
-    marginTop: -4,
-  },
-  brandHome: {
-    marginTop: 8,
-    color: arcade.white,
-    fontSize: 13,
+    fontSize: 26,
     fontWeight: '900',
     letterSpacing: 6,
+    marginTop: -3,
+  },
+  brandHome: {
+    marginTop: 5,
+    color: arcade.white,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 4,
     opacity: 0.92,
   },
   logoRule: {
-    marginTop: 10,
-    height: 2,
-    width: '46%',
-    borderRadius: 2,
-    backgroundColor: 'rgba(34,211,238,0.5)',
+    marginTop: 6,
+    height: 1,
+    width: '40%',
+    borderRadius: 1,
+    backgroundColor: 'rgba(34,211,238,0.45)',
   },
   brandTag: {
-    marginTop: 10,
-    color: 'rgba(203,213,225,0.95)',
-    fontSize: 12,
+    marginTop: 6,
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 10,
     fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 14,
   },
   quickOuter: {
     borderRadius: 18,
@@ -293,17 +395,25 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   statsPanel: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 18,
-    backgroundColor: 'rgba(15,23,42,0.72)',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    backgroundColor: 'rgba(15,23,42,0.62)',
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    gap: 10,
+    borderColor: 'rgba(148,163,184,0.22)',
+    gap: 6,
   },
-  statLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statTxt: { color: 'rgba(241,245,249,0.95)', fontSize: 13, fontWeight: '600', flex: 1 },
+  statsRow2: { flexDirection: 'row', gap: 8 },
+  statCell: { flex: 1, minWidth: 0 },
+  statRowInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  statTxtSm: { color: 'rgba(241,245,249,0.92)', fontSize: 10, fontWeight: '600', lineHeight: 14 },
   statNum: { fontWeight: '900', color: arcade.white },
   pickTier: {
     color: arcade.textMuted,
@@ -382,5 +492,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+  },
+  complianceHint: {
+    marginTop: 10,
+    paddingHorizontal: 4,
+    color: 'rgba(148,163,184,0.88)',
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 14,
+    textAlign: 'center',
   },
 });

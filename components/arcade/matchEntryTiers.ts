@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 
-/** Demo tier list: entry fee (USD) and listed prize for head-to-head skill matches. */
+/** Demo tier list: contest participation fee (USD) and pre-announced fixed reward for 1v1 skill contests (platform-funded; not pooled P2P wagering). */
 export type MatchEntryTier = {
   entry: number;
   prize: number;

@@ -5,19 +5,28 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import {
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { useProfile } from '@/hooks/useProfile';
+import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { theme } from '@/lib/theme';
+import { awardRedeemTicketsForPrizeRun, ticketsFromTurboArenaPrizeRun } from '@/lib/ticketPayouts';
+import { useAuthStore } from '@/store/authStore';
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
@@ -33,13 +42,33 @@ import {
 } from './TurboArenaEngine';
 
 // ── Scaling helpers ───────────────────────────
+// Primary: measure the flex slot between HUD and controls so the arena uses all
+// remaining space (fixed reserves were too pessimistic and shrank the playfield).
+// Fallback: rough estimate before first onLayout.
 
-function useArenaScale(sw: number, sh: number) {
-  const maxW = Math.min(sw - 16, 680);
-  const scale = maxW / TURBO.worldW;
-  const arenaW = TURBO.worldW * scale;
-  const arenaH = TURBO.worldH * scale;
-  return { scale, arenaW, arenaH };
+function measureArenaSlot(slotW: number, slotH: number) {
+  const pad = 8;
+  const availW = Math.max(40, slotW - pad);
+  const availH = Math.max(40, slotH - pad);
+  const rawScale = Math.min(availW / TURBO.worldW, availH / TURBO.worldH);
+  const scale =
+    Number.isFinite(rawScale) && rawScale > 0 ? Math.max(0.06, Math.min(rawScale, 4)) : 0.25;
+  return {
+    scale,
+    arenaW: TURBO.worldW * scale,
+    arenaH: TURBO.worldH * scale,
+  };
+}
+
+function estimateArenaBeforeLayout(
+  sw: number,
+  sh: number,
+  insets: { top: number; bottom: number; left: number; right: number },
+) {
+  const innerW = sw - insets.left - insets.right - 16;
+  const innerH = sh - insets.top - insets.bottom;
+  const chromeGuess = 40 + 100;
+  return measureArenaSlot(Math.max(120, innerW), Math.max(120, innerH - chromeGuess));
 }
 
 // ── Arena view ────────────────────────────────
@@ -49,13 +78,11 @@ function ArenaView({
   scale,
   arenaW,
   arenaH,
-  frameCount,
 }: {
   state: TurboArenaState;
   scale: number;
   arenaW: number;
   arenaH: number;
-  frameCount: number;
 }) {
   const { player, cpu, ball } = state;
   const groundY = TURBO.groundY * scale;
@@ -407,60 +434,79 @@ function CarView({
 
 // ── D-pad controls ────────────────────────────
 
+/** Extra touch slop so steer / actions work together with two thumbs */
+const CONTROL_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+
+function setJumpInput(inputsRef: MutableRefObject<TurboInputs>) {
+  if (!inputsRef.current.jump) {
+    inputsRef.current = { ...inputsRef.current, jump: true };
+    setTimeout(() => {
+      inputsRef.current = { ...inputsRef.current, jump: false };
+    }, 80);
+  }
+}
+
 function DPad({
   inputsRef,
 }: {
   inputsRef: MutableRefObject<TurboInputs>;
 }) {
   const setKey = (key: keyof TurboInputs, val: boolean) => {
-    if (key === 'jump' && val && !inputsRef.current.jump) {
-      // Leading-edge only for jump
-      inputsRef.current = { ...inputsRef.current, jump: true };
-      setTimeout(() => {
-        inputsRef.current = { ...inputsRef.current, jump: false };
-      }, 80);
-    } else if (key !== 'jump') {
-      inputsRef.current = { ...inputsRef.current, [key]: val };
-    }
+    inputsRef.current = { ...inputsRef.current, [key]: val };
   };
 
   return (
     <View style={styles.dpad}>
-      {/* Left */}
       <Pressable
-        style={styles.dpadBtn}
+        hitSlop={CONTROL_HIT_SLOP}
+        pressRetentionOffset={{ top: 28, bottom: 28, left: 36, right: 36 }}
+        style={styles.steerBtn}
         onPressIn={() => setKey('left', true)}
         onPressOut={() => setKey('left', false)}
       >
-        <Text style={styles.dpadIcon}>◀</Text>
+        <Text style={styles.steerIcon}>◀</Text>
       </Pressable>
 
-      {/* Jump */}
       <Pressable
-        style={[styles.dpadBtn, styles.jumpBtn]}
-        onPressIn={() => setKey('jump', true)}
-      >
-        <Text style={[styles.dpadIcon, { color: '#ffff00', fontSize: 13 }]}>JUMP</Text>
-      </Pressable>
-
-      {/* Right */}
-      <Pressable
-        style={styles.dpadBtn}
+        hitSlop={CONTROL_HIT_SLOP}
+        pressRetentionOffset={{ top: 28, bottom: 28, left: 36, right: 36 }}
+        style={styles.steerBtn}
         onPressIn={() => setKey('right', true)}
         onPressOut={() => setKey('right', false)}
       >
-        <Text style={styles.dpadIcon}>▶</Text>
-      </Pressable>
-
-      {/* Boost */}
-      <Pressable
-        style={[styles.dpadBtn, styles.boostBtn]}
-        onPressIn={() => setKey('boost', true)}
-        onPressOut={() => setKey('boost', false)}
-      >
-        <Text style={[styles.dpadIcon, { color: '#ff00cc', fontSize: 11 }]}>BOOST</Text>
+        <Text style={styles.steerIcon}>▶</Text>
       </Pressable>
     </View>
+  );
+}
+
+/** Boost hold — placed after the boost meter (away from ◀/▶) to reduce mis-taps. */
+function BoostHoldBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> }) {
+  const setKey = (key: keyof TurboInputs, val: boolean) => {
+    inputsRef.current = { ...inputsRef.current, [key]: val };
+  };
+
+  return (
+    <Pressable
+      hitSlop={CONTROL_HIT_SLOP}
+      style={styles.boostHoldBtn}
+      onPressIn={() => setKey('boost', true)}
+      onPressOut={() => setKey('boost', false)}
+    >
+      <Text style={styles.boostHoldLabel}>BOOST</Text>
+    </Pressable>
+  );
+}
+
+function JumpBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> }) {
+  return (
+    <Pressable
+      hitSlop={CONTROL_HIT_SLOP}
+      style={[styles.dpadBtn, styles.jumpBtn]}
+      onPressIn={() => setJumpInput(inputsRef)}
+    >
+      <Text style={[styles.dpadIcon, { color: '#ffff00', fontSize: 13 }]}>JUMP</Text>
+    </Pressable>
   );
 }
 
@@ -469,15 +515,16 @@ function KickBtn({
 }: {
   inputsRef: MutableRefObject<TurboInputs>;
 }) {
+  const setKick = (v: boolean) => {
+    inputsRef.current = { ...inputsRef.current, kick: v };
+  };
+
   return (
     <Pressable
+      hitSlop={CONTROL_HIT_SLOP}
       style={styles.kickBtn}
-      onPressIn={() => {
-        inputsRef.current = { ...inputsRef.current, kick: true };
-        setTimeout(() => {
-          inputsRef.current = { ...inputsRef.current, kick: false };
-        }, 80);
-      }}
+      onPressIn={() => setKick(true)}
+      onPressOut={() => setKick(false)}
     >
       <Text style={styles.kickText}>⚡ KICK</Text>
     </Pressable>
@@ -506,13 +553,18 @@ type Props = { playMode?: TurboArenaPlayMode };
 export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   useHidePlayTabBar();
   const router = useRouter();
+  const uid = useAuthStore((s) => s.user?.id);
+  const profileQ = useProfile(uid);
   const { width: sw, height: sh } = useWindowDimensions();
-  const { scale, arenaW, arenaH } = useArenaScale(sw, sh);
-
+  const insets = useSafeAreaInsets();
+  const [arenaSlot, setArenaSlot] = useState<{ w: number; h: number } | null>(null);
   const [phase, setPhase] = useState<'intro' | 'countdown' | 'playing' | 'done'>('intro');
   const [difficulty, setDifficulty] = useState<AiDifficulty>('medium');
   const [, setUiTick] = useState(0);
   const stateRef = useRef<TurboArenaState | null>(null);
+  const ticketsAwardedRef = useRef(false);
+  const matchEndedRef = useRef(false);
+  const navigation = useNavigation();
 
   const p1InputsRef = useRef<TurboInputs>({
     left: false,
@@ -522,13 +574,90 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
     kick: false,
   });
 
+  const effectiveDifficulty: AiDifficulty = playMode === 'prize' ? 'hard' : difficulty;
+
+  const { scale, arenaW, arenaH } = useMemo(() => {
+    if (arenaSlot && arenaSlot.w > 0 && arenaSlot.h > 0) {
+      return measureArenaSlot(arenaSlot.w, arenaSlot.h);
+    }
+    return estimateArenaBeforeLayout(sw, sh, insets);
+  }, [arenaSlot, sw, sh, insets]);
+
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
+  /** Full reset when leaving the screen so the next visit isn’t stuck on an old match */
+  const resetSession = useCallback(() => {
+    stateRef.current = null;
+    ticketsAwardedRef.current = false;
+    matchEndedRef.current = false;
+    p1InputsRef.current = {
+      left: false,
+      right: false,
+      jump: false,
+      boost: false,
+      kick: false,
+    };
+    setArenaSlot(null);
+    setPhase('intro');
+    bump();
+  }, [bump]);
+
+  /** Landscape for the whole Turbo Arena session (intro → match → results). Portrait only after unmount / leave. */
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+    return () => {
+      requestAnimationFrame(() => {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      });
+    };
+  }, []);
+
+  /** Re-assert landscape when returning to this screen (e.g. app switcher) — no cleanup (avoids Modal blur bugs). */
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') return;
+      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+    }, []),
+  );
+
+  /** Reset match state only when actually leaving the route — not when a Modal steals focus. */
+  useEffect(() => {
+    const sub = navigation.addListener('beforeRemove', () => {
+      resetSession();
+    });
+    return sub;
+  }, [navigation, resetSession]);
+
+  useEffect(() => {
+    if (phase === 'intro') setArenaSlot(null);
+  }, [phase]);
+
+  useEffect(() => {
+    if (playMode === 'prize') {
+      setDifficulty('hard');
+    }
+  }, [playMode]);
+
   const startRun = useCallback(() => {
+    if (playMode === 'prize') {
+      const ok = consumePrizeRunEntryCredits(
+        profileQ.data?.prize_credits,
+        TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
+      );
+      if (!ok) {
+        Alert.alert(
+          'Not enough prize credits',
+          `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits (HARD AI). Practice is free.`,
+        );
+        return;
+      }
+    }
+    ticketsAwardedRef.current = false;
     stateRef.current = createTurboArenaState();
     setPhase('countdown');
     bump();
-  }, [bump]);
+  }, [bump, playMode, profileQ.data?.prize_credits]);
 
   const onCountdownDone = useCallback(() => {
     setPhase('playing');
@@ -539,19 +668,29 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
       const s = stateRef.current;
       if (!s) return;
 
-      stepTurboArena(s, dtMs, p1InputsRef.current, difficulty);
+      stepTurboArena(s, dtMs, p1InputsRef.current, effectiveDifficulty);
 
-      if (s.timeLeftMs <= 0) {
+      if (s.timeLeftMs <= 0 && !matchEndedRef.current) {
+        matchEndedRef.current = true;
         setPhase('done');
       }
       bump();
     },
-    [bump, difficulty],
+    [bump, effectiveDifficulty],
   );
 
   useRafLoop(loop, phase === 'playing');
 
   const snap = stateRef.current;
+
+  useEffect(() => {
+    if (phase !== 'done' || playMode !== 'prize') return;
+    const s = stateRef.current;
+    if (!s || ticketsAwardedRef.current) return;
+    ticketsAwardedRef.current = true;
+    const n = ticketsFromTurboArenaPrizeRun(s.scoreP1, s.scoreP2);
+    awardRedeemTicketsForPrizeRun(n);
+  }, [phase, playMode]);
 
   const winnerTitle =
     snap && phase === 'done'
@@ -562,21 +701,32 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
           : 'Draw!'
       : '';
 
+  const goBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const prizeResultFootnote =
+    playMode === 'prize' && snap
+      ? `+${ticketsFromTurboArenaPrizeRun(snap.scoreP1, snap.scoreP2)} redeem tickets (goals + win bonus)`
+      : undefined;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.root}>
-        <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
-            <Ionicons name="chevron-back" size={22} color="#22d3ee" />
-          </Pressable>
-          <Text style={styles.topBarTitle}>Turbo Arena</Text>
-          <View style={styles.backBtnPlaceholder} />
-        </View>
+        {phase === 'intro' ? (
+          <View style={styles.topBar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={goBack}
+              style={styles.backBtn}
+            >
+              <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+            </Pressable>
+            <Text style={styles.topBarTitle}>Turbo Arena</Text>
+            <View style={styles.backBtnPlaceholder} />
+          </View>
+        ) : null}
 
         {/* ── Intro ── */}
         {phase === 'intro' ? (
@@ -588,22 +738,30 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
             <Text style={styles.introTitle}>TURBO ARENA</Text>
             <Text style={styles.introSub}>RETRO ROCKET SOCCER</Text>
             {playMode === 'prize' ? (
-              <Text style={styles.prizeHint}>Prize run — uses prize credits like other arcade games</Text>
+              <Text style={styles.prizeHint}>
+                Prize run · {TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} credits · HARD AI · 1 ticket per goal · +2 if you win
+              </Text>
             ) : null}
 
-            <View style={styles.modeRow}>
-              {(['easy', 'medium', 'hard'] as AiDifficulty[]).map((d) => (
-                <Pressable
-                  key={d}
-                  style={[styles.diffBtn, difficulty === d && styles.diffBtnActive]}
-                  onPress={() => setDifficulty(d)}
-                >
-                  <Text style={[styles.diffBtnText, difficulty === d && styles.diffBtnTextActive]}>
-                    {d.toUpperCase()}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {playMode === 'prize' ? (
+              <View style={styles.hardLockRow}>
+                <Text style={styles.hardLockTxt}>AI: HARD (prize runs)</Text>
+              </View>
+            ) : (
+              <View style={styles.modeRow}>
+                {(['easy', 'medium', 'hard'] as AiDifficulty[]).map((d) => (
+                  <Pressable
+                    key={d}
+                    style={[styles.diffBtn, difficulty === d && styles.diffBtnActive]}
+                    onPress={() => setDifficulty(d)}
+                  >
+                    <Text style={[styles.diffBtnText, difficulty === d && styles.diffBtnTextActive]}>
+                      {d.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             <AppButton title="▶  PLAY" onPress={startRun} />
             <Text style={styles.introHint}>
@@ -614,29 +772,54 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
 
         {/* ── Game HUD + Arena ── */}
         {(phase === 'countdown' || phase === 'playing' || phase === 'done') && snap ? (
-          <>
-            <MiniGameHUD
-              timeLeftMs={snap.timeLeftMs}
-              scoreP1={snap.scoreP1}
-              scoreP2={snap.scoreP2}
-              labelP1="Orange"
-              labelP2="Cyan"
-              subtitle="Turbo Arena · 2 min"
-            />
+          <View style={styles.gameColumn}>
+            <View style={[styles.matchHudRow, { backgroundColor: theme.colors.backgroundDeep }]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                onPress={goBack}
+                style={styles.hudBackBtn}
+              >
+                <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+              </Pressable>
+              <View style={styles.matchHudHud}>
+                <MiniGameHUD
+                  compact
+                  timeLeftMs={snap.timeLeftMs}
+                  scoreP1={snap.scoreP1}
+                  scoreP2={snap.scoreP2}
+                  labelP1="Orange"
+                  labelP2="Cyan"
+                />
+              </View>
+            </View>
 
-            <View style={styles.arenaWrap}>
+            <View
+              style={styles.arenaSlot}
+              onLayout={(e) => {
+                const { width, height } = e.nativeEvent.layout;
+                if (width > 0 && height > 0) {
+                  setArenaSlot((prev) =>
+                    prev && prev.w === width && prev.h === height ? prev : { w: width, h: height },
+                  );
+                }
+              }}
+            >
               <ArenaView state={snap} scale={scale} arenaW={arenaW} arenaH={arenaH} />
             </View>
 
-            {/* Controls */}
-            {phase === 'playing' && (
+            {phase === 'playing' ? (
               <View style={styles.controlsRow}>
                 <DPad inputsRef={p1InputsRef} />
                 <BoostBar boost={snap.player.boost} />
-                <KickBtn inputsRef={p1InputsRef} />
+                <BoostHoldBtn inputsRef={p1InputsRef} />
+                <View style={styles.jumpKickCluster}>
+                  <JumpBtn inputsRef={p1InputsRef} />
+                  <KickBtn inputsRef={p1InputsRef} />
+                </View>
               </View>
-            )}
-          </>
+            ) : null}
+          </View>
         ) : null}
 
         <Countdown active={phase === 'countdown'} onComplete={onCountdownDone} />
@@ -646,6 +829,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
           title={winnerTitle}
           scoreP1={snap?.scoreP1 ?? 0}
           scoreP2={snap?.scoreP2 ?? 0}
+          prizeFootnote={prizeResultFootnote}
           onRematch={startRun}
           onMenu={() => setPhase('intro')}
         />
@@ -728,6 +912,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 4,
   },
+  hardLockRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.45)',
+    backgroundColor: 'rgba(250,204,21,0.08)',
+  },
+  hardLockTxt: { color: 'rgba(250,204,21,0.95)', fontSize: 12, fontWeight: '900', letterSpacing: 2 },
   modeRow: { flexDirection: 'row', gap: 10 },
   diffBtn: {
     paddingHorizontal: 14,
@@ -740,8 +933,38 @@ const styles = StyleSheet.create({
   diffBtnText: { color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700', letterSpacing: 2 },
   diffBtnTextActive: { color: CYAN },
 
+  // Match HUD (compact strip + back)
+  matchHudRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(148,163,184,0.22)',
+  },
+  hudBackBtn: {
+    width: 40,
+    height: 40,
+    marginLeft: 4,
+    marginVertical: 2,
+    borderRadius: 20,
+    backgroundColor: 'rgba(248,250,252,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchHudHud: { flex: 1, minWidth: 0 },
+
   // Arena
-  arenaWrap: { alignItems: 'center', paddingTop: 6 },
+  gameColumn: { flex: 1, minHeight: 0 },
+  arenaSlot: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 4,
+  },
   arena: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -855,19 +1078,54 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    justifyContent: 'flex-start',
+    flexShrink: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderTopWidth: 1.5,
     borderTopColor: 'rgba(0,255,255,0.25)',
     backgroundColor: 'rgba(0,0,15,0.96)',
-    gap: 8,
+    gap: 10,
   },
   dpad: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: 148,
-    gap: 5,
+    flexWrap: 'nowrap',
+    gap: 8,
+    flexShrink: 0,
+  },
+  steerBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,255,255,0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(0,255,255,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  steerIcon: { color: CYAN, fontSize: 26, fontWeight: '800' },
+  boostHoldBtn: {
+    width: 50,
+    height: 52,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: 'rgba(255,0,204,0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,0,204,0.5)',
+  },
+  boostHoldLabel: {
+    color: '#ff00cc',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  jumpKickCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   dpadBtn: {
     width: 46,
@@ -882,10 +1140,6 @@ const styles = StyleSheet.create({
   jumpBtn: {
     borderColor: 'rgba(255,255,0,0.4)',
     backgroundColor: 'rgba(255,255,0,0.06)',
-  },
-  boostBtn: {
-    borderColor: 'rgba(255,0,204,0.4)',
-    backgroundColor: 'rgba(255,0,204,0.06)',
   },
   dpadIcon: { color: CYAN, fontSize: 18, fontWeight: '700' },
 

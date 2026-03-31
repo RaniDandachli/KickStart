@@ -168,6 +168,30 @@ export function TurboArenaGameIcon({ size = 40 }: IconProps) {
   );
 }
 
+/** Neon Pocket — top-down pool table + cue ball (generic game, not a trademarked title). */
+export function NeonPoolGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id="npFelt" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#047857" />
+            <Stop offset="100%" stopColor="#022c22" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#1c1917" />
+        <Rect x="8" y="12" width="32" height="24" rx="3" fill="url(#npFelt)" />
+        <Circle cx="16" cy="24" r="4" fill="#f8fafc" stroke="#0f172a" strokeWidth="0.8" />
+        <Circle cx="30" cy="22" r="3.5" fill="#fbbf24" stroke="#0f172a" strokeWidth="0.6" />
+        <Circle cx="28" cy="28" r="3.5" fill="#1e293b" stroke="#f8fafc" strokeWidth="0.6" />
+        <Circle cx="14" cy="18" r="2" fill="#0a0a0a" />
+        <Circle cx="34" cy="30" r="2" fill="#0a0a0a" />
+      </Svg>
+    </View>
+  );
+}
+
 export function DashDuelGameIcon({ size = 40 }: IconProps) {
   const s = size;
   return (

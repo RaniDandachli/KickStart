@@ -12,6 +12,32 @@ export const TILE_CLASH_POINTS_PER_TICKET = 50;
 export const DASH_DUEL_POINTS_PER_TICKET = 120;
 /** Neon Ball Run — distance score; 25 → 1 ticket (between Tap Dash and Tile Clash pace). */
 export const BALL_RUN_POINTS_PER_TICKET = 25;
+/** Neon Pocket (pool) — table score; 200 → 1 ticket. */
+export const NEON_POOL_POINTS_PER_TICKET = 200;
+
+/** Turbo Arena (prize run vs AI, HARD) — each goal you score + 2 bonus if you win the match. */
+export const TURBO_ARENA_TICKETS_PER_GOAL = 1;
+export const TURBO_ARENA_WIN_BONUS_TICKETS = 2;
+
+export function ticketsFromTurboArenaPrizeRun(playerGoals: number, cpuGoals: number): number {
+  const g = Math.max(0, Math.floor(playerGoals));
+  const win = playerGoals > cpuGoals ? TURBO_ARENA_WIN_BONUS_TICKETS : 0;
+  return g * TURBO_ARENA_TICKETS_PER_GOAL + win;
+}
+
+/** For Arcade “how to earn tickets” UI — single source of truth with game names. */
+export const ARCADE_TICKET_SCORE_RULES: readonly {
+  game: string;
+  /** What the score represents in-game */
+  scoreLabel: string;
+  pointsPerTicket: number;
+}[] = [
+  { game: 'Tap Dash', scoreLabel: 'Run points', pointsPerTicket: TAP_DASH_POINTS_PER_TICKET },
+  { game: 'Tile Clash', scoreLabel: 'Round score', pointsPerTicket: TILE_CLASH_POINTS_PER_TICKET },
+  { game: 'Dash Duel', scoreLabel: 'Displayed points', pointsPerTicket: DASH_DUEL_POINTS_PER_TICKET },
+  { game: 'Neon Ball Run', scoreLabel: 'Distance score', pointsPerTicket: BALL_RUN_POINTS_PER_TICKET },
+  { game: 'Neon Pocket', scoreLabel: 'Table score', pointsPerTicket: NEON_POOL_POINTS_PER_TICKET },
+];
 
 export function ticketsFromTapDashScore(score: number): number {
   return Math.max(0, Math.floor(score / TAP_DASH_POINTS_PER_TICKET));
@@ -27,6 +53,10 @@ export function ticketsFromDashDuelDisplayedScore(displayedPts: number): number 
 
 export function ticketsFromBallRunScore(score: number): number {
   return Math.max(0, Math.floor(score / BALL_RUN_POINTS_PER_TICKET));
+}
+
+export function ticketsFromNeonPoolScore(score: number): number {
+  return Math.max(0, Math.floor(score / NEON_POOL_POINTS_PER_TICKET));
 }
 
 /**

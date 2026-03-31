@@ -1,333 +1,771 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// ─────────────────────────────────────────────────────────────
+//  NeonBallRunGame.tsx  –  single-player / prize-run mode
+//  Renderer: @react-three/fiber (R3F) + expo-gl
+//  Mirrors TapDashGame.tsx conventions exactly
+// ─────────────────────────────────────────────────────────────
+
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
+import { Canvas, invalidate, useFrame, useThree } from '@react-three/fiber/native';
+import * as THREE from 'three';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
-import { awardRedeemTicketsForPrizeRun, BALL_RUN_POINTS_PER_TICKET, ticketsFromBallRunScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
-import {
-  createBallRunState,
-  displayScore,
-  getRunSeed,
-  jump,
-  laneLeft,
-  laneRight,
-  type BallRunState,
-} from '@/minigames/ballrun/BallRunEngine';
-import { BallRunScene3D } from '@/minigames/ballrun/BallRunScene3D';
+import { getSupabase } from '@/supabase/client';
+import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
+import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
-import { getSupabase } from '@/supabase/client';
 
-const HIGH_KEY = 'ball_run_high_v2';
+import { BALL_RUN } from './ballRunConstants';
+import {
+  createNeonBallRunState,
+  getBallX,
+  mergedGapBlockedLanes,
+  queueJump,
+  queueShift,
+  stepNeonBallRun,
+  surfaceY,
+  type NeonBallRunState,
+  type RampSegment,
+} from './BallRunEngine';
 
-type Phase = 'ready' | 'playing' | 'paused' | 'over';
+// ── Prize scoring ─────────────────────────────────────────────
+const POINTS_PER_TICKET = 150;
+function ticketsFromScore(score: number) { return Math.floor(score / POINTS_PER_TICKET); }
 
-function modeLabel(tier: number): string {
-  if (tier >= 9) return 'HYPER';
-  if (tier >= 5) return 'FAST';
-  return 'MEDIUM';
+// ── Materials (shared, created once per Canvas) ───────────────
+
+const CYAN = '#00ffff';
+const PINK = '#ff00cc';
+const PURPLE = '#aa00ff';
+const CHEVRON_YELLOW = '#e8cf00';
+const TRACK_BLACK = '#080810';
+
+// ── 3D Scene components ───────────────────────────────────────
+
+/** Camera follows ball from behind and above (snap placement so the lane stays in frame on native GL). */
+function FollowCamera({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const { camera } = useThree();
+
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    const bx = getBallX(s);
+    const targetY = s.ballY + 6;
+    const targetZ = s.ballZ + 12;
+    camera.position.set(bx, targetY, targetZ);
+    camera.lookAt(bx, s.ballY + 0.4, s.ballZ - 14);
+    if ('updateProjectionMatrix' in camera && typeof camera.updateProjectionMatrix === 'function') {
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
 }
 
-type Props = { playMode: 'practice' | 'prize'; /** Deterministic course for 1v1 / replays */ runSeed?: number };
+/** Neon grid floor extending into the distance */
+function NeonGrid({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const meshRef = useRef<THREE.Mesh>(null);
 
-export default function BallRunGame({ playMode, runSeed }: Props) {
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s || !meshRef.current) return;
+    meshRef.current.position.z = s.ballZ - 30;
+  });
+
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]}>
+      <planeGeometry args={[80, 120, 20, 30]} />
+      <meshBasicMaterial color="#1e1a4a" wireframe opacity={0.22} transparent />
+    </mesh>
+  );
+}
+
+/** Dark void below gaps — reads as “jump the gap” like endless runners. */
+function VoidAbyss({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const laneW = (BALL_RUN.laneCount - 1) * BALL_RUN.laneSpacing + BALL_RUN.tileWidth * 3;
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s || !meshRef.current) return;
+    const bx = getBallX(s);
+    meshRef.current.position.set(bx, -14, s.ballZ - 20);
+  });
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[laneW + 24, 320]} />
+      <meshBasicMaterial color="#050008" />
+    </mesh>
+  );
+}
+
+/** Sky backdrop with stars */
+function SkyDome() {
+  return (
+    <>
+      {/* Fog-like background color handled by scene */}
+      {Array.from({ length: 60 }, (_, i) => {
+        const x = (((i * 73 + 17) % 100) / 100 - 0.5) * 80;
+        const y = ((i * 47 + 31) % 100) / 100 * 20 + 3;
+        const z = -(((i * 31 + 7) % 100) / 100) * 80 - 5;
+        const brightness = 0.4 + (i % 5) * 0.12;
+        return (
+          <mesh key={i} position={[x, y, z]}>
+            <sphereGeometry args={[0.06 + (i % 3) * 0.03, 4, 4]} />
+            <meshBasicMaterial color={`hsl(${(i * 37) % 60 + 180}, 80%, ${Math.round(brightness * 100)}%)`} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+/** One tilted ramp deck (Subway-style) + lane strips + hole pits. */
+function RampSegmentMesh({ seg }: { seg: RampSegment }) {
+  const len = seg.zStart - seg.zEnd;
+  const midZ = (seg.zStart + seg.zEnd) / 2;
+  const midY = (seg.yStart + seg.yEnd) / 2;
+  const pitch = Math.atan2(seg.yStart - seg.yEnd, len);
+  const laneHalf = (BALL_RUN.laneCount - 1) / 2;
+  const lw = BALL_RUN.tileWidth - 0.06;
+  const trackW = (BALL_RUN.laneCount - 1) * BALL_RUN.laneSpacing + lw + 1.2;
+
+  return (
+    <group>
+      {/* Substrate + rails */}
+      <mesh position={[0, midY + 0.11, midZ]} rotation={[-pitch, 0, 0]}>
+        <boxGeometry args={[trackW, 0.24, len]} />
+        <meshBasicMaterial color="#2d1a55" />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (trackW / 2 + 0.06), midY + 0.35, midZ]} rotation={[-pitch, 0, 0]}>
+          <boxGeometry args={[0.12, 0.5, len]} />
+          <meshBasicMaterial color="#ff44aa" />
+        </mesh>
+      ))}
+      {/* Per-lane deck strips (neon top) */}
+      {Array.from({ length: BALL_RUN.laneCount }, (_, i) => {
+        const x = (i - laneHalf) * BALL_RUN.laneSpacing;
+        if (!seg.laneSolid[i]) {
+          return (
+            <group key={`hole-${i}`} position={[x, midY - 0.05, midZ]} rotation={[-pitch, 0, 0]}>
+              <mesh position={[0, -0.45, 0]}>
+                <boxGeometry args={[lw + 0.04, 0.7, len * 0.94]} />
+                <meshBasicMaterial color="#120008" />
+              </mesh>
+            </group>
+          );
+        }
+        return (
+          <mesh key={`lane-${i}`} position={[x, midY + 0.14, midZ]} rotation={[-pitch, 0, 0]}>
+            <boxGeometry args={[lw, 0.1, len]} />
+            <meshBasicMaterial color="#4a2a8e" />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: BALL_RUN.laneCount }, (_, i) => {
+        if (!seg.laneSolid[i]) return null;
+        const x = (i - laneHalf) * BALL_RUN.laneSpacing;
+        return (
+          <mesh key={`edge-${i}`} position={[x, midY + 0.2, midZ]} rotation={[-pitch, 0, 0]}>
+            <boxGeometry args={[lw - 0.02, 0.04, len]} />
+            <meshBasicMaterial color={CYAN} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+function SpikeMesh({ x, z, yBase }: { x: number; z: number; yBase: number }) {
+  return (
+    <group position={[x, yBase + 0.65, z]}>
+      <mesh>
+        <coneGeometry args={[0.5, 1.25, 8]} />
+        <meshBasicMaterial color="#ff3366" />
+      </mesh>
+    </group>
+  );
+}
+
+function WallMesh({ x, z, yBase }: { x: number; z: number; yBase: number }) {
+  const w = BALL_RUN.tileWidth - 0.1;
+  return (
+    <group position={[x, yBase + 1.0, z]}>
+      <mesh>
+        <boxGeometry args={[w, 1.35, 0.22]} />
+        <meshBasicMaterial color="#8899b0" transparent opacity={0.5} />
+      </mesh>
+      <mesh position={[0, 0.68, 0]}>
+        <boxGeometry args={[w, 0.05, 0.26]} />
+        <meshBasicMaterial color={PINK} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Lane-hole hazard pit on tilted ramp (gap obstacle). */
+function GapPitMesh({ seg, blockedLanes, laneHalf }: { seg: RampSegment; blockedLanes: number[]; laneHalf: number }) {
+  if (blockedLanes.length === 0) return null;
+  const len = seg.zStart - seg.zEnd;
+  const midZ = (seg.zStart + seg.zEnd) / 2;
+  const midY = (seg.yStart + seg.yEnd) / 2;
+  const pitch = Math.atan2(seg.yStart - seg.yEnd, len);
+  const sorted = [...blockedLanes].sort((a, b) => a - b);
+  const minL = sorted[0]!;
+  const maxL = sorted[sorted.length - 1]!;
+  const centerLane = (minL + maxL) / 2;
+  const cx = (centerLane - laneHalf) * BALL_RUN.laneSpacing;
+  const width = (maxL - minL + 1) * BALL_RUN.laneSpacing - 0.1;
+  return (
+    <group position={[cx, midY + 0.02, midZ]} rotation={[-pitch, 0, 0]}>
+      <mesh position={[0, -0.28, 0]}>
+        <boxGeometry args={[width, 0.42, len * 0.92]} />
+        <meshBasicMaterial color="#3d0018" />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (width / 2 + 0.05), 0.18, 0]}>
+          <boxGeometry args={[0.12, 0.48, len * 0.92]} />
+          <meshBasicMaterial color="#ff4488" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function MovingMesh({
+  segmentId,
+  laneHalf,
+  stateRef,
+  seg,
+  which,
+}: {
+  segmentId: number;
+  laneHalf: number;
+  stateRef: React.MutableRefObject<NeonBallRunState | null>;
+  seg: RampSegment;
+  which: 'primary' | 'secondary';
+}) {
+  const zMid = (seg.zStart + seg.zEnd) / 2;
+  const zObs =
+    which === 'primary'
+      ? (seg.obstacleAnchorZ ?? zMid)
+      : (seg.obstacleAnchorZ2 ?? zMid);
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const s = stateRef.current;
+    const row = s?.segments.find((r) => r.id === segmentId);
+    if (!row) return;
+    const isPrimary = which === 'primary';
+    const moving = isPrimary ? row.obstacle === 'moving' && row.obstacleData : row.obstacle2 === 'moving' && row.obstacleData2;
+    if (!moving) return;
+    const d = isPrimary ? row.obstacleData! : row.obstacleData2!;
+    const ml = d.movingLane;
+    const x = (ml - laneHalf) * BALL_RUN.laneSpacing;
+    const zUse = isPrimary ? (row.obstacleAnchorZ ?? zObs) : (row.obstacleAnchorZ2 ?? zObs);
+    const y = surfaceY(row, zUse) + 0.85;
+    g.position.set(x, y, zUse);
+    g.rotation.y = clock.getElapsedTime() * 2.2;
+  });
+  return (
+    <group ref={groupRef}>
+      <mesh>
+        <boxGeometry args={[BALL_RUN.tileWidth * 0.85, 1.0, 0.75]} />
+        <meshBasicMaterial color="#ff6622" />
+      </mesh>
+    </group>
+  );
+}
+
+/** The neon ball */
+function BallMesh({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const rootRef = useRef<THREE.Group>(null);
+  const rollRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s || !rootRef.current) return;
+    const bx = getBallX(s);
+    rootRef.current.position.set(bx, s.ballY, s.ballZ);
+    if (rollRef.current) {
+      rollRef.current.rotation.x = (s.ballSpin * Math.PI) / 180;
+      rollRef.current.rotation.z = -(s.ballSpin * Math.PI) / 360;
+    }
+  });
+
+  return (
+    <group ref={rootRef}>
+      <mesh>
+        <sphereGeometry args={[BALL_RUN.ballRadius * 1.45, 12, 12]} />
+        <meshBasicMaterial color={CYAN} transparent opacity={0.12} />
+      </mesh>
+      <group ref={rollRef}>
+        <mesh>
+          <sphereGeometry args={[BALL_RUN.ballRadius, 24, 24]} />
+          <meshBasicMaterial color="#0d0d12" />
+        </mesh>
+        <mesh>
+          <sphereGeometry args={[BALL_RUN.ballRadius * 1.01, 16, 16]} />
+          <meshBasicMaterial color={CYAN} wireframe opacity={0.85} transparent />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** Burst particles */
+function ParticleMeshes({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s || !groupRef.current) return;
+
+    // Update child meshes to match particle state
+    const children = groupRef.current.children;
+    const particles = s.particles;
+
+    // Add/remove children as needed
+    while (children.length < particles.length) {
+      const geo = new THREE.SphereGeometry(0.08, 4, 4);
+      const mat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+      groupRef.current.add(new THREE.Mesh(geo, mat));
+    }
+    while (children.length > particles.length) {
+      groupRef.current.remove(children[children.length - 1]);
+    }
+
+    particles.forEach((p, i) => {
+      const child = children[i] as THREE.Mesh;
+      if (!child) return;
+      child.position.set(p.x, p.y, p.z);
+      child.scale.setScalar(p.size * p.life * 12);
+      const mat = child.material as THREE.MeshBasicMaterial;
+      mat.color.set(p.color);
+      mat.opacity = p.life;
+      mat.transparent = true;
+    });
+  });
+
+  return <group ref={groupRef} />;
+}
+
+/** Full track rendered from engine state.
+ *  R3F often will not reconcile row children when only `stateRef` mutates (parent React state is elsewhere).
+ *  Tick state from useFrame forces a React pass every frame so tiles/obstacles stay in sync with the sim.
+ */
+function TrackScene({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const [, setTick] = useState(0);
+  useFrame(() => {
+    setTick((n) => (n + 1) % 1_000_000);
+  });
+
+  const s = stateRef.current;
+  if (!s) return null;
+
+  return (
+    <>
+      {s.segments.map((seg) => (
+        <SegmentMeshes key={seg.id} seg={seg} stateRef={stateRef} />
+      ))}
+    </>
+  );
+}
+
+function SegmentMeshes({
+  seg,
+  stateRef,
+}: {
+  seg: RampSegment;
+  stateRef: React.MutableRefObject<NeonBallRunState | null>;
+}) {
+  const laneHalf = (BALL_RUN.laneCount - 1) / 2;
+  const zMid = (seg.zStart + seg.zEnd) / 2;
+  const gapLanes = mergedGapBlockedLanes(seg);
+
+  const renderSolidHazard = (
+    kind: NonNullable<RampSegment['obstacle']> | null,
+    data: RampSegment['obstacleData'],
+    anchorZ: number | null,
+    keyPrefix: string,
+  ) => {
+    if (!kind || !data || kind === 'gap') return null;
+    const zObs = anchorZ ?? zMid;
+    const yObs = surfaceY(seg, zObs);
+    return (
+      <>
+        {kind === 'spike'
+          ? data.blockedLanes.map((lane) => (
+              <SpikeMesh
+                key={`${keyPrefix}-sp${lane}`}
+                x={(lane - laneHalf) * BALL_RUN.laneSpacing}
+                z={zObs}
+                yBase={yObs}
+              />
+            ))
+          : null}
+        {kind === 'wall' || kind === 'barricade'
+          ? data.blockedLanes.map((lane) => (
+              <WallMesh
+                key={`${keyPrefix}-wl${lane}`}
+                x={(lane - laneHalf) * BALL_RUN.laneSpacing}
+                z={zObs}
+                yBase={yObs}
+              />
+            ))
+          : null}
+        {kind === 'moving' ? (
+          <MovingMesh
+            segmentId={seg.id}
+            laneHalf={laneHalf}
+            stateRef={stateRef}
+            seg={seg}
+            which={keyPrefix === 'a' ? 'primary' : 'secondary'}
+          />
+        ) : null}
+      </>
+    );
+  };
+
+  return (
+    <group>
+      <RampSegmentMesh seg={seg} />
+      {gapLanes.length > 0 ? <GapPitMesh seg={seg} blockedLanes={gapLanes} laneHalf={laneHalf} /> : null}
+      {renderSolidHazard(seg.obstacle, seg.obstacleData, seg.obstacleAnchorZ, 'a')}
+      {renderSolidHazard(seg.obstacle2, seg.obstacleData2, seg.obstacleAnchorZ2, 'b')}
+    </group>
+  );
+}
+
+/** Point lights for neon glow effect */
+function NeonLights({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  const light1Ref = useRef<THREE.PointLight>(null);
+  const light2Ref = useRef<THREE.PointLight>(null);
+
+  useFrame(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    const bx = getBallX(s);
+    if (light1Ref.current) light1Ref.current.position.set(bx, s.ballY + 2, s.ballZ);
+    if (light2Ref.current) light2Ref.current.position.set(bx, 0, s.ballZ - 4);
+  });
+
+  return (
+    <>
+      {/* distance must be 0 — small values black out meshStandard tiles far from the ball */}
+      <ambientLight intensity={0.55} color="#221a38" />
+      <hemisphereLight intensity={0.4} color="#8b7aad" groundColor="#050208" />
+      <pointLight ref={light1Ref} intensity={2.4} distance={0} decay={2} color={CYAN} />
+      <pointLight ref={light2Ref} intensity={1.3} distance={0} decay={2} color={PURPLE} />
+      <directionalLight position={[6, 16, 10]} intensity={0.65} color="#f0e8ff" />
+    </>
+  );
+}
+
+/** Full 3D scene */
+function GameScene({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+  return (
+    <>
+      <color attach="background" args={['#02001a']} />
+      <fog attach="fog" args={['#02001a', 55, 220]} />
+      <NeonLights stateRef={stateRef} />
+      <SkyDome />
+      <NeonGrid stateRef={stateRef} />
+      <VoidAbyss stateRef={stateRef} />
+      <TrackScene stateRef={stateRef} />
+      <BallMesh stateRef={stateRef} />
+      <ParticleMeshes stateRef={stateRef} />
+      <FollowCamera stateRef={stateRef} />
+    </>
+  );
+}
+
+// ── Swipe handler ─────────────────────────────────────────────
+
+function useSwipe(stateRef: React.MutableRefObject<NeonBallRunState | null>) {
+  const sx = useRef(0);
+  const sy = useRef(0);
+  const fired = useRef(false);
+
+  const onTouchStart = useCallback((e: GestureResponderEvent) => {
+    sx.current = e.nativeEvent.pageX;
+    sy.current = e.nativeEvent.pageY;
+    fired.current = false;
+  }, []);
+
+  const onTouchMove = useCallback((e: GestureResponderEvent) => {
+    if (fired.current || !stateRef.current?.alive) return;
+    const dx = e.nativeEvent.pageX - sx.current;
+    const dy = e.nativeEvent.pageY - sy.current;
+    if (Math.abs(dx) > 22 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      fired.current = true;
+      queueShift(stateRef.current, dx > 0 ? 1 : -1);
+    } else if (dy < -28 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      fired.current = true;
+      queueJump(stateRef.current);
+    }
+  }, []);
+
+  const onTouchEnd = useCallback((e: GestureResponderEvent) => {
+    if (!fired.current && stateRef.current?.alive) {
+      const dx = Math.abs(e.nativeEvent.pageX - sx.current);
+      const dy = Math.abs(e.nativeEvent.pageY - sy.current);
+      if (dx < 12 && dy < 12) queueJump(stateRef.current!);
+    }
+  }, []);
+
+  return { onTouchStart, onTouchMove, onTouchEnd };
+}
+
+// ── Speed bar ─────────────────────────────────────────────────
+
+function SpeedBar({ speed }: { speed: number }) {
+  const frac = (speed - BALL_RUN.baseSpeed) / (BALL_RUN.maxSpeed - BALL_RUN.baseSpeed);
+  return (
+    <View style={styles.speedRow}>
+      <Text style={styles.speedLabel}>SPEED</Text>
+      <View style={styles.speedTrack}>
+        <LinearGradient
+          colors={['#00ffff', '#ff00cc']}
+          start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+          style={[styles.speedFill, { width: `${Math.min(frac * 100, 100)}%` }]}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────
+
+export default function NeonBallRunGame({
+  playMode = 'practice',
+  runSeed: _runSeed,
+}: {
+  playMode?: 'practice' | 'prize';
+  /** Reserved for deterministic runs / leaderboards (engine is RNG today). */
+  runSeed?: number;
+}) {
   useHidePlayTabBar();
   const router = useRouter();
-  const profileQ = useProfile(useAuthStore((s) => s.user?.id));
+  const uid = useAuthStore((s) => s.user?.id);
+  const profileQ = useProfile(uid);
+  const prizeCredits = usePrizeCreditsDisplay();
+  const { height: sh } = useWindowDimensions();
 
-  const [phase, setPhase] = useState<Phase>('ready');
-  const [uiTick, setUiTick] = useState(0);
-  const [highScore, setHighScore] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const bump = useCallback(() => setUiTick((t) => t + 1), []);
-  const modelRef = useRef<BallRunState>(createBallRunState(runSeed));
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  const [, setUiTick] = useState(0);
+
+  const stateRef = useRef<NeonBallRunState | null>(null);
   const startTimeRef = useRef(0);
-  const endStatsRef = useRef({ score: 0, durationMs: 0, taps: 0 });
+  const endStatsRef = useRef({ score: 0, dodgeCount: 0, durationMs: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
 
-  useEffect(() => {
-    void AsyncStorage.getItem(HIGH_KEY).then((raw) => {
-      const n = raw ? parseInt(raw, 10) : 0;
-      if (Number.isFinite(n) && n > 0) setHighScore(n);
-    });
-  }, []);
+  const bump = useCallback(() => setUiTick(t => t + 1), []);
 
-  const resetRun = useCallback(() => {
-    modelRef.current = createBallRunState(runSeed);
-    setSubmitOk(false);
-    setPhase('ready');
-    bump();
-  }, [bump, runSeed]);
-
-  const endGame = useCallback(() => {
-    const m = modelRef.current;
-    const durationMs = Math.max(0, Date.now() - startTimeRef.current);
+  const endGame = useCallback((s: NeonBallRunState) => {
     endStatsRef.current = {
-      score: displayScore(m),
-      durationMs,
-      taps: m.inputEvents,
+      score: Math.floor(s.score),
+      dodgeCount: s.dodgeCount,
+      durationMs: Math.max(0, Date.now() - startTimeRef.current),
     };
-    const ds = displayScore(m);
-    void AsyncStorage.getItem(HIGH_KEY).then((raw) => {
-      const prev = raw ? parseInt(raw, 10) : 0;
-      const best = Math.max(Number.isFinite(prev) ? prev : 0, ds);
-      setHighScore(best);
-      void AsyncStorage.setItem(HIGH_KEY, String(best));
-    });
-    if (playMode === 'prize') {
-      awardRedeemTicketsForPrizeRun(ticketsFromBallRunScore(ds));
-    }
     setPhase('over');
     bump();
-  }, [bump, playMode]);
+  }, [bump]);
 
-  const onStart = useCallback(() => {
-    if (phase !== 'ready') return;
+  const step = useCallback((dtMs: number) => {
+    const s = stateRef.current;
+    if (!s) return;
+    stepNeonBallRun(s, dtMs / 1000);
+    if (!s.alive) { endGame(s); return; }
+    bump();
+    invalidate();
+  }, [bump, endGame]);
+
+  useRafLoop(step, phase === 'playing');
+
+  const startGame = useCallback(() => {
     if (playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
+        Alert.alert('Not enough prize credits', `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits.`);
         return;
       }
     }
-    modelRef.current = createBallRunState(runSeed);
+    stateRef.current = createNeonBallRunState();
     startTimeRef.current = Date.now();
     setSubmitOk(false);
     setPhase('playing');
     bump();
-  }, [phase, playMode, profileQ.data?.prize_credits, bump, runSeed]);
+  }, [playMode, profileQ.data?.prize_credits, bump]);
 
-  const goLeft = useCallback(() => {
-    if (phase !== 'playing' || paused) return;
-    laneLeft(modelRef.current);
+  const resetRun = useCallback(() => {
+    stateRef.current = null;
+    setSubmitOk(false);
+    setPhase('ready');
     bump();
-  }, [phase, paused, bump]);
-
-  const goRight = useCallback(() => {
-    if (phase !== 'playing' || paused) return;
-    laneRight(modelRef.current);
-    bump();
-  }, [phase, paused, bump]);
-
-  const swipeActionsRef = useRef({
-    goLeft,
-    goRight,
-    doJump: () => jump(modelRef.current, 0),
-  });
-  swipeActionsRef.current = { goLeft, goRight, doJump: () => jump(modelRef.current, 0) };
-
-  const swipeGateRef = useRef({ playing: false, paused: false });
-  swipeGateRef.current = { playing: phase === 'playing', paused };
-
-  const swipeResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () =>
-          swipeGateRef.current.playing && !swipeGateRef.current.paused,
-        onMoveShouldSetPanResponder: (_, g) =>
-          swipeGateRef.current.playing &&
-          !swipeGateRef.current.paused &&
-          (Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10),
-        onPanResponderRelease: (_, g) => {
-          if (!swipeGateRef.current.playing || swipeGateRef.current.paused) return;
-          const { dx, dy } = g;
-          const a = swipeActionsRef.current;
-          const SW = 42;
-          const TAP = 14;
-          const dist2 = dx * dx + dy * dy;
-          if (dist2 < TAP * TAP) {
-            a.doJump();
-            bump();
-            return;
-          }
-          if (Math.abs(dx) >= Math.abs(dy)) {
-            if (Math.abs(dx) < SW) return;
-            if (dx > 0) {
-              a.goRight();
-            } else {
-              a.goLeft();
-            }
-          } else if (dy < -SW) {
-            a.doJump();
-          } else {
-            return;
-          }
-          bump();
-        },
-      }),
-    [bump],
-  );
+  }, [bump]);
 
   const submitScore = useCallback(async () => {
-    const { score, durationMs, taps } = endStatsRef.current;
+    const { score, dodgeCount, durationMs } = endStatsRef.current;
     setSubmitting(true);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) {
-        Alert.alert('Sign in required', 'Log in to submit your score.');
-        return;
-      }
+      if (!sess.session) { Alert.alert('Sign in required', 'Log in to submit your score.'); return; }
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
-        body: {
-          game_type: 'ball_run' as const,
-          score,
-          duration_ms: durationMs,
-          taps,
-        },
+        body: { game_type: 'neon_ball_run', score, duration_ms: durationMs, dodges: dodgeCount },
       });
-      if (error) {
-        Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
-        return;
-      }
+      if (error) { Alert.alert('Submit failed', error.message ?? 'Could not reach server.'); return; }
       setSubmitOk(true);
     } finally {
-      setSubmitting(false);
-    }
+      setSubmitting(false); }
   }, []);
 
-  const m = modelRef.current;
-  void uiTick;
-  const cur = displayScore(m);
-  const tier = Math.min(14, Math.floor(m.timeMs / 11_000));
-  const showScore = phase === 'playing' || phase === 'paused' ? cur : phase === 'ready' ? 0 : endStatsRef.current.score;
+  const s = stateRef.current;
+  const swipe = useSwipe(stateRef);
+  const canvasH = sh * 0.68;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A0A0A' }]} />
 
-        <View style={styles.topHud} pointerEvents="box-none">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() => router.back()}
-            style={styles.roundBtn}
-          >
-            <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+        {/* Top bar */}
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
-
-          <View style={styles.pillsRow}>
-            <View
-              style={styles.pill}
-              accessibilityLabel={`Current score ${showScore} ${modeLabel(tier)} mode`}
-            >
-              <Text style={styles.pillLabel}>{modeLabel(tier)} MODE</Text>
-              <Text style={styles.pillVal}>{showScore}</Text>
-            </View>
-            <View style={styles.pillHi} accessibilityLabel={`All time high score ${highScore}`}>
-              <View style={styles.crownRow}>
-                <Ionicons name="trophy" size={12} color="#34d399" />
-                <Text style={styles.pillLabelHi}>ALL TIME</Text>
-              </View>
-              <Text style={styles.pillValHi}>{highScore}</Text>
-            </View>
+          <View style={styles.scoreCol}>
+            <Text style={styles.scoreText}>{s ? Math.floor(s.score) : 0}</Text>
+            {s && s.dodgeCount > 0 && (
+              <Text style={styles.dodgeText}>+{s.dodgeCount} dodge{s.dodgeCount !== 1 ? 's' : ''}</Text>
+            )}
           </View>
+          <View style={styles.creditsPill}>
+            <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+            <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
+          </View>
+        </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={paused ? 'Resume' : 'Pause'}
-            onPress={() => {
-              if (phase !== 'playing' && phase !== 'paused') return;
-              setPaused((p) => !p);
-            }}
-            style={styles.roundBtn}
-            disabled={phase !== 'playing' && phase !== 'paused'}
+        {phase === 'playing' && s && <SpeedBar speed={s.speed} />}
+
+        {/* 3D Canvas */}
+        <Pressable
+          style={[styles.canvasWrap, { height: canvasH }]}
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+          disabled={phase === 'over'}
+        >
+          <Canvas
+            style={{ flex: 1 }}
+            frameloop="always"
+            camera={{ position: [0, 6, 12], fov: 65, near: 0.1, far: 220 }}
+            gl={{ antialias: true }}
           >
-            <Ionicons name={paused ? 'play' : 'pause'} size={20} color="#22d3ee" />
-          </Pressable>
-        </View>
+            <GameScene stateRef={stateRef} />
+          </Canvas>
 
-        <View style={styles.stage}>
-          <BallRunScene3D
-            modelRef={modelRef}
-            phase={phase}
-            paused={paused}
-            onDead={endGame}
-            bump={bump}
-            tick={uiTick}
-          />
+          {/* Ready overlay */}
+          {phase === 'ready' && (
+            <View style={styles.readyOverlay}>
+              <Text style={styles.readyTitle}>NEON BALL RUN</Text>
+              <Text style={styles.readySub}>RAMP RUN · JUMP THE GAPS</Text>
+              <View style={styles.readyDivider} />
+              <Text style={styles.readyMode}>
+                {playMode === 'prize'
+                  ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${POINTS_PER_TICKET} score`
+                  : 'Practice · free · no credits spent'}
+              </Text>
+              <Text style={styles.readyHint}>Swipe ← → to dodge · Swipe ↑ or tap to jump</Text>
+              <Text style={styles.readyHint2}>Roll the ramps · jump gaps · dodge spikes and trains</Text>
+              <AppButton title="▶  ROLL" onPress={startGame} />
+            </View>
+          )}
+        </Pressable>
 
-          {phase === 'ready' ? (
-            <Pressable style={StyleSheet.absoluteFill} onPress={onStart}>
-              <View style={styles.intro} pointerEvents="none">
-                <Text style={styles.introTitle}>NEON BALL RUN</Text>
-                <Text style={styles.introSub}>
-                  {playMode === 'prize'
-                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket / ${BALL_RUN_POINTS_PER_TICKET} pts`
-                    : 'Practice · free'}
-                </Text>
-                <Text style={styles.introBody}>Jump over hurdles · dodge walls · lanes L/R</Text>
-                <Text style={styles.introCta}>Tap to start</Text>
-                <Text style={styles.seedHint}>Seed {getRunSeed(m)}</Text>
-              </View>
-            </Pressable>
-          ) : null}
+        {/* Control hint */}
+        {phase === 'playing' && (
+          <View style={styles.hintRow}>
+            <Text style={styles.hintText}>← swipe → to switch lanes · swipe ↑ or tap to jump gaps</Text>
+          </View>
+        )}
 
-          {phase === 'playing' && !paused ? (
-            <View
-              style={styles.swipeLayer}
-              accessibilityLabel="Ball run controls: swipe to move and jump"
-              {...swipeResponder.panHandlers}
-            />
-          ) : null}
-        </View>
-
-        {phase === 'over' ? (
+        {/* Game over — Modal so RN GL Canvas cannot paint above the UI (native layer ordering). */}
+        <Modal
+          visible={phase === 'over'}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => router.replace('/(app)/(tabs)/play/minigames')}
+        >
           <View style={styles.overlay}>
             <View style={styles.card}>
-              <Text style={styles.goTitle}>Game over</Text>
-              <Text style={styles.goScore}>Score {endStatsRef.current.score}</Text>
-              {playMode === 'prize' ? (
+              <View style={styles.goNavRow}>
+                <Pressable
+                  style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
+                  onPress={() => router.replace('/(app)/(tabs)/play/minigames')}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to minigames menu"
+                >
+                  <Ionicons name="chevron-back" size={24} color="#e2e8f0" />
+                  <Text style={styles.goNavLabel}>Minigames</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
+                  onPress={() => router.replace('/(app)/(tabs)')}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to home"
+                >
+                  <Ionicons name="home-outline" size={24} color="#e2e8f0" />
+                  <Text style={styles.goNavLabel}>Home</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.goTitle}>WIPED OUT</Text>
+              {s && <Text style={styles.goReason}>{s.deathReason}</Text>}
+              <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+              <Text style={styles.goDodge}>Obstacles dodged: {endStatsRef.current.dodgeCount}</Text>
+              {playMode === 'prize' && (
                 <Text style={styles.goTickets}>
-                  +{ticketsFromBallRunScore(endStatsRef.current.score)} redeem tickets
+                  +{ticketsFromScore(endStatsRef.current.score)} redeem tickets
                 </Text>
-              ) : null}
-              <AppButton title="Play again" onPress={resetRun} className="mb-3" />
-              <AppButton title="Exit" variant="ghost" onPress={() => router.back()} className="mb-3" />
+              )}
+              <AppButton title="Roll Again" onPress={resetRun} className="mb-3" />
               {playMode === 'prize' ? (
                 <>
                   <AppButton
-                    title={submitOk ? 'Score submitted' : 'Submit score'}
+                    title={submitOk ? 'Score submitted ✓' : 'Submit Score'}
                     variant="secondary"
                     loading={submitting}
                     disabled={submitOk || submitting}
                     onPress={submitScore}
                   />
-                  {submitting ? <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} /> : null}
+                  {submitting && <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />}
                 </>
               ) : (
-                <Text style={styles.practiceNote}>Practice — not on leaderboards.</Text>
+                <Text style={styles.practiceNote}>Practice run — not submitted to leaderboards.</Text>
               )}
-            </View>
-          </View>
-        ) : null}
-
-        <Modal visible={paused} transparent animationType="fade">
-          <View style={styles.pauseBackdrop}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused(false)} accessibilityLabel="Resume" />
-            <View style={styles.pauseCard}>
-              <Text style={styles.pauseTitle}>Paused</Text>
-              <AppButton title="Resume" onPress={() => setPaused(false)} />
             </View>
           </View>
         </Modal>
@@ -336,116 +774,93 @@ export default function BallRunGame({ playMode, runSeed }: Props) {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0A0A0A' },
+  safe: { flex: 1, backgroundColor: '#02001a' },
   root: { flex: 1 },
-  topHud: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingBottom: 8,
-    zIndex: 40,
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+    paddingHorizontal: 8, paddingTop: 2, paddingBottom: 6, zIndex: 30,
   },
-  roundBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(248,250,252,0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  scoreCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scoreText: {
+    color: '#F8FAFC', fontSize: 34, fontWeight: '900', letterSpacing: -0.5,
+    textShadowColor: '#00ffff', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
   },
-  pillsRow: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 6,
+  dodgeText: { marginTop: 1, color: 'rgba(0,255,136,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  creditsPill: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: 'rgba(15,23,42,0.85)',
+    borderWidth: 1, borderColor: 'rgba(94,234,212,0.35)',
+    minWidth: 72, justifyContent: 'center',
   },
-  pill: {
-    backgroundColor: 'rgba(0,0,0,0.88)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 96,
-    alignItems: 'center',
+  creditsText: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+
+  speedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
+  speedLabel: { fontSize: 8, letterSpacing: 2, color: 'rgba(0,255,255,0.55)', fontWeight: '700', width: 40 },
+  speedTrack: {
+    flex: 1, height: 5, backgroundColor: 'rgba(0,255,255,0.08)',
+    borderRadius: 3, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)', overflow: 'hidden',
   },
-  pillLabel: { color: 'rgba(248,250,252,0.92)', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  pillVal: { color: '#fff', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  pillHi: {
-    backgroundColor: 'rgba(0,0,0,0.88)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 96,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.4)',
-  },
-  crownRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pillLabelHi: { color: '#34d399', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  pillValHi: { color: '#34d399', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  stage: { flex: 1, position: 'relative' },
-  intro: {
+  speedFill: { height: '100%', borderRadius: 3 },
+
+  canvasWrap: { width: '100%', overflow: 'hidden', borderRadius: 0 },
+
+  readyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(10,10,10,0.78)',
-    padding: 20,
-    zIndex: 40,
+    backgroundColor: 'rgba(2,0,26,0.82)',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 12, paddingHorizontal: 32, zIndex: 40,
   },
-  introTitle: {
-    color: '#22d3ee',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 8,
+  readyTitle: {
+    fontSize: 34, fontWeight: '900', letterSpacing: 5, color: '#00ffff',
+    textShadowColor: '#00ffff', textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 },
   },
-  introSub: { color: 'rgba(203,213,225,0.9)', fontSize: 12, textAlign: 'center', marginBottom: 6 },
-  introBody: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginBottom: 16 },
-  introCta: { color: '#34d399', fontSize: 17, fontWeight: '900' },
-  seedHint: { marginTop: 14, color: 'rgba(100,116,139,0.85)', fontSize: 10, fontVariant: ['tabular-nums'] },
-  swipeLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 12,
-  },
+  readySub: { fontSize: 10, letterSpacing: 4, color: 'rgba(255,0,204,0.8)', fontWeight: '700' },
+  readyDivider: { width: 120, height: 1, backgroundColor: '#00ffff', opacity: 0.3, marginVertical: 4 },
+  readyMode: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, color: '#fde047', textAlign: 'center' },
+  readyHint: { fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', letterSpacing: 0.4 },
+  readyHint2: { fontSize: 11, color: 'rgba(255,80,80,0.65)', textAlign: 'center', letterSpacing: 0.3, marginBottom: 6 },
+
+  hintRow: { paddingVertical: 8, alignItems: 'center' },
+  hintText: { color: 'rgba(0,255,255,0.35)', fontSize: 11, letterSpacing: 0.5, fontWeight: '600' },
+
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
+    flex: 1,
+    backgroundColor: 'rgba(2,6,15,0.94)',
     justifyContent: 'center',
-    zIndex: 50,
-    padding: 20,
+    alignItems: 'center',
+    padding: 24,
   },
   card: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 16,
-    padding: 20,
-    backgroundColor: 'rgba(15,23,42,0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.35)',
+    width: '100%', maxWidth: 360, padding: 22, borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(0,255,255,0.3)',
+    backgroundColor: 'rgba(8,0,30,0.98)',
+    shadowColor: '#00ffff', shadowOpacity: 0.14, shadowRadius: 20, gap: 8,
   },
-  goTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 8 },
-  goScore: { color: '#e2e8f0', fontSize: 18, fontWeight: '800', marginBottom: 6 },
-  goTickets: { color: '#5eead4', fontSize: 14, marginBottom: 12 },
-  practiceNote: { color: 'rgba(148,163,184,0.9)', fontSize: 13, marginTop: 8, textAlign: 'center' },
-  pauseBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  goNavRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', marginBottom: 4, paddingBottom: 10,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0,255,255,0.12)',
   },
-  pauseCard: {
-    padding: 24,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15,23,42,0.98)',
-    minWidth: 240,
-    alignItems: 'center',
-    gap: 12,
+  goNavBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 6, paddingHorizontal: 4,
   },
-  pauseTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  goNavLabel: {
+    color: '#f1f5f9', fontSize: 14, fontWeight: '800', letterSpacing: 0.3,
+  },
+  goTitle: {
+    color: '#ff00cc', fontSize: 26, fontWeight: '900', textAlign: 'center', letterSpacing: 4,
+    textShadowColor: '#ff00cc', textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 },
+  },
+  goReason: { color: 'rgba(255,100,100,0.85)', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  goScore: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  goDodge: { color: 'rgba(0,255,136,0.8)', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  goTickets: { color: '#FDE047', fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  practiceNote: { color: 'rgba(148,163,184,0.9)', fontSize: 13, fontWeight: '600', textAlign: 'center' },
 });

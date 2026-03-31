@@ -8,6 +8,8 @@ export default function MinigamesStackLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background },
+        animation: 'slide_from_right',
+        gestureEnabled: true,
       }}
     />
   );

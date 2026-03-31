@@ -10,8 +10,14 @@ interface Props {
   scoreP2: number;
   labelP1?: string;
   labelP2?: string;
+  /** Prize run footer (e.g. tickets earned). */
+  prizeFootnote?: string;
   onRematch: () => void;
   onMenu: () => void;
+  /** Optional — e.g. leave fullscreen / go to app home tab. */
+  onHome?: () => void;
+  /** Android hardware back — defaults to same as Mini-games. */
+  onRequestClose?: () => void;
 }
 
 export function MiniResultsModal({
@@ -21,11 +27,19 @@ export function MiniResultsModal({
   scoreP2,
   labelP1 = 'You',
   labelP2 = 'AI',
+  prizeFootnote,
   onRematch,
   onMenu,
+  onHome,
+  onRequestClose,
 }: Props) {
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onRequestClose ?? onMenu}
+    >
       <View className="flex-1 items-center justify-center bg-violet-950/55 px-5">
         <View
           className="w-full max-w-md rounded-3xl border-4 border-amber-400 bg-fuchsia-50 p-6"
@@ -43,8 +57,14 @@ export function MiniResultsModal({
               <Text className="text-4xl font-black text-violet-950">{Math.round(scoreP2)}</Text>
             </View>
           </View>
+          {prizeFootnote ? (
+            <Text className="mb-4 text-center text-sm font-bold text-violet-700">{prizeFootnote}</Text>
+          ) : null}
           <AppButton title="Rematch" onPress={onRematch} />
           <AppButton className="mt-3" title="Mini-games" variant="secondary" onPress={onMenu} />
+          {onHome ? (
+            <AppButton className="mt-3" title="Home" variant="ghost" onPress={onHome} />
+          ) : null}
         </View>
       </View>
     </Modal>

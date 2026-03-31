@@ -3,19 +3,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import { PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
-type Props = {
+type ModalProps = {
   visible: boolean;
   gameTitle: string;
   onClose: () => void;
-  /** Free practice — no credits spent. */
   onPractice: () => void;
-  /** Spend prize credits to enter a run that can earn more credits. */
   onPrizeRun: () => void;
+  /** Defaults to standard arcade entry (10). Turbo Arena uses 20. */
+  prizeEntryCredits?: number;
 };
+import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
-export function ArcadePlayModeModal({ visible, gameTitle, onClose, onPractice, onPrizeRun }: Props) {
+export function ArcadePlayModeModal({
+  visible,
+  gameTitle,
+  onClose,
+  onPractice,
+  onPrizeRun,
+  prizeEntryCredits = PRIZE_RUN_ENTRY_CREDITS,
+}: ModalProps) {
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -46,8 +53,8 @@ export function ArcadePlayModeModal({ visible, gameTitle, onClose, onPractice, o
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>Play for prizes</Text>
                 </View>
                 <Text style={styles.cardBody}>
-                  Costs {PRIZE_RUN_ENTRY_CREDITS} prize credits to start · win more credits (skill contest). Use tickets in
-                  Prizes to redeem physical rewards.
+                  Costs {prizeEntryCredits} prize credits to start · win more credits (skill contest). Use tickets in Prizes
+                  to redeem physical rewards.
                 </Text>
               </View>
             </LinearGradient>

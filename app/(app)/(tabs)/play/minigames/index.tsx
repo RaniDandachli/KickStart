@@ -7,15 +7,18 @@ import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonPoolGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 
 export default function MinigamesHubScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  useRestoreBottomTabBarOnFocus();
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -76,6 +79,16 @@ export default function MinigamesHubScreen() {
         borderAccent="cyan"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TurboArenaGameIcon size={36} />}
+      />
+      <ArcadeMinigameRow
+        gameRoute="neon-pool"
+        title="Neon Pocket"
+        entryLabel="Classic 8-ball rules · practice or prize"
+        winLabel="PLAY"
+        bgColors={['#052e16', '#0f172a', '#14532d']}
+        borderAccent="cyan"
+        entryColor="rgba(226,232,240,0.9)"
+        iconSlot={<NeonPoolGameIcon size={36} />}
       />
 
       <Pressable onPress={() => router.back()} accessibilityRole="button">

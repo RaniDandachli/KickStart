@@ -3,9 +3,10 @@ import { useRouter } from 'expo-router';
 
 import { ArcadeGameRow, type RunitBorderAccent } from '@/components/arcade/ArcadeGameRow';
 import { ArcadePlayModeModal } from '@/components/arcade/ArcadePlayModeModal';
+import { TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 
 type Props = {
-  gameRoute: 'tap-dash' | 'tile-clash' | 'dash-duel' | 'ball-run' | 'turbo-arena';
+  gameRoute: 'tap-dash' | 'tile-clash' | 'dash-duel' | 'ball-run' | 'turbo-arena' | 'neon-pool';
   title: string;
   entryLabel: string;
   winLabel: string;
@@ -14,22 +15,26 @@ type Props = {
   iconSlot: ReactNode;
   titleColor?: string;
   entryColor?: string;
+  /** Bigger card + glow on Arcade “Hot games” */
+  emphasized?: boolean;
 };
 
 const BASE = '/(app)/(tabs)/play/minigames';
 
 export function ArcadeMinigameRow(props: Props) {
   const router = useRouter();
-  const { gameRoute, title, ...rowProps } = props;
+  const { gameRoute, title, emphasized, ...rowProps } = props;
   const [open, setOpen] = useState(false);
   const path = `${BASE}/${gameRoute}`;
+  const prizeEntryCredits = gameRoute === 'turbo-arena' ? TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS : undefined;
 
   return (
     <>
-      <ArcadeGameRow {...rowProps} title={title} onPress={() => setOpen(true)} />
+      <ArcadeGameRow {...rowProps} title={title} emphasized={emphasized} onPress={() => setOpen(true)} />
       <ArcadePlayModeModal
         visible={open}
         gameTitle={title}
+        prizeEntryCredits={prizeEntryCredits}
         onClose={() => setOpen(false)}
         onPractice={() => {
           setOpen(false);

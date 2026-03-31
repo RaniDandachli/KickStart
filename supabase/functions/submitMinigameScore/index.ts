@@ -25,6 +25,12 @@ const Body = z.discriminatedUnion('game_type', [
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
   }),
+  z.object({
+    game_type: z.literal('neon_pool'),
+    score: z.number().int().min(0).max(1_000_000),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(2_000_000),
+  }),
 ]);
 
 /** Max pipes that can exist / be passed given spawn cadence (generous margin). */
@@ -37,6 +43,11 @@ function maxPlausibleTapDashScore(durationMs: number): number {
 /** Ball Run score ~ ∫ speed dt; generous cap vs session length. */
 function maxPlausibleBallRunScore(durationMs: number): number {
   return Math.floor(durationMs / 6 + 8000);
+}
+
+/** Pool score ~ balls + bonuses; ~25 per 10s session + cap */
+function maxPlausibleNeonPoolScore(durationMs: number): number {
+  return Math.floor(durationMs / 8 + 12000);
 }
 
 function stdev(arr: number[]): number {
@@ -103,12 +114,18 @@ Deno.serve(async (req) => {
     } else if (data.game_type === 'tile_clash') {
       const err = validateTileClash(score, duration_ms, taps, data.tap_intervals_ms);
       if (err) return errorResponse(err, 422);
-    } else {
+    } else if (data.game_type === 'ball_run') {
       if (score > maxPlausibleBallRunScore(duration_ms)) {
         return errorResponse('Score impossible for session duration', 422);
       }
       const maxLanes = Math.floor(duration_ms / 40) + 400;
       if (taps > maxLanes) return errorResponse('Invalid lane changes for duration', 422);
+    } else {
+      if (score > maxPlausibleNeonPoolScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      const maxShots = Math.floor(duration_ms / 400) + 400;
+      if (taps > maxShots) return errorResponse('Invalid shot count for duration', 422);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);

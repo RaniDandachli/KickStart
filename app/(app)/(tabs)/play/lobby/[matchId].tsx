@@ -45,7 +45,7 @@ export default function PreMatchLobbyScreen() {
             <View style={styles.prizeRow}>
               <Ionicons name="trophy-outline" size={18} color={runit.neonCyan} />
               <Text style={styles.prizeText}>
-                Listed prize ${activeMatch.listedPrizeUsd} · Entry ${activeMatch.entryFeeUsd ?? '—'} each (demo)
+                Fixed reward ${activeMatch.listedPrizeUsd} · Contest fee ${activeMatch.entryFeeUsd ?? '—'} each (demo)
               </Text>
             </View>
           ) : (

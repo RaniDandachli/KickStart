@@ -8,14 +8,15 @@ const START_CENTS = 1240;
 
 type DemoWalletState = {
   walletCents: number;
-  addPrizeCents: (cents: number) => void;
+  /** Add cash wallet balance (match payouts, demo top-up, simulated Stripe success). */
+  addWalletCents: (cents: number) => void;
   /** Head-to-head entry fee (demo). Returns false if balance too low. */
   trySpend: (cents: number) => boolean;
 };
 
 export const useDemoWalletStore = create<DemoWalletState>((set, get) => ({
   walletCents: START_CENTS,
-  addPrizeCents: (cents) =>
+  addWalletCents: (cents) =>
     set((s) => ({
       walletCents: Math.max(0, s.walletCents + Math.floor(cents)),
     })),

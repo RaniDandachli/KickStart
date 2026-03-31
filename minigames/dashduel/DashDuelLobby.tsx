@@ -24,7 +24,7 @@ export function DashDuelLobby({ onStart, onBack }: Props) {
             <Text style={styles.avt}>NeoRival</Text>
           </LinearGradient>
         </View>
-        <Text style={styles.demo}>Entry $5 · Prize $9 · Demo</Text>
+        <Text style={styles.demo}>Fee $5 · Fixed reward $9 · Demo</Text>
       </LinearGradient>
       <AppButton title="Ready" onPress={onStart} />
     </View>

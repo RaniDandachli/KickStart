@@ -18,6 +18,8 @@ export default function PlayStackLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="casual" options={{ headerShown: false }} />
       <Stack.Screen name="ranked" options={{ headerShown: false }} />
+      {/* Nested minigames stack — hide parent title bar ("minigames") for full-screen games */}
+      <Stack.Screen name="minigames" options={{ headerShown: false }} />
     </Stack>
   );
 }

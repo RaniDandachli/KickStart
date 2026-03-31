@@ -18,6 +18,8 @@ interface Props {
   onPress: () => void;
   titleColor?: string;
   entryColor?: string;
+  /** Stronger glow / size — e.g. Arcade “Hot games” strip */
+  emphasized?: boolean;
 }
 
 const borderGrad: Record<RunitBorderAccent, readonly [string, string]> = {
@@ -36,20 +38,34 @@ export function ArcadeGameRow({
   onPress,
   titleColor = '#fff',
   entryColor = 'rgba(226,232,240,0.9)',
+  emphasized = false,
 }: Props) {
   const b = borderGrad[borderAccent];
   const titleGlow = borderAccent === 'cyan' ? runitTextGlowCyan : runitTextGlowPink;
+  const borderExtra = emphasized ? styles.borderWrapHot : undefined;
+  const cardExtra = emphasized ? styles.cardHot : undefined;
+  const iconWrapExtra = emphasized ? styles.iconWrapHot : undefined;
+  const titleSz = emphasized ? styles.titleHot : undefined;
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.press, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
+      style={({ pressed }) => [
+        styles.press,
+        emphasized && styles.pressHot,
+        pressed && { opacity: 0.92, transform: [{ scale: emphasized ? 0.985 : 0.99 }] },
+      ]}
     >
-      <LinearGradient colors={b} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.borderWrap, runitGlowPinkSoft]}>
-        <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+      <LinearGradient
+        colors={b}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.borderWrap, runitGlowPinkSoft, borderExtra]}
+      >
+        <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, cardExtra]}>
           <View style={styles.left}>
-            <View style={styles.iconWrap}>{iconSlot}</View>
+            <View style={[styles.iconWrap, iconWrapExtra]}>{iconSlot}</View>
             <View style={styles.titleBlock}>
-              <Text style={[styles.title, { color: titleColor, fontFamily: runitFont.black }, titleGlow]}>
+              <Text style={[styles.title, titleSz, { color: titleColor, fontFamily: runitFont.black }, titleGlow]}>
                 {title}
               </Text>
               <Text style={[styles.entry, { color: entryColor }]}>{entryLabel}</Text>
@@ -71,9 +87,18 @@ export function ArcadeGameRow({
 
 const styles = StyleSheet.create({
   press: { marginBottom: 12 },
+  pressHot: { marginBottom: 14 },
   borderWrap: {
     borderRadius: 16,
     padding: 2,
+  },
+  borderWrapHot: {
+    padding: 3,
+    shadowColor: 'rgba(255,0,110,0.65)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 14,
   },
   card: {
     flexDirection: 'row',
@@ -84,6 +109,11 @@ const styles = StyleSheet.create({
     minHeight: 76,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
+  },
+  cardHot: {
+    minHeight: 86,
+    paddingVertical: 14,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
   titleBlock: { flex: 1, minWidth: 0 },
@@ -98,11 +128,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
+  iconWrapHot: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    marginRight: 12,
+  },
   title: {
     fontSize: 17,
     fontWeight: '900',
     letterSpacing: 0.5,
     flexShrink: 1,
+  },
+  titleHot: {
+    fontSize: 18,
   },
   entry: {
     fontSize: 11,
