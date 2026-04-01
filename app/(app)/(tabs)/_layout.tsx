@@ -1,29 +1,53 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { applyArcadePrizeCreditGrants } from '@/lib/arcadeGrants';
+import { FirstRunTabTour } from '@/components/onboarding/FirstRunTabTour';
+import { applyArcadePrizeCreditGrants, resetArcadeGrantFlight } from '@/lib/arcadeGrants';
+import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
 import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
+import { useAuthStore } from '@/store/authStore';
 
 const ICON = 20;
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const grantsRan = useRef(false);
+  const queryClient = useQueryClient();
+  const uid = useAuthStore((s) => s.user?.id);
+  const lastGrantUid = useRef<string | null>(null);
+  const [showFirstRunTour, setShowFirstRunTour] = useState(false);
 
   useEffect(() => {
-    if (grantsRan.current) return;
-    grantsRan.current = true;
-    void applyArcadePrizeCreditGrants().then(({ welcome, daily }) => {
+    if (!uid) {
+      lastGrantUid.current = null;
+      return;
+    }
+    if (lastGrantUid.current !== uid) {
+      resetArcadeGrantFlight();
+      lastGrantUid.current = uid;
+    }
+    void applyArcadePrizeCreditGrants(queryClient).then(({ welcome, daily }) => {
       if (welcome > 0 || daily > 0) {
         useArcadeGrantBannerStore.getState().setGrants(welcome, daily);
       }
     });
+  }, [uid, queryClient]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const done = await getHasCompletedTabTour();
+      if (!cancelled && !done) setShowFirstRunTour(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -34,6 +58,7 @@ export default function TabsLayout() {
   }, [pathname]);
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -89,5 +114,9 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    {showFirstRunTour ? (
+      <FirstRunTabTour onFinished={() => setShowFirstRunTour(false)} />
+    ) : null}
+    </>
   );
 }

@@ -55,7 +55,7 @@ export default function MatchPlayScreen() {
       <Text className="mb-1 text-xs uppercase text-slate-400">Head-to-head (prototype)</Text>
       <Text className="mb-3 text-lg font-black text-white">
         vs {session.opponentDisplayName}
-        {session.listedPrizeUsd != null ? ` · Fixed reward $${session.listedPrizeUsd}` : ''}
+        {session.listedPrizeUsd != null ? ` · Prize $${session.listedPrizeUsd}` : ''}
       </Text>
       <GameplayPlaceholder
         session={session}

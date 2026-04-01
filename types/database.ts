@@ -41,6 +41,8 @@ export type ProfileRow = {
   wallet_cents: number;
   /** Arcade play currency (prize run entry); not for catalog redemption. */
   prize_credits: number;
+  /** UTC YYYY-MM-DD when `claim_daily_prize_credits` last ran; null on legacy rows. */
+  last_daily_claim_ymd: string | null;
   /** Prizes catalog only; separate from prize credits. */
   redeem_tickets: number;
   /** JSON object — see `ShippingAddress` in app code. */
@@ -169,6 +171,19 @@ export type CosmeticRow = {
   created_at: string;
 };
 
+/** Gift-card rewards link to reward_catalog; redeem via Edge Function redeem-gift-card (not redeem_prize_offer). */
+export type RewardCatalogRow = {
+  id: string;
+  reward_key: string;
+  reward_name: string;
+  brand: string;
+  value_amount: number;
+  currency: string;
+  ticket_cost: number;
+  is_active: boolean;
+  created_at: string;
+};
+
 export type PrizeCatalogRow = {
   id: string;
   slug: string;
@@ -182,6 +197,13 @@ export type PrizeCatalogRow = {
   requires_shipping: boolean;
   created_at: string;
   updated_at: string;
+  /** When set, shop row is a gift card — use redeem-gift-card Edge Function. */
+  reward_catalog_id?: string | null;
+};
+
+/** Prize row from `fetchActivePrizeCatalog` (nested reward_catalog). */
+export type PrizeCatalogWithReward = PrizeCatalogRow & {
+  reward_catalog?: RewardCatalogRow | null;
 };
 
 export type PrizeRedemptionRow = {
@@ -192,6 +214,11 @@ export type PrizeRedemptionRow = {
   status: 'pending' | 'fulfilled' | 'cancelled';
   shipping_snapshot: Json | null;
   created_at: string;
+  gift_card_inventory_id?: string | null;
+  email_to?: string | null;
+  email_status?: 'pending' | 'sent' | 'failed';
+  email_error?: string | null;
+  idempotency_key?: string | null;
 };
 
 type TournamentEntryRow = {
@@ -365,6 +392,7 @@ export interface Database {
         Partial<{ equipped: boolean }>
       >;
       transactions: PublicTable<TransactionRow, Partial<TransactionRow>, Partial<TransactionRow>>;
+      reward_catalog: PublicTable<RewardCatalogRow, Partial<RewardCatalogRow>, Partial<RewardCatalogRow>>;
       prize_catalog: PublicTable<PrizeCatalogRow, Partial<PrizeCatalogRow>, Partial<PrizeCatalogRow>>;
       prize_redemptions: PublicTable<
         PrizeRedemptionRow,
@@ -382,6 +410,14 @@ export interface Database {
     Functions: {
       redeem_prize_offer: {
         Args: { p_prize_id: string };
+        Returns: Json;
+      };
+      redeem_gift_card_offer: {
+        Args: { p_reward_key: string; p_idempotency_key?: string | null };
+        Returns: Json;
+      };
+      claim_daily_prize_credits: {
+        Args: Record<string, never>;
         Returns: Json;
       };
     };

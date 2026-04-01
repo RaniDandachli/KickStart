@@ -31,6 +31,12 @@ const Body = z.discriminatedUnion('game_type', [
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
   }),
+  z.object({
+    game_type: z.literal('stacker'),
+    score: z.number().int().min(0).max(64),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(500),
+  }),
 ]);
 
 /** Max pipes that can exist / be passed given spawn cadence (generous margin). */
@@ -48,6 +54,11 @@ function maxPlausibleBallRunScore(durationMs: number): number {
 /** Pool score ~ balls + bonuses; ~25 per 10s session + cap */
 function maxPlausibleNeonPoolScore(durationMs: number): number {
   return Math.floor(durationMs / 8 + 12000);
+}
+
+/** Stacker: score = rows stacked; max ~16–32 typical. */
+function maxPlausibleStackerScore(durationMs: number): number {
+  return Math.min(64, Math.floor(durationMs / 400 + 24));
 }
 
 function stdev(arr: number[]): number {
@@ -120,12 +131,17 @@ Deno.serve(async (req) => {
       }
       const maxLanes = Math.floor(duration_ms / 40) + 400;
       if (taps > maxLanes) return errorResponse('Invalid lane changes for duration', 422);
-    } else {
+    } else if (data.game_type === 'neon_pool') {
       if (score > maxPlausibleNeonPoolScore(duration_ms)) {
         return errorResponse('Score impossible for session duration', 422);
       }
       const maxShots = Math.floor(duration_ms / 400) + 400;
       if (taps > maxShots) return errorResponse('Invalid shot count for duration', 422);
+    } else {
+      if (score > maxPlausibleStackerScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      if (taps > score + 4) return errorResponse('Invalid taps for stacker score', 422);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);

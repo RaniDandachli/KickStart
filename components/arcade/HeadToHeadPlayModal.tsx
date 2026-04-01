@@ -46,7 +46,7 @@ export function HeadToHeadPlayModal({
           </Text>
           <Text style={styles.hint}>
             Arcade uses prize credits. Here you use your <Text style={styles.hintStrong}>cash wallet</Text> for contest fees and{' '}
-            <Text style={styles.hintStrong}>fixed rewards</Text> funded by KickClash (skill contests — not player-vs-player wagering).
+            <Text style={styles.hintStrong}>listed prizes</Text> from Run It (skill contests — not player-vs-player wagering).
           </Text>
 
           <View style={styles.explainBox}>
@@ -73,12 +73,12 @@ export function HeadToHeadPlayModal({
               )}
             </Text>
             <Text style={styles.explainLine}>
-              <Text style={styles.explainBullet}>3.</Text> When it’s go time, you play — best score earns the listed fixed reward of{' '}
-              <Text style={styles.explainEm}>{prizeLabel}</Text> (paid by KickClash for this contest).
+              <Text style={styles.explainBullet}>3.</Text> When it’s go time, you play — best score wins the prize of{' '}
+              <Text style={styles.explainEm}>{prizeLabel}</Text> (awarded by Run It for this contest).
             </Text>
             <Text style={styles.explainFoot}>
-              Rewards are fixed amounts set by KickClash; they are not pooled with or paid from other players’ entry fees. Demo
-              matchmaking is instant; live servers will add fair skill pairing.
+              Prizes are set amounts from Run It; they are not pooled with or paid from other players’ entry fees. Demo matchmaking is
+              instant; live servers will add fair skill pairing.
             </Text>
           </View>
 
@@ -94,13 +94,11 @@ export function HeadToHeadPlayModal({
                 <Text style={styles.cardBody}>
                   {joining ? (
                     <>
-                      Pay the contest fee and join their lobby — top score can earn <Text style={styles.cardEm}>{prizeLabel}</Text> (fixed
-                      reward).
+                      Pay the contest fee and join their lobby — top score can win <Text style={styles.cardEm}>{prizeLabel}</Text>.
                     </>
                   ) : (
                     <>
-                      Enter the queue — we’ll match you, then you compete for <Text style={styles.cardEm}>{prizeLabel}</Text> (fixed
-                      reward).
+                      Enter the queue — we’ll match you, then you compete for <Text style={styles.cardEm}>{prizeLabel}</Text>.
                     </>
                   )}
                 </Text>

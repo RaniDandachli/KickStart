@@ -19,6 +19,7 @@ export function QueueScreen({
   entryFeeUsd,
   listedPrizeUsd,
   gameTitle,
+  gameKey: _gameKey,
   queueIntent,
 }: {
   mode: QueueKind;
@@ -27,6 +28,8 @@ export function QueueScreen({
   listedPrizeUsd?: number;
   /** Which minigame this 1v1 is for (from Home / deep link). */
   gameTitle?: string;
+  /** Reserved for future routing / analytics when matchmaking is server-backed. */
+  gameKey?: string;
   /** Join an existing lobby vs start search when pool is empty (demo UX). */
   queueIntent?: 'join' | 'start';
 }) {
@@ -160,7 +163,7 @@ export function QueueScreen({
       {hasPaidEntry ? (
         <>
           <Text className="mb-1 text-center text-base font-semibold" style={{ color: '#FFFFFF' }}>
-            ${entryFeeUsd} contest fee · ${listedPrizeUsd} fixed reward (top score)
+            ${entryFeeUsd} contest fee · ${listedPrizeUsd} prize (top score)
           </Text>
           {queueIntent === 'join' ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
@@ -185,7 +188,7 @@ export function QueueScreen({
           <Text className="mt-4 text-center text-slate-300">{searchingMsg}</Text>
           {hasPaidEntry ? (
             <Text className="mt-2 text-center text-xs font-medium text-slate-400">
-              Demo: rewards are fixed by tier and funded by KickClash — not pooled from other players’ fees.
+              Demo: prizes are set by tier, awarded by Run It — not pooled from other players’ fees.
             </Text>
           ) : null}
           <AppButton className="mt-6" title="Cancel" variant="ghost" onPress={decline} />

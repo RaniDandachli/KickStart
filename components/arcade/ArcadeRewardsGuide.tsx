@@ -6,11 +6,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
   PRIZE_RUN_ENTRY_CREDITS,
+  STACKER_PRIZE_RUN_ENTRY_CREDITS,
   TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
   DAILY_FREE_PRIZE_CREDITS,
   WELCOME_PRIZE_CREDITS,
 } from '@/lib/arcadeEconomy';
-import { ARCADE_TICKET_SCORE_RULES, TURBO_ARENA_WIN_BONUS_TICKETS } from '@/lib/ticketPayouts';
+import {
+  ARCADE_TICKET_SCORE_RULES,
+  STACKER_JACKPOT_TICKETS,
+  TURBO_ARENA_WIN_BONUS_TICKETS,
+} from '@/lib/ticketPayouts';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 
 function teaserLine(): string {
@@ -71,6 +76,12 @@ export function ArcadeRewardsGuide() {
                 <Text style={[styles.cell, styles.cellMid]}>
                   1 ticket per goal · +{TURBO_ARENA_WIN_BONUS_TICKETS} if you win · HARD AI · {TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS}{' '}
                   cr. entry
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={[styles.cell, styles.cellGame]}>Stacker</Text>
+                <Text style={[styles.cell, styles.cellMid]}>
+                  {STACKER_JACKPOT_TICKETS} tickets on full jackpot stack only · {STACKER_PRIZE_RUN_ENTRY_CREDITS} cr. entry
                 </Text>
               </View>
             </View>

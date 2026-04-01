@@ -126,7 +126,7 @@ export function HomePlayHero({
           <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
           <View style={styles.logoRule} />
           <Text style={styles.brandHome}>HOME</Text>
-          <Text style={styles.brandTag}>1v1 skill contests · fixed rewards funded by KickClash · same games as Arcade</Text>
+          <Text style={styles.brandTag}>1v1 skill contests · prizes set by tier · same games as Arcade</Text>
         </View>
       </View>
 
@@ -213,7 +213,7 @@ export function HomePlayHero({
                   <Text style={styles.tierShort}>{tier.shortLabel.toUpperCase()}</Text>
                   <Text style={styles.tierUsd}>${tier.entry}</Text>
                   <Text style={styles.tierLbl}>FEE</Text>
-                  <Text style={styles.tierPrizeHint}>Fixed reward ${tier.prize}</Text>
+                  <Text style={styles.tierPrizeHint}>Prize ${tier.prize}</Text>
                 </LinearGradient>
               </Pressable>
             );
@@ -221,7 +221,8 @@ export function HomePlayHero({
         </ScrollView>
       </View>
       <Text style={styles.complianceHint}>
-        Skill contests only. Rewards are fixed by tier and funded by KickClash — not pooled with other players&apos; fees.
+        Your entry covers access to a skill contest. Prizes are fixed by tier, awarded by Run It, and not pooled with other
+        players&apos; fees.
       </Text>
     </View>
   );

@@ -67,8 +67,8 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
       <Text style={[styles.kicker, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>Choose your game</Text>
       <Text style={styles.sub}>
-        Contest fee <Text style={styles.em}>{entry}</Text> · fixed reward <Text style={styles.em}>{prize}</Text> (KickClash-funded). Tap a
-        game — same look as Arcade.
+        Contest fee <Text style={styles.em}>{entry}</Text> · prize <Text style={styles.em}>{prize}</Text> (Run It–funded). Tap a game —
+        same look as Arcade.
       </Text>
 
       <View style={styles.list}>

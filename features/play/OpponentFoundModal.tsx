@@ -25,7 +25,7 @@ export function OpponentFoundModal({
           <Text className="mb-1 text-xs uppercase text-emerald-600">Match found</Text>
           <Text className="text-2xl font-black text-slate-900">Ready to clash?</Text>
           {prizeUsd != null ? (
-            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Fixed reward ${prizeUsd} (top score)</Text>
+            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Prize ${prizeUsd} (top score)</Text>
           ) : null}
           {opponent ? (
             <View className="my-4 rounded-xl bg-slate-50 p-3">

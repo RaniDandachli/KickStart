@@ -89,7 +89,7 @@ export default function MatchResultScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.walletTitle}>Wallet updated</Text>
               <Text style={styles.walletBody}>
-                +{formatUsdFromCents(Math.round(prizeUsd * 100))} fixed reward credited (local demo).
+                +{formatUsdFromCents(Math.round(prizeUsd * 100))} prize credited (local demo).
               </Text>
             </View>
           </View>
@@ -105,7 +105,7 @@ export default function MatchResultScreen() {
             <Text style={styles.drawTitle}>Same score — it&apos;s a draw</Text>
             <Text style={styles.drawBody}>
               {hasPrize
-                ? "No winner, so the fixed reward was not awarded. Rematch with the same contest fee and reward tier."
+                ? "No winner, so the prize was not awarded. Rematch with the same contest fee and reward tier."
                 : 'No winner this time. Queue again for another match.'}
             </Text>
           </View>

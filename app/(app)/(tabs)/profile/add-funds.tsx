@@ -12,17 +12,22 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
 
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
+import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { assertValidTopUpAmountCents, completeWalletTopUp } from '@/services/wallet/completeTopUp';
 import { useAuthStore } from '@/store/authStore';
-import * as WebBrowser from 'expo-web-browser';
+
+function goBackFromAddFunds(router: ReturnType<typeof useRouter>) {
+  safeBack(router, ROUTES.profileTab);
+}
 
 /** Official Stripe guide — wire Checkout / Payment Element + server webhook before enabling live top-up. */
 const STRIPE_ACCEPT_PAYMENT_URL = 'https://stripe.com/docs/payments/accept-a-payment';
@@ -57,7 +62,7 @@ export default function AddFundsScreen() {
         void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
       }
       Alert.alert('Wallet updated', `${formatUsdFromCents(amountCents)} added to your wallet.`, [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => goBackFromAddFunds(router) },
       ]);
     },
     onError: (e: unknown) => {
@@ -85,7 +90,7 @@ export default function AddFundsScreen() {
   return (
     <Screen>
       <View style={styles.topBar}>
-        <Pressable onPress={() => (step === 'payment' ? setStep('amount') : router.back())} style={styles.backBtn} accessibilityRole="button">
+        <Pressable onPress={() => (step === 'payment' ? setStep('amount') : goBackFromAddFunds(router))} style={styles.backBtn} accessibilityRole="button">
           <Ionicons name="chevron-back" size={24} color={runit.neonCyan} />
           <Text style={styles.backLbl}>{step === 'payment' ? 'Amount' : 'Back'}</Text>
         </Pressable>

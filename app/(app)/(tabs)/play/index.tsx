@@ -16,11 +16,13 @@ import { ArcadeStatsRow } from '@/components/arcade/ArcadeStatsRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { topUpComingSoonMessage } from '@/lib/purchaseEconomy';
@@ -134,6 +136,17 @@ export default function PlayHubScreen() {
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<TurboArenaGameIcon size={42} />}
         />
+        <ArcadeMinigameRow
+          emphasized
+          gameRoute="stacker"
+          title="Stacker"
+          entryLabel="Jackpot prize · practice or prize run"
+          winLabel="PLAY"
+          bgColors={['#0c0a0f', '#1e1b4b', '#831843']}
+          borderAccent="purple"
+          entryColor="rgba(226,232,240,0.9)"
+          iconSlot={<StackerGameIcon size={42} />}
+        />
 
         <ArcadeStatsRow />
 
@@ -142,9 +155,9 @@ export default function PlayHubScreen() {
         <ArcadeRewardsGuide />
 
         <ArcadeQuickMatch
-          onOneVsOne={() => router.push('/(app)/(tabs)')}
+          onOneVsOne={() => pushCrossTab(router, '/(app)/(tabs)')}
           onSoloPlay={() => setSoloPlayGate(true)}
-          onTournament={() => router.push('/(app)/(tabs)/tournaments')}
+          onTournament={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}
         />
 
         <ArcadePlayModeModal
@@ -162,7 +175,7 @@ export default function PlayHubScreen() {
         />
 
         <Text style={styles.footer}>
-          Arcade: earn prize credits vs AI. Home: 1v1 skill contests with fixed KickClash-funded rewards. Queues are demo until connected.
+          Arcade: earn prize credits vs AI. Home: 1v1 skill contests with tier prizes from Run It. Queues are demo until connected.
         </Text>
       </ArcadeFloor>
       {showCabinetIntro ? <ArcadeCabinetIntro onComplete={onCabinetIntroDone} /> : null}

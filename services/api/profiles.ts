@@ -22,7 +22,7 @@ export async function updateProfileFields(userId: string, patch: ProfileUpdatePa
 
 /**
  * Upload a local image URI to Supabase Storage and return the public URL.
- * Expects bucket `avatars` and policies from sql/migrations/00005_storage_avatars.sql
+ * Expects bucket `avatars` and policies from supabase/migrations/00004_storage_avatars.sql
  */
 export async function uploadProfileAvatarFromUri(userId: string, localUri: string): Promise<string> {
   const supabase = getSupabase();

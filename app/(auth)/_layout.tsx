@@ -21,6 +21,7 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
       <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />
       <Stack.Screen name="onboarding" options={{ title: 'Profile setup' }} />

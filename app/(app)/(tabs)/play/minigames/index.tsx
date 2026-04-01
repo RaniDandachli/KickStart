@@ -8,6 +8,7 @@ import {
   BallRunGameIcon,
   DashDuelGameIcon,
   NeonPoolGameIcon,
+  StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -89,6 +90,16 @@ export default function MinigamesHubScreen() {
         borderAccent="cyan"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<NeonPoolGameIcon size={36} />}
+      />
+      <ArcadeMinigameRow
+        gameRoute="stacker"
+        title="Stacker"
+        entryLabel="Jackpot prize · practice or prize run"
+        winLabel="PLAY"
+        bgColors={['#0c0a0f', '#1e1b4b', '#831843']}
+        borderAccent="purple"
+        entryColor="rgba(226,232,240,0.9)"
+        iconSlot={<StackerGameIcon size={36} />}
       />
 
       <Pressable onPress={() => router.back()} accessibilityRole="button">

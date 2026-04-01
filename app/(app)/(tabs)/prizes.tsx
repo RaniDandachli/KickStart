@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,22 +27,44 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useShippingAddress } from '@/hooks/useShippingAddress';
 import { queryKeys } from '@/lib/queryKeys';
 import { emptyShippingAddress, isShippingAddressComplete } from '@/lib/shippingAddress';
-import type { PrizeCatalogRow } from '@/types/database';
+import type { PrizeCatalogWithReward } from '@/types/database';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrizeCatalog } from '@/hooks/usePrizeCatalog';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
 import { useDemoRedeemTicketsStore } from '@/store/demoRedeemTicketsStore';
 import { getSupabase } from '@/supabase/client';
+import { pushCrossTab } from '@/lib/appNavigation';
+import { redeemGiftCard } from '@/services/redeemGiftCard';
+import { getNextRewardTarget } from '@/lib/nextRewardProgress';
 import { topUpComingSoonMessage } from '@/lib/purchaseEconomy';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type ShippingModal =
   | null
-  | { kind: 'catalog'; prize: PrizeCatalogRow }
+  | { kind: 'catalog'; prize: PrizeCatalogWithReward }
   | { kind: 'demo' };
 
+function isGiftCardPrize(p: PrizeCatalogWithReward): boolean {
+  return !!p.reward_catalog?.reward_key;
+}
+
+function newIdempotencyKey(): string {
+  const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+const SCREEN_H_PAD = 16;
+const CATALOG_GAP = 10;
+
 export default function PrizesScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+  const catalogTileW = Math.max(
+    140,
+    Math.floor((windowWidth - SCREEN_H_PAD * 2 - CATALOG_GAP) / 2),
+  );
+
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const accountEmail = useAuthStore((s) => s.user?.email);
@@ -53,6 +76,7 @@ export default function PrizesScreen() {
   const { address, save, complete: shippingComplete } = useShippingAddress();
   const [shippingModal, setShippingModal] = useState<ShippingModal>(null);
   const [draft, setDraft] = useState(emptyShippingAddress);
+  const [redeemingGiftId, setRedeemingGiftId] = useState<string | null>(null);
 
   useEffect(() => {
     if (shippingModal) setDraft(address);
@@ -85,7 +109,7 @@ export default function PrizesScreen() {
   });
 
   const saveDraftAndRedeemCatalog = useCallback(
-    async (p: PrizeCatalogRow) => {
+    async (p: PrizeCatalogWithReward) => {
       if (!isShippingAddressComplete(draft)) {
         Alert.alert('Incomplete address', 'Fill in name, street, city, postal code, and country.');
         return;
@@ -112,9 +136,44 @@ export default function PrizesScreen() {
   }, [draft, save, trySpendDemoTickets]);
 
   const startRedeemCatalog = useCallback(
-    (p: PrizeCatalogRow) => {
+    (p: PrizeCatalogWithReward) => {
       if (!uid) {
         Alert.alert('Sign in', 'Create an account to redeem prizes.');
+        return;
+      }
+      if (isGiftCardPrize(p)) {
+        const rk = p.reward_catalog?.reward_key;
+        if (!rk) return;
+        Alert.alert(
+          'Redeem gift card?',
+          `Spend ${p.cost_redeem_tickets.toLocaleString()} redeem tickets for "${p.title}"? Your code will be emailed to your login address.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Redeem',
+              onPress: () => {
+                void (async () => {
+                  setRedeemingGiftId(p.id);
+                  try {
+                    const res = await redeemGiftCard({
+                      rewardKey: rk,
+                      idempotencyKey: newIdempotencyKey(),
+                    });
+                    Alert.alert(
+                      res.partial ? 'Redemption recorded' : 'Success',
+                      res.message ?? 'Your gift card has been sent to your email.',
+                    );
+                    if (uid) void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+                  } catch (e) {
+                    Alert.alert('Could not redeem', e instanceof Error ? e.message : 'Unknown error');
+                  } finally {
+                    setRedeemingGiftId(null);
+                  }
+                })();
+              },
+            },
+          ],
+        );
         return;
       }
       if (p.requires_shipping && !shippingComplete) {
@@ -126,7 +185,13 @@ export default function PrizesScreen() {
         { text: 'Redeem', onPress: () => redeem.mutate({ prizeId: p.id, requiresShipping: p.requires_shipping }) },
       ]);
     },
-    [uid, shippingComplete, redeem],
+    [uid, shippingComplete, redeem, qc],
+  );
+
+  const nextReward = getNextRewardTarget(
+    redeemTickets,
+    catalogQ.data,
+    !ENABLE_BACKEND ? { cost: 3, title: 'Sample physical prize' } : undefined,
   );
 
   const startRedeemDemo = useCallback(() => {
@@ -146,7 +211,7 @@ export default function PrizesScreen() {
       <Text style={[styles.pageTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>PRIZES</Text>
       <Text style={styles.pageSub}>Spend redeem tickets here — earn them from arcade prize runs</Text>
 
-      <Pressable onPress={() => router.push('/(app)/(tabs)/profile/shipping-address')} style={styles.shipLink}>
+      <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/shipping-address')} style={styles.shipLink}>
         <View style={styles.iconLine}>
           <Ionicons name="cube-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Shipping address for physical prizes →</Text>
@@ -175,6 +240,32 @@ export default function PrizesScreen() {
           <Text style={[styles.balanceVal, { fontFamily: runitFont.black }]}>
             {ENABLE_BACKEND && profileQ.isLoading ? '…' : redeemTickets.toLocaleString()}
           </Text>
+          {nextReward && !(ENABLE_BACKEND && catalogQ.isLoading) ? (
+            <View
+              style={styles.progressBlock}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 0, max: 100, now: nextReward.percent }}
+            >
+              <View style={styles.progressTrack}>
+                <LinearGradient
+                  colors={[runit.neonCyan, runit.neonPink]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.progressFill, { width: `${Math.min(100, nextReward.percent)}%` }]}
+                />
+              </View>
+              <Text style={styles.progressHeadline} numberOfLines={2}>
+                🔥 {nextReward.percent}% to {nextReward.title}
+              </Text>
+              {nextReward.allAffordable ? (
+                <Text style={styles.progressSub}>You can redeem every prize — pick one below</Text>
+              ) : nextReward.ticketsToGo > 0 ? (
+                <Text style={styles.progressSub}>Only {nextReward.ticketsToGo.toLocaleString()} tickets to go</Text>
+              ) : (
+                <Text style={styles.progressSub}>Ready to redeem — tap below</Text>
+              )}
+            </View>
+          ) : null}
           {!ENABLE_BACKEND ? (
             <Text style={styles.balanceHint}>Demo balance — prize credits are for playing; tickets are for this shop</Text>
           ) : null}
@@ -194,13 +285,6 @@ export default function PrizesScreen() {
         </View>
       ) : null}
 
-      {catalogQ.isLoading && (
-        <>
-          <SkeletonBlock className="mb-3 h-36 w-full rounded-2xl" />
-          <SkeletonBlock className="mb-3 h-36 w-full rounded-2xl" />
-        </>
-      )}
-
       {catalogQ.error && (
         <EmptyState title="Could not load prizes" description={(catalogQ.error as Error).message} />
       )}
@@ -209,58 +293,128 @@ export default function PrizesScreen() {
         <EmptyState title="No prizes yet" description="Add items in Supabase → prize_catalog." />
       ) : null}
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {catalogQ.data?.map((p) => (
-          <View key={p.id} style={styles.prizeCard}>
-            {p.image_url ? <Image source={{ uri: p.image_url }} style={styles.prizeImg} resizeMode="cover" /> : null}
-            <View style={styles.prizeMeta}>
-              <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]}>{p.title}</Text>
-              {p.description ? <Text style={styles.prizeDesc}>{p.description}</Text> : null}
-              <View style={styles.prizeRow}>
-                <View style={styles.prizeCostRow}>
-                  <Ionicons name="ticket-outline" size={15} color={runit.neonCyan} accessibilityIgnoresInvertColors />
-                  <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()} tickets</Text>
+      {!catalogQ.error &&
+      (catalogQ.isLoading || (catalogQ.data?.length ?? 0) > 0 || !ENABLE_BACKEND) ? (
+        <>
+          <Text style={styles.catalogHeading}>Catalog</Text>
+          <View style={styles.catalogGrid}>
+            {catalogQ.isLoading
+              ? [0, 1, 2, 3].map((k) => (
+                  <View key={k} style={{ width: catalogTileW }}>
+                    <SkeletonBlock className="h-48 w-full rounded-xl" />
+                  </View>
+                ))
+              : null}
+            {!catalogQ.isLoading &&
+              catalogQ.data?.map((p) => {
+          const short = p.cost_redeem_tickets > redeemTickets;
+          const isGift = isGiftCardPrize(p);
+          const giftBusy = redeemingGiftId === p.id;
+          const disabled = short || giftBusy || (!isGift && redeem.isPending);
+          const redeemLabel = short
+            ? 'Need tickets'
+            : giftBusy || (!isGift && redeem.isPending)
+              ? '…'
+              : 'Redeem';
+          return (
+            <View key={p.id} style={[styles.prizeCard, { width: catalogTileW }]}>
+              {p.image_url ? (
+                <Image source={{ uri: p.image_url }} style={styles.prizeImg} resizeMode="cover" />
+              ) : (
+                <View style={styles.prizeImgPlaceholder} />
+              )}
+              <View style={styles.prizeMeta}>
+                <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                  {p.title}
+                </Text>
+                {p.description ? (
+                  <Text style={styles.prizeDesc} numberOfLines={2}>
+                    {p.description}
+                  </Text>
+                ) : null}
+                <View style={styles.prizeRow}>
+                  <View style={styles.prizeCostRow}>
+                    <Ionicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+                    <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()}</Text>
+                  </View>
                 </View>
-                {p.requires_shipping ? <Text style={styles.prizeShip}>Physical · ships to you</Text> : null}
-                {p.stock_remaining != null ? <Text style={styles.prizeStock}>Stock: {p.stock_remaining}</Text> : null}
+                <Text style={styles.prizeMetaLine} numberOfLines={1}>
+                  {p.requires_shipping
+                    ? 'Physical · ships to you'
+                    : p.stock_remaining != null
+                      ? `Stock ${p.stock_remaining}`
+                      : 'Digital'}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={disabled}
+                  onPress={() => startRedeemCatalog(p)}
+                  style={({ pressed }) => [
+                    styles.tileRedeemOuter,
+                    disabled && styles.tileRedeemOuterDisabled,
+                    pressed && !disabled && styles.tileRedeemPressed,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={disabled ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.tileRedeemGrad}
+                  >
+                    <Text style={styles.tileRedeemText}>{redeemLabel}</Text>
+                  </LinearGradient>
+                </Pressable>
               </View>
-              <AppButton
-                className="mt-2"
-                title={p.cost_redeem_tickets > redeemTickets ? 'Not enough tickets' : 'Redeem'}
-                disabled={p.cost_redeem_tickets > redeemTickets || redeem.isPending}
-                loading={redeem.isPending}
-                onPress={() => startRedeemCatalog(p)}
-              />
             </View>
-          </View>
-        ))}
+          );
+              })}
 
-        {!ENABLE_BACKEND ? (
-          <View style={styles.prizeCard}>
+        {!catalogQ.isLoading && !ENABLE_BACKEND ? (
+          <View style={[styles.prizeCard, { width: catalogTileW }]}>
+            <View style={styles.prizeImgPlaceholder} />
             <View style={styles.prizeMeta}>
-              <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]}>Sample physical (demo)</Text>
-              <Text style={styles.prizeDesc}>
-                Example of a ship-to-you prize — we ask for your address before redeeming if it is not saved yet.
+              <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                Sample physical (demo)
+              </Text>
+              <Text style={styles.prizeDesc} numberOfLines={2}>
+                Ship-to-you example — address required if not saved.
               </Text>
               <View style={styles.prizeRow}>
                 <View style={styles.prizeCostRow}>
-                  <Ionicons name="ticket-outline" size={15} color={runit.neonCyan} accessibilityIgnoresInvertColors />
-                  <Text style={styles.prizeCost}>3 tickets</Text>
+                  <Ionicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+                  <Text style={styles.prizeCost}>3</Text>
                 </View>
-                <Text style={styles.prizeShip}>Physical · ships to you</Text>
               </View>
-              <AppButton
-                className="mt-2"
-                title={redeemTickets < 3 ? 'Not enough tickets' : 'Redeem (demo)'}
+              <Text style={styles.prizeMetaLine} numberOfLines={1}>
+                Physical · ships to you
+              </Text>
+              <Pressable
+                accessibilityRole="button"
                 disabled={redeemTickets < 3}
                 onPress={startRedeemDemo}
-              />
+                style={({ pressed }) => [
+                  styles.tileRedeemOuter,
+                  redeemTickets < 3 && styles.tileRedeemOuterDisabled,
+                  pressed && redeemTickets >= 3 && styles.tileRedeemPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={redeemTickets < 3 ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.tileRedeemGrad}
+                >
+                  <Text style={styles.tileRedeemText}>{redeemTickets < 3 ? 'Need tickets' : 'Redeem (demo)'}</Text>
+                </LinearGradient>
+              </Pressable>
             </View>
           </View>
         ) : null}
-      </ScrollView>
+          </View>
+        </>
+      ) : null}
 
-      <Pressable onPress={() => router.push('/(app)/(tabs)/play')} style={styles.earnLink}>
+      <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/play')} style={styles.earnLink}>
         <View style={styles.iconLine}>
           <Ionicons name="flash-outline" size={17} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.earnLinkText}>Earn more in Arcade →</Text>
@@ -293,7 +447,7 @@ export default function PrizesScreen() {
                 }}
               />
               <AppButton className="mt-2" title="Cancel" variant="ghost" onPress={() => setShippingModal(null)} />
-              <Pressable onPress={() => router.push('/(app)/(tabs)/profile/shipping-address')} style={styles.modalSettings}>
+              <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/shipping-address')} style={styles.modalSettings}>
                 <Text style={styles.modalSettingsText}>Open full shipping settings →</Text>
               </Pressable>
             </View>
@@ -330,6 +484,24 @@ const styles = StyleSheet.create({
   },
   balanceLbl: { color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
   balanceVal: { color: '#fff', fontSize: 38, fontWeight: '900', textShadowColor: runit.neonPink, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 },
+  progressBlock: { marginTop: 14, width: '100%', alignSelf: 'stretch' },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressFill: { height: '100%', borderRadius: 5, minWidth: 0 },
+  progressHeadline: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  progressSub: { color: 'rgba(203,213,225,0.95)', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   balanceHint: { color: 'rgba(148,163,184,0.85)', fontSize: 11, marginTop: 6 },
   infoCard: {
     borderRadius: 14,
@@ -342,28 +514,57 @@ const styles = StyleSheet.create({
   infoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   infoTitle: { color: runit.neonCyan, fontSize: 11, fontWeight: '900', letterSpacing: 2 },
   infoBody: { color: 'rgba(203,213,225,0.85)', fontSize: 13, lineHeight: 18 },
-  prizeCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.4)',
-    backgroundColor: 'rgba(12,6,22,0.85)',
-    overflow: 'hidden',
-    marginBottom: 14,
-    shadowColor: 'rgba(157,78,237,0.3)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 6,
+  catalogHeading: {
+    color: 'rgba(226,232,240,0.88)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 10,
+    marginTop: 2,
   },
-  prizeImg: { width: '100%', height: 160 },
-  prizeMeta: { padding: 14 },
-  prizeTitle: { color: '#fff', fontSize: 17, fontWeight: '900', marginBottom: 4 },
-  prizeDesc: { color: 'rgba(203,213,225,0.85)', fontSize: 13, marginBottom: 8, lineHeight: 18 },
-  prizeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  prizeCostRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  prizeCost: { color: runit.neonCyan, fontSize: 14, fontWeight: '800' },
-  prizeShip: { color: '#FDE047', fontSize: 12, fontWeight: '700' },
-  prizeStock: { color: 'rgba(148,163,184,0.9)', fontSize: 12 },
+  catalogGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
+  },
+  prizeCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(157,78,237,0.45)',
+    backgroundColor: 'rgba(12,6,22,0.88)',
+    overflow: 'hidden',
+    shadowColor: 'rgba(157,78,237,0.22)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  prizeImg: { width: '100%', height: 88 },
+  prizeImgPlaceholder: {
+    width: '100%',
+    height: 88,
+    backgroundColor: 'rgba(30,27,75,0.65)',
+  },
+  prizeMeta: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 },
+  prizeTitle: { color: '#fff', fontSize: 13, fontWeight: '900', marginBottom: 3, lineHeight: 17 },
+  prizeDesc: { color: 'rgba(203,213,225,0.8)', fontSize: 10, marginBottom: 6, lineHeight: 14 },
+  prizeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginBottom: 2 },
+  prizeCostRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  prizeCost: { color: runit.neonCyan, fontSize: 12, fontWeight: '800' },
+  prizeMetaLine: { color: 'rgba(148,163,184,0.92)', fontSize: 9, fontWeight: '600', marginBottom: 8 },
+  tileRedeemOuter: { borderRadius: 10, overflow: 'hidden' },
+  tileRedeemOuterDisabled: { opacity: 0.55 },
+  tileRedeemPressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
+  tileRedeemGrad: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  tileRedeemText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
   earnLink: { paddingVertical: 12, alignItems: 'center' },
   earnLinkText: { color: runit.neonCyan, fontSize: 14, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },

@@ -1,13 +1,14 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
 import { HeadToHeadPlayModal } from '@/components/arcade/HeadToHeadPlayModal';
+import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
 import {
@@ -23,10 +24,12 @@ import { useActiveSeason } from '@/hooks/useActiveSeason';
 import { useProfile } from '@/hooks/useProfile';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
-import { buildHomeOpenMatches, type HomeOpenMatchRow, type H2hLobbyKind } from '@/lib/homeOpenMatches';
+import { pushCrossTab } from '@/lib/appNavigation';
+import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
+import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -46,20 +49,65 @@ export default function HomeScreen() {
     title: string;
     entryUsd: number;
     prizeUsd: number;
-    gameKey: HomeOpenMatchRow['gameKey'];
+    gameKey: H2hGameKey;
     lobbyKind: H2hLobbyKind;
+    waiterId?: string;
   } | null>(null);
 
-  const [openBoardEpoch, setOpenBoardEpoch] = useState(() => Date.now());
-  useFocusEffect(
-    useCallback(() => {
-      setOpenBoardEpoch(Date.now());
-    }, []),
-  );
-  const openMatches = useMemo(() => buildHomeOpenMatches(openBoardEpoch), [openBoardEpoch]);
+  const [tierPick, setTierPick] = useState<{ title: string; gameKey: H2hGameKey; route: string } | null>(null);
 
-  function h2hIconFor(row: HomeOpenMatchRow, size: number) {
-    switch (row.gameKey) {
+  const waiters = useHomeH2hBoardStore((s) => s.waiters);
+  const initDemo = useHomeH2hBoardStore((s) => s.initDemo);
+  const removeWaiter = useHomeH2hBoardStore((s) => s.removeWaiter);
+  const tickSimulation = useHomeH2hBoardStore((s) => s.tickSimulation);
+
+  useEffect(() => {
+    initDemo();
+  }, [initDemo]);
+
+  useEffect(() => {
+    const id = setInterval(() => tickSimulation(), 12_000);
+    return () => clearInterval(id);
+  }, [tickSimulation]);
+
+  const [rotateTick, setRotateTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setRotateTick((t) => t + 1), 4500);
+    return () => clearInterval(id);
+  }, []);
+
+  const h2hRows = useMemo(() => {
+    return H2H_OPEN_GAMES.map((g) => {
+      const forGame = sortWaitersForDisplay(waiters.filter((w) => w.gameKey === g.gameKey));
+      const w = forGame.length ? forGame[rotateTick % forGame.length]! : null;
+      const tier =
+        w != null
+          ? MATCH_ENTRY_TIERS[((w.tierIndex % MATCH_ENTRY_TIERS.length) + MATCH_ENTRY_TIERS.length) % MATCH_ENTRY_TIERS.length]
+          : null;
+      if (!w || !tier) {
+        return { ...g, activeWaiter: null, queueTotal: 0, rotateIndex: 0 };
+      }
+      const postedMinutesAgo = Math.max(1, Math.floor((Date.now() - w.postedAt) / 60_000));
+      const queueTotal = forGame.length;
+      const rotateIndex = queueTotal > 0 ? (rotateTick % queueTotal) + 1 : 0;
+      return {
+        ...g,
+        activeWaiter: {
+          id: w.id,
+          tierShortLabel: tier.shortLabel,
+          entryUsd: tier.entry,
+          prizeUsd: tier.prize,
+          hostLabel: w.hostLabel,
+          postedMinutesAgo,
+        },
+        queueTotal,
+        rotateIndex,
+      };
+    });
+  }, [waiters, rotateTick]);
+
+  function h2hIconFor(gameKey: H2hGameKey, size: number) {
+    switch (gameKey) {
       case 'tap-dash':
         return <TapDashGameIcon size={size} />;
       case 'tile-clash':
@@ -77,7 +125,7 @@ export default function HomeScreen() {
     }
   }
 
-  function h2hGradients(gameKey: HomeOpenMatchRow['gameKey']): readonly [string, string] {
+  function h2hGradients(gameKey: H2hGameKey): readonly [string, string] {
     switch (gameKey) {
       case 'tap-dash':
         return ['#1e1b4b', '#4c1d95'];
@@ -104,52 +152,67 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <HomePlayHero
             walletDisplay={walletDisplay}
-            onWalletPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
+            onWalletPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
             onEntryTierPress={(entry, prize) =>
-              router.push(
+              pushCrossTab(
+                router,
                 `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
               )
             }
-            onQuickMatch={() => router.push('/(app)/(tabs)/play/casual')}
+            onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual')}
           />
 
           <View style={styles.sectionLabel}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
+            <View style={styles.livePill} accessibilityRole="text" accessibilityLabel="Live skill contests">
+              <View style={styles.liveDot} />
+              <Text style={styles.livePillText}>LIVE</Text>
+            </View>
             <View style={styles.sectionLine} />
           </View>
           <Text style={styles.sectionSub}>
-            Same contest tiers as the cards above. <Text style={styles.sectionEm}>In queue</Text> = someone already waiting — tap Join.{' '}
-            <Text style={styles.sectionEm}>Open</Text> = no one yet — tap Find opponent to start search.
+            Live 1v1 queues per game — we show who’s waiting (rotates if several).{' '}
+            <Text style={styles.sectionEm}>Join</Text> = same tier as their search.{' '}
+            <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
           </Text>
 
-          {openMatches.map((g) => {
-            const [c1, c2] = h2hGradients(g.gameKey);
-            const entryLbl = formatUsdFromCents(Math.round(g.entryUsd * 100));
-            const prizeLbl = formatUsdFromCents(Math.round(g.prizeUsd * 100));
-            const hostWaiting = g.lobbyKind === 'host_waiting';
+          {h2hRows.map((row) => {
+            const [c1, c2] = h2hGradients(row.gameKey);
+            const hostWaiting = row.activeWaiter != null;
+            const entryLbl = row.activeWaiter
+              ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100))
+              : '—';
+            const prizeLbl = row.activeWaiter
+              ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100))
+              : '—';
             return (
               <Pressable
-                key={g.id}
+                key={row.gameKey}
                 style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
-                onPress={() =>
-                  setH2hGate({
-                    path: g.route,
-                    title: g.title,
-                    entryUsd: g.entryUsd,
-                    prizeUsd: g.prizeUsd,
-                    gameKey: g.gameKey,
-                    lobbyKind: g.lobbyKind,
-                  })
-                }
+                onPress={() => {
+                  if (row.activeWaiter) {
+                    setH2hGate({
+                      path: row.route,
+                      title: row.title,
+                      entryUsd: row.activeWaiter.entryUsd,
+                      prizeUsd: row.activeWaiter.prizeUsd,
+                      gameKey: row.gameKey,
+                      lobbyKind: 'host_waiting',
+                      waiterId: row.activeWaiter.id,
+                    });
+                  } else {
+                    setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
+                  }
+                }}
               >
                 <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
                   <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
                     <View style={styles.gameRow}>
-                      <View style={styles.gameIconCol}>{h2hIconFor(g, 48)}</View>
+                      <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
                       <View style={styles.gameTextCol}>
                         <View style={styles.h2hTitleRow}>
                           <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
-                            {g.title}
+                            {row.title}
                           </Text>
                           <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
                             <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
@@ -157,18 +220,34 @@ export default function HomeScreen() {
                             </Text>
                           </View>
                         </View>
-                        {hostWaiting ? (
-                          <Text style={styles.hostLine} numberOfLines={2}>
-                            <Text style={styles.hostName}>{g.hostLabel}</Text> waiting · {g.postedMinutesAgo}m ago
-                          </Text>
+                        {hostWaiting && row.activeWaiter ? (
+                          <>
+                            <Text style={styles.hostLine} numberOfLines={2}>
+                              <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
+                            </Text>
+                            {row.queueTotal > 1 ? (
+                              <Text style={styles.queueRotate}>
+                                Showing {row.rotateIndex} of {row.queueTotal} in queue
+                              </Text>
+                            ) : null}
+                            <Text style={styles.tierTag} numberOfLines={1}>
+                              {row.activeWaiter.tierShortLabel} tier
+                            </Text>
+                            <Text style={styles.gameEntry}>
+                              Entry {entryLbl} · Listed reward {prizeLbl}
+                            </Text>
+                          </>
                         ) : (
-                          <Text style={styles.hostLine} numberOfLines={2}>
-                            No one in queue yet — be first to search at this contest tier
-                          </Text>
+                          <>
+                            <Text style={styles.hostLine} numberOfLines={2}>
+                              No open searches right now — tap to pick a contest tier and start matchmaking.
+                            </Text>
+                            <Text style={styles.tierTag} numberOfLines={1}>
+                              Choose tier on next step
+                            </Text>
+                            <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
+                          </>
                         )}
-                        <Text style={styles.gameEntry}>
-                          Fee {entryLbl} · Fixed reward {prizeLbl}
-                        </Text>
                       </View>
                       <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
                         <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
@@ -185,7 +264,7 @@ export default function HomeScreen() {
             <View style={styles.sectionLine} />
           </View>
 
-          <Pressable style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]} onPress={() => router.push('/(app)/(tabs)/tournaments')}>
+          <Pressable style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]} onPress={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}>
             <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
               <View style={styles.tourneyCard}>
                 <View style={styles.trophyIcon} accessibilityLabel="Tournament">
@@ -246,21 +325,35 @@ export default function HomeScreen() {
           gameTitle={h2hGate?.title ?? ''}
           entryUsd={h2hGate?.entryUsd ?? 0}
           prizeUsd={h2hGate?.prizeUsd ?? 0}
-          lobbyKind={h2hGate?.lobbyKind ?? 'empty_pool'}
+          lobbyKind={h2hGate?.lobbyKind ?? 'host_waiting'}
           onClose={() => setH2hGate(null)}
           onPractice={() => {
             if (!h2hGate) return;
-            router.push(`${h2hGate.path}?mode=practice` as never);
+            pushCrossTab(router, `${h2hGate.path}?mode=practice` as never);
             setH2hGate(null);
           }}
           onHeadToHeadPrize={() => {
             if (!h2hGate) return;
+            if (h2hGate.waiterId) removeWaiter(h2hGate.waiterId);
             const e = encodeURIComponent(String(h2hGate.entryUsd));
             const p = encodeURIComponent(String(h2hGate.prizeUsd));
             const gk = encodeURIComponent(h2hGate.gameKey);
-            const intent = h2hGate.lobbyKind === 'host_waiting' ? 'join' : 'start';
-            router.push(`/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${gk}&intent=${intent}` as never);
+            pushCrossTab(router, `/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${gk}&intent=join` as never);
             setH2hGate(null);
+          }}
+        />
+
+        <H2hTierPickModal
+          visible={!!tierPick}
+          gameTitle={tierPick?.title ?? ''}
+          onClose={() => setTierPick(null)}
+          onSelectTier={(tier) => {
+            if (!tierPick) return;
+            const e = encodeURIComponent(String(tier.entry));
+            const p = encodeURIComponent(String(tier.prize));
+            const gk = encodeURIComponent(tierPick.gameKey);
+            pushCrossTab(router, `/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${gk}&intent=start` as never);
+            setTierPick(null);
           }}
         />
       </SafeAreaView>
@@ -275,6 +368,34 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 14, paddingBottom: 100, paddingTop: 6 },
   sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   sectionTitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase', textShadowColor: runit.neonCyan, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.45)',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  livePillText: {
+    color: '#86efac',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
   sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
   sectionSub: { color: 'rgba(148,163,184,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 12, lineHeight: 17 },
   sectionEm: { color: '#fde68a', fontWeight: '800' },
@@ -305,7 +426,17 @@ const styles = StyleSheet.create({
   pillTagOpen: { color: '#fbbf24' },
   hostLine: { color: 'rgba(203,213,225,0.88)', fontSize: 11, fontWeight: '600', marginBottom: 3 },
   hostName: { color: '#fde68a', fontWeight: '800' },
+  tierTag: {
+    color: 'rgba(167,139,250,0.95)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
   gameEntry: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700' },
+  gameEntryMuted: { color: 'rgba(148,163,184,0.85)', fontSize: 11, fontWeight: '600' },
+  queueRotate: { color: 'rgba(167,139,250,0.95)', fontSize: 10, fontWeight: '700', marginBottom: 2 },
   prizeBtn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', minWidth: 90, alignItems: 'center' },
   prizeBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   tourneyCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: 'rgba(8,4,18,0.88)' },

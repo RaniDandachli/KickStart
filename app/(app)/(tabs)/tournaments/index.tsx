@@ -6,8 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
+import { ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useTournaments } from '@/hooks/useTournaments';
+import { DAILY_FREE_PRIZE_USD } from '@/lib/dailyFreeTournament';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 export default function TournamentsListScreen() {
@@ -19,6 +21,41 @@ export default function TournamentsListScreen() {
     <Screen>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>EVENTS</Text>
       <Text style={styles.sub}>Skill-based tournaments — admin-awarded prizes</Text>
+
+      {ENABLE_DAILY_FREE_TOURNAMENT ? (
+        <Pressable
+          onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free')}
+          style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
+        >
+          <LinearGradient
+            colors={[runit.neonCyan, '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardBorder}
+          >
+            <View style={styles.cardInner}>
+              <View style={styles.cardTop}>
+                <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                  Tournament of the Day
+                </Text>
+                <View style={[styles.statePill, { borderColor: '#39ff14' }]}>
+                  <Text style={[styles.statePillText, { color: '#39ff14' }]}>FREE</Text>
+                </View>
+              </View>
+              <Text style={styles.cardMetaTxt}>
+                ${DAILY_FREE_PRIZE_USD} showcase prize · 8 rounds · no entry fee
+              </Text>
+              <Text style={[styles.cardPrize, { marginTop: 6 }]}>
+                Promotional daily bracket — tap to enter
+              </Text>
+              <View style={styles.cardFooter}>
+                <Text style={styles.viewLink}>Enter</Text>
+                <Ionicons name="chevron-forward" size={14} color={runit.neonPink} />
+              </View>
+            </View>
+          </LinearGradient>
+        </Pressable>
+      ) : null}
 
       {isLoading && (
         <>

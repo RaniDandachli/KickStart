@@ -9,13 +9,26 @@ export interface GameplayPlaceholderProps {
   session: KickClashMatchSession;
   onFinish: (result: MatchFinishPayload) => void;
   onPauseToggle?: (paused: boolean) => void;
+  /**
+   * When set, the timer result is overridden so the local player always wins or loses
+   * (used for promotional daily bracket flow — keep UI honest with snap scores).
+   */
+  forcedOutcome?: 'win' | 'lose';
+  /** Hide opponent “+Goal” so the outcome is only from the script + your taps. */
+  hideOpponentControls?: boolean;
 }
 
 /**
  * Stand-in until a real synced minigame exists: timer + score goals determine winner.
  * Ties count as a draw (no prize).
  */
-export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: GameplayPlaceholderProps) {
+export function GameplayPlaceholder({
+  session,
+  onFinish,
+  onPauseToggle,
+  forcedOutcome,
+  hideOpponentControls,
+}: GameplayPlaceholderProps) {
   const [scoreSelf, setScoreSelf] = useState(session.scoreSelf);
   const [scoreOpponent, setScoreOpponent] = useState(session.scoreOpponent);
   const [paused, setPaused] = useState(false);
@@ -41,23 +54,53 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
     };
   }, [paused]);
 
+  /** Snap scoreboard near buzzer so the strip matches the scripted winner */
+  useEffect(() => {
+    if (!forcedOutcome || remaining > 4) return;
+    if (forcedOutcome === 'win') {
+      setScoreSelf(12);
+      setScoreOpponent(4);
+    } else {
+      setScoreSelf(4);
+      setScoreOpponent(12);
+    }
+  }, [remaining, forcedOutcome]);
+
   useEffect(() => {
     if (remaining !== 0 || finished.current) return;
     finished.current = true;
     let winnerId: string;
-    if (scoreSelf === scoreOpponent) {
+    if (forcedOutcome === 'win') {
+      winnerId = session.localPlayerId;
+    } else if (forcedOutcome === 'lose') {
+      winnerId = session.opponentId;
+    } else if (scoreSelf === scoreOpponent) {
       winnerId = 'draw';
     } else if (scoreSelf > scoreOpponent) {
       winnerId = session.localPlayerId;
     } else {
       winnerId = session.opponentId;
     }
+    const fs =
+      forcedOutcome === 'win'
+        ? { self: 12, opponent: 4 }
+        : forcedOutcome === 'lose'
+          ? { self: 4, opponent: 12 }
+          : { self: scoreSelf, opponent: scoreOpponent };
     onFinish({
       winnerId,
-      finalScore: { self: scoreSelf, opponent: scoreOpponent },
+      finalScore: fs,
       reason: 'time',
     });
-  }, [remaining, onFinish, scoreSelf, scoreOpponent, session.localPlayerId, session.opponentId]);
+  }, [
+    remaining,
+    onFinish,
+    scoreSelf,
+    scoreOpponent,
+    session.localPlayerId,
+    session.opponentId,
+    forcedOutcome,
+  ]);
 
   const togglePause = useCallback(() => {
     setPaused((p) => {
@@ -91,7 +134,11 @@ export function GameplayPlaceholder({ session, onFinish, onPauseToggle }: Gamepl
             {oppLabel}
           </Text>
           <Text className="text-4xl font-bold text-fuchsia-600">{scoreOpponent}</Text>
-          <AppButton title="+Goal" variant="secondary" onPress={() => setScoreOpponent((s) => s + 1)} />
+          {!hideOpponentControls ? (
+            <AppButton title="+Goal" variant="secondary" onPress={() => setScoreOpponent((s) => s + 1)} />
+          ) : (
+            <Text className="mt-2 text-[10px] text-slate-500">CPU</Text>
+          )}
         </Card>
       </View>
       <AppButton title={paused ? 'Resume' : 'Pause'} variant="ghost" onPress={togglePause} />

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { arcade } from '@/lib/arcadeTheme';
 
 export { MATCH_ENTRY_TIERS };
@@ -17,14 +18,15 @@ export function ArcadeEntryQuickPlay() {
         <Text style={styles.sectionTitle}>1v1 · Online</Text>
         <View style={styles.ruleLine} />
       </View>
-      <Text style={styles.sub}>Contest fee · matchmake · top score earns the listed fixed reward (KickClash-funded)</Text>
+      <Text style={styles.sub}>Contest fee · matchmake · top score wins the listed prize (Run It–funded)</Text>
       <Text style={styles.hint}>Vs AI below is practice — no entry</Text>
 
       {MATCH_ENTRY_TIERS.map((tier) => (
         <Pressable
           key={tier.entry}
           onPress={() =>
-            router.push(
+            pushCrossTab(
+              router,
               `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(tier.entry))}&prize=${encodeURIComponent(String(tier.prize))}`,
             )
           }
@@ -44,7 +46,7 @@ export function ArcadeEntryQuickPlay() {
                 <Text style={styles.entryLine}>
                   Fee <Text style={styles.entryUsd}>${tier.entry}</Text>
                 </Text>
-                <Text style={styles.prizeLine}>Fixed reward ${tier.prize}</Text>
+                <Text style={styles.prizeLine}>Prize ${tier.prize}</Text>
               </View>
             </View>
             <LinearGradient colors={['#15803d', '#16a34a', '#22c55e']} style={styles.findBtn}>
@@ -55,7 +57,7 @@ export function ArcadeEntryQuickPlay() {
       ))}
 
       <Text style={styles.disclaimer}>
-        Demo queue — no charge yet. Skill contests only; rewards are fixed by tier, not pooled from other players.
+        Demo queue — no charge yet. Skill contests only; prizes are set by tier and not pooled from other players.
       </Text>
     </View>
   );

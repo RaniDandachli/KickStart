@@ -1,17 +1,56 @@
--- Physical prize shipping: profile JSON + catalog flag + snapshot on redemption.
+-- Auth bootstrap + prize redemption RPC (security definer)
 
-alter table public.profiles
-  add column if not exists shipping_address jsonb;
+-- ---------------------------------------------------------------------------
+-- Auto-create profile + stats + ratings on signup (username from raw_user_meta_data)
+-- ---------------------------------------------------------------------------
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  base_username text;
+  final_username text;
+  suffix int := 0;
+begin
+  base_username := coalesce(
+    new.raw_user_meta_data ->> 'username',
+    split_part(coalesce(new.email, 'player'), '@', 1)
+  );
+  final_username := base_username;
 
-alter table public.prize_catalog
-  add column if not exists requires_shipping boolean not null default false;
+  while exists (select 1 from public.profiles where username = final_username) loop
+    suffix := suffix + 1;
+    final_username := base_username || suffix::text;
+  end loop;
 
-alter table public.prize_redemptions
-  add column if not exists shipping_snapshot jsonb;
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    final_username,
+    coalesce(new.raw_user_meta_data ->> 'display_name', final_username)
+  );
 
-update public.prize_catalog set requires_shipping = true where slug = 'kickclash-hat-demo';
-update public.prize_catalog set requires_shipping = false where slug = 'gift-card-10-demo';
+  insert into public.user_stats (user_id) values (new.id);
 
+  insert into public.ratings (user_id, season_id, queue_mode)
+  values (new.id, null, 'ranked');
+  insert into public.ratings (user_id, season_id, queue_mode)
+  values (new.id, null, 'casual');
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ---------------------------------------------------------------------------
+-- Atomic prize redemption (called from app: supabase.rpc('redeem_prize_offer', { p_prize_id }))
+-- ---------------------------------------------------------------------------
 create or replace function public.redeem_prize_offer(p_prize_id uuid)
 returns jsonb
 language plpgsql
@@ -57,6 +96,8 @@ begin
 
   v_cost := v_prize.cost_redeem_tickets;
 
+  perform set_config('kickclash.allow_profile_economy_write', '1', true);
+
   update public.profiles
   set redeem_tickets = redeem_tickets - v_cost
   where id = v_user and redeem_tickets >= v_cost
@@ -94,3 +135,5 @@ begin
   return jsonb_build_object('ok', true, 'redeem_tickets_balance', v_new_balance);
 end;
 $$;
+
+grant execute on function public.redeem_prize_offer(uuid) to authenticated;

@@ -192,6 +192,40 @@ export function NeonPoolGameIcon({ size = 40 }: IconProps) {
   );
 }
 
+/** Stacker — stacked horizontal prize rows (arcade cabinet). */
+export function StackerGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id="stBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#0f172a" />
+            <Stop offset="100%" stopColor="#1e1b4b" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="stA" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#22D3EE" />
+            <Stop offset="100%" stopColor="#06B6D4" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="stB" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#E879F9" />
+            <Stop offset="100%" stopColor="#A855F7" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="stC" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#FACC15" />
+            <Stop offset="100%" stopColor="#F59E0B" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="url(#stBg)" />
+        <Rect x="10" y="34" width="28" height="5" rx="1.5" fill="url(#stA)" opacity={0.95} />
+        <Rect x="12" y="26" width="24" height="5" rx="1.5" fill="url(#stA)" opacity={0.95} />
+        <Rect x="14" y="18" width="20" height="5" rx="1.5" fill="url(#stB)" opacity={0.95} />
+        <Rect x="18" y="10" width="12" height="5" rx="1.5" fill="url(#stC)" opacity={0.95} />
+      </Svg>
+    </View>
+  );
+}
+
 export function DashDuelGameIcon({ size = 40 }: IconProps) {
   const s = size;
   return (

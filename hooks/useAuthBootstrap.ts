@@ -1,22 +1,17 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect } from 'react';
 
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
 
 /**
  * Subscribes to Supabase auth and mirrors into Zustand for routing + selectors.
+ * Runs whenever Supabase is configured so optional sign-in (e.g. from Profile in guest mode) still updates session.
  */
 export function useAuthBootstrap(): void {
   const setFromSession = useAuthStore((s) => s.setFromSession);
 
   useEffect(() => {
-    if (!ENABLE_BACKEND) {
-      setFromSession(null);
-      return;
-    }
-
     const supabase = getSupabase();
     let mounted = true;
 

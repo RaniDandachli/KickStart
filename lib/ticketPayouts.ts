@@ -1,8 +1,8 @@
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useDemoRedeemTicketsStore } from '@/store/demoRedeemTicketsStore';
 
-/** Gates cleared in Tap Dash — 10 points → 1 redeem ticket. */
-export const TAP_DASH_POINTS_PER_TICKET = 10;
+/** Tap Dash run points — 1 point → 1 redeem ticket (tuned with prize catalog earn targets). */
+export const TAP_DASH_POINTS_PER_TICKET = 1;
 /** Tile Clash score (with streak multipliers) — 50 → 1 ticket. */
 export const TILE_CLASH_POINTS_PER_TICKET = 50;
 /**
@@ -14,6 +14,8 @@ export const DASH_DUEL_POINTS_PER_TICKET = 120;
 export const BALL_RUN_POINTS_PER_TICKET = 25;
 /** Neon Pocket (pool) — table score; 200 → 1 ticket. */
 export const NEON_POOL_POINTS_PER_TICKET = 200;
+/** Stacker — redeem tickets only on full jackpot stack (see `ticketsFromStackerPrizeRun`). */
+export const STACKER_JACKPOT_TICKETS = 10_000;
 
 /** Turbo Arena (prize run vs AI, HARD) — each goal you score + 2 bonus if you win the match. */
 export const TURBO_ARENA_TICKETS_PER_GOAL = 1;
@@ -57,6 +59,11 @@ export function ticketsFromBallRunScore(score: number): number {
 
 export function ticketsFromNeonPoolScore(score: number): number {
   return Math.max(0, Math.floor(score / NEON_POOL_POINTS_PER_TICKET));
+}
+
+/** Prize run: tickets only if the player clears every row to the top (jackpot). */
+export function ticketsFromStackerPrizeRun(fullWin: boolean): number {
+  return fullWin ? STACKER_JACKPOT_TICKETS : 0;
 }
 
 /**

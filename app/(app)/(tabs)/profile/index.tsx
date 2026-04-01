@@ -19,11 +19,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { ALLOW_GUEST_MODE, ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -57,7 +58,8 @@ const mockHistory = [
 export default function ProfileScreen() {
   const router = useRouter();
   const qc = useQueryClient();
-  const uid = useAuthStore((s) => s.user?.id);
+  const user = useAuthStore((s) => s.user);
+  const uid = user?.id;
   const profileQ = useProfile(uid);
   const profile = profileQ.data;
   const loadingProfile = ENABLE_BACKEND && !!uid && profileQ.isLoading;
@@ -146,7 +148,7 @@ export default function ProfileScreen() {
       } catch (e) {
         Alert.alert(
           'Upload failed',
-          e instanceof Error ? e.message : 'Could not upload. Create the `avatars` storage bucket (see sql/migrations/00005_storage_avatars.sql) or try again.',
+          e instanceof Error ? e.message : 'Could not upload. Create the `avatars` storage bucket (see supabase/migrations/00004_storage_avatars.sql) or try again.',
         );
       }
     } else {
@@ -196,18 +198,50 @@ export default function ProfileScreen() {
   }
 
   async function signOut() {
-    if (ENABLE_BACKEND) {
-      const supabase = getSupabase();
-      await supabase.auth.signOut();
+    try {
+      const { resetArcadeGrantFlight } = await import('@/lib/arcadeGrants');
+      resetArcadeGrantFlight();
+      await getSupabase().auth.signOut();
+    } catch {
+      /* ignore */
     }
     useAuthStore.getState().signOutLocal();
-    router.replace(ENABLE_BACKEND ? '/(auth)/sign-in' : '/(app)/(tabs)');
+    if (ENABLE_BACKEND) {
+      router.replace('/(auth)/sign-in');
+    } else {
+      router.replace({ pathname: '/(auth)/welcome', params: { returning: '1' } });
+    }
   }
 
   const showAvatar = avatarUri && (avatarUri.startsWith('http') || avatarUri.startsWith('file'));
 
   return (
     <Screen>
+      {ALLOW_GUEST_MODE && !uid ? (
+        <View style={styles.accountCallout}>
+          <Text style={styles.accountCalloutTitle}>Sign in or create an account</Text>
+          <Text style={styles.accountCalloutSub}>
+            Use your Run It profile on this device. You can still try the arcade as a guest without signing in.
+          </Text>
+          <View style={styles.accountCalloutRow}>
+            <Pressable
+              style={({ pressed }) => [styles.accountCalloutBtn, pressed && { opacity: 0.9 }]}
+              onPress={() => router.push('/(auth)/sign-in')}
+            >
+              <Text style={styles.accountCalloutBtnText}>Sign in</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.accountCalloutBtnSecondary, pressed && { opacity: 0.9 }]}
+              onPress={() => router.push('/(auth)/sign-up')}
+            >
+              <Text style={styles.accountCalloutBtnSecondaryText}>Create account</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+      {ALLOW_GUEST_MODE && uid && user?.email ? (
+        <Text style={styles.signedInNote}>Signed in as {user.email}</Text>
+      ) : null}
       <View style={styles.header}>
         <Pressable onPress={() => void pickAvatar()} accessibilityRole="button" accessibilityLabel="Change profile photo">
           <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatarRing}>
@@ -316,7 +350,7 @@ export default function ProfileScreen() {
               <Text style={styles.addFundsBtnText}>ADD FUNDS</Text>
             </Pressable>
             <View style={styles.walletBtns}>
-              <Pressable style={({ pressed }) => [styles.wBtn, styles.wBtnPrimary, pressed && { opacity: 0.85 }]} onPress={() => router.push('/(app)/(tabs)/play')}>
+              <Pressable style={({ pressed }) => [styles.wBtn, styles.wBtnPrimary, pressed && { opacity: 0.85 }]} onPress={() => pushCrossTab(router, '/(app)/(tabs)/play')}>
                 <Ionicons name="game-controller-outline" size={16} color="#fff" />
                 <Text style={styles.wBtnText}>PLAY</Text>
               </Pressable>
@@ -381,12 +415,59 @@ export default function ProfileScreen() {
 
       <AppButton title="Settings" variant="secondary" onPress={() => router.push('/(app)/(tabs)/profile/settings')} />
       <AppButton className="mt-2" title="Transactions" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/transactions')} />
-      <AppButton className="mt-2" title="Sign out" variant="danger" onPress={() => void signOut()} />
+      {uid ? (
+        <AppButton className="mt-2" title="Sign out" variant="danger" onPress={() => void signOut()} />
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  accountCallout: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 240, 255, 0.35)',
+    backgroundColor: 'rgba(12, 6, 22, 0.88)',
+  },
+  accountCalloutTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  accountCalloutSub: {
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  accountCalloutRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  accountCalloutBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: runit.neonPink,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  accountCalloutBtnText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  accountCalloutBtnSecondary: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 240, 255, 0.55)',
+    backgroundColor: 'rgba(0, 240, 255, 0.08)',
+  },
+  accountCalloutBtnSecondaryText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14 },
+  signedInNote: {
+    color: 'rgba(0, 240, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 20 },
   avatarRing: { width: 72, height: 72, borderRadius: 36, padding: 2 },
   avatarInner: {

@@ -9,6 +9,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useShippingAddress } from '@/hooks/useShippingAddress';
+import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { queryKeys } from '@/lib/queryKeys';
 import { emptyShippingAddress, isShippingAddressComplete } from '@/lib/shippingAddress';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -42,7 +43,7 @@ export default function ShippingAddressScreen() {
   return (
     <Screen>
       <View style={styles.top}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
+        <Pressable onPress={() => safeBack(router, ROUTES.profileTab)} hitSlop={12} style={styles.back}>
           <Ionicons name="chevron-back" size={26} color="#e2e8f0" />
         </Pressable>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>SHIPPING</Text>

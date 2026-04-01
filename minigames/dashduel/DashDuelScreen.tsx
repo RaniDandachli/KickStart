@@ -125,7 +125,7 @@ export default function DashDuelScreen() {
     setPhase('home');
   }, []);
 
-  const prizeLabel = mode === 'vs' ? 'Fixed reward $9' : undefined;
+  const prizeLabel = mode === 'vs' ? 'Prize $9' : undefined;
   const practiceLabel = mode === 'practice' ? 'Practice' : undefined;
 
   return (

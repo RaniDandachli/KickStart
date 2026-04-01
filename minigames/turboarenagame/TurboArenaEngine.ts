@@ -13,9 +13,9 @@ export const TURBO = {
     carSpeed: 7.1,
     carJumpVy: -10.2,
     carGravity: 0.4,
-    carFriction: 0.76,
-    carMaxVx: 11.6,
-    carBoostForce: 2.45,
+    carFriction: 0.82,
+    carMaxVx: 12.4,
+    carBoostForce: 2.65,
     carBoostDrain: 0.016,
     carBoostRegen: 0.007,
     boostTrailInterval: 3, // frames between trail spawns
@@ -38,6 +38,11 @@ export const TURBO = {
     kickCooldownFrames: 22,
     /** Horizontal knockback when a kick hits the other car (Head Soccer–style) */
     kickCarKnockback: 5.8,
+
+    /** Extra kick strength when the human clears a ball rolling toward their goal */
+    defensiveKickMul: 1.24,
+    /** Extra car↔ball impulse when the human is saving in the defensive third */
+    defensiveCollisionImpulseMul: 1.2,
   
     // Match
     matchMs: 120_000,
@@ -157,11 +162,18 @@ export const TURBO = {
   
   // ── Kick ─────────────────────────────────────
   
-  export function tryKick(car: Car, ball: Ball, opponent: Car | null, particles: Particle[]): void {
+  export function tryKick(
+    car: Car,
+    ball: Ball,
+    opponent: Car | null,
+    particles: Particle[],
+    opts?: { defensiveClearance?: boolean },
+  ): void {
     if (car.kickCooldown > 0) return;
     const cx = car.x + TURBO.carW / 2;
     const cy = car.y + TURBO.carH / 2;
     let hit = false;
+    const kickMul = opts?.defensiveClearance ? TURBO.defensiveKickMul : 1;
 
     const dxb = ball.x - cx;
     const dyb = ball.y - cy;
@@ -169,8 +181,9 @@ export const TURBO = {
     if (distB <= TURBO.kickRange && distB > 0.01) {
       const nx = dxb / distB;
       const ny = dyb / distB;
-      ball.vx += nx * TURBO.kickPower;
-      ball.vy += ny * TURBO.kickPower - 1.35;
+      const kp = TURBO.kickPower * kickMul;
+      ball.vx += nx * kp;
+      ball.vy += ny * kp - 1.35;
       spawnParticles(particles, ball.x, ball.y, '#ffffff', 10, 5, false);
       spawnParticles(particles, ball.x, ball.y, car.flipped ? '#00ccff' : '#ff6600', 8, 4, true);
       hit = true;
@@ -319,7 +332,12 @@ export const TURBO = {
   
   // ── Car vs Ball collision ─────────────────────
   
-  function carBallCollision(car: Car, ball: Ball, particles: Particle[]): void {
+  function carBallCollision(
+    car: Car,
+    ball: Ball,
+    particles: Particle[],
+    opts?: { defensiveAssist?: boolean },
+  ): void {
     const cx = car.x + TURBO.carW / 2;
     const cy = car.y + TURBO.carH / 2;
     const dx = ball.x - cx;
@@ -335,8 +353,9 @@ export const TURBO = {
       const relVy = ball.vy - car.vy;
       const dot = relVx * nx + relVy * ny;
       if (dot < 0) {
-        const impulse = 1.55;
-        const carPush = 0.34;
+        const impulseMul = opts?.defensiveAssist ? TURBO.defensiveCollisionImpulseMul : 1;
+        const impulse = 1.55 * impulseMul;
+        const carPush = 0.34 * (opts?.defensiveAssist ? 1.08 : 1);
         ball.vx -= dot * nx * impulse;
         ball.vy -= dot * ny * impulse;
         car.vx += dot * nx * carPush;
@@ -346,6 +365,24 @@ export const TURBO = {
     }
   }
   
+  // ── Human defending (left goal) — threat + assists ───────────────────────
+
+  function humanDefensiveClearanceKick(ball: Ball): boolean {
+    return (
+      ball.vx < -0.9 &&
+      ball.x < TURBO.worldW * 0.46 &&
+      ball.x > TURBO.goalW + 14
+    );
+  }
+
+  function humanDefensiveCollisionAssist(ball: Ball): boolean {
+    return (
+      ball.vx < -0.55 &&
+      ball.x < TURBO.worldW * 0.4 &&
+      ball.x > TURBO.goalW + 8
+    );
+  }
+
   // ── CPU AI ───────────────────────────────────
   
   export type AiDifficulty = 'easy' | 'medium' | 'hard';
@@ -369,9 +406,14 @@ export const TURBO = {
       ball.x < TURBO.worldW * 0.48 && ball.vx < -1.2 && ball.x > TURBO.goalW + 40;
     const defendMul = threatToCpuGoal ? 1.32 : 1;
 
+    /** Ball headed toward human goal — ease CPU attack slightly so saves are viable */
+    const threatToHumanGoal =
+      ball.x < TURBO.worldW * 0.5 && ball.vx < -0.95 && ball.x > TURBO.goalW + 28;
+    const attackDampen = threatToHumanGoal ? 0.86 : 1;
+
     // Target: move toward ball
     const targetX = ball.x - TURBO.carW * 0.5;
-    const baseAccel = 0.96 * r * defendMul;
+    const baseAccel = 0.96 * r * defendMul * attackDampen;
     if (cpuCx < targetX - 8) {
       cpu.vx += baseAccel;
       cpu.flipped = false;
@@ -385,7 +427,8 @@ export const TURBO = {
       ball.x > TURBO.worldW * 0.5 &&
       ballDist > TURBO.worldW * 0.18 &&
       difficulty !== 'easy' &&
-      cpu.boost > 0.15;
+      cpu.boost > 0.15 &&
+      !threatToHumanGoal;
     const defendBoost = threatToCpuGoal && cpu.boost > 0.12 && ballDist > 55;
     const shouldBoost = attackBoost || defendBoost;
   
@@ -418,8 +461,8 @@ export const TURBO = {
       }
     }
   
-    // Kick — more likely when scrambling defense
-    const kickChance = (threatToCpuGoal ? 0.072 : 0.048) * r;
+    // Kick — more likely when scrambling defense; slightly less when bearing down on human goal
+    const kickChance = (threatToCpuGoal ? 0.072 : threatToHumanGoal ? 0.038 : 0.048) * r;
     if (cpu.kickCooldown <= 0 && Math.random() < kickChance) {
       tryKick(cpu, ball, humanCar, particles);
     }
@@ -520,12 +563,14 @@ export const TURBO = {
     const player = state.player;
     if (!player) return;
 
+    // Steering accel per frame — tuned for immediate, snappy lateral response
+    const steerAccel = TURBO.carSpeed * 0.22;
     if (inputs.left) {
-      player.vx -= TURBO.carSpeed * 0.14;
+      player.vx -= steerAccel;
       player.flipped = true;
     }
     if (inputs.right) {
-      player.vx += TURBO.carSpeed * 0.14;
+      player.vx += steerAccel;
       player.flipped = false;
     }
 
@@ -559,9 +604,11 @@ export const TURBO = {
       player.isBoosting = false;
     }
 
-    // Kick while held — tryKick returns fast on cooldown/miss; works with steer + multi-touch
+    // Kick while held — stronger clear when the ball is rolling toward your goal
     if (inputs.kick) {
-      tryKick(player, state.ball, state.cpu, state.particles);
+      tryKick(player, state.ball, state.cpu, state.particles, {
+        defensiveClearance: humanDefensiveClearanceKick(state.ball),
+      });
     }
   
     // ── CPU AI ──
@@ -573,7 +620,9 @@ export const TURBO = {
     integrateBall(state.ball, dtMs, state.particles);
   
     // ── Collisions ──
-    carBallCollision(state.player, state.ball, state.particles);
+    carBallCollision(state.player, state.ball, state.particles, {
+      defensiveAssist: humanDefensiveCollisionAssist(state.ball),
+    });
     carBallCollision(state.cpu, state.ball, state.particles);
     ballWallBounce(state.ball);
   

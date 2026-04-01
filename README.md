@@ -32,19 +32,25 @@ npx tsc --noEmit
 
 ## Supabase: SQL migration order
 
-Apply files in `sql/migrations` **in numeric order** on your Supabase project (SQL editor or `supabase db push` after linking):
+Apply files in `supabase/migrations` **in numeric order** on your Supabase project (SQL editor or `npx supabase db push` after `supabase link`):
 
 | Order | File | Purpose |
 |-------|------|--------|
-| 1 | `00001_schema.sql` | Tables, indexes, `updated_at` triggers |
-| 2 | `00002_rls.sql` | RLS + `is_staff()` helper (**service role** bypasses RLS for admin Edge Functions) |
-| 3 | `00003_auth_profile_trigger.sql` | `handle_new_user` → `profiles`, `user_stats`, default `ratings` rows |
+| 1 | `00001_schema.sql` | Tables (incl. `wallet_cents`, `prize_credits`, `redeem_tickets`, `minigame_scores`, `prize_catalog`), indexes, `updated_at` triggers, profile economy guard |
+| 2 | `00002_functions.sql` | `handle_new_user` (auth trigger), `redeem_prize_offer` RPC + grant |
+| 3 | `00003_rls.sql` | RLS on all public tables + `is_staff()` (**service role** bypasses RLS for Edge Functions) |
+| 4 | `00004_storage_avatars.sql` | `avatars` storage bucket + policies |
 
 Then optional seed reference data:
 
 - `sql/seed/00001_seed_reference_data.sql` — seasons, achievements, cosmetics, sample tournaments (no `auth.users` dependency).
+- `sql/seed/00002_prize_catalog.sql` — sample prize rows (after migrations).
 
 **Demo users / leaderboard rows tied to real profiles:** create accounts via the app or Supabase Auth, then insert child rows (`leaderboard_snapshots`, `transactions`, …) referencing those profile UUIDs. The client falls back to small in-app mocks when tables are empty.
+
+### Edge Functions
+
+See **`supabase/README.md`** for linking the project, setting secrets (`STRIPE_SECRET_KEY`, etc.), and `supabase functions deploy`. In `.env`, set **`EXPO_PUBLIC_ENABLE_BACKEND=true`** when the DB and functions are deployed so the app uses real auth and `supabase.functions.invoke`.
 
 ---
 

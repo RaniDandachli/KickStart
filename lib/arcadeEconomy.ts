@@ -13,6 +13,8 @@ import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 export const PRIZE_RUN_ENTRY_CREDITS = 10;
 /** Turbo Arena prize runs: harder AI + different ticket rules — see `ticketPayouts` / `TurboArenaScreen`. */
 export const TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS = 20;
+/** Stacker — jackpot-style prize cabinet; entry matches Turbo tier difficulty pricing. */
+export const STACKER_PRIZE_RUN_ENTRY_CREDITS = 20;
 
 export { DAILY_FREE_PRIZE_CREDITS, WELCOME_PRIZE_CREDITS };
 

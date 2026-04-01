@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 /**
  * Tickets used only to **redeem** catalog prizes — not for arcade entry.
- * Live app: `profiles.redeem_tickets` (see sql/migrations/00006_redeem_tickets.sql).
+ * Live app: `profiles.redeem_tickets` (see supabase/migrations/00001_schema.sql).
  */
 const START_REDEEM_TICKETS = 5;
 

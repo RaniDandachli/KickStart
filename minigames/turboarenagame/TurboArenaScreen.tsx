@@ -434,17 +434,11 @@ function CarView({
 
 // ── D-pad controls ────────────────────────────
 
-/** Extra touch slop so steer / actions work together with two thumbs */
-const CONTROL_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+/** Generous hit slop for two-thumb play without delaying pressIn */
+const CONTROL_HIT_SLOP = { top: 14, bottom: 14, left: 14, right: 14 } as const;
 
-function setJumpInput(inputsRef: MutableRefObject<TurboInputs>) {
-  if (!inputsRef.current.jump) {
-    inputsRef.current = { ...inputsRef.current, jump: true };
-    setTimeout(() => {
-      inputsRef.current = { ...inputsRef.current, jump: false };
-    }, 80);
-  }
-}
+/** Tight retention so release registers as soon as the thumb lifts — no “sticky” steer */
+const STEER_RETENTION = { top: 8, bottom: 8, left: 10, right: 10 } as const;
 
 function DPad({
   inputsRef,
@@ -459,7 +453,8 @@ function DPad({
     <View style={styles.dpad}>
       <Pressable
         hitSlop={CONTROL_HIT_SLOP}
-        pressRetentionOffset={{ top: 28, bottom: 28, left: 36, right: 36 }}
+        delayPressIn={0}
+        pressRetentionOffset={STEER_RETENTION}
         style={styles.steerBtn}
         onPressIn={() => setKey('left', true)}
         onPressOut={() => setKey('left', false)}
@@ -469,7 +464,8 @@ function DPad({
 
       <Pressable
         hitSlop={CONTROL_HIT_SLOP}
-        pressRetentionOffset={{ top: 28, bottom: 28, left: 36, right: 36 }}
+        delayPressIn={0}
+        pressRetentionOffset={STEER_RETENTION}
         style={styles.steerBtn}
         onPressIn={() => setKey('right', true)}
         onPressOut={() => setKey('right', false)}
@@ -489,6 +485,7 @@ function BoostHoldBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> 
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
+      delayPressIn={0}
       style={styles.boostHoldBtn}
       onPressIn={() => setKey('boost', true)}
       onPressOut={() => setKey('boost', false)}
@@ -498,12 +495,28 @@ function BoostHoldBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> 
   );
 }
 
+/** Short pulse + clear on each tap so double-jump isn’t blocked by the previous 80ms window */
 function JumpBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> }) {
+  const jumpClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onPressIn = () => {
+    if (jumpClearRef.current) {
+      clearTimeout(jumpClearRef.current);
+      jumpClearRef.current = null;
+    }
+    inputsRef.current = { ...inputsRef.current, jump: true };
+    jumpClearRef.current = setTimeout(() => {
+      jumpClearRef.current = null;
+      inputsRef.current = { ...inputsRef.current, jump: false };
+    }, 38);
+  };
+
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
+      delayPressIn={0}
       style={[styles.dpadBtn, styles.jumpBtn]}
-      onPressIn={() => setJumpInput(inputsRef)}
+      onPressIn={onPressIn}
     >
       <Text style={[styles.dpadIcon, { color: '#ffff00', fontSize: 13 }]}>JUMP</Text>
     </Pressable>
@@ -522,6 +535,7 @@ function KickBtn({
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
+      delayPressIn={0}
       style={styles.kickBtn}
       onPressIn={() => setKick(true)}
       onPressOut={() => setKick(false)}
@@ -1094,9 +1108,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   steerBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+    width: 72,
+    height: 72,
+    borderRadius: 14,
     backgroundColor: 'rgba(0,255,255,0.08)',
     borderWidth: 2,
     borderColor: 'rgba(0,255,255,0.45)',

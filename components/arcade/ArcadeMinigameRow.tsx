@@ -3,10 +3,17 @@ import { useRouter } from 'expo-router';
 
 import { ArcadeGameRow, type RunitBorderAccent } from '@/components/arcade/ArcadeGameRow';
 import { ArcadePlayModeModal } from '@/components/arcade/ArcadePlayModeModal';
-import { TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { STACKER_PRIZE_RUN_ENTRY_CREDITS, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 
 type Props = {
-  gameRoute: 'tap-dash' | 'tile-clash' | 'dash-duel' | 'ball-run' | 'turbo-arena' | 'neon-pool';
+  gameRoute:
+    | 'tap-dash'
+    | 'tile-clash'
+    | 'dash-duel'
+    | 'ball-run'
+    | 'turbo-arena'
+    | 'neon-pool'
+    | 'stacker';
   title: string;
   entryLabel: string;
   winLabel: string;
@@ -26,7 +33,12 @@ export function ArcadeMinigameRow(props: Props) {
   const { gameRoute, title, emphasized, ...rowProps } = props;
   const [open, setOpen] = useState(false);
   const path = `${BASE}/${gameRoute}`;
-  const prizeEntryCredits = gameRoute === 'turbo-arena' ? TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS : undefined;
+  const prizeEntryCredits =
+    gameRoute === 'turbo-arena'
+      ? TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS
+      : gameRoute === 'stacker'
+        ? STACKER_PRIZE_RUN_ENTRY_CREDITS
+        : undefined;
 
   return (
     <>
