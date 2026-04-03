@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { PickGameForQueue } from '@/features/play/PickGameForQueue';
 import { QueueScreen } from '@/features/play/QueueScreen';
-import { H2H_OPEN_GAMES, titleForH2hGameKey } from '@/lib/homeOpenMatches';
+import { H2H_OPEN_GAMES, titleForH2hGameKey, type H2hGameKey } from '@/lib/homeOpenMatches';
 
 function parseUsd(v: string | string[] | undefined): number | undefined {
   if (v == null) return undefined;
@@ -11,12 +11,11 @@ function parseUsd(v: string | string[] | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-const VALID_GAME_KEYS = new Set(H2H_OPEN_GAMES.map((g) => g.gameKey));
-
-function parseGameKey(v: string | string[] | undefined): string | undefined {
+function parseGameKey(v: string | string[] | undefined): H2hGameKey | undefined {
   if (v == null) return undefined;
   const s = Array.isArray(v) ? v[0] : v;
-  return VALID_GAME_KEYS.has(s) ? s : undefined;
+  if (!H2H_OPEN_GAMES.some((g) => g.gameKey === s)) return undefined;
+  return s as H2hGameKey;
 }
 
 function parseIntent(v: string | string[] | undefined): 'join' | 'start' | undefined {
@@ -28,6 +27,8 @@ function parseIntent(v: string | string[] | undefined): 'join' | 'start' | undef
 
 export default function CasualQueueScreen() {
   const params = useLocalSearchParams();
+  const quickRaw = params.quick;
+  const quickMatch = quickRaw === '1' || quickRaw === 'true';
   const entry = parseUsd(params.entry);
   const prize = parseUsd(params.prize) ?? parseUsd(params.win);
   const hasPair = entry != null && prize != null;
@@ -47,6 +48,7 @@ export default function CasualQueueScreen() {
       gameTitle={gameKey ? titleForH2hGameKey(gameKey) : undefined}
       gameKey={gameKey}
       queueIntent={queueIntent}
+      quickMatch={quickMatch && !hasPair}
     />
   );
 }

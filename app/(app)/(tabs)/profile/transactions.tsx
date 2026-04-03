@@ -59,7 +59,8 @@ function toneFor(k: TransactionKind): 'success' | 'warning' | 'neon' | 'default'
     k === 'credit_spend' ||
     k === 'gem_spend' ||
     k === 'prize_credit_spend' ||
-    k === 'redeem_ticket_spend'
+    k === 'redeem_ticket_spend' ||
+    k === 'wallet_withdraw'
   )
     return 'warning';
   return 'default';

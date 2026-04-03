@@ -28,7 +28,7 @@ export default function TournamentDetailScreen() {
   function onJoin() {
     if (!t || !userId) return;
     if (t.state !== 'open' && t.state !== 'full') {
-      Alert.alert('Run it', 'Tournament is not accepting joins right now.');
+      Alert.alert('RunitArcade', 'Tournament is not accepting joins right now.');
       return;
     }
     join.mutate(t.id, {

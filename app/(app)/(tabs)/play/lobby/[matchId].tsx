@@ -1,11 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
+import { useProfile } from '@/hooks/useProfile';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { displayNameForProfile } from '@/services/api/h2hMatchSession';
 import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
@@ -17,31 +22,56 @@ export default function PreMatchLobbyScreen() {
 
   const sameSession = activeMatch?.matchId === matchId;
   const opp = sameSession ? activeMatch.opponent : null;
+  const msQ = useMatchSessionWithPlayers(matchId);
+  const selfProfile = useProfile(selfId === 'guest' ? undefined : selfId);
+
+  const selfDisplayName = useMemo(() => {
+    if (selfId === 'guest') return 'You';
+    if (selfProfile.data) {
+      return displayNameForProfile(selfProfile.data.username, selfProfile.data.display_name);
+    }
+    return `Player ${selfId.slice(0, 6)}…`;
+  }, [selfId, selfProfile.data]);
+
+  const opponentDisplayName = useMemo(() => {
+    if (ENABLE_BACKEND && msQ.data && selfId !== 'guest') {
+      const ms = msQ.data;
+      if (ms.player_a_id === selfId) {
+        return displayNameForProfile(ms.player_b_username, ms.player_b_display);
+      }
+      if (ms.player_b_id === selfId) {
+        return displayNameForProfile(ms.player_a_username, ms.player_a_display);
+      }
+    }
+    return opp?.username ?? '—';
+  }, [msQ.data, selfId, opp?.username]);
 
   return (
     <Screen scroll={false}>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1 LOBBY</Text>
-      <Text style={styles.sub}>Session ready — review who you&apos;re facing, then start.</Text>
+      <Text style={styles.sub}>Player vs player — you vs your opponent. Review names, then start.</Text>
 
       <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.vsBorder, runitGlowPinkSoft]}>
         <View style={styles.vsInner}>
           <View style={styles.row}>
             <PlayerCard
               label="You"
-              name={selfId === 'guest' ? 'You' : `Player ${selfId.slice(0, 6)}…`}
+              name={selfDisplayName}
               sub="Ready"
               accent="cyan"
             />
             <Text style={styles.vs}>VS</Text>
             <PlayerCard
               label="Opponent"
-              name={opp?.username ?? '—'}
+              name={opponentDisplayName}
               sub={opp ? `${opp.rating} · ${opp.region}` : 'Open queue from matchmaking'}
               accent="pink"
             />
           </View>
 
-          {sameSession && activeMatch?.listedPrizeUsd != null ? (
+          {sameSession && activeMatch?.casualFree ? (
+            <Text style={styles.freeText}>Casual match · no entry fee · no cash prize</Text>
+          ) : sameSession && activeMatch?.listedPrizeUsd != null ? (
             <View style={styles.prizeRow}>
               <Ionicons name="trophy-outline" size={18} color={runit.neonCyan} />
               <Text style={styles.prizeText}>

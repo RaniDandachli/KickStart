@@ -37,7 +37,6 @@ import { getSupabase } from '@/supabase/client';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { redeemGiftCard } from '@/services/redeemGiftCard';
 import { getNextRewardTarget } from '@/lib/nextRewardProgress';
-import { topUpComingSoonMessage } from '@/lib/purchaseEconomy';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type ShippingModal =
@@ -78,9 +77,11 @@ export default function PrizesScreen() {
   const [draft, setDraft] = useState(emptyShippingAddress);
   const [redeemingGiftId, setRedeemingGiftId] = useState<string | null>(null);
 
+  const addressFingerprint = JSON.stringify(address);
+
   useEffect(() => {
     if (shippingModal) setDraft(address);
-  }, [shippingModal, address]);
+  }, [shippingModal, addressFingerprint]);
 
   const redeem = useMutation({
     mutationFn: async (vars: { prizeId: string; requiresShipping: boolean }) => {
@@ -226,7 +227,7 @@ export default function PrizesScreen() {
           </Text>
         </View>
       </View>
-      <Pressable onPress={() => Alert.alert('Buy credits & tickets', topUpComingSoonMessage())} style={styles.shipLink}>
+      <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')} style={styles.shipLink}>
         <View style={styles.iconLine}>
           <Ionicons name="card-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Buy credits & tickets (pricing) →</Text>

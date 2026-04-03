@@ -10,5 +10,5 @@ export async function fetchActivePrizeCatalog(): Promise<PrizeCatalogWithReward[
     .order('sort_order', { ascending: true })
     .order('title', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as PrizeCatalogWithReward[];
+  return (data ?? []) as unknown as PrizeCatalogWithReward[];
 }

@@ -24,6 +24,8 @@ import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
+import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 
 /** 60 FPS reference frame duration (ms). */
 const FRAME_MS = 1000 / 60;
@@ -379,7 +381,13 @@ function PassBurstView({
 }
 
 
-export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
+export default function TapDashGame({
+  playMode = 'practice',
+  dailyTournament,
+}: {
+  playMode?: 'practice' | 'prize';
+  dailyTournament?: DailyTournamentBundle;
+}) {
   useHidePlayTabBar();
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
@@ -402,6 +410,7 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
   const endStatsRef = useRef({ score: 0, durationMs: 0, taps: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const dailyCompleteRef = useRef(false);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -420,14 +429,14 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
       m.streak = 0;
       const durationMs = Math.max(0, Date.now() - startTimeRef.current);
       endStatsRef.current = { score: m.score, durationMs, taps: m.taps };
-      if (playMode === 'prize') {
+      if (!dailyTournament && playMode === 'prize') {
         const t = ticketsFromTapDashScore(m.score);
         awardRedeemTicketsForPrizeRun(t);
       }
       setPhase('over');
       bump();
     },
-    [bump, playMode],
+    [bump, playMode, dailyTournament],
   );
 
   const step = useCallback(
@@ -515,7 +524,7 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
 
   const onTap = useCallback(() => {
     if (phase === 'ready') {
-      if (playMode === 'prize') {
+      if (!dailyTournament && playMode === 'prize') {
         const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
         if (!ok) {
           Alert.alert(
@@ -537,7 +546,7 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
     if (phase === 'playing') {
       queueFlap();
     }
-  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits]);
+  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament]);
 
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -572,6 +581,23 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
   const scrollPx = (m.worldTimeMs * 0.024) % 200;
   const tintAt = (id: number) => (['cyan', 'violet', 'emerald'] as const)[id % 3];
 
+  const dailyPayload =
+    dailyTournament && phase === 'over'
+      ? finalizeDailyScores(
+          endStatsRef.current.score,
+          dailyTournament.opponentRoundScore,
+          dailyTournament.forcedOutcome,
+          dailyTournament.localPlayerId,
+          dailyTournament.opponentId,
+        )
+      : null;
+
+  const onContinueDaily = useCallback(() => {
+    if (!dailyTournament || !dailyPayload || dailyCompleteRef.current) return;
+    dailyCompleteRef.current = true;
+    dailyTournament.onComplete(dailyPayload);
+  }, [dailyTournament, dailyPayload]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
@@ -592,11 +618,20 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
             ) : (
               <Text style={styles.streakPlaceholder}> </Text>
             )}
+            {dailyTournament && phase !== 'over' ? (
+              <Text style={styles.vsOppLabel} numberOfLines={1}>
+                vs {dailyTournament.opponentDisplayName}
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.creditsPill}>
-            <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
-            <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
-          </View>
+          {dailyTournament ? (
+            <View style={styles.topBarRightSpacer} />
+          ) : (
+            <View style={styles.creditsPill}>
+              <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+              <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
+            </View>
+          )}
         </View>
 
         <Pressable style={styles.pressFlex} onPressIn={onTap} disabled={phase === 'over'}>
@@ -680,9 +715,11 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintBrand}>TAP DASH</Text>
               <Text style={styles.hintMode}>
-                {playMode === 'prize'
-                  ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
-                  : 'Practice · free · no credits spent'}
+                {dailyTournament
+                  ? `Live event · vs ${dailyTournament.opponentDisplayName}`
+                  : playMode === 'prize'
+                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
+                    : 'Practice · free · no credits spent'}
               </Text>
               <Text style={styles.hintSub}>Neon sprint · precision run</Text>
               <Text style={styles.hintBody}>Tap to thrust · thread the gates</Text>
@@ -691,7 +728,26 @@ export default function TapDashGame({ playMode = 'practice' }: { playMode?: 'pra
           ) : null}
         </Pressable>
 
-        {phase === 'over' ? (
+        {phase === 'over' && dailyTournament && dailyPayload ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.card}>
+              <Text style={styles.goTitle}>Round result</Text>
+              <Text style={styles.goVs} numberOfLines={1}>
+                You vs {dailyTournament.opponentDisplayName}
+              </Text>
+              <Text style={styles.goScore}>
+                {dailyPayload.finalScore.self} — {dailyPayload.finalScore.opponent}
+              </Text>
+              <Text style={styles.practiceNote}>
+                {dailyPayload.winnerId === dailyTournament.localPlayerId
+                  ? 'You take the match and move on.'
+                  : 'They take the match — you’re out of today’s event.'}
+              </Text>
+              <AppButton title="Continue" onPress={onContinueDaily} />
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
               <Text style={styles.goTitle}>Run ended</Text>
@@ -743,6 +799,15 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topBarRightSpacer: { width: 72, height: 36 },
+  vsOppLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(226,232,240,0.7)',
+    marginTop: 2,
+    maxWidth: 160,
+    textAlign: 'center',
   },
   scoreColumn: {
     flex: 1,
@@ -940,6 +1005,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  goVs: {
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
   },
   goScore: {
     color: arcade.textMuted,

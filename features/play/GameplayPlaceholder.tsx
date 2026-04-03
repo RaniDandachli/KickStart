@@ -137,7 +137,7 @@ export function GameplayPlaceholder({
           {!hideOpponentControls ? (
             <AppButton title="+Goal" variant="secondary" onPress={() => setScoreOpponent((s) => s + 1)} />
           ) : (
-            <Text className="mt-2 text-[10px] text-slate-500">CPU</Text>
+            <View className="mt-2 h-9" accessibilityElementsHidden />
           )}
         </Card>
       </View>

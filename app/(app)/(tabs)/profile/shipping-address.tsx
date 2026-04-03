@@ -22,9 +22,11 @@ export default function ShippingAddressScreen() {
   const { address, save, isLoadingProfile } = useShippingAddress();
   const [draft, setDraft] = useState(emptyShippingAddress);
 
+  const addressFingerprint = JSON.stringify(address);
+
   useEffect(() => {
     setDraft(address);
-  }, [address]);
+  }, [addressFingerprint]);
 
   const saveMut = useMutation({
     mutationFn: async () => {

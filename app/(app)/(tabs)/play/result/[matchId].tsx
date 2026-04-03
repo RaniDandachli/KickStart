@@ -1,5 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,51 +8,126 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { isUuid } from '@/lib/isUuid';
 import { formatUsdFromCents } from '@/lib/money';
+import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  fetchMatchSessionWithPlayers,
+  recordH2hMatchResultViaEdge,
+} from '@/services/api/h2hMatchSession';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
 import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
 export default function MatchResultScreen() {
-  const { matchId, winner, sa, sb, draw, prize, entry, opp } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
     matchId: string;
     winner?: string;
     sa?: string;
     sb?: string;
     draw?: string;
     prize?: string;
-    /** Entry fee USD — passed through for rematch after draw. */
     entry?: string;
     opp?: string;
+    oppId?: string;
   }>();
+  const rawMid = params.matchId;
+  const matchId = Array.isArray(rawMid) ? rawMid[0] : rawMid;
   const router = useRouter();
+  const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id ?? 'guest');
   const clearActiveMatch = useMatchmakingStore((s) => s.setActiveMatch);
   const addWalletCents = useDemoWalletStore((s) => s.addWalletCents);
 
-  const isDraw = draw === '1' || winner === 'draw';
-  const won = !isDraw && winner === uid;
-  const lost = !isDraw && !won;
-  const rawOpp = Array.isArray(opp) ? opp[0] : opp;
+  const winner = Array.isArray(params.winner) ? params.winner[0] : params.winner;
+  const saRaw = Array.isArray(params.sa) ? params.sa[0] : params.sa;
+  const sbRaw = Array.isArray(params.sb) ? params.sb[0] : params.sb;
+  const draw = Array.isArray(params.draw) ? params.draw[0] : params.draw;
+  const rawOpp = Array.isArray(params.opp) ? params.opp[0] : params.opp;
   const oppName = rawOpp ? decodeURIComponent(rawOpp) : 'Opponent';
-  const rawPrize = Array.isArray(prize) ? prize[0] : prize;
-  const rawEntry = Array.isArray(entry) ? entry[0] : entry;
+  const rawPrize = Array.isArray(params.prize) ? params.prize[0] : params.prize;
+  const rawEntry = Array.isArray(params.entry) ? params.entry[0] : params.entry;
+
   const prizeUsd = rawPrize != null ? Number(rawPrize) : NaN;
   const entryUsd = rawEntry != null ? Number(rawEntry) : NaN;
   const hasPrize = Number.isFinite(prizeUsd) && prizeUsd > 0;
   const hasPaidRematch =
     Number.isFinite(entryUsd) && entryUsd > 0 && Number.isFinite(prizeUsd) && prizeUsd > 0;
-  const rematchHref = hasPaidRematch
-    ? `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}`
+  const rematchHref: Href = hasPaidRematch
+    ? (`/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}` as Href)
     : '/(app)/(tabs)/play/casual';
+
+  const { data: ms } = useQuery({
+    queryKey: queryKeys.matchSession(matchId ?? ''),
+    queryFn: () => fetchMatchSessionWithPlayers(matchId!),
+    enabled: ENABLE_BACKEND && !!matchId && isUuid(matchId) && uid !== 'guest',
+  });
+
+  const isDraw = draw === '1' || winner === 'draw';
+  const won = !isDraw && winner === uid;
+  const lost = !isDraw && !won;
+
+  const outcomeLine = useMemo(() => {
+    if (isDraw) return 'No winner — same score.';
+    if (won) return `You won against ${oppName}.`;
+    return `${oppName} won this match.`;
+  }, [isDraw, won, oppName]);
+
+  const recordedRef = useRef(false);
+  useEffect(() => {
+    if (!ENABLE_BACKEND || !matchId || !isUuid(matchId) || uid === 'guest') return;
+    if (recordedRef.current) return;
+    if (!ms) return;
+    if (ms.status === 'completed') {
+      recordedRef.current = true;
+      return;
+    }
+
+    const saNum = Number(saRaw);
+    const sbNum = Number(sbRaw);
+    if (!Number.isFinite(saNum) || !Number.isFinite(sbNum)) return;
+
+    const pa = ms.player_a_id;
+    const pb = ms.player_b_id;
+    if (!pa || !pb) return;
+
+    const isA = uid === pa;
+    const scorePayload = isA ? { a: saNum, b: sbNum } : { a: sbNum, b: saNum };
+
+    let winnerUserId: string | null = null;
+    let loserUserId: string | null = null;
+    if (!isDraw) {
+      if (winner === uid) {
+        winnerUserId = uid;
+        loserUserId = isA ? pb : pa;
+      } else {
+        loserUserId = uid;
+        winnerUserId = isA ? pb : pa;
+      }
+    }
+
+    recordedRef.current = true;
+    void recordH2hMatchResultViaEdge({
+      matchSessionId: matchId,
+      isDraw,
+      winnerUserId,
+      loserUserId,
+      score: scorePayload,
+      wasRanked: false,
+    })
+      .then(() => qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) }))
+      .catch((e) => {
+        console.warn('[recordH2hMatchResult]', e);
+        recordedRef.current = false;
+      });
+  }, [ENABLE_BACKEND, matchId, uid, ms, saRaw, sbRaw, draw, winner, isDraw, qc]);
 
   const payoutApplied = useRef(false);
   useEffect(() => {
     if (payoutApplied.current) return;
     if (!won || isDraw || !hasPrize) return;
     if (ENABLE_BACKEND) {
-      // Wire: invoke `recordMatchResult` then invalidate profile / wallet query.
       return;
     }
     payoutApplied.current = true;
@@ -70,14 +146,14 @@ export default function MatchResultScreen() {
   return (
     <Screen scroll={false}>
       <Text style={[styles.bigTitle, { fontFamily: runitFont.black }, titleStyle]}>{title}</Text>
-      <Text style={styles.vsLine}>
-        vs {oppName}
-      </Text>
+      <Text style={styles.vsLine}>Player vs player</Text>
+      <Text style={styles.outcomeLine}>{outcomeLine}</Text>
+      <Text style={styles.oppHint}>vs {oppName}</Text>
 
       <LinearGradient colors={[runit.neonPurple, 'rgba(12,6,22,0.95)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, runitGlowPinkSoft]}>
-        <Text style={styles.scoreLabel}>Final score</Text>
+        <Text style={styles.scoreLabel}>Final score (you — opponent)</Text>
         <Text style={styles.scoreBig}>
-          {sa ?? '?'} — {sb ?? '?'}
+          {saRaw ?? '?'} — {sbRaw ?? '?'}
         </Text>
         <Text style={styles.mono} numberOfLines={1}>
           {matchId}
@@ -139,7 +215,16 @@ const styles = StyleSheet.create({
     textShadowRadius: 12,
     color: '#e2e8f0',
   },
-  vsLine: { color: 'rgba(148,163,184,0.95)', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 16 },
+  vsLine: { color: 'rgba(148,163,184,0.95)', fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
+  outcomeLine: {
+    color: 'rgba(226,232,240,0.98)',
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 8,
+  },
+  oppHint: { color: 'rgba(148,163,184,0.9)', fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 16 },
   card: {
     borderRadius: 16,
     padding: 18,

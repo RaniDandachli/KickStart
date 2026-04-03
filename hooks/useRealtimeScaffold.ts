@@ -24,6 +24,13 @@ export function useRealtimeScaffold(userId: string | undefined): void {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_sessions' }, () => {
         void qc.invalidateQueries({ queryKey: ['profile'] });
+        void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'minigame_scores' }, () => {
+        void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transactions' }, () => {
+        void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard_snapshots' }, () => {
         void qc.invalidateQueries({ queryKey: ['leaderboard'] });

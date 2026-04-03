@@ -14,29 +14,49 @@ import { HomePlayHero } from '@/components/arcade/HomePlayHero';
 import {
     BallRunGameIcon,
     DashDuelGameIcon,
-    NeonPoolGameIcon,
     TapDashGameIcon,
     TileClashGameIcon,
     TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useActiveSeason } from '@/hooks/useActiveSeason';
+import { buildTickerLinesFromLobby, useHomeLobbyStats } from '@/hooks/useHomeLobbyStats';
 import { useProfile } from '@/hooks/useProfile';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
+import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
+import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
+import { DAILY_FREE_PRIZE_USD, DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
+import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
+  const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
+  const dailyHydrate = useDailyFreeTournamentStore((s) => s.hydrate);
+  const dailyResetCountdown = useDailyFreeResetClock(dailyUid, dailyHydrate);
   const profileQ = useProfile(uid);
   const seasonQ = useActiveSeason();
   const tournamentsQ = useTournaments(true);
+  const lobbyStatsQ = useHomeLobbyStats();
+
+  const liveLobby = useMemo(() => {
+    if (!ENABLE_BACKEND || lobbyStatsQ.data == null) return null;
+    const d = lobbyStatsQ.data;
+    return {
+      playersOnline: d.players_online,
+      rewardsWalletCents24h: d.rewards_wallet_cents_24h,
+      matchesLive: d.matches_in_progress,
+      matchesQueued: d.matches_queued,
+      tickerLines: buildTickerLinesFromLobby(d.recent_rewards, d.recent_arcade),
+    };
+  }, [lobbyStatsQ.data]);
 
   const profile = profileQ.data;
   const nextTournament = tournamentsQ.data?.[0];
@@ -118,8 +138,6 @@ export default function HomeScreen() {
         return <BallRunGameIcon size={size} />;
       case 'turbo-arena':
         return <TurboArenaGameIcon size={size} />;
-      case 'neon-pool':
-        return <NeonPoolGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }
@@ -137,8 +155,6 @@ export default function HomeScreen() {
         return ['#1a0b2e', '#831843'];
       case 'turbo-arena':
         return ['#020617', '#7c2d12'];
-      case 'neon-pool':
-        return ['#052e16', '#14532d'];
       default:
         return ['#1e1b4b', '#4c1d95'];
     }
@@ -151,6 +167,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <HomePlayHero
+            liveLobby={liveLobby}
             walletDisplay={walletDisplay}
             onWalletPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
             onEntryTierPress={(entry, prize) =>
@@ -159,7 +176,7 @@ export default function HomeScreen() {
                 `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
               )
             }
-            onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual')}
+            onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
           />
 
           <View style={styles.sectionLabel}>
@@ -264,24 +281,46 @@ export default function HomeScreen() {
             <View style={styles.sectionLine} />
           </View>
 
-          <Pressable style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]} onPress={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}>
+          <Pressable
+            style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
+            onPress={() =>
+              ENABLE_DAILY_FREE_TOURNAMENT
+                ? pushCrossTab(router, '/(app)/(tabs)/tournaments/daily-free')
+                : pushCrossTab(router, '/(app)/(tabs)/tournaments')
+            }
+          >
             <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
-              <View style={styles.tourneyCard}>
+              <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
                 <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                  <Ionicons name="trophy" size={34} color="#fbbf24" />
+                  <Ionicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 40 : 34} color="#fbbf24" />
                 </View>
                 <View style={styles.tourneyMid}>
-                  <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
-                    {nextTournament?.name ?? 'Daily Tournament'}
-                  </Text>
-                  <Text style={styles.tourneyMeta}>
-                    {nextTournament
-                      ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
-                      : '18/20 players · open'}
-                  </Text>
+                  {ENABLE_DAILY_FREE_TOURNAMENT ? (
+                    <>
+                      <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
+                      <View style={styles.homeDailyPrizeRow}>
+                        <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
+                        <Text style={styles.homeDailyPrizeSub}>showcase · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
+                      </View>
+                      <Text style={styles.tourneyMeta}>
+                        Resets in {dailyResetCountdown} · New bracket at local midnight
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
+                        {nextTournament?.name ?? 'Daily Tournament'}
+                      </Text>
+                      <Text style={styles.tourneyMeta}>
+                        {nextTournament
+                          ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
+                          : '18/20 players · open'}
+                      </Text>
+                    </>
+                  )}
                 </View>
                 <LinearGradient colors={[runit.neonPink, runit.neonPurple]} style={styles.joinBtn}>
-                  <Text style={styles.joinBtnText}>JOIN</Text>
+                  <Text style={styles.joinBtnText}>{ENABLE_DAILY_FREE_TOURNAMENT ? 'PLAY' : 'JOIN'}</Text>
                 </LinearGradient>
               </View>
             </LinearGradient>
@@ -440,8 +479,35 @@ const styles = StyleSheet.create({
   prizeBtn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', minWidth: 90, alignItems: 'center' },
   prizeBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   tourneyCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: 'rgba(8,4,18,0.88)' },
+  tourneyCardDaily: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8,4,18,0.88)',
+  },
   trophyIcon: { justifyContent: 'center' },
   tourneyMid: { flex: 1 },
+  tourneyKicker: {
+    color: 'rgba(167,139,250,0.95)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  homeDailyPrizeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  homeDailyPrizeUsd: {
+    color: '#fef08a',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(250,204,21,0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  homeDailyPrizeSub: { color: 'rgba(254,243,199,0.95)', fontSize: 13, fontWeight: '800' },
   tourneyTitle: { color: runit.neonCyan, fontSize: 16, fontWeight: '900', marginBottom: 4 },
   tourneyMeta: { color: 'rgba(203,213,225,0.85)', fontSize: 12, fontWeight: '600' },
   joinBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },

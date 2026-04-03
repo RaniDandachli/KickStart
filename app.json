@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Run it",
+    "name": "RunitArcade",
     "slug": "run-it",
     "version": "1.0.0",
     "orientation": "default",
@@ -34,10 +34,17 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Run it to set your profile photo from your library."
+          "photosPermission": "Allow RunitArcade to set your profile photo from your library."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "",
+          "enableGooglePay": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

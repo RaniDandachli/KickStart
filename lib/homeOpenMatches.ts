@@ -37,13 +37,6 @@ export const H2H_OPEN_GAMES = [
     bgColors: ['#020617', '#0c4a6e', '#7c2d12'] as const,
     borderAccent: 'cyan' as const satisfies RunitBorderAccent,
   },
-  {
-    gameKey: 'neon-pool' as const,
-    title: 'Neon Pocket',
-    route: '/(app)/(tabs)/play/minigames/neon-pool',
-    bgColors: ['#052e16', '#0f172a', '#14532d'] as const,
-    borderAccent: 'cyan' as const satisfies RunitBorderAccent,
-  },
 ] as const;
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES)[number]['gameKey'];

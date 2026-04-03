@@ -76,6 +76,28 @@ function randomNewWaiter(): H2hBoardWaiter {
   };
 }
 
+/** When no one is queued yet — still pick a game + tier for the next pairing (demo). */
+export function buildSyntheticWaiter(): H2hBoardWaiter {
+  return {
+    id: makeId(),
+    gameKey: randomGameKey(),
+    tierIndex: randomTierIndex(),
+    hostLabel: randomHost(),
+    postedAt: Date.now(),
+  };
+}
+
+/**
+ * Quick Match: pair with the longest-waiting open player across any game/tier (demo board),
+ * or synthesize a lobby if the pool is empty.
+ */
+export function pickAnyOpenWaiterForQuickMatch(): H2hBoardWaiter {
+  useHomeH2hBoardStore.getState().initDemo();
+  const sorted = sortWaitersForDisplay(useHomeH2hBoardStore.getState().waiters);
+  if (sorted.length > 0) return sorted[0]!;
+  return buildSyntheticWaiter();
+}
+
 type HomeH2hBoardState = {
   waiters: H2hBoardWaiter[];
   /** One-time demo pool (replace with API / Realtime later). */

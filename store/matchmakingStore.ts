@@ -15,6 +15,8 @@ export type ActiveMatchSession = {
   opponent: MatchOpponentPreview;
   entryFeeUsd?: number;
   listedPrizeUsd?: number;
+  /** Free casual run: no fee/prize; opponent controls hidden in stub match (no “bot” copy). */
+  casualFree?: boolean;
 };
 
 interface MatchmakingState {

@@ -12,6 +12,7 @@ import {
   DAILY_FREE_TOURNAMENT_ROUNDS,
   getRoundLabel,
 } from '@/lib/dailyFreeTournament';
+import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -23,6 +24,7 @@ export default function DailyFreeTournamentScreen() {
   const nextRound = useDailyFreeTournamentStore((s) => s.nextRound);
   const eliminated = useDailyFreeTournamentStore((s) => s.eliminated);
   const hydrate = useDailyFreeTournamentStore((s) => s.hydrate);
+  const resetCountdown = useDailyFreeResetClock(uid, hydrate);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,12 +41,15 @@ export default function DailyFreeTournamentScreen() {
     );
   }
 
+  const clearedToday = !eliminated && nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
   const canPlay = !eliminated && nextRound <= DAILY_FREE_TOURNAMENT_ROUNDS;
   const statusLine = eliminated
-    ? `Today’s run ended in ${getRoundLabel(nextRound)}. New bracket tomorrow.`
-    : canPlay
-      ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${DAILY_FREE_TOURNAMENT_ROUNDS})`
-      : 'Bracket complete';
+    ? `Today’s run ended in ${getRoundLabel(Math.min(nextRound, DAILY_FREE_TOURNAMENT_ROUNDS))}. New bracket at midnight.`
+    : clearedToday
+      ? `You cleared today’s ${DAILY_FREE_TOURNAMENT_ROUNDS}-round path — showcase prize tier $${DAILY_FREE_PRIZE_USD}. New bracket in ${resetCountdown}.`
+      : canPlay
+        ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${DAILY_FREE_TOURNAMENT_ROUNDS})`
+        : 'Bracket complete';
 
   return (
     <Screen>
@@ -63,12 +68,11 @@ export default function DailyFreeTournamentScreen() {
         ${DAILY_FREE_PRIZE_USD} showcase prize · free entry · {DAILY_FREE_TOURNAMENT_ROUNDS} wins to crown
       </Text>
       <Text style={styles.body}>
-        One free run per day. Win your way through eight rounds — every day you start fresh with a new path
-        through the bracket.
+        {`One entry per local day (resets at midnight). Ten skill rounds with rotating games — Tap Dash, Tile Clash, and Neon Ball Run — climb to the final for the $${DAILY_FREE_PRIZE_USD} showcase path or get knocked out along the way.`}
       </Text>
+      <Text style={styles.countdownLine}>New tournament in {resetCountdown}</Text>
       <Text style={styles.disclaimer}>
-        Promotional skill showcase. Not a paid contest; prize is illustrative and not automatically awarded in-app.
-        Subject to platform rules and any future official terms.
+        Prize details and eligibility follow the official event rules. No entry fee for this path.
       </Text>
 
       <LinearGradient
@@ -84,9 +88,17 @@ export default function DailyFreeTournamentScreen() {
       </LinearGradient>
 
       <AppButton
-        title={canPlay && hydrated ? 'Play next match' : eliminated ? 'Come back tomorrow' : 'Loading…'}
+        title={
+          !hydrated
+            ? 'Loading…'
+            : canPlay
+              ? 'Play next match'
+              : clearedToday || eliminated
+                ? 'Come back tomorrow'
+                : 'Bracket complete'
+        }
         disabled={!hydrated || !canPlay}
-        onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free-match')}
+        onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free-play')}
       />
     </Screen>
   );
@@ -99,6 +111,14 @@ const styles = StyleSheet.create({
   prizeLine: { color: 'rgba(203,213,225,0.95)', fontSize: 15, fontWeight: '800', marginBottom: 10 },
   body: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 12 },
   disclaimer: { color: 'rgba(148,163,184,0.75)', fontSize: 11, lineHeight: 16, marginBottom: 18 },
+  countdownLine: {
+    color: '#fde68a',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 14,
+    fontVariant: ['tabular-nums'],
+  },
   statusBorder: { borderRadius: 14, padding: 2, marginBottom: 16 },
   statusInner: {
     backgroundColor: 'rgba(8,4,18,0.92)',

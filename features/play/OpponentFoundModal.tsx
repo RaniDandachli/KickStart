@@ -8,6 +8,7 @@ export function OpponentFoundModal({
   visible,
   opponent,
   prizeUsd,
+  freeCasual,
   onAccept,
   onDecline,
 }: {
@@ -15,6 +16,8 @@ export function OpponentFoundModal({
   opponent: MatchOpponentPreview | null;
   /** Listed fixed reward for fee-paid skill contests (optional). */
   prizeUsd?: number;
+  /** No fee / no cash prize — casual pairing only. */
+  freeCasual?: boolean;
   onAccept: () => void;
   onDecline: () => void;
 }) {
@@ -24,7 +27,9 @@ export function OpponentFoundModal({
         <Card className="w-full max-w-md border-emerald-200">
           <Text className="mb-1 text-xs uppercase text-emerald-600">Match found</Text>
           <Text className="text-2xl font-black text-slate-900">Ready to clash?</Text>
-          {prizeUsd != null ? (
+          {freeCasual ? (
+            <Text className="mt-2 text-center text-sm font-bold text-slate-700">No entry fee · no cash prize</Text>
+          ) : prizeUsd != null ? (
             <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Prize ${prizeUsd} (top score)</Text>
           ) : null}
           {opponent ? (

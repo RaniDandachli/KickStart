@@ -45,7 +45,7 @@ export default function SignUpScreen() {
         [{ text: 'OK', onPress: () => router.replace('/(auth)/sign-in') }]
       );
     } catch (e: unknown) {
-      Alert.alert('Run it', formatAuthError(e));
+      Alert.alert('RunitArcade', formatAuthError(e));
     } finally {
       setLoading(false);
     }

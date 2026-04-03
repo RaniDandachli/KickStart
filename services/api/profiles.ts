@@ -33,10 +33,11 @@ export async function uploadProfileAvatarFromUri(userId: string, localUri: strin
 
   const res = await fetch(localUri);
   const blob = await res.blob();
+  const uploadContentType = blob.type && blob.type.startsWith('image/') ? blob.type : contentType;
 
   const { error: upErr } = await supabase.storage.from(PROFILE_AVATAR_BUCKET).upload(path, blob, {
     upsert: true,
-    contentType,
+    contentType: uploadContentType,
   });
   if (upErr) throw upErr;
 

@@ -23,6 +23,8 @@ import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
+import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 
 const COLS = 4;
 /** Abstract vertical range (game logic). */
@@ -90,7 +92,13 @@ function spawnRow(m: GameModel, baseY?: number): void {
   }
 }
 
-export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
+export default function TileClashGame({
+  playMode = 'practice',
+  dailyTournament,
+}: {
+  playMode?: 'practice' | 'prize';
+  dailyTournament?: DailyTournamentBundle;
+}) {
   useHidePlayTabBar();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
@@ -114,6 +122,7 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
   const [redFlash, setRedFlash] = useState(false);
+  const dailyCompleteRef = useRef(false);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -132,13 +141,13 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
         taps: tapCountRef.current,
         intervals: [...intervalsRef.current],
       };
-      if (playMode === 'prize') {
+      if (!dailyTournament && playMode === 'prize') {
         awardRedeemTicketsForPrizeRun(ticketsFromTileClashScore(m.score));
       }
       setPhase('over');
       bump();
     },
-    [bump, playMode],
+    [bump, playMode, dailyTournament],
   );
 
   const step = useCallback(
@@ -185,7 +194,7 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
   }, [bump]);
 
   const startGame = useCallback(() => {
-    if (playMode === 'prize') {
+    if (!dailyTournament && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
         Alert.alert(
@@ -205,7 +214,7 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
     setSubmitOk(false);
     setPhase('playing');
     bump();
-  }, [bump, playMode]);
+  }, [bump, playMode, dailyTournament]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -285,6 +294,23 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
   const hitH = (HIT_BOTTOM - HIT_TOP) * scaleY;
   const mult = 1 + Math.floor(m.streak / 10);
 
+  const dailyPayload =
+    dailyTournament && phase === 'over'
+      ? finalizeDailyScores(
+          endStatsRef.current.score,
+          dailyTournament.opponentRoundScore,
+          dailyTournament.forcedOutcome,
+          dailyTournament.localPlayerId,
+          dailyTournament.opponentId,
+        )
+      : null;
+
+  const onContinueDaily = useCallback(() => {
+    if (!dailyTournament || !dailyPayload || dailyCompleteRef.current) return;
+    dailyCompleteRef.current = true;
+    dailyTournament.onComplete(dailyPayload);
+  }, [dailyTournament, dailyPayload]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
@@ -298,6 +324,11 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
               Streak {m.streak} · ×{mult}
             </Text>
           )}
+          {dailyTournament && phase !== 'over' ? (
+            <Text style={styles.vsOppTile} numberOfLines={1}>
+              vs {dailyTournament.opponentDisplayName}
+            </Text>
+          ) : null}
         </View>
 
         <View
@@ -377,9 +408,11 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
             <Pressable style={styles.tapToStartLayer} onPress={startGame}>
               <View style={styles.tapToStartHint} pointerEvents="none">
                 <Text style={styles.tapMode}>
-                  {playMode === 'prize'
-                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
-                    : 'Practice · free'}
+                  {dailyTournament
+                    ? `Live event · vs ${dailyTournament.opponentDisplayName}`
+                    : playMode === 'prize'
+                      ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
+                      : 'Practice · free'}
                 </Text>
                 <Text style={styles.tapToStartTitle}>TAP TO START</Text>
                 <Text style={styles.tapToStartSub}>Hit the glowing tile in the gold zone</Text>
@@ -392,7 +425,26 @@ export default function TileClashGame({ playMode = 'practice' }: { playMode?: 'p
           Wrong tile or miss ends the run · Speed up every 5 hits
         </Text>
 
-        {phase === 'over' ? (
+        {phase === 'over' && dailyTournament && dailyPayload ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.card}>
+              <Text style={styles.goTitle}>Round result</Text>
+              <Text style={styles.goVsTile} numberOfLines={1}>
+                You vs {dailyTournament.opponentDisplayName}
+              </Text>
+              <Text style={styles.goScore}>
+                {dailyPayload.finalScore.self} — {dailyPayload.finalScore.opponent}
+              </Text>
+              <Text style={styles.footerHintCenter}>
+                {dailyPayload.winnerId === dailyTournament.localPlayerId
+                  ? 'You take the match and move on.'
+                  : 'They take the match — you’re out of today’s event.'}
+              </Text>
+              <AppButton title="Continue" onPress={onContinueDaily} />
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
               <Text style={styles.goTitle}>Run over</Text>
@@ -454,6 +506,29 @@ const styles = StyleSheet.create({
     color: arcade.textMuted,
     fontSize: 12,
     fontWeight: '700',
+  },
+  vsOppTile: {
+    marginTop: 6,
+    color: 'rgba(226, 232, 240, 0.85)',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  goVsTile: {
+    color: arcade.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  footerHintCenter: {
+    marginTop: 4,
+    marginBottom: 14,
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   boardOuter: {
     flex: 1,

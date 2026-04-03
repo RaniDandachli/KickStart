@@ -7,7 +7,6 @@ import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
-  NeonPoolGameIcon,
   StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
@@ -80,16 +79,6 @@ export default function MinigamesHubScreen() {
         borderAccent="cyan"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TurboArenaGameIcon size={36} />}
-      />
-      <ArcadeMinigameRow
-        gameRoute="neon-pool"
-        title="Neon Pocket"
-        entryLabel="Classic 8-ball rules · practice or prize"
-        winLabel="PLAY"
-        bgColors={['#052e16', '#0f172a', '#14532d']}
-        borderAccent="cyan"
-        entryColor="rgba(226,232,240,0.9)"
-        iconSlot={<NeonPoolGameIcon size={36} />}
       />
       <ArcadeMinigameRow
         gameRoute="stacker"

@@ -1,26 +1,46 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { OpponentFoundModal } from '@/features/play/OpponentFoundModal';
+import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { isUuid } from '@/lib/isUuid';
+import {
+  createH2hMatchSessionViaEdge,
+  resolveDevOpponentUserId,
+} from '@/services/api/h2hMatchSession';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
+import { pushCrossTab } from '@/lib/appNavigation';
+import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
+import { formatUsdFromCents } from '@/lib/money';
 import { mockMatchmakingSingleton } from '@/services/matchmaking/mockMatchmaking';
 import { arcade } from '@/lib/arcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
+import { pickAnyOpenWaiterForQuickMatch, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 import { useMatchmakingStore, type QueueKind } from '@/store/matchmakingStore';
+
+type QuickMatchCtx = {
+  isFreeCasual: boolean;
+  entryUsd: number;
+  prizeUsd: number;
+  gameTitle: string;
+  waiterId: string;
+  opponentName: string;
+};
 
 export function QueueScreen({
   mode,
   entryFeeUsd,
   listedPrizeUsd,
   gameTitle,
-  gameKey: _gameKey,
+  gameKey,
   queueIntent,
+  quickMatch,
 }: {
   mode: QueueKind;
   /** When set with `listedPrizeUsd`, queue shows a paid 1v1 skill contest (fixed reward; UI only until billing). */
@@ -28,10 +48,12 @@ export function QueueScreen({
   listedPrizeUsd?: number;
   /** Which minigame this 1v1 is for (from Home / deep link). */
   gameTitle?: string;
-  /** Reserved for future routing / analytics when matchmaking is server-backed. */
+  /** Minigame key for server `match_sessions.game_key` when backend is enabled. */
   gameKey?: string;
   /** Join an existing lobby vs start search when pool is empty (demo UX). */
   queueIntent?: 'join' | 'start';
+  /** Home “Quick match” — pair across any open lobby / tier; wallet or free casual. */
+  quickMatch?: boolean;
 }) {
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id ?? 'guest');
@@ -48,20 +70,29 @@ export function QueueScreen({
   const setQueue = useMatchmakingStore((s) => s.setQueue);
   const reset = useMatchmakingStore((s) => s.reset);
 
-  const hasPaidEntry =
-    entryFeeUsd != null &&
-    listedPrizeUsd != null &&
-    !Number.isNaN(entryFeeUsd) &&
-    !Number.isNaN(listedPrizeUsd);
+  const quickMatchCtxRef = useRef<QuickMatchCtx | null>(null);
+  const quickAutoStartedRef = useRef(false);
+  const [quickResolving, setQuickResolving] = useState(!!quickMatch);
 
-  async function start() {
-    if (hasPaidEntry && entryFeeUsd != null) {
-      const needCents = Math.round(entryFeeUsd * 100);
+  const start = useCallback(async () => {
+    const q = quickMatchCtxRef.current;
+    const isFreeCasual = q?.isFreeCasual === true;
+    const effectiveEntry = isFreeCasual ? undefined : q != null ? q.entryUsd : entryFeeUsd;
+    const effectivePrize = isFreeCasual ? undefined : q != null ? q.prizeUsd : listedPrizeUsd;
+    const hasPaidEntry =
+      !isFreeCasual &&
+      effectiveEntry != null &&
+      effectivePrize != null &&
+      !Number.isNaN(effectiveEntry) &&
+      !Number.isNaN(effectivePrize);
+
+    if (hasPaidEntry && effectiveEntry != null) {
+      const needCents = Math.round(effectiveEntry * 100);
       if (!ENABLE_BACKEND) {
         if (!trySpendWallet(needCents)) {
           Alert.alert(
             'Insufficient wallet',
-            `You need at least $${entryFeeUsd.toFixed(2)} in your cash wallet to enter this contest.`,
+            `You need at least ${formatUsdFromCents(needCents)} in your cash wallet to enter this contest.`,
           );
           return;
         }
@@ -70,12 +101,12 @@ export function QueueScreen({
         if (walletCents < needCents) {
           Alert.alert(
             'Insufficient wallet',
-            `You need at least $${entryFeeUsd.toFixed(2)} in your cash wallet to enter this contest. Add funds or pick a lower tier.`,
+            `You need at least ${formatUsdFromCents(needCents)} in your cash wallet to enter this contest. Add funds or pick a lower tier.`,
           );
           return;
         }
-        // TODO: escrow / deduct via Edge Function before matchmaking
       }
+      if (q?.waiterId) useHomeH2hBoardStore.getState().removeWaiter(q.waiterId);
     }
 
     setQueue(mode);
@@ -83,28 +114,134 @@ export function QueueScreen({
     const { searchId: sid } = await mockMatchmakingSingleton.startSearch(userId, mode);
     setSearchId(sid);
     const unsub = mockMatchmakingSingleton.onOpponentFound(sid, ({ matchSessionId, opponentUserId }) => {
+      const q2 = quickMatchCtxRef.current;
+      const name =
+        q2?.opponentName ??
+        (opponentUserId === 'mock_opponent_1' ? 'NeoStriker' : 'Rival');
+      const regions = ['NA', 'EU', 'LATAM', 'APAC'] as const;
       setFound(matchSessionId, {
         id: opponentUserId,
-        username: opponentUserId === 'mock_opponent_1' ? 'NeoStriker' : 'Rival',
-        rating: 1588,
-        region: 'EU',
+        username: name,
+        rating: 1500 + Math.floor(Math.random() * 120),
+        region: regions[Math.floor(Math.random() * regions.length)]!,
       });
       unsub();
     });
-  }
+  }, [mode, userId, entryFeeUsd, listedPrizeUsd, setQueue, setPhase, setFound, trySpendWallet, walletCents]);
 
-  function accept() {
+  const runQuickMatchResolve = useCallback(async () => {
+    const w = pickAnyOpenWaiterForQuickMatch();
+    const tier = MATCH_ENTRY_TIERS[w.tierIndex]!;
+    const needCents = Math.round(tier.entry * 100);
+    const canPay = ENABLE_BACKEND ? walletCents >= needCents : useDemoWalletStore.getState().walletCents >= needCents;
+    const gTitle = titleForH2hGameKey(w.gameKey);
+
+    const bailToArcade = () => {
+      setQuickResolving(false);
+      useMatchmakingStore.getState().reset();
+      quickMatchCtxRef.current = null;
+      quickAutoStartedRef.current = false;
+      router.replace('/(app)/(tabs)/play');
+    };
+
+    if (canPay) {
+      quickMatchCtxRef.current = {
+        isFreeCasual: false,
+        entryUsd: tier.entry,
+        prizeUsd: tier.prize,
+        gameTitle: gTitle,
+        waiterId: w.id,
+        opponentName: w.hostLabel,
+      };
+      try {
+        await start();
+      } finally {
+        setQuickResolving(false);
+      }
+      return;
+    }
+
+    setQuickResolving(false);
+    Alert.alert(
+      'Wallet balance',
+      `This pairing needs ${formatUsdFromCents(needCents)} to enter the contest. Add funds to your wallet, or play a free casual match with no entry fee or cash prize.`,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: bailToArcade },
+        {
+          text: 'Add funds',
+          onPress: () => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds'),
+        },
+        {
+          text: 'Free casual match',
+          onPress: () => {
+            quickMatchCtxRef.current = {
+              isFreeCasual: true,
+              entryUsd: 0,
+              prizeUsd: 0,
+              gameTitle: gTitle,
+              waiterId: w.id,
+              opponentName: w.hostLabel,
+            };
+            void start();
+          },
+        },
+      ],
+    );
+  }, [router, start, walletCents]);
+
+  useEffect(() => {
+    if (!quickMatch || quickAutoStartedRef.current) return;
+    quickAutoStartedRef.current = true;
+    void runQuickMatchResolve();
+  }, [quickMatch, runQuickMatchResolve]);
+
+  async function accept() {
     entryChargedDemoRef.current = 0;
     const { mockMatchId: mid, opponent: opp } = useMatchmakingStore.getState();
     if (!mid || !opp) return;
+    const q = quickMatchCtxRef.current;
+    const isFreeCasual = q?.isFreeCasual === true;
+    const effectiveEntry = isFreeCasual ? undefined : q != null ? q.entryUsd : entryFeeUsd;
+    const effectivePrize = isFreeCasual ? undefined : q != null ? q.prizeUsd : listedPrizeUsd;
+    const hasPaidEntry =
+      !isFreeCasual &&
+      effectiveEntry != null &&
+      effectivePrize != null &&
+      !Number.isNaN(effectiveEntry) &&
+      !Number.isNaN(effectivePrize);
+
+    let resolvedMatchId = mid;
+    let resolvedOpp = opp;
+
+    if (ENABLE_BACKEND && userId !== 'guest') {
+      const oppUuid = resolveDevOpponentUserId(opp.id);
+      if (oppUuid && isUuid(oppUuid)) {
+        try {
+          const { match_session_id } = await createH2hMatchSessionViaEdge({
+            mode,
+            opponentUserId: oppUuid,
+            gameKey,
+            entryFeeWalletCents: hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : undefined,
+            listedPrizeUsdCents: hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : undefined,
+          });
+          resolvedMatchId = match_session_id;
+          resolvedOpp = { ...opp, id: oppUuid };
+        } catch (e) {
+          Alert.alert('Could not start match', e instanceof Error ? e.message : 'Server error');
+          return;
+        }
+      }
+    }
+
     setActiveMatch({
-      matchId: mid,
-      opponent: opp,
-      entryFeeUsd: hasPaidEntry ? entryFeeUsd : undefined,
-      listedPrizeUsd: hasPaidEntry ? listedPrizeUsd : undefined,
+      matchId: resolvedMatchId,
+      opponent: resolvedOpp,
+      entryFeeUsd: hasPaidEntry ? effectiveEntry : undefined,
+      listedPrizeUsd: hasPaidEntry ? effectivePrize : undefined,
+      casualFree: isFreeCasual ? true : undefined,
     });
     setPhase('lobby');
-    router.push(`/(app)/(tabs)/play/lobby/${mid}`);
+    router.push(`/(app)/(tabs)/play/lobby/${resolvedMatchId}`);
   }
 
   function refundEntryIfQueuedDemo() {
@@ -118,6 +255,7 @@ export function QueueScreen({
   function decline() {
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
     refundEntryIfQueuedDemo();
+    quickMatchCtxRef.current = null;
     reset();
   }
 
@@ -125,17 +263,33 @@ export function QueueScreen({
   function leaveScreen() {
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
     refundEntryIfQueuedDemo();
+    quickMatchCtxRef.current = null;
+    quickAutoStartedRef.current = false;
     reset();
     router.replace('/(app)/(tabs)/play');
   }
 
-  const title = hasPaidEntry
-    ? gameTitle
-      ? `1v1 · ${gameTitle}`
-      : `1v1 · Fee $${entryFeeUsd} · Reward $${listedPrizeUsd}`
-    : mode === 'ranked'
-      ? 'Ranked queue'
-      : 'Casual queue';
+  const q = quickMatchCtxRef.current;
+  const isFreeCasual = q?.isFreeCasual === true;
+  const effectiveEntry = isFreeCasual ? undefined : q != null ? q.entryUsd : entryFeeUsd;
+  const effectivePrize = isFreeCasual ? undefined : q != null ? q.prizeUsd : listedPrizeUsd;
+  const displayGameTitle = q?.gameTitle ?? gameTitle;
+  const hasPaidEntry =
+    !isFreeCasual &&
+    effectiveEntry != null &&
+    effectivePrize != null &&
+    !Number.isNaN(effectiveEntry) &&
+    !Number.isNaN(effectivePrize);
+
+  const title = quickMatch
+    ? 'Quick match'
+    : hasPaidEntry
+      ? displayGameTitle
+        ? `1v1 · ${displayGameTitle}`
+        : `1v1 · Fee $${effectiveEntry} · Reward $${effectivePrize}`
+      : mode === 'ranked'
+        ? 'Ranked queue'
+        : 'Casual queue';
 
   const idleCta =
     !hasPaidEntry ? 'Find match' : queueIntent === 'join' ? 'Join match' : queueIntent === 'start' ? 'Find opponent' : 'Enter contest & find match';
@@ -145,7 +299,11 @@ export function QueueScreen({
       ? 'Joining their lobby…'
       : queueIntent === 'start'
         ? 'Looking for an opponent…'
-        : 'Searching for a fair opponent…';
+        : quickMatch
+          ? 'Pairing you with an open player…'
+          : 'Searching for a fair opponent…';
+
+  const modalPrizeUsd = hasPaidEntry ? effectivePrize : undefined;
 
   return (
     <Screen scroll={false}>
@@ -160,10 +318,15 @@ export function QueueScreen({
         <Text style={styles.backText}>Arcade</Text>
       </Pressable>
       <Text className="mb-2 text-2xl font-black text-white">{title}</Text>
-      {hasPaidEntry ? (
+      {quickMatch ? (
+        <Text className="mb-4 text-center text-sm text-slate-400">
+          We match you with any open player in queue — any game, any contest tier. If your wallet can&apos;t cover the fee, you can add funds
+          or play a free casual match (no entry, no cash prize).
+        </Text>
+      ) : hasPaidEntry ? (
         <>
           <Text className="mb-1 text-center text-base font-semibold" style={{ color: '#FFFFFF' }}>
-            ${entryFeeUsd} contest fee · ${listedPrizeUsd} prize (top score)
+            ${effectiveEntry} contest fee · ${effectivePrize} prize (top score)
           </Text>
           {queueIntent === 'join' ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
@@ -180,8 +343,15 @@ export function QueueScreen({
       ) : (
         <Text className="mb-4 text-sm text-slate-400">Free matchmaking (demo)</Text>
       )}
-      {phase === 'idle' ? (
-        <AppButton title={idleCta} onPress={() => void start()} />
+      {quickResolving && phase === 'idle' ? (
+        <View className="items-center py-10">
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text className="mt-4 text-center text-slate-300">Finding an open match…</Text>
+        </View>
+      ) : phase === 'idle' ? (
+        quickMatch ? null : (
+          <AppButton title={idleCta} onPress={() => void start()} />
+        )
       ) : phase === 'searching' ? (
         <View className="items-center py-10">
           <ActivityIndicator size="large" color="#10B981" />
@@ -202,7 +372,8 @@ export function QueueScreen({
       <OpponentFoundModal
         visible={phase === 'found'}
         opponent={opponent}
-        prizeUsd={hasPaidEntry ? listedPrizeUsd : undefined}
+        prizeUsd={modalPrizeUsd}
+        freeCasual={isFreeCasual}
         onAccept={accept}
         onDecline={decline}
       />

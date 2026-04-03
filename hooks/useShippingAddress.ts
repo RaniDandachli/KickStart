@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
@@ -9,6 +9,7 @@ import {
   shippingAddressToJson,
   type ShippingAddress,
 } from '@/lib/shippingAddress';
+import type { Json } from '@/types/database';
 import { updateProfileFields } from '@/services/api/profiles';
 import { useAuthStore } from '@/store/authStore';
 import { useDemoShippingAddressStore } from '@/store/demoShippingAddressStore';
@@ -27,9 +28,14 @@ export function useShippingAddress() {
     if (!ENABLE_BACKEND) void hydrate();
   }, [hydrate]);
 
-  const fromProfile = profileQ.data?.shipping_address
-    ? parseShippingAddress(profileQ.data.shipping_address)
-    : emptyShippingAddress();
+  const shippingSnapshot = profileQ.data?.shipping_address
+    ? JSON.stringify(profileQ.data.shipping_address)
+    : '';
+
+  const fromProfile = useMemo(() => {
+    if (!shippingSnapshot) return emptyShippingAddress();
+    return parseShippingAddress(JSON.parse(shippingSnapshot) as Json);
+  }, [shippingSnapshot]);
 
   const address = ENABLE_BACKEND ? fromProfile : demoAddr;
   const complete = isShippingAddressComplete(address);

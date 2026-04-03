@@ -437,9 +437,6 @@ function CarView({
 /** Generous hit slop for two-thumb play without delaying pressIn */
 const CONTROL_HIT_SLOP = { top: 14, bottom: 14, left: 14, right: 14 } as const;
 
-/** Tight retention so release registers as soon as the thumb lifts — no “sticky” steer */
-const STEER_RETENTION = { top: 8, bottom: 8, left: 10, right: 10 } as const;
-
 function DPad({
   inputsRef,
 }: {
@@ -453,8 +450,6 @@ function DPad({
     <View style={styles.dpad}>
       <Pressable
         hitSlop={CONTROL_HIT_SLOP}
-        delayPressIn={0}
-        pressRetentionOffset={STEER_RETENTION}
         style={styles.steerBtn}
         onPressIn={() => setKey('left', true)}
         onPressOut={() => setKey('left', false)}
@@ -464,8 +459,6 @@ function DPad({
 
       <Pressable
         hitSlop={CONTROL_HIT_SLOP}
-        delayPressIn={0}
-        pressRetentionOffset={STEER_RETENTION}
         style={styles.steerBtn}
         onPressIn={() => setKey('right', true)}
         onPressOut={() => setKey('right', false)}
@@ -485,7 +478,6 @@ function BoostHoldBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> 
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
-      delayPressIn={0}
       style={styles.boostHoldBtn}
       onPressIn={() => setKey('boost', true)}
       onPressOut={() => setKey('boost', false)}
@@ -514,7 +506,6 @@ function JumpBtn({ inputsRef }: { inputsRef: MutableRefObject<TurboInputs> }) {
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
-      delayPressIn={0}
       style={[styles.dpadBtn, styles.jumpBtn]}
       onPressIn={onPressIn}
     >
@@ -535,7 +526,6 @@ function KickBtn({
   return (
     <Pressable
       hitSlop={CONTROL_HIT_SLOP}
-      delayPressIn={0}
       style={styles.kickBtn}
       onPressIn={() => setKick(true)}
       onPressOut={() => setKick(false)}

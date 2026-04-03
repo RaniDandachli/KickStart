@@ -15,7 +15,8 @@ export type TransactionKind =
   | 'admin_adjustment'
   | 'prize_credit_earn'
   | 'prize_credit_spend'
-  | 'redeem_ticket_spend';
+  | 'redeem_ticket_spend'
+  | 'wallet_withdraw';
 
 type PublicTable<
   Row extends Record<string, unknown>,
@@ -48,6 +49,8 @@ export type ProfileRow = {
   /** JSON object — see `ShippingAddress` in app code. */
   shipping_address: Json | null;
   gems: number;
+  stripe_customer_id: string | null;
+  stripe_connect_account_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -120,6 +123,11 @@ export type MatchSessionRow = {
   ended_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Minigame key for this 1v1 (e.g. tap-dash). */
+  game_key: string | null;
+  entry_fee_wallet_cents: number;
+  listed_prize_usd_cents: number | null;
+  metadata: Json;
 };
 
 export type UserStatsRow = {
@@ -418,6 +426,40 @@ export interface Database {
       };
       claim_daily_prize_credits: {
         Args: Record<string, never>;
+        Returns: Json;
+      };
+      home_lobby_stats: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      fulfill_stripe_checkout_session: {
+        Args: {
+          p_user_id: string;
+          p_checkout_session_id: string;
+          p_wallet_cents_add: number;
+          p_prize_credits_add: number;
+          p_description: string;
+          p_stripe_event_id: string;
+        };
+        Returns: Json;
+      };
+      fulfill_stripe_payment_intent: {
+        Args: {
+          p_user_id: string;
+          p_payment_intent_id: string;
+          p_wallet_cents_add: number;
+          p_prize_credits_add: number;
+          p_description: string;
+          p_stripe_event_id: string;
+        };
+        Returns: Json;
+      };
+      grant_arcade_prize_credits: {
+        Args: {
+          p_amount: number;
+          p_description: string;
+          p_idempotency_key: string;
+        };
         Returns: Json;
       };
     };

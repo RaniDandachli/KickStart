@@ -368,6 +368,35 @@ deno_version = 2
 [functions.redeem-gift-card]
 verify_jwt = true
 
+[functions.stripeWebhook]
+verify_jwt = false
+
+# JWT verification at the gateway is optional: functions still call `auth.getUser()` with the Bearer token.
+[functions.createWalletCheckoutSession]
+verify_jwt = false
+
+[functions.createStripeConnectLink]
+verify_jwt = false
+
+[functions.getStripeConnectAccount]
+verify_jwt = false
+
+[functions.withdrawWalletToConnect]
+verify_jwt = false
+
+# Invoked by Database Webhook (Bearer secret), not user JWT.
+[functions.sendWelcomeEmail]
+verify_jwt = false
+
+[functions.createWalletPaymentIntent]
+verify_jwt = false
+
+[functions.createH2hMatchSession]
+verify_jwt = false
+
+[functions.recordMatchResult]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

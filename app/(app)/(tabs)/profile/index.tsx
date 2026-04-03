@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
-import { ALLOW_GUEST_MODE, ENABLE_BACKEND } from '@/constants/featureFlags';
+import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
@@ -70,6 +70,8 @@ export default function ProfileScreen() {
   const [draftUsername, setDraftUsername] = useState('');
   const [draftDisplay, setDraftDisplay] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  /** Bumps after upload + refetch so Image remounts (RN caches same URL after Storage upsert). */
+  const [avatarRenderNonce, setAvatarRenderNonce] = useState(0);
 
   const useServer = ENABLE_BACKEND && !!uid;
 
@@ -77,7 +79,9 @@ export default function ProfileScreen() {
     if (useServer && profile) {
       setDraftUsername(profile.username ?? '');
       setDraftDisplay(profile.display_name ?? '');
-      setAvatarUri(profile.avatar_url);
+      const raw = profile.avatar_url;
+      const normalized = raw && String(raw).trim() ? String(raw).trim() : null;
+      setAvatarUri(normalized);
       return;
     }
     if (!useServer) {
@@ -143,7 +147,8 @@ export default function ProfileScreen() {
         const url = await uploadProfileAvatarFromUri(uid, uri);
         setAvatarUri(url);
         await updateProfileFields(uid, { avatar_url: url });
-        void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+        await qc.refetchQueries({ queryKey: queryKeys.profile(uid) });
+        setAvatarRenderNonce((n) => n + 1);
         Alert.alert('Saved', 'Profile photo updated.');
       } catch (e) {
         Alert.alert(
@@ -187,7 +192,8 @@ export default function ProfileScreen() {
       try {
         await updateProfileFields(uid, { avatar_url: null });
         setAvatarUri(null);
-        void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+        await qc.refetchQueries({ queryKey: queryKeys.profile(uid) });
+        setAvatarRenderNonce((n) => n + 1);
       } catch (e) {
         Alert.alert('Error', e instanceof Error ? e.message : 'Could not remove photo');
       }
@@ -213,7 +219,20 @@ export default function ProfileScreen() {
     }
   }
 
-  const showAvatar = avatarUri && (avatarUri.startsWith('http') || avatarUri.startsWith('file'));
+  const showAvatar = !!(
+    avatarUri &&
+    (avatarUri.startsWith('http') || avatarUri.startsWith('file') || avatarUri.startsWith('content'))
+  );
+
+  const avatarDisplayUri = useMemo(() => {
+    if (!avatarUri) return null;
+    if (avatarUri.startsWith('file') || avatarUri.startsWith('content')) return avatarUri;
+    if (avatarUri.startsWith('http')) {
+      const base = avatarUri.split('?')[0];
+      return `${base}?cb=${avatarRenderNonce}`;
+    }
+    return avatarUri;
+  }, [avatarUri, avatarRenderNonce]);
 
   return (
     <Screen>
@@ -246,8 +265,13 @@ export default function ProfileScreen() {
         <Pressable onPress={() => void pickAvatar()} accessibilityRole="button" accessibilityLabel="Change profile photo">
           <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatarRing}>
             <View style={styles.avatarInner}>
-              {showAvatar ? (
-                <Image source={{ uri: avatarUri! }} style={styles.avatarImg} />
+              {showAvatar && avatarDisplayUri ? (
+                <Image
+                  key={`${avatarDisplayUri}-${profile?.updated_at ?? ''}-${avatarRenderNonce}`}
+                  source={{ uri: avatarDisplayUri }}
+                  style={styles.avatarImg}
+                  resizeMode="cover"
+                />
               ) : (
                 <Ionicons name="person" size={32} color="rgba(255,255,255,0.85)" />
               )}
@@ -354,11 +378,19 @@ export default function ProfileScreen() {
                 <Ionicons name="game-controller-outline" size={16} color="#fff" />
                 <Text style={styles.wBtnText}>PLAY</Text>
               </Pressable>
-              <Pressable style={({ pressed }) => [styles.wBtn, styles.wBtnGhost, pressed && { opacity: 0.85 }]} onPress={() => router.push('/(app)/(tabs)/profile/transactions')}>
+              <Pressable
+                style={({ pressed }) => [styles.wBtn, styles.wBtnGhost, pressed && { opacity: 0.85 }]}
+                onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')}
+              >
                 <Ionicons name="arrow-down-circle-outline" size={16} color={runit.neonCyan} />
                 <Text style={[styles.wBtnText, { color: runit.neonCyan }]}>WITHDRAW</Text>
               </Pressable>
             </View>
+            {ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED ? (
+              <Text style={styles.walletFootnote}>
+                Withdrawals need Stripe bank setup on the next screen — we will walk you through anything missing.
+              </Text>
+            ) : null}
           </View>
         </LinearGradient>
       )}
@@ -471,14 +503,15 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 20 },
   avatarRing: { width: 72, height: 72, borderRadius: 36, padding: 2 },
   avatarInner: {
-    flex: 1,
+    width: 68,
+    height: 68,
     borderRadius: 34,
     backgroundColor: 'rgba(6,2,14,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  avatarImg: { width: '100%', height: '100%' },
+  avatarImg: { width: 68, height: 68, borderRadius: 34 },
   cameraBadge: {
     position: 'absolute',
     bottom: -2,
@@ -557,6 +590,13 @@ const styles = StyleSheet.create({
   },
   addFundsBtnText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   walletBtns: { flexDirection: 'row', gap: 10 },
+  walletFootnote: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(226,232,240,0.75)',
+    textAlign: 'center',
+  },
   wBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   wBtnPrimary: { backgroundColor: runit.neonPink, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
   wBtnGhost: { borderWidth: 2, borderColor: 'rgba(0,240,255,0.55)', backgroundColor: 'rgba(0,240,255,0.06)' },

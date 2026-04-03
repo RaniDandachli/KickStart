@@ -454,7 +454,7 @@ export function computeAimLine(state: EightBallState, angle: number): AimLine {
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
   const len = POOL.aimLineLen;
-  let tMin = len;
+  let tMin: number = len;
   let hitBall: Ball | null = null;
   let hitGhost: Vec2 | null = null;
 

@@ -1,4 +1,5 @@
 export const queryKeys = {
+  homeLobby: () => ['homeLobby'] as const,
   profile: (userId: string) => ['profile', userId] as const,
   profileByUsername: (username: string) => ['profileUsername', username] as const,
   tournaments: (filters?: Record<string, string>) => ['tournaments', filters ?? {}] as const,
@@ -11,4 +12,5 @@ export const queryKeys = {
   ratings: (userId: string) => ['ratings', userId] as const,
   userStats: (userId: string) => ['userStats', userId] as const,
   prizeCatalog: () => ['prizeCatalog'] as const,
+  matchSession: (matchSessionId: string) => ['matchSession', matchSessionId] as const,
 };

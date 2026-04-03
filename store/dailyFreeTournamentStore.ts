@@ -3,7 +3,11 @@ import { create } from 'zustand';
 
 import { computeLoseAtRound, todayYmdLocal } from '@/lib/dailyFreeTournament';
 
-const STORAGE_KEY = '@kickclash/daily_free_tournament_v1';
+const STORAGE_PREFIX = '@kickclash/daily_free_tournament_v2';
+
+function storageKeyForUser(userId: string): string {
+  return `${STORAGE_PREFIX}/${encodeURIComponent(userId)}`;
+}
 
 export type DailyFreeTournamentPersist = {
   dayKey: string;
@@ -14,14 +18,17 @@ export type DailyFreeTournamentPersist = {
 
 type State = DailyFreeTournamentPersist & {
   hydrated: boolean;
+  /** User id this in-memory snapshot + persistence belongs to (matches last hydrate). */
+  storageUserId: string;
   hydrate: (userKey: string) => Promise<void>;
-  /** After a completed match (scripted win until elimination round). */
+  /** After a completed match (updates round / elimination). */
   recordMatchFinished: () => void;
   forcedOutcomeForCurrentMatch: () => 'win' | 'lose';
 };
 
-async function persistSlice(s: DailyFreeTournamentPersist): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+async function persistSlice(userId: string, s: DailyFreeTournamentPersist): Promise<void> {
+  if (!userId) return;
+  await AsyncStorage.setItem(storageKeyForUser(userId), JSON.stringify(s));
 }
 
 export const useDailyFreeTournamentStore = create<State>((set, get) => ({
@@ -30,17 +37,31 @@ export const useDailyFreeTournamentStore = create<State>((set, get) => ({
   nextRound: 1,
   eliminated: false,
   hydrated: false,
+  storageUserId: '',
 
   hydrate: async (userKey: string) => {
     const today = todayYmdLocal();
+    const prevUser = get().storageUserId;
+    if (prevUser !== userKey) {
+      set({
+        storageUserId: userKey,
+        hydrated: false,
+        dayKey: '',
+        nextRound: 1,
+        eliminated: false,
+        loseAtRound: 6,
+      });
+    }
+
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(storageKeyForUser(userKey));
       if (raw) {
         const parsed = JSON.parse(raw) as DailyFreeTournamentPersist;
-        if (parsed.dayKey === today && parsed.loseAtRound >= 2 && parsed.loseAtRound <= 8) {
+        if (parsed.dayKey === today && parsed.loseAtRound >= 2 && parsed.loseAtRound <= 11) {
           set({
             ...parsed,
             hydrated: true,
+            storageUserId: userKey,
           });
           return;
         }
@@ -55,8 +76,8 @@ export const useDailyFreeTournamentStore = create<State>((set, get) => ({
       nextRound: 1,
       eliminated: false,
     };
-    set({ ...next, hydrated: true });
-    await persistSlice(next);
+    set({ ...next, hydrated: true, storageUserId: userKey });
+    await persistSlice(userKey, next);
   },
 
   forcedOutcomeForCurrentMatch: () => {
@@ -67,13 +88,14 @@ export const useDailyFreeTournamentStore = create<State>((set, get) => ({
 
   recordMatchFinished: () => {
     const { nextRound, loseAtRound } = get();
+    const userId = get().storageUserId;
     if (nextRound === loseAtRound) {
       set({ eliminated: true });
     } else {
       set({ nextRound: nextRound + 1 });
     }
     const snap = get();
-    void persistSlice({
+    void persistSlice(userId, {
       dayKey: snap.dayKey,
       loseAtRound: snap.loseAtRound,
       nextRound: snap.nextRound,

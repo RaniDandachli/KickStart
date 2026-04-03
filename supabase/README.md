@@ -79,6 +79,16 @@ curl -i --location --request POST "http://127.0.0.1:54321/functions/v1/submitMin
 
 In the Expo app `.env`, set `EXPO_PUBLIC_ENABLE_BACKEND=true` when the database and functions are ready. The client calls functions with `supabase.functions.invoke(...)` using the anon key + user session; no service role in the app.
 
+## Welcome email (`sendWelcomeEmail`)
+
+Sends a Resend welcome message when a new row is inserted into `public.profiles` (same moment as auth signup via `handle_new_user`).
+
+1. Deploy: `npm run functions:deploy:welcome` (or `npx supabase functions deploy sendWelcomeEmail`).
+2. **Secrets** (Dashboard → Edge Functions → Secrets): same Resend vars as gift cards (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, optional `SUPPORT_EMAIL`, `BRAND_NAME`, `EMAIL_SUBJECT_WELCOME`) plus **`WELCOME_EMAIL_WEBHOOK_SECRET`** — use a long random string.
+3. **Database Webhook**: Dashboard → **Database** → **Webhooks** → **Create a new hook**. Table `profiles`, event **Insert**, method **POST**, URL `https://<project-ref>.supabase.co/functions/v1/sendWelcomeEmail`. Under **HTTP Headers**, add **`Authorization`** with value **`Bearer <your WELCOME_EMAIL_WEBHOOK_SECRET>`** (must match the secret exactly).
+
+The function rejects requests without the correct Bearer token. Resend sends use an idempotency key per user id so webhook retries do not double-email.
+
 ## Stripe test → live
 
 1. Use **test** keys (`pk_test_` / `sk_test_`) in app env and Edge secrets; verify flows.

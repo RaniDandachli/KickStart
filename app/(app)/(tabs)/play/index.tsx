@@ -62,14 +62,14 @@ export default function PlayHubScreen() {
     <View style={styles.root}>
       <ArcadeFloor>
         <View style={styles.brandBlock}>
-          <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>Run it</Text>
+          <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RunitArcade</Text>
           <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
         </View>
         <Text style={styles.arcadeTagline}>Spend prize credits on runs · redeem tickets for rewards in Prizes</Text>
 
         <ArcadeBalanceBar
           balanceLabel={prizeBalanceLabel}
-          onAddPress={() => Alert.alert('Run it', topUpComingSoonMessage())}
+          onAddPress={() => Alert.alert('RunitArcade', topUpComingSoonMessage())}
         />
 
         <ArcadeGrantBanner />

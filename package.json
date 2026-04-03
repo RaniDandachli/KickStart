@@ -12,7 +12,10 @@
     "supabase:link": "supabase link",
     "functions:serve": "supabase functions serve",
     "functions:deploy": "supabase functions deploy",
-    "functions:deploy:submit": "supabase functions deploy submitMinigameScore"
+    "functions:deploy:submit": "supabase functions deploy submitMinigameScore",
+    "functions:deploy:stripe": "supabase functions deploy stripeWebhook && supabase functions deploy createWalletCheckoutSession && supabase functions deploy createWalletPaymentIntent && supabase functions deploy createStripeConnectLink && supabase functions deploy getStripeConnectAccount && supabase functions deploy withdrawWalletToConnect",
+    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult",
+    "functions:deploy:welcome": "supabase functions deploy sendWelcomeEmail"
   },
   "dependencies": {
     "@expo-google-fonts/orbitron": "^0.4.2",
@@ -20,6 +23,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/native": "^7.1.6",
     "@react-three/fiber": "^9.5.0",
+    "@stripe/stripe-react-native": "0.50.3",
     "@supabase/supabase-js": "^2.100.1",
     "@tanstack/react-query": "^5.95.2",
     "expo": "^54.0.0",
@@ -29,7 +33,7 @@
     "expo-font": "~14.0.11",
     "expo-gl": "~16.0.10",
     "expo-haptics": "~15.0.8",
-    "expo-image-picker": "^55.0.14",
+    "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",

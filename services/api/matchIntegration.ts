@@ -4,8 +4,8 @@ import type { QueueKind } from '@/store/matchmakingStore';
 import { applyRankedResult, ratingDefaults } from '@/utils/rating';
 
 /**
- * Integration point after a ranked match completes — persists via Edge Function in production.
- * TODO: Replace direct client calls with `recordMatchResult` Edge Function for integrity.
+ * Integration point after a ranked match completes — head-to-head results are persisted via
+ * `recordH2hMatchResultViaEdge` in `services/api/h2hMatchSession.ts` (see `recordMatchResult` Edge Function).
  */
 /** Preview rating change if `self` wins vs `opponent` (ranked only at apply-time). */
 export function previewRankedDeltasIfSelfWins(params: {

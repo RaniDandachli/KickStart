@@ -32,6 +32,8 @@ import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
+import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
@@ -559,10 +561,12 @@ function SpeedBar({ speed }: { speed: number }) {
 export default function NeonBallRunGame({
   playMode = 'practice',
   runSeed: _runSeed,
+  dailyTournament,
 }: {
   playMode?: 'practice' | 'prize';
   /** Reserved for deterministic runs / leaderboards (engine is RNG today). */
   runSeed?: number;
+  dailyTournament?: DailyTournamentBundle;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -579,6 +583,7 @@ export default function NeonBallRunGame({
   const endStatsRef = useRef({ score: 0, dodgeCount: 0, durationMs: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const dailyCompleteRef = useRef(false);
 
   const bump = useCallback(() => setUiTick(t => t + 1), []);
 
@@ -604,7 +609,7 @@ export default function NeonBallRunGame({
   useRafLoop(step, phase === 'playing');
 
   const startGame = useCallback(() => {
-    if (playMode === 'prize') {
+    if (!dailyTournament && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
         Alert.alert('Not enough prize credits', `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits.`);
@@ -616,7 +621,7 @@ export default function NeonBallRunGame({
     setSubmitOk(false);
     setPhase('playing');
     bump();
-  }, [playMode, profileQ.data?.prize_credits, bump]);
+  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament]);
 
   const resetRun = useCallback(() => {
     stateRef.current = null;
@@ -633,7 +638,12 @@ export default function NeonBallRunGame({
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) { Alert.alert('Sign in required', 'Log in to submit your score.'); return; }
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
-        body: { game_type: 'neon_ball_run', score, duration_ms: durationMs, dodges: dodgeCount },
+        body: {
+          game_type: 'ball_run',
+          score,
+          duration_ms: durationMs,
+          taps: dodgeCount,
+        },
       });
       if (error) { Alert.alert('Submit failed', error.message ?? 'Could not reach server.'); return; }
       setSubmitOk(true);
@@ -644,6 +654,23 @@ export default function NeonBallRunGame({
   const s = stateRef.current;
   const swipe = useSwipe(stateRef);
   const canvasH = sh * 0.68;
+
+  const dailyPayload =
+    dailyTournament && phase === 'over'
+      ? finalizeDailyScores(
+          endStatsRef.current.score,
+          dailyTournament.opponentRoundScore,
+          dailyTournament.forcedOutcome,
+          dailyTournament.localPlayerId,
+          dailyTournament.opponentId,
+        )
+      : null;
+
+  const onContinueDaily = useCallback(() => {
+    if (!dailyTournament || !dailyPayload || dailyCompleteRef.current) return;
+    dailyCompleteRef.current = true;
+    dailyTournament.onComplete(dailyPayload);
+  }, [dailyTournament, dailyPayload]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -659,11 +686,20 @@ export default function NeonBallRunGame({
             {s && s.dodgeCount > 0 && (
               <Text style={styles.dodgeText}>+{s.dodgeCount} dodge{s.dodgeCount !== 1 ? 's' : ''}</Text>
             )}
+            {dailyTournament && phase !== 'over' ? (
+              <Text style={styles.vsOppBall} numberOfLines={1}>
+                vs {dailyTournament.opponentDisplayName}
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.creditsPill}>
-            <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
-            <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
-          </View>
+          {dailyTournament ? (
+            <View style={styles.topBarRightSpacer} />
+          ) : (
+            <View style={styles.creditsPill}>
+              <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+              <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
+            </View>
+          )}
         </View>
 
         {phase === 'playing' && s && <SpeedBar speed={s.speed} />}
@@ -692,9 +728,11 @@ export default function NeonBallRunGame({
               <Text style={styles.readySub}>RAMP RUN · JUMP THE GAPS</Text>
               <View style={styles.readyDivider} />
               <Text style={styles.readyMode}>
-                {playMode === 'prize'
-                  ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${POINTS_PER_TICKET} score`
-                  : 'Practice · free · no credits spent'}
+                {dailyTournament
+                  ? `Tournament of the Day · vs ${dailyTournament.opponentDisplayName}`
+                  : playMode === 'prize'
+                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${POINTS_PER_TICKET} score`
+                    : 'Practice · free · no credits spent'}
               </Text>
               <Text style={styles.readyHint}>Swipe ← → to dodge · Swipe ↑ or tap to jump</Text>
               <Text style={styles.readyHint2}>Roll the ramps · jump gaps · dodge spikes and trains</Text>
@@ -716,55 +754,78 @@ export default function NeonBallRunGame({
           transparent
           animationType="fade"
           statusBarTranslucent
-          onRequestClose={() => router.replace('/(app)/(tabs)/play/minigames')}
+          onRequestClose={() => {
+            if (dailyTournament) return;
+            router.replace('/(app)/(tabs)/play/minigames');
+          }}
         >
           <View style={styles.overlay}>
             <View style={styles.card}>
-              <View style={styles.goNavRow}>
-                <Pressable
-                  style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
-                  onPress={() => router.replace('/(app)/(tabs)/play/minigames')}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel="Back to minigames menu"
-                >
-                  <Ionicons name="chevron-back" size={24} color="#e2e8f0" />
-                  <Text style={styles.goNavLabel}>Minigames</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
-                  onPress={() => router.replace('/(app)/(tabs)')}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel="Go to home"
-                >
-                  <Ionicons name="home-outline" size={24} color="#e2e8f0" />
-                  <Text style={styles.goNavLabel}>Home</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.goTitle}>WIPED OUT</Text>
-              {s && <Text style={styles.goReason}>{s.deathReason}</Text>}
-              <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
-              <Text style={styles.goDodge}>Obstacles dodged: {endStatsRef.current.dodgeCount}</Text>
-              {playMode === 'prize' && (
-                <Text style={styles.goTickets}>
-                  +{ticketsFromScore(endStatsRef.current.score)} redeem tickets
-                </Text>
-              )}
-              <AppButton title="Roll Again" onPress={resetRun} className="mb-3" />
-              {playMode === 'prize' ? (
+              {dailyTournament && dailyPayload ? (
                 <>
-                  <AppButton
-                    title={submitOk ? 'Score submitted ✓' : 'Submit Score'}
-                    variant="secondary"
-                    loading={submitting}
-                    disabled={submitOk || submitting}
-                    onPress={submitScore}
-                  />
-                  {submitting && <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />}
+                  <Text style={styles.goTitle}>Round result</Text>
+                  <Text style={styles.goVsBall} numberOfLines={1}>
+                    You vs {dailyTournament.opponentDisplayName}
+                  </Text>
+                  <Text style={styles.goScore}>
+                    {dailyPayload.finalScore.self} — {dailyPayload.finalScore.opponent}
+                  </Text>
+                  <Text style={styles.practiceNote}>
+                    {dailyPayload.winnerId === dailyTournament.localPlayerId
+                      ? 'You take the match and move on.'
+                      : 'They take the match — you’re out of today’s event.'}
+                  </Text>
+                  <AppButton title="Continue" onPress={onContinueDaily} />
                 </>
               ) : (
-                <Text style={styles.practiceNote}>Practice run — not submitted to leaderboards.</Text>
+                <>
+                  <View style={styles.goNavRow}>
+                    <Pressable
+                      style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
+                      onPress={() => router.replace('/(app)/(tabs)/play/minigames')}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel="Back to minigames menu"
+                    >
+                      <Ionicons name="chevron-back" size={24} color="#e2e8f0" />
+                      <Text style={styles.goNavLabel}>Minigames</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
+                      onPress={() => router.replace('/(app)/(tabs)')}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel="Go to home"
+                    >
+                      <Ionicons name="home-outline" size={24} color="#e2e8f0" />
+                      <Text style={styles.goNavLabel}>Home</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.goTitle}>WIPED OUT</Text>
+                  {s && <Text style={styles.goReason}>{s.deathReason}</Text>}
+                  <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+                  <Text style={styles.goDodge}>Obstacles dodged: {endStatsRef.current.dodgeCount}</Text>
+                  {playMode === 'prize' && (
+                    <Text style={styles.goTickets}>
+                      +{ticketsFromScore(endStatsRef.current.score)} redeem tickets
+                    </Text>
+                  )}
+                  <AppButton title="Roll Again" onPress={resetRun} className="mb-3" />
+                  {playMode === 'prize' ? (
+                    <>
+                      <AppButton
+                        title={submitOk ? 'Score submitted ✓' : 'Submit Score'}
+                        variant="secondary"
+                        loading={submitting}
+                        disabled={submitOk || submitting}
+                        onPress={submitScore}
+                      />
+                      {submitting && <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />}
+                    </>
+                  ) : (
+                    <Text style={styles.practiceNote}>Practice run — not submitted to leaderboards.</Text>
+                  )}
+                </>
               )}
             </View>
           </View>
@@ -785,12 +846,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingTop: 2, paddingBottom: 6, zIndex: 30,
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  topBarRightSpacer: { width: 72, height: 36 },
   scoreCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scoreText: {
     color: '#F8FAFC', fontSize: 34, fontWeight: '900', letterSpacing: -0.5,
     textShadowColor: '#00ffff', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
   },
   dodgeText: { marginTop: 1, color: 'rgba(0,255,136,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  vsOppBall: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(226,232,240,0.75)',
+    maxWidth: 200,
+    textAlign: 'center',
+  },
+  goVsBall: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   creditsPill: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,

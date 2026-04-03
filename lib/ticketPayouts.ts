@@ -38,7 +38,6 @@ export const ARCADE_TICKET_SCORE_RULES: readonly {
   { game: 'Tile Clash', scoreLabel: 'Round score', pointsPerTicket: TILE_CLASH_POINTS_PER_TICKET },
   { game: 'Dash Duel', scoreLabel: 'Displayed points', pointsPerTicket: DASH_DUEL_POINTS_PER_TICKET },
   { game: 'Neon Ball Run', scoreLabel: 'Distance score', pointsPerTicket: BALL_RUN_POINTS_PER_TICKET },
-  { game: 'Neon Pocket', scoreLabel: 'Table score', pointsPerTicket: NEON_POOL_POINTS_PER_TICKET },
 ];
 
 export function ticketsFromTapDashScore(score: number): number {

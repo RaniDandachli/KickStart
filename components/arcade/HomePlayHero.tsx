@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
@@ -8,6 +8,39 @@ import { arcade } from '@/lib/arcadeTheme';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 const WINNER_ROTATION_MS = 3800;
+/** How often lobby stats nudge (feels “live”). */
+const STAT_DRIFT_MS = 4800;
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function randInt(lo: number, hi: number) {
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+function formatOnlineShort(n: number) {
+  if (n >= 10_000) return `${Math.round(n / 100) / 10}k`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function formatRewardsFromWalletCents24h(cents: number) {
+  const usd = cents / 100;
+  if (usd >= 1000) return `$${(usd / 1000).toFixed(1)}k`;
+  if (usd >= 100) return `$${Math.round(usd)}`;
+  if (usd >= 1) return `$${usd.toFixed(0)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
+/** Live lobby snapshot from `home_lobby_stats` RPC (Supabase). */
+export type LiveLobbySnapshot = {
+  playersOnline: number;
+  rewardsWalletCents24h: number;
+  matchesLive: number;
+  matchesQueued: number;
+  tickerLines: string[];
+};
 
 const RECENT_WINNERS_LOOP = [
   { name: 'Alex', amount: 38, mins: 2 },
@@ -32,6 +65,8 @@ type Props = {
   prizesAwardedDemoUsd?: number;
   playersBattling?: number;
   matchesStarting?: number;
+  /** When set, stats + ticker use Supabase `home_lobby_stats` (demo drift disabled). */
+  liveLobby?: LiveLobbySnapshot | null;
   walletDisplay?: string;
   /** Opens add-funds / wallet top-up when the wallet pill is pressed. */
   onWalletPress?: () => void;
@@ -40,10 +75,11 @@ type Props = {
 };
 
 export function HomePlayHero({
-  matchesLive = 23,
-  prizesAwardedDemoUsd = 3920,
-  playersBattling = 1284,
-  matchesStarting = 42,
+  matchesLive = 43,
+  prizesAwardedDemoUsd = 3910,
+  playersBattling = 3870,
+  matchesStarting = 23,
+  liveLobby = null,
   walletDisplay = '$12.40',
   onWalletPress,
   onEntryTierPress,
@@ -53,12 +89,74 @@ export function HomePlayHero({
   const tickOpacity = useRef(new Animated.Value(1)).current;
   const skipFirstWinnerAnim = useRef(true);
 
+  const [statLive, setStatLive] = useState(() => clamp(matchesLive + randInt(-3, 3), 28, 58));
+  const [statStarting, setStatStarting] = useState(() => clamp(matchesStarting + randInt(-4, 4), 14, 52));
+  const [statOnline, setStatOnline] = useState(() => clamp(playersBattling + randInt(-55, 55), 3050, 5150));
+  const [statRewardsUsd, setStatRewardsUsd] = useState(() =>
+    clamp(prizesAwardedDemoUsd + randInt(-80, 80), 3320, 4980),
+  );
+  const [rewardWindow, setRewardWindow] = useState<'10m' | '15m' | '30m' | '1h' | '24h'>(() => {
+    const w = ['10m', '15m', '30m', '1h', '24h'] as const;
+    return w[randInt(0, w.length - 1)];
+  });
+  const [startingFlavor, setStartingFlavor] = useState<'starting' | 'queued' | 'lining up'>(() => {
+    const f = ['starting', 'queued', 'lining up'] as const;
+    return f[randInt(0, f.length - 1)];
+  });
+
+  /** Primitive + digest only — parent often passes a new `liveLobby` object reference each render. */
+  const liveTickerLen = liveLobby?.tickerLines?.length ?? 0;
+  const liveTickerDigest = liveLobby?.tickerLines?.join('\u0001') ?? '';
+
+  const tickerCycleLen = useMemo(() => {
+    return liveTickerLen > 0 ? liveTickerLen : RECENT_WINNERS_LOOP.length;
+  }, [liveTickerLen]);
+
+  /**
+   * Server snapshot with no activity yet: all aggregates 0 and no ticker lines.
+   * Still use demo drift for the stat strip so the home row isn’t “0 / $0 / 0 / 0”.
+   * When any metric or ticker exists, show real numbers from Supabase.
+   */
+  const lobbyEmpty =
+    liveLobby != null &&
+    liveLobby.playersOnline === 0 &&
+    liveLobby.rewardsWalletCents24h === 0 &&
+    liveLobby.matchesLive === 0 &&
+    liveLobby.matchesQueued === 0 &&
+    (liveLobby.tickerLines?.length ?? 0) === 0;
+
+  const useDemoDrift = liveLobby == null || lobbyEmpty;
+
+  const showLiveNumbers = liveLobby != null && !lobbyEmpty;
+
   useEffect(() => {
+    setWinnerIdx(0);
+  }, [tickerCycleLen]);
+
+  useEffect(() => {
+    const len = Math.max(1, tickerCycleLen);
     const id = setInterval(() => {
-      setWinnerIdx((i) => (i + 1) % RECENT_WINNERS_LOOP.length);
+      setWinnerIdx((i) => (i + 1) % len);
     }, WINNER_ROTATION_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [tickerCycleLen]);
+
+  useEffect(() => {
+    if (!useDemoDrift) return;
+    const id = setInterval(() => {
+      setStatLive((v) => clamp(v + randInt(-2, 2), 28, 62));
+      setStatStarting((v) => clamp(v + randInt(-2, 2), 12, 58));
+      setStatOnline((v) => clamp(v + randInt(-35, 48), 2980, 5280));
+      setStatRewardsUsd((v) => clamp(v + randInt(-48, 72), 3180, 5050));
+      const w = ['10m', '15m', '30m', '1h', '24h'] as const;
+      if (Math.random() < 0.35) setRewardWindow(w[randInt(0, w.length - 1)]);
+      if (Math.random() < 0.3) {
+        const f = ['starting', 'queued', 'lining up'] as const;
+        setStartingFlavor(f[randInt(0, f.length - 1)]);
+      }
+    }, STAT_DRIFT_MS + randInt(-900, 900));
+    return () => clearInterval(id);
+  }, [useDemoDrift]);
 
   useEffect(() => {
     if (skipFirstWinnerAnim.current) {
@@ -71,10 +169,25 @@ export function HomePlayHero({
       duration: 420,
       useNativeDriver: true,
     }).start();
-  }, [winnerIdx, tickOpacity]);
+  }, [winnerIdx]);
 
-  const w = RECENT_WINNERS_LOOP[winnerIdx];
-  const winnerLine = `${w.name} earned $${w.amount} reward · ${w.mins} min ago`;
+  const winnerLine = useMemo(() => {
+    if (liveTickerDigest) {
+      const lines = liveTickerDigest.split('\u0001');
+      return lines[winnerIdx % lines.length] ?? '';
+    }
+    const w = RECENT_WINNERS_LOOP[winnerIdx % RECENT_WINNERS_LOOP.length];
+    return `${w.name} earned $${w.amount} reward · ${w.mins} min ago`;
+  }, [liveTickerDigest, winnerIdx]);
+
+  const displayOnline = showLiveNumbers ? liveLobby!.playersOnline : statOnline;
+  const displayRewardsLabel = showLiveNumbers
+    ? formatRewardsFromWalletCents24h(liveLobby!.rewardsWalletCents24h)
+    : `$${(statRewardsUsd / 1000).toFixed(1)}k`;
+  const displayLive = showLiveNumbers ? liveLobby!.matchesLive : statLive;
+  const displayQueued = showLiveNumbers ? liveLobby!.matchesQueued : statStarting;
+  const rewardsWindowLabel = showLiveNumbers ? '24h' : rewardWindow;
+  const queuedWord = showLiveNumbers ? 'starting' : startingFlavor;
 
   const walletPill = (
     <LinearGradient
@@ -147,7 +260,7 @@ export function HomePlayHero({
             <View style={styles.statRowInline}>
               <Ionicons name="people" size={13} color="#4ade80" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{playersBattling.toLocaleString()}</Text> online
+                <Text style={styles.statNum}>{formatOnlineShort(displayOnline)}</Text> online
               </Text>
             </View>
           </View>
@@ -155,7 +268,7 @@ export function HomePlayHero({
             <View style={styles.statRowInline}>
               <Ionicons name="cash-outline" size={13} color="#FDE047" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>${(prizesAwardedDemoUsd / 1000).toFixed(1)}k</Text> rewards · 10m
+                <Text style={styles.statNum}>{displayRewardsLabel}</Text> rewards · {rewardsWindowLabel}
               </Text>
             </View>
           </View>
@@ -165,7 +278,7 @@ export function HomePlayHero({
             <View style={styles.statRowInline}>
               <Ionicons name="flame" size={13} color="#fb923c" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{matchesStarting}</Text> starting
+                <Text style={styles.statNum}>{displayQueued}</Text> {queuedWord}
               </Text>
             </View>
           </View>
@@ -173,7 +286,7 @@ export function HomePlayHero({
             <View style={styles.statRowInline}>
               <Ionicons name="flash" size={13} color={runit.neonCyan} />
               <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{matchesLive}</Text> live
+                <Text style={styles.statNum}>{displayLive}</Text> live
               </Text>
             </View>
           </View>

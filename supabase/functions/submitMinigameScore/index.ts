@@ -109,6 +109,18 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return errorResponse('Unauthorized', 401);
 
+    const admin = createClient(supabaseUrl, serviceKey);
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const { count, error: rateErr } = await admin
+      .from('minigame_scores')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userData.user.id)
+      .gte('created_at', since);
+    if (rateErr) return errorResponse(rateErr.message, 500);
+    if ((count ?? 0) > 45) {
+      return errorResponse('Too many score submissions. Wait a minute and try again.', 429);
+    }
+
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
@@ -144,7 +156,6 @@ Deno.serve(async (req) => {
       if (taps > score + 4) return errorResponse('Invalid taps for stacker score', 422);
     }
 
-    const admin = createClient(supabaseUrl, serviceKey);
     const { error } = await admin.from('minigame_scores').insert({
       user_id: userData.user.id,
       game_type: data.game_type,

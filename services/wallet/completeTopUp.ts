@@ -1,5 +1,9 @@
 import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
+import { getCreditPackageById } from '@/lib/creditPackages';
+import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
+
+import { openStripeCheckoutSession } from '@/services/wallet/stripeCheckout';
 
 export const MIN_TOP_UP_CENTS = 100;
 export const MAX_TOP_UP_CENTS = 50_000;
@@ -18,22 +22,42 @@ export function assertValidTopUpAmountCents(cents: number): void {
 /**
  * Guest / offline: credits the local demo wallet immediately (simulates a successful Stripe charge).
  *
- * With backend: only completes when `WALLET_TOPUP_STRIPE_ENABLED` and your Edge Function has verified
- * the PaymentIntent / Checkout Session; until then, throws so the UI can show “coming soon”.
+ * With backend: opens Stripe Checkout when `WALLET_TOPUP_STRIPE_ENABLED`; wallet updates after webhook.
  */
-export async function completeWalletTopUp(amountCents: number): Promise<void> {
+export async function completeWalletTopUp(amountCents: number): Promise<boolean> {
   assertValidTopUpAmountCents(amountCents);
 
   if (!ENABLE_BACKEND) {
     useDemoWalletStore.getState().addWalletCents(amountCents);
-    return;
+    return true;
   }
 
   if (!WALLET_TOPUP_STRIPE_ENABLED) {
     throw new Error(
-      'Card payments are not connected yet. Add a Stripe Checkout or Payment Element flow on the server, then credit `profiles.wallet_cents` from a webhook after `payment_intent.succeeded`.',
+      'Card payments are not connected yet. Set EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED and deploy Stripe Edge Functions + webhook.',
     );
   }
 
-  throw new Error('Stripe top-up is enabled but no client bridge is wired yet. Call your Edge Function from the payment success handler.');
+  return openStripeCheckoutSession({ kind: 'wallet', amountCents });
+}
+
+/**
+ * Purchase a predefined arcade credit pack (prize credits). Demo mode grants credits immediately.
+ */
+export async function completeCreditsPackagePurchase(packageId: string): Promise<boolean> {
+  const pack = getCreditPackageById(packageId);
+  if (!pack) throw new Error('Unknown credit package.');
+
+  if (!ENABLE_BACKEND) {
+    useDemoPrizeCreditsStore.getState().add(pack.prizeCredits);
+    return true;
+  }
+
+  if (!WALLET_TOPUP_STRIPE_ENABLED) {
+    throw new Error(
+      'Purchases are not enabled yet. Set EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED and deploy Stripe Edge Functions + webhook.',
+    );
+  }
+
+  return openStripeCheckoutSession({ kind: 'credits', packageId });
 }
