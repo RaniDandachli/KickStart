@@ -22,6 +22,7 @@ import { formatTournamentState } from '@/features/tournaments/tournamentPresenta
 import { useActiveSeason } from '@/hooks/useActiveSeason';
 import { buildTickerLinesFromLobby, useHomeLobbyStats } from '@/hooks/useHomeLobbyStats';
 import { useProfile } from '@/hooks/useProfile';
+import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   const dailyHydrate = useDailyFreeTournamentStore((s) => s.hydrate);
   const dailyResetCountdown = useDailyFreeResetClock(dailyUid, dailyHydrate);
   const profileQ = useProfile(uid);
+  const fightQ = useProfileFightStats(uid);
   const seasonQ = useActiveSeason();
   const tournamentsQ = useTournaments(true);
   const lobbyStatsQ = useHomeLobbyStats();
@@ -62,6 +64,22 @@ export default function HomeScreen() {
   const nextTournament = tournamentsQ.data?.[0];
   const displayName = profile?.display_name ?? profile?.username ?? 'Player';
 
+  const homeYourStats = useMemo(() => {
+    if (!ENABLE_BACKEND || !uid) {
+      return [
+        ['2', 'WINS', runit.neonCyan],
+        ['1', 'LOSSES', runit.neonPink],
+        ['3', 'STREAK', runit.neonPurple],
+      ] as const;
+    }
+    const f = fightQ.data;
+    return [
+      [String(f?.wins ?? 0), 'WINS', runit.neonCyan],
+      [String(f?.losses ?? 0), 'LOSSES', runit.neonPink],
+      [String(f?.current_streak ?? 0), 'STREAK', runit.neonPurple],
+    ] as const;
+  }, [fightQ.data, uid]);
+
   const walletCents = useWalletDisplayCents();
   const walletDisplay = formatUsdFromCents(walletCents);
   const [h2hGate, setH2hGate] = useState<{
@@ -77,13 +95,13 @@ export default function HomeScreen() {
   const [tierPick, setTierPick] = useState<{ title: string; gameKey: H2hGameKey; route: string } | null>(null);
 
   const waiters = useHomeH2hBoardStore((s) => s.waiters);
-  const initDemo = useHomeH2hBoardStore((s) => s.initDemo);
+  const ensureOpenMatchBoard = useHomeH2hBoardStore((s) => s.ensureOpenMatchBoard);
   const removeWaiter = useHomeH2hBoardStore((s) => s.removeWaiter);
   const tickSimulation = useHomeH2hBoardStore((s) => s.tickSimulation);
 
   useEffect(() => {
-    initDemo();
-  }, [initDemo]);
+    ensureOpenMatchBoard();
+  }, [ensureOpenMatchBoard]);
 
   useEffect(() => {
     const id = setInterval(() => tickSimulation(), 12_000);
@@ -277,7 +295,14 @@ export default function HomeScreen() {
           })}
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
-            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>LIVE EVENT</Text>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
+              {ENABLE_DAILY_FREE_TOURNAMENT ? 'DAILY EVENT' : 'LIVE EVENT'}
+            </Text>
+            {ENABLE_DAILY_FREE_TOURNAMENT ? (
+              <View style={styles.homeTourneyFreePill}>
+                <Text style={styles.homeTourneyFreePillTxt}>FREE · $0 ENTRY</Text>
+              </View>
+            ) : null}
             <View style={styles.sectionLine} />
           </View>
 
@@ -289,21 +314,43 @@ export default function HomeScreen() {
                 : pushCrossTab(router, '/(app)/(tabs)/tournaments')
             }
           >
-            <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
+            <LinearGradient
+              colors={
+                ENABLE_DAILY_FREE_TOURNAMENT
+                  ? ['#064e3b', '#7c3aed', '#be185d']
+                  : [runit.neonPurple, runit.neonPink]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gameBorder, ENABLE_DAILY_FREE_TOURNAMENT && styles.gameBorderDailyFree]}
+            >
               <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
                 <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                  <Ionicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 40 : 34} color="#fbbf24" />
+                  <Ionicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
                 </View>
                 <View style={styles.tourneyMid}>
                   {ENABLE_DAILY_FREE_TOURNAMENT ? (
                     <>
-                      <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
+                      <View style={styles.homeDailyTitleRow}>
+                        <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
+                      </View>
+                      <View style={styles.homeDailyChips}>
+                        <View style={styles.homeDailyChip}>
+                          <Text style={styles.homeDailyChipTxt}>Skill path</Text>
+                        </View>
+                        <View style={[styles.homeDailyChip, styles.homeDailyChipAccent]}>
+                          <Text style={styles.homeDailyChipTxtAccent}>{DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
+                        </View>
+                        <View style={styles.homeDailyChip}>
+                          <Text style={styles.homeDailyChipTxt}>No wallet</Text>
+                        </View>
+                      </View>
                       <View style={styles.homeDailyPrizeRow}>
                         <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
-                        <Text style={styles.homeDailyPrizeSub}>showcase · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
+                        <Text style={styles.homeDailyPrizeSub}>showcase prize · play free</Text>
                       </View>
-                      <Text style={styles.tourneyMeta}>
-                        Resets in {dailyResetCountdown} · New bracket at local midnight
+                      <Text style={styles.tourneyMetaDaily}>
+                        Resets in {dailyResetCountdown} · New bracket at local midnight · Same skill games as Arcade
                       </Text>
                     </>
                   ) : (
@@ -319,8 +366,13 @@ export default function HomeScreen() {
                     </>
                   )}
                 </View>
-                <LinearGradient colors={[runit.neonPink, runit.neonPurple]} style={styles.joinBtn}>
-                  <Text style={styles.joinBtnText}>{ENABLE_DAILY_FREE_TOURNAMENT ? 'PLAY' : 'JOIN'}</Text>
+                <LinearGradient
+                  colors={ENABLE_DAILY_FREE_TOURNAMENT ? ['#34d399', '#059669'] : [runit.neonPink, runit.neonPurple]}
+                  style={[styles.joinBtn, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnDailyFree]}
+                >
+                  <Text style={[styles.joinBtnText, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnTextDailyFree]}>
+                    {ENABLE_DAILY_FREE_TOURNAMENT ? 'PLAY FREE' : 'JOIN'}
+                  </Text>
                 </LinearGradient>
               </View>
             </LinearGradient>
@@ -332,14 +384,18 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            {[['2', 'WINS', runit.neonCyan], ['1', 'LOSSES', runit.neonPink], ['3', 'STREAK', runit.neonPurple]].map(([val, lbl, col]) => (
-              <LinearGradient key={lbl} colors={[col, 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGrad}>
-                <View style={styles.statInner}>
-                  <Text style={[styles.statVal, { color: col as string }]}>{val}</Text>
-                  <Text style={styles.statLbl}>{lbl}</Text>
-                </View>
-              </LinearGradient>
-            ))}
+            {ENABLE_BACKEND && uid && fightQ.isLoading ? (
+              <Text style={styles.homeStatsLoading}>Loading your stats…</Text>
+            ) : (
+              homeYourStats.map(([val, lbl, col]) => (
+                <LinearGradient key={lbl} colors={[col, 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGrad}>
+                  <View style={styles.statInner}>
+                    <Text style={[styles.statVal, { color: col as string }]}>{val}</Text>
+                    <Text style={styles.statLbl}>{lbl}</Text>
+                  </View>
+                </LinearGradient>
+              ))
+            )}
           </View>
           <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
 
@@ -510,9 +566,57 @@ const styles = StyleSheet.create({
   homeDailyPrizeSub: { color: 'rgba(254,243,199,0.95)', fontSize: 13, fontWeight: '800' },
   tourneyTitle: { color: runit.neonCyan, fontSize: 16, fontWeight: '900', marginBottom: 4 },
   tourneyMeta: { color: 'rgba(203,213,225,0.85)', fontSize: 12, fontWeight: '600' },
+  homeTourneyFreePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,211,153,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.55)',
+  },
+  homeTourneyFreePillTxt: {
+    color: '#6ee7b7',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  gameBorderDailyFree: {
+    borderWidth: 2,
+    borderColor: 'rgba(52,211,153,0.45)',
+    shadowColor: 'rgba(52,211,153,0.35)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  homeDailyTitleRow: { marginBottom: 6 },
+  homeDailyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  homeDailyChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+  },
+  homeDailyChipAccent: {
+    backgroundColor: 'rgba(52,211,153,0.12)',
+    borderColor: 'rgba(52,211,153,0.4)',
+  },
+  homeDailyChipTxt: { color: 'rgba(226,232,240,0.9)', fontSize: 10, fontWeight: '800' },
+  homeDailyChipTxtAccent: { color: '#a7f3d0', fontSize: 10, fontWeight: '900' },
+  tourneyMetaDaily: {
+    color: 'rgba(204,251,241,0.88)',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 15,
+  },
   joinBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
+  joinBtnDailyFree: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
   joinBtnText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  joinBtnTextDailyFree: { color: '#042f2e', fontSize: 10, letterSpacing: 0.5 },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  homeStatsLoading: { flex: 1, color: 'rgba(148,163,184,0.9)', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
   statGrad: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
   statVal: { fontSize: 22, fontWeight: '900' },

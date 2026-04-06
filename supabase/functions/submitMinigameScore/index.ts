@@ -11,6 +11,8 @@ const Body = z.discriminatedUnion('game_type', [
     score: z.number().int().min(0).max(1_000_000),
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
+    /** When set, ties this run to an H2H `match_sessions` row (Tap Dash only). */
+    match_session_id: z.string().uuid().optional(),
   }),
   z.object({
     game_type: z.literal('tile_clash'),
@@ -125,6 +127,9 @@ Deno.serve(async (req) => {
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
     const data = parsed.data;
+    if ('match_session_id' in data && data.game_type !== 'tap_dash') {
+      return errorResponse('match_session_id is only valid for tap_dash', 422);
+    }
     const { score, duration_ms, taps } = data;
 
     const maxTaps = Math.floor(duration_ms / 50) + 120;
@@ -156,14 +161,46 @@ Deno.serve(async (req) => {
       if (taps > score + 4) return errorResponse('Invalid taps for stacker score', 422);
     }
 
-    const { error } = await admin.from('minigame_scores').insert({
+    let matchSessionId: string | undefined;
+    if (data.game_type === 'tap_dash' && data.match_session_id) {
+      matchSessionId = data.match_session_id;
+      const { data: ms, error: msErr } = await admin
+        .from('match_sessions')
+        .select('id,status,player_a_id,player_b_id,game_key')
+        .eq('id', matchSessionId)
+        .single();
+      if (msErr || !ms) return errorResponse('Match session not found', 404);
+      const pa = ms.player_a_id as string | null;
+      const pb = ms.player_b_id as string | null;
+      if (!pa || !pb) return errorResponse('Match session missing players', 400);
+      const uid = userData.user.id;
+      if (uid !== pa && uid !== pb) return errorResponse('Not a participant', 403);
+      const st = ms.status as string;
+      if (st !== 'lobby' && st !== 'in_progress') {
+        return errorResponse('Match is not open for score submission', 400);
+      }
+      const gk = String(ms.game_key ?? '').trim().toLowerCase();
+      if (gk && gk !== 'tap-dash') {
+        return errorResponse('This match does not use Tap Dash', 400);
+      }
+    }
+
+    const insertRow: Record<string, unknown> = {
       user_id: userData.user.id,
       game_type: data.game_type,
       score,
       duration_ms,
       taps,
-    });
-    if (error) return errorResponse(error.message, 500);
+    };
+    if (matchSessionId) insertRow.match_session_id = matchSessionId;
+
+    const { error } = await admin.from('minigame_scores').insert(insertRow);
+    if (error) {
+      if (error.code === '23505') {
+        return errorResponse('You already submitted a score for this match', 409);
+      }
+      return errorResponse(error.message, 500);
+    }
 
     return json({ ok: true });
   } catch (e) {

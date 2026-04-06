@@ -21,10 +21,13 @@ import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
+import { useProfileFightStats } from '@/hooks/useProfileFightStats';
+import { useRecentMatches } from '@/hooks/useRecentMatches';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
+import { shortRelativeTime } from '@/lib/relativeTime';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -61,6 +64,8 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const uid = user?.id;
   const profileQ = useProfile(uid);
+  const fightQ = useProfileFightStats(uid);
+  const recentQ = useRecentMatches(uid);
   const profile = profileQ.data;
   const loadingProfile = ENABLE_BACKEND && !!uid && profileQ.isLoading;
   const walletCentsDisplay = useWalletDisplayCents();
@@ -74,6 +79,26 @@ export default function ProfileScreen() {
   const [avatarRenderNonce, setAvatarRenderNonce] = useState(0);
 
   const useServer = ENABLE_BACKEND && !!uid;
+
+  const profileStatCards = useMemo(() => {
+    if (!useServer) {
+      return [
+        ['28', 'WINS', 'trophy'],
+        ['#47', 'RANK', 'star'],
+        ['12', 'STREAK', 'flame'],
+      ] as const;
+    }
+    const f = fightQ.data;
+    const wins = f?.wins ?? 0;
+    const rank =
+      f != null && f.wins_rank > 0 ? `#${f.wins_rank}` : '—';
+    const streak = f?.current_streak ?? 0;
+    return [
+      [String(wins), 'WINS', 'trophy'],
+      [rank, 'RANK', 'star'],
+      [String(streak), 'STREAK', 'flame'],
+    ] as const;
+  }, [useServer, fightQ.data]);
 
   useEffect(() => {
     if (useServer && profile) {
@@ -342,7 +367,7 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.walletBalance}>{formatUsdFromCents(walletCentsDisplay)}</Text>
             <Text style={styles.walletSub}>
-              {ENABLE_BACKEND ? 'Entry fees, tournaments and withdrawals' : 'Demo balance — updates when you win 1v1 matches'}
+              {ENABLE_BACKEND ? 'Entry fees, tournaments and withdrawals' : 'Guest wallet on this device — sign in for cloud balance'}
             </Text>
             <View style={styles.pillRow}>
               <View style={styles.pill}>
@@ -400,32 +425,82 @@ export default function ProfileScreen() {
         <View style={styles.sectionLine} />
       </View>
       <View style={styles.statsRow}>
-        {[
-          ['28', 'WINS', 'trophy'],
-          ['#47', 'RANK', 'star'],
-          ['12', 'STREAK', 'flame'],
-        ].map(([val, lbl, ico]) => (
-          <LinearGradient key={lbl} colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGrad}>
-            <View style={styles.statInner}>
-              <Ionicons name={ico as 'trophy' | 'star' | 'flame'} size={18} color="#fff" style={{ marginBottom: 4 }} />
-              <Text style={[styles.statVal, { fontFamily: runitFont.black }]}>{val}</Text>
-              <Text style={styles.statLbl}>{lbl}</Text>
-            </View>
-          </LinearGradient>
-        ))}
+        {useServer && fightQ.isLoading ? (
+          <Text style={[styles.muted, { flex: 1, textAlign: 'center' }]}>Loading stats…</Text>
+        ) : (
+          profileStatCards.map(([val, lbl, ico]) => (
+            <LinearGradient
+              key={lbl}
+              colors={[runit.neonPurple, runit.neonPink]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statGrad}
+            >
+              <View style={styles.statInner}>
+                <Ionicons name={ico as 'trophy' | 'star' | 'flame'} size={18} color="#fff" style={{ marginBottom: 4 }} />
+                <Text style={[styles.statVal, { fontFamily: runitFont.black }]}>{val}</Text>
+                <Text style={styles.statLbl}>{lbl}</Text>
+              </View>
+            </LinearGradient>
+          ))
+        )}
       </View>
 
       <View style={styles.sectionLabel}>
         <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>RECENT MATCHES</Text>
         <View style={styles.sectionLine} />
       </View>
-      {mockHistory.map((h) => (
-        <View key={h.id} style={[styles.historyRow, { borderColor: h.win ? 'rgba(0,240,255,0.4)' : 'rgba(255,0,110,0.35)' }]}>
-          <View style={[styles.historyDot, { backgroundColor: h.win ? runit.neonCyan : runit.neonPink }]} />
-          <Text style={styles.historyLabel}>{h.label}</Text>
-          <Text style={styles.historyWhen}>{h.when}</Text>
-        </View>
-      ))}
+      {useServer ? (
+        recentQ.isLoading ? (
+          <Text style={styles.muted}>Loading matches…</Text>
+        ) : recentQ.data?.length ? (
+          recentQ.data.map((m) => {
+            const label = m.is_draw
+              ? `Draw vs ${m.opponent_display_name || m.opponent_username}`
+              : m.won
+                ? `Win vs ${m.opponent_display_name || m.opponent_username}`
+                : `Loss vs ${m.opponent_display_name || m.opponent_username}`;
+            const win = m.won;
+            const draw = m.is_draw;
+            return (
+              <View
+                key={m.match_id}
+                style={[
+                  styles.historyRow,
+                  {
+                    borderColor: draw
+                      ? 'rgba(148,163,184,0.45)'
+                      : win
+                        ? 'rgba(0,240,255,0.4)'
+                        : 'rgba(255,0,110,0.35)',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.historyDot,
+                    {
+                      backgroundColor: draw ? '#94a3b8' : win ? runit.neonCyan : runit.neonPink,
+                    },
+                  ]}
+                />
+                <Text style={styles.historyLabel}>{label}</Text>
+                <Text style={styles.historyWhen}>{shortRelativeTime(m.ended_at)}</Text>
+              </View>
+            );
+          })
+        ) : (
+          <Text style={styles.muted}>No recent matches yet.</Text>
+        )
+      ) : (
+        mockHistory.map((h) => (
+          <View key={h.id} style={[styles.historyRow, { borderColor: h.win ? 'rgba(0,240,255,0.4)' : 'rgba(255,0,110,0.35)' }]}>
+            <View style={[styles.historyDot, { backgroundColor: h.win ? runit.neonCyan : runit.neonPink }]} />
+            <Text style={styles.historyLabel}>{h.label}</Text>
+            <Text style={styles.historyWhen}>{h.when}</Text>
+          </View>
+        ))
+      )}
 
       <View style={[styles.sectionLabel, { marginTop: 16 }]}>
         <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ACHIEVEMENTS</Text>
@@ -626,4 +701,5 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   badge: { borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
   badgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13, marginBottom: 8 },
 });

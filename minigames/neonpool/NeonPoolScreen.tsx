@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import {
   ballsLeft,
@@ -477,12 +477,25 @@ export default function NeonPoolScreen() {
     // Win flash animation
     const flashAnim = useRef(new Animated.Value(0)).current;
   
-    const loop = useCallback((dtMs: number) => {
-      const s = stateRef.current;
-      if (s.phase === 'shot_in_progress') {
-        stepPhysics(s, dtMs);
-        const after = stateRef.current;
-        if (after.phase === 'game_over') {
+    const loop = useCallback(
+      (totalDtMs: number) => {
+        const s = stateRef.current;
+        let hitGameOver = false;
+        if (s.phase === 'shot_in_progress') {
+          runFixedPhysicsSteps(totalDtMs, (h) => {
+            const cur = stateRef.current;
+            if (!cur || cur.phase !== 'shot_in_progress') return false;
+            stepPhysics(cur, h);
+            const after = stateRef.current;
+            if (!after || after.phase !== 'shot_in_progress') {
+              hitGameOver = after?.phase === 'game_over';
+              return false;
+            }
+            return true;
+          });
+        }
+        if (hitGameOver) {
+          const after = stateRef.current;
           winnerRef.current = after.winner;
           setPhase('over');
           Animated.sequence([
@@ -491,9 +504,10 @@ export default function NeonPoolScreen() {
             Animated.timing(flashAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
           ]).start();
         }
-      }
-      bump();
-    }, [bump, flashAnim]);
+        bump();
+      },
+      [bump, flashAnim],
+    );
   
     useRafLoop(loop, phase === 'playing');
   

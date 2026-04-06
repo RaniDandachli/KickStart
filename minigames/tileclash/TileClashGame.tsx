@@ -19,7 +19,7 @@ import {
 } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
@@ -151,31 +151,36 @@ export default function TileClashGame({
   );
 
   const step = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const m = modelRef.current;
       if (!m.alive) return;
 
-      const dy = m.scrollPerMs * dtMs;
-      for (const t of m.tiles) {
-        t.y += dy;
-      }
-
-      m.spawnAcc += dtMs;
-      if (m.spawnAcc >= SPAWN_MS) {
-        spawnRow(m);
-        m.spawnAcc = 0;
-      }
-
-      for (const t of m.tiles) {
-        if (t.kind !== 'good') continue;
-        if (t.y > HIT_BOTTOM) {
-          endGame(m);
-          return;
+      runFixedPhysicsSteps(totalDtMs, (dtMs) => {
+        if (!m.alive) return false;
+        const dy = m.scrollPerMs * dtMs;
+        for (const t of m.tiles) {
+          t.y += dy;
         }
-      }
 
-      m.tiles = m.tiles.filter((t) => t.y < LANE_H + 24);
-      bump();
+        m.spawnAcc += dtMs;
+        if (m.spawnAcc >= SPAWN_MS) {
+          spawnRow(m);
+          m.spawnAcc = 0;
+        }
+
+        for (const t of m.tiles) {
+          if (t.kind !== 'good') continue;
+          if (t.y > HIT_BOTTOM) {
+            endGame(m);
+            return false;
+          }
+        }
+
+        m.tiles = m.tiles.filter((t) => t.y < LANE_H + 24);
+        return true;
+      });
+
+      if (m.alive) bump();
     },
     [bump, endGame],
   );
@@ -302,6 +307,7 @@ export default function TileClashGame({
           dailyTournament.forcedOutcome,
           dailyTournament.localPlayerId,
           dailyTournament.opponentId,
+          dailyTournament.scoreVarianceKey,
         )
       : null;
 

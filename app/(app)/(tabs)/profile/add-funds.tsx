@@ -181,7 +181,7 @@ export default function AddFundsScreen() {
           'Payment',
           stripeReady
             ? 'Thanks! Arcade credits appear shortly after Stripe confirms the payment.'
-            : 'Credits added to your demo balance.',
+            : 'Arcade Credits updated on this device.',
           [{ text: 'OK', onPress: () => goBackFromAddFunds(router) }],
         );
       }
@@ -278,8 +278,8 @@ export default function AddFundsScreen() {
             {profileQ.isLoading ? null : (
               <Text style={styles.balanceMeta}>
                 {ENABLE_BACKEND
-                  ? 'Cash is for entry fees & tournaments. Credits are for arcade runs & prizes.'
-                  : 'Demo balances — connect Supabase + Stripe for real purchases.'}
+                  ? 'Cash is for contest access & tournaments. Arcade Credits are for arcade runs.'
+                  : 'Guest mode: balances stay on this device. Sign in with Supabase + Stripe for cloud wallet & card top-ups.'}
               </Text>
             )}
           </View>
@@ -360,7 +360,11 @@ export default function AddFundsScreen() {
                       : 'A secure Stripe page opens in the browser. When you finish, you return here automatically.'}
                   </Text>
                 ) : (
-                  <Text style={styles.stripeNote}>Demo mode — no real charge.</Text>
+                  <Text style={styles.stripeNote}>
+                    {ENABLE_BACKEND
+                      ? 'Stripe checkout is not enabled in this build — enable wallet top-up in project env to take card payments.'
+                      : 'Guest mode — adds cash on this device only (no payment processor).'}
+                  </Text>
                 )}
                 {useEmbeddedSheet ? (
                   <WalletPaySheetButton amountCents={amountCents} onComplete={handleWalletPaid} />
@@ -376,7 +380,7 @@ export default function AddFundsScreen() {
                       ) : (
                         <>
                           <Ionicons name="card-outline" size={22} color="#fff" />
-                          <Text style={styles.ctaTxt}>{stripeReady ? 'Pay with Stripe' : 'Add demo funds'}</Text>
+                          <Text style={styles.ctaTxt}>{stripeReady ? 'Pay with Stripe' : 'Add cash (device)'}</Text>
                         </>
                       )}
                     </LinearGradient>
@@ -448,7 +452,7 @@ export default function AddFundsScreen() {
                     <>
                       <Ionicons name="cart-outline" size={22} color="#fff" />
                       <Text style={styles.ctaTxt}>
-                        {stripeReady ? `Pay ${formatUsdFromCents(selectedPack.priceCents)}` : 'Add demo credits'}
+                        {stripeReady ? `Pay ${formatUsdFromCents(selectedPack.priceCents)}` : 'Add credits (device)'}
                       </Text>
                     </>
                   )}

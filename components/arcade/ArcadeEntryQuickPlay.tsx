@@ -57,7 +57,7 @@ export function ArcadeEntryQuickPlay() {
       ))}
 
       <Text style={styles.disclaimer}>
-        Demo queue — no charge yet. Skill contests only; prizes are set by tier and not pooled from other players.
+        Open queue — contest access uses your cash wallet when you enter a paid tier; prizes are paid by Run It, not pooled from players.
       </Text>
     </View>
   );

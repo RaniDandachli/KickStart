@@ -96,9 +96,10 @@ export default function DailyFreeTournamentPlayScreen() {
       forcedOutcome,
       localPlayerId: uid,
       opponentId: 'tournament-opponent',
+      scoreVarianceKey: `${dayKey}|daily|r${nextRound}|${uid}`,
       onComplete,
     }),
-    [oppName, opponentRoundScore, forcedOutcome, uid, onComplete],
+    [oppName, opponentRoundScore, forcedOutcome, uid, onComplete, dayKey, nextRound],
   );
 
   if (!hydrated) {

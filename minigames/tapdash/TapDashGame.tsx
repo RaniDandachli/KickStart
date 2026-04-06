@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,18 +15,21 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import { finalizeH2hTapDashScores } from '@/lib/h2hMinigameOutcome';
+import { queryKeys } from '@/lib/queryKeys';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
+import type { MatchFinishPayload } from '@/types/match';
 
 /** 60 FPS reference frame duration (ms). */
 const FRAME_MS = 1000 / 60;
@@ -101,13 +105,14 @@ function gateHitsOrb(gate: Gate, orbY: number): boolean {
 }
 
 function createGame(): GameModel {
-  return {
+  const m: GameModel = {
     orbY: PLAY_H * 0.42,
     orbVy: 0,
     gates: [],
     nextGateId: 1,
     spawnAcc: 0,
-    spawnIntervalMs: 1580 + Math.random() * 420,
+    /** Time until the *second* gate; first gate is spawned below. */
+    spawnIntervalMs: 920 + Math.random() * 360,
     score: 0,
     streak: 0,
     taps: 0,
@@ -117,9 +122,14 @@ function createGame(): GameModel {
     nextBurstId: 1,
     worldTimeMs: 0,
   };
+  spawnGate(m, { startX: STARTER_GATE_X });
+  return m;
 }
 
-function spawnGate(m: GameModel): void {
+/** First gate sits closer so tubes are on-screen right after the first tap; later gates spawn off the right edge. */
+const STARTER_GATE_X = ORB_X + 132;
+
+function spawnGate(m: GameModel, opts?: { startX?: number }): void {
   const gapHalf = BASE_GAP_HALF - 10 + Math.random() * 28;
   const pad = ORB_HIT_R + 16;
   const lo = pad + gapHalf;
@@ -127,7 +137,7 @@ function spawnGate(m: GameModel): void {
   const baseGapY = lo + Math.random() * Math.max(1, hi - lo);
   m.gates.push({
     id: m.nextGateId++,
-    x: LANE_W + 28,
+    x: opts?.startX ?? LANE_W + 28,
     baseGapY,
     gapY: baseGapY,
     gapHalf,
@@ -380,13 +390,22 @@ function PassBurstView({
   );
 }
 
+export type H2hSkillContestBundle = {
+  matchSessionId: string;
+  localPlayerId: string;
+  opponentId: string;
+  opponentDisplayName: string;
+  onComplete: (p: MatchFinishPayload) => void;
+};
 
 export default function TapDashGame({
   playMode = 'practice',
   dailyTournament,
+  h2hSkillContest,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
+  h2hSkillContest?: H2hSkillContestBundle;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -412,6 +431,97 @@ export default function TapDashGame({
   const [submitOk, setSubmitOk] = useState(false);
   const dailyCompleteRef = useRef(false);
 
+  const [h2hSubmitPhase, setH2hSubmitPhase] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+  const [h2hRetryKey, setH2hRetryKey] = useState(0);
+  const h2hSubmitInFlight = useRef(false);
+  const h2hDoneRef = useRef(false);
+
+  const h2hSid = h2hSkillContest?.matchSessionId ?? '';
+  const { data: h2hPoll } = useQuery({
+    queryKey: queryKeys.h2hTapDashScores(h2hSid),
+    queryFn: () => fetchH2hTapDashScoresForMatch(h2hSid),
+    enabled: Boolean(h2hSkillContest) && h2hSubmitPhase === 'ok' && h2hSid.length > 0,
+    refetchInterval: (q) => (q.state.data?.both_submitted ? false : 2000),
+  });
+
+  useEffect(() => {
+    if (!h2hSkillContest) return;
+    setH2hSubmitPhase('idle');
+    h2hDoneRef.current = false;
+    h2hSubmitInFlight.current = false;
+    setH2hRetryKey(0);
+  }, [h2hSkillContest?.matchSessionId]);
+
+  useEffect(() => {
+    if (!h2hSkillContest || h2hSubmitPhase !== 'ok' || h2hDoneRef.current) return;
+    if (!h2hPoll?.both_submitted || h2hPoll.self_score == null || h2hPoll.opponent_score == null) return;
+    h2hDoneRef.current = true;
+    h2hSkillContest.onComplete(
+      finalizeH2hTapDashScores(
+        h2hPoll.self_score,
+        h2hPoll.opponent_score,
+        h2hSkillContest.localPlayerId,
+        h2hSkillContest.opponentId,
+      ),
+    );
+  }, [h2hSkillContest, h2hSubmitPhase, h2hPoll]);
+
+  useEffect(() => {
+    if (phase !== 'over' || !h2hSkillContest) {
+      if (phase === 'ready') {
+        setH2hSubmitPhase('idle');
+        h2hDoneRef.current = false;
+        h2hSubmitInFlight.current = false;
+      }
+      return;
+    }
+    if (h2hSubmitPhase === 'ok') return;
+    if (h2hSubmitInFlight.current) return;
+
+    h2hSubmitInFlight.current = true;
+    setH2hSubmitPhase('loading');
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess.session) {
+          if (!cancelled) {
+            Alert.alert('Sign in required', 'Log in to submit your score.');
+            setH2hSubmitPhase('error');
+          }
+          return;
+        }
+        const { score, durationMs, taps } = endStatsRef.current;
+        const { error } = await supabase.functions.invoke('submitMinigameScore', {
+          body: {
+            game_type: 'tap_dash' as const,
+            score,
+            duration_ms: durationMs,
+            taps,
+            match_session_id: h2hSkillContest.matchSessionId,
+          },
+        });
+        if (cancelled) return;
+        if (error) {
+          Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+          if (!cancelled) setH2hSubmitPhase('error');
+          return;
+        }
+        if (!cancelled) setH2hSubmitPhase('ok');
+      } catch {
+        if (!cancelled) setH2hSubmitPhase('error');
+      } finally {
+        h2hSubmitInFlight.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, h2hSkillContest, h2hRetryKey]);
+
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
   const resetRun = useCallback(() => {
@@ -419,6 +529,9 @@ export default function TapDashGame({
     flapQueueRef.current = 0;
     startTimeRef.current = 0;
     setSubmitOk(false);
+    setH2hSubmitPhase('idle');
+    h2hDoneRef.current = false;
+    h2hSubmitInFlight.current = false;
     setPhase('ready');
     bump();
   }, [bump]);
@@ -429,88 +542,94 @@ export default function TapDashGame({
       m.streak = 0;
       const durationMs = Math.max(0, Date.now() - startTimeRef.current);
       endStatsRef.current = { score: m.score, durationMs, taps: m.taps };
-      if (!dailyTournament && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
         const t = ticketsFromTapDashScore(m.score);
         awardRedeemTicketsForPrizeRun(t);
       }
       setPhase('over');
       bump();
     },
-    [bump, playMode, dailyTournament],
+    [bump, playMode, dailyTournament, h2hSkillContest],
   );
 
   const step = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const m = modelRef.current;
       if (!m.alive) return;
 
-      const f = Math.min(3.5, Math.max(0, dtMs / FRAME_MS));
-      m.worldTimeMs += dtMs;
-      const t = m.worldTimeMs;
+      /** Substep inside one rAF callback so React Native does one render (grid/orb/background stay smooth). */
+      const tick = (dtMs: number): boolean => {
+        const f = Math.min(12, Math.max(0, dtMs / FRAME_MS));
+        m.worldTimeMs += dtMs;
+        const t = m.worldTimeMs;
 
-      if (flapQueueRef.current > 0) {
-        m.orbVy = JUMP_VY;
-        m.taps += 1;
-        flapQueueRef.current -= 1;
-      }
+        if (flapQueueRef.current > 0) {
+          m.orbVy = JUMP_VY;
+          m.taps += 1;
+          flapQueueRef.current -= 1;
+        }
 
-      m.orbVy += GRAVITY * f;
-      m.orbVy = Math.min(m.orbVy, MAX_FALL_VY);
-      m.orbY += m.orbVy * f;
+        m.orbVy += GRAVITY * f;
+        m.orbVy = Math.min(m.orbVy, MAX_FALL_VY);
+        m.orbY += m.orbVy * f;
 
-      if (m.orbY < ORB_HIT_R || m.orbY > PLAY_H - ORB_HIT_R) {
-        endGame(m);
-        return;
-      }
-
-      const pad = ORB_HIT_R + 16;
-      for (const g of m.gates) {
-        const lo = pad + g.gapHalf;
-        const hi = PLAY_H - pad - g.gapHalf;
-        const raw = g.baseGapY + Math.sin(t * 0.00115 + g.phase) * g.amp;
-        g.gapY = Math.max(lo, Math.min(hi, raw));
-      }
-
-      m.spawnAcc += dtMs;
-      if (m.spawnAcc >= m.spawnIntervalMs) {
-        spawnGate(m);
-        m.spawnAcc = 0;
-        m.spawnIntervalMs = 1480 + Math.random() * 640;
-      }
-
-      for (const g of m.gates) {
-        g.x -= PIPE_SCROLL_PER_MS * g.scrollMul * dtMs;
-      }
-      m.gates = m.gates.filter((g) => g.x > -GATE_W - 20);
-
-      for (const g of m.gates) {
-        if (gateHitsOrb(g, m.orbY)) {
+        if (m.orbY < ORB_HIT_R || m.orbY > PLAY_H - ORB_HIT_R) {
           endGame(m);
-          return;
+          return false;
         }
-      }
 
-      const bx = ORB_X;
-      for (const g of m.gates) {
-        if (!g.scored && g.x + GATE_W < bx - ORB_HIT_R) {
-          g.scored = true;
-          m.score += 1;
-          m.streak += 1;
-          m.bursts.push({
-            id: m.nextBurstId++,
-            x: g.x + GATE_W * 0.5,
-            y: g.gapY,
-            bornMs: m.worldTimeMs,
-          });
+        const pad = ORB_HIT_R + 16;
+        for (const g of m.gates) {
+          const lo = pad + g.gapHalf;
+          const hi = PLAY_H - pad - g.gapHalf;
+          const raw = g.baseGapY + Math.sin(t * 0.00115 + g.phase) * g.amp;
+          g.gapY = Math.max(lo, Math.min(hi, raw));
         }
-      }
 
+        m.spawnAcc += dtMs;
+        if (m.spawnAcc >= m.spawnIntervalMs) {
+          spawnGate(m);
+          m.spawnAcc = 0;
+          m.spawnIntervalMs = 1480 + Math.random() * 640;
+        }
+
+        for (const g of m.gates) {
+          g.x -= PIPE_SCROLL_PER_MS * g.scrollMul * dtMs;
+        }
+        m.gates = m.gates.filter((g) => g.x > -GATE_W - 20);
+
+        for (const g of m.gates) {
+          if (gateHitsOrb(g, m.orbY)) {
+            endGame(m);
+            return false;
+          }
+        }
+
+        const bx = ORB_X;
+        for (const g of m.gates) {
+          if (!g.scored && g.x + GATE_W < bx - ORB_HIT_R) {
+            g.scored = true;
+            m.score += 1;
+            m.streak += 1;
+            m.bursts.push({
+              id: m.nextBurstId++,
+              x: g.x + GATE_W * 0.5,
+              y: g.gapY,
+              bornMs: m.worldTimeMs,
+            });
+          }
+        }
+
+        return true;
+      };
+
+      runFixedPhysicsSteps(totalDtMs, tick);
+
+      if (!m.alive) return;
       const tr = m.trail;
       tr.push({ x: ORB_X, y: m.orbY });
       while (tr.length > 14) tr.shift();
-
       m.bursts = m.bursts.filter((b) => m.worldTimeMs - b.bornMs < 550);
-
       bump();
     },
     [bump, endGame],
@@ -524,7 +643,7 @@ export default function TapDashGame({
 
   const onTap = useCallback(() => {
     if (phase === 'ready') {
-      if (!dailyTournament && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
         const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
         if (!ok) {
           Alert.alert(
@@ -546,7 +665,7 @@ export default function TapDashGame({
     if (phase === 'playing') {
       queueFlap();
     }
-  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament]);
+  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament, h2hSkillContest]);
 
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -589,6 +708,7 @@ export default function TapDashGame({
           dailyTournament.forcedOutcome,
           dailyTournament.localPlayerId,
           dailyTournament.opponentId,
+          dailyTournament.scoreVarianceKey,
         )
       : null;
 
@@ -618,13 +738,13 @@ export default function TapDashGame({
             ) : (
               <Text style={styles.streakPlaceholder}> </Text>
             )}
-            {dailyTournament && phase !== 'over' ? (
+            {(dailyTournament || h2hSkillContest) && phase !== 'over' ? (
               <Text style={styles.vsOppLabel} numberOfLines={1}>
-                vs {dailyTournament.opponentDisplayName}
+                vs {dailyTournament?.opponentDisplayName ?? h2hSkillContest?.opponentDisplayName}
               </Text>
             ) : null}
           </View>
-          {dailyTournament ? (
+          {dailyTournament || h2hSkillContest ? (
             <View style={styles.topBarRightSpacer} />
           ) : (
             <View style={styles.creditsPill}>
@@ -715,11 +835,13 @@ export default function TapDashGame({
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintBrand}>TAP DASH</Text>
               <Text style={styles.hintMode}>
-                {dailyTournament
-                  ? `Live event · vs ${dailyTournament.opponentDisplayName}`
-                  : playMode === 'prize'
-                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
-                    : 'Practice · free · no credits spent'}
+                {h2hSkillContest
+                  ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
+                  : dailyTournament
+                    ? `Live event · vs ${dailyTournament.opponentDisplayName}`
+                    : playMode === 'prize'
+                      ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
+                      : 'Practice · free · no credits spent'}
               </Text>
               <Text style={styles.hintSub}>Neon sprint · precision run</Text>
               <Text style={styles.hintBody}>Tap to thrust · thread the gates</Text>
@@ -747,7 +869,40 @@ export default function TapDashGame({
             </View>
           </View>
         ) : null}
-        {phase === 'over' && !dailyTournament ? (
+        {phase === 'over' && h2hSkillContest ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.card}>
+              <Text style={styles.goTitle}>Run ended</Text>
+              <Text style={styles.goScore}>Your gates: {endStatsRef.current.score}</Text>
+              {h2hSubmitPhase === 'loading' ? (
+                <Text style={styles.practiceNote}>Submitting your run…</Text>
+              ) : null}
+              {h2hSubmitPhase === 'error' ? (
+                <>
+                  <Text style={styles.practiceNote}>Could not submit this run. Check your connection.</Text>
+                  <AppButton
+                    title="Retry submit"
+                    className="mt-3"
+                    onPress={() => {
+                      h2hSubmitInFlight.current = false;
+                      setH2hSubmitPhase('idle');
+                      setH2hRetryKey((k) => k + 1);
+                    }}
+                  />
+                </>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
+                <Text style={styles.practiceNote}>
+                  Waiting for {h2hSkillContest.opponentDisplayName} to finish…
+                </Text>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
+                <Text style={styles.practiceNote}>Both runs in — finalizing match…</Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
               <Text style={styles.goTitle}>Run ended</Text>

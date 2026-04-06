@@ -227,7 +227,8 @@ export function stepDashRun(
   p2OverrideJump?: boolean,
 ): void {
   if (state.roundOver) return;
-  const dt = Math.min(32, Math.max(0, dtMs));
+  /** useRafLoop substeps ~60Hz; keep a safety cap if this engine is called elsewhere. */
+  const dt = Math.min(100, Math.max(0, dtMs));
   state.timeMs += dt;
 
   state.scrollSpeed = Math.min(

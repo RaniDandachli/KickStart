@@ -65,7 +65,9 @@ export default function PlayHubScreen() {
           <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RunitArcade</Text>
           <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
         </View>
-        <Text style={styles.arcadeTagline}>Spend prize credits on runs · redeem tickets for rewards in Prizes</Text>
+        <Text style={styles.arcadeTagline}>
+          Spend Arcade Credits on runs (about 10–20 per game) · earn tickets · redeem in Prizes
+        </Text>
 
         <ArcadeBalanceBar
           balanceLabel={prizeBalanceLabel}
@@ -175,7 +177,7 @@ export default function PlayHubScreen() {
         />
 
         <Text style={styles.footer}>
-          Arcade: earn prize credits vs AI. Home: 1v1 skill contests with tier prizes from Run It. Queues are demo until connected.
+          Arcade: earn Arcade Credits vs AI. Home: 1v1 skill contests with tier prizes paid by Run It.
         </Text>
       </ArcadeFloor>
       {showCabinetIntro ? <ArcadeCabinetIntro onComplete={onCabinetIntroDone} /> : null}

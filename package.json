@@ -14,7 +14,7 @@
     "functions:deploy": "supabase functions deploy",
     "functions:deploy:submit": "supabase functions deploy submitMinigameScore",
     "functions:deploy:stripe": "supabase functions deploy stripeWebhook && supabase functions deploy createWalletCheckoutSession && supabase functions deploy createWalletPaymentIntent && supabase functions deploy createStripeConnectLink && supabase functions deploy getStripeConnectAccount && supabase functions deploy withdrawWalletToConnect",
-    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult",
+    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult && supabase functions deploy h2hMaintenance",
     "functions:deploy:welcome": "supabase functions deploy sendWelcomeEmail"
   },
   "dependencies": {

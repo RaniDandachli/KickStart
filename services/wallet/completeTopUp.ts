@@ -20,9 +20,9 @@ export function assertValidTopUpAmountCents(cents: number): void {
 }
 
 /**
- * Guest / offline: credits the local demo wallet immediately (simulates a successful Stripe charge).
+ * Guest / no backend: credits the on-device cash balance only (no payment).
  *
- * With backend: opens Stripe Checkout when `WALLET_TOPUP_STRIPE_ENABLED`; wallet updates after webhook.
+ * With backend: opens Stripe Checkout when `WALLET_TOPUP_STRIPE_ENABLED`; wallet updates after server webhook.
  */
 export async function completeWalletTopUp(amountCents: number): Promise<boolean> {
   assertValidTopUpAmountCents(amountCents);
@@ -42,7 +42,7 @@ export async function completeWalletTopUp(amountCents: number): Promise<boolean>
 }
 
 /**
- * Purchase a predefined arcade credit pack (prize credits). Demo mode grants credits immediately.
+ * Purchase a credit pack: guest mode grants on-device Arcade Credits; production uses Stripe Checkout + webhook.
  */
 export async function completeCreditsPackagePurchase(packageId: string): Promise<boolean> {
   const pack = getCreditPackageById(packageId);

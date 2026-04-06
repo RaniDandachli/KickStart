@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { getH2hLossArcadeCreditsForEntryFeeWalletCents } from '@/constants/h2hLossArcadeCredits';
 import { isUuid } from '@/lib/isUuid';
+import { trackProductEvent } from '@/lib/analytics/productAnalytics';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -17,6 +19,7 @@ import {
   recordH2hMatchResultViaEdge,
 } from '@/services/api/h2hMatchSession';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
+import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
@@ -39,6 +42,7 @@ export default function MatchResultScreen() {
   const uid = useAuthStore((s) => s.user?.id ?? 'guest');
   const clearActiveMatch = useMatchmakingStore((s) => s.setActiveMatch);
   const addWalletCents = useDemoWalletStore((s) => s.addWalletCents);
+  const addDemoArcadeCredits = useDemoPrizeCreditsStore((s) => s.add);
 
   const winner = Array.isArray(params.winner) ? params.winner[0] : params.winner;
   const saRaw = Array.isArray(params.sa) ? params.sa[0] : params.sa;
@@ -68,10 +72,29 @@ export default function MatchResultScreen() {
   const won = !isDraw && winner === uid;
   const lost = !isDraw && !won;
 
+  const entryFeeWalletCents = useMemo(() => {
+    if (ms?.entry_fee_wallet_cents != null && ms.entry_fee_wallet_cents > 0) {
+      return ms.entry_fee_wallet_cents;
+    }
+    if (Number.isFinite(entryUsd) && entryUsd > 0) return Math.round(entryUsd * 100);
+    return 0;
+  }, [ms?.entry_fee_wallet_cents, entryUsd]);
+
+  const expectedLossCredits = useMemo(
+    () => getH2hLossArcadeCreditsForEntryFeeWalletCents(entryFeeWalletCents),
+    [entryFeeWalletCents],
+  );
+
+  const [serverLossCredits, setServerLossCredits] = useState<number | null>(null);
+  const [serverPrizeWalletCents, setServerPrizeWalletCents] = useState<number | null>(null);
+
+  const lossCreditsShown = serverLossCredits ?? expectedLossCredits;
+  const showLossCredits = lost && !isDraw && lossCreditsShown != null && lossCreditsShown > 0;
+
   const outcomeLine = useMemo(() => {
     if (isDraw) return 'No winner — same score.';
-    if (won) return `You won against ${oppName}.`;
-    return `${oppName} won this match.`;
+    if (won) return `You had the top score against ${oppName}.`;
+    return `You didn't take the top score this time — ${oppName} did.`;
   }, [isDraw, won, oppName]);
 
   const recordedRef = useRef(false);
@@ -79,10 +102,6 @@ export default function MatchResultScreen() {
     if (!ENABLE_BACKEND || !matchId || !isUuid(matchId) || uid === 'guest') return;
     if (recordedRef.current) return;
     if (!ms) return;
-    if (ms.status === 'completed') {
-      recordedRef.current = true;
-      return;
-    }
 
     const saNum = Number(saRaw);
     const sbNum = Number(sbRaw);
@@ -116,12 +135,45 @@ export default function MatchResultScreen() {
       score: scorePayload,
       wasRanked: false,
     })
-      .then(() => qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) }))
+      .then((res) => {
+        if (res.loss_consolation_credits != null && res.loss_consolation_credits > 0) {
+          setServerLossCredits(res.loss_consolation_credits);
+          trackProductEvent('h2h_loss_credits_granted', {
+            credits: res.loss_consolation_credits,
+            entry_fee_wallet_cents: entryFeeWalletCents,
+            source: 'server',
+          });
+        }
+        if (res.prize_wallet_cents_added != null && res.prize_wallet_cents_added > 0) {
+          setServerPrizeWalletCents(res.prize_wallet_cents_added);
+          trackProductEvent('h2h_win_prize_credited', {
+            wallet_cents: res.prize_wallet_cents_added,
+            source: 'server',
+          });
+        }
+        void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+        void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
+        void qc.invalidateQueries({ queryKey: queryKeys.userStats(uid) });
+        void qc.invalidateQueries({ queryKey: queryKeys.recentMatches(uid) });
+        void qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) });
+      })
       .catch((e) => {
         console.warn('[recordH2hMatchResult]', e);
         recordedRef.current = false;
       });
-  }, [ENABLE_BACKEND, matchId, uid, ms, saRaw, sbRaw, draw, winner, isDraw, qc]);
+  }, [
+    ENABLE_BACKEND,
+    matchId,
+    uid,
+    ms,
+    saRaw,
+    sbRaw,
+    draw,
+    winner,
+    isDraw,
+    qc,
+    entryFeeWalletCents,
+  ]);
 
   const payoutApplied = useRef(false);
   useEffect(() => {
@@ -134,23 +186,58 @@ export default function MatchResultScreen() {
     addWalletCents(Math.round(prizeUsd * 100));
   }, [won, isDraw, hasPrize, prizeUsd, addWalletCents]);
 
+  const lossConsolationDemoApplied = useRef(false);
+  useEffect(() => {
+    if (lossConsolationDemoApplied.current) return;
+    if (ENABLE_BACKEND) return;
+    if (!lost || isDraw) return;
+    const c = getH2hLossArcadeCreditsForEntryFeeWalletCents(entryFeeWalletCents);
+    if (c <= 0) return;
+    lossConsolationDemoApplied.current = true;
+    addDemoArcadeCredits(c);
+    trackProductEvent('h2h_loss_credits_granted', {
+      credits: c,
+      entry_fee_wallet_cents: entryFeeWalletCents,
+      source: 'guest_preview',
+    });
+  }, [ENABLE_BACKEND, lost, isDraw, entryFeeWalletCents, addDemoArcadeCredits]);
+
   useEffect(() => {
     return () => {
       clearActiveMatch(null);
     };
   }, [clearActiveMatch]);
 
-  const title = isDraw ? 'DRAW' : won ? 'VICTORY' : 'DEFEAT';
-  const titleStyle = isDraw ? runitTextGlowCyan : won ? runitTextGlowPink : styles.defeatGlow;
+  const heroTitle = isDraw ? 'DRAW' : won ? 'VICTORY' : 'MATCH COMPLETE';
+  const titleStyle = isDraw ? runitTextGlowCyan : won ? runitTextGlowPink : runitTextGlowCyan;
+
+  const prizeCentsForDisplay =
+    ENABLE_BACKEND && serverPrizeWalletCents != null && serverPrizeWalletCents > 0
+      ? serverPrizeWalletCents
+      : hasPrize
+        ? Math.round(prizeUsd * 100)
+        : 0;
+
+  function goArcadeFromLoss() {
+    if (lost) {
+      trackProductEvent('h2h_loss_to_arcade_cta', { match_id: matchId ?? '' });
+    }
+    router.replace('/(app)/(tabs)/play');
+  }
 
   return (
     <Screen scroll={false}>
-      <Text style={[styles.bigTitle, { fontFamily: runitFont.black }, titleStyle]}>{title}</Text>
-      <Text style={styles.vsLine}>Player vs player</Text>
+      <Text style={[styles.bigTitle, { fontFamily: runitFont.black }, titleStyle]}>{heroTitle}</Text>
+      <Text style={styles.vsLine}>Skill contest</Text>
       <Text style={styles.outcomeLine}>{outcomeLine}</Text>
       <Text style={styles.oppHint}>vs {oppName}</Text>
 
-      <LinearGradient colors={[runit.neonPurple, 'rgba(12,6,22,0.95)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, runitGlowPinkSoft]}>
+      <LinearGradient
+        colors={[runit.neonPurple, 'rgba(12,6,22,0.95)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.card, runitGlowPinkSoft]}
+      >
         <Text style={styles.scoreLabel}>Final score (you — opponent)</Text>
         <Text style={styles.scoreBig}>
           {saRaw ?? '?'} — {sbRaw ?? '?'}
@@ -159,20 +246,45 @@ export default function MatchResultScreen() {
           {matchId}
         </Text>
 
-        {won && hasPrize && !ENABLE_BACKEND ? (
+        {won && prizeCentsForDisplay > 0 && !ENABLE_BACKEND ? (
           <View style={styles.walletBanner}>
             <Ionicons name="wallet" size={22} color={runit.neonCyan} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.walletTitle}>Wallet updated</Text>
+              <Text style={styles.walletTitle}>Cash wallet updated</Text>
               <Text style={styles.walletBody}>
-                +{formatUsdFromCents(Math.round(prizeUsd * 100))} prize credited (local demo).
+                +{formatUsdFromCents(prizeCentsForDisplay)} listed prize credited to your cash wallet (guest preview on this device).
               </Text>
             </View>
           </View>
         ) : null}
 
-        {won && hasPrize && ENABLE_BACKEND ? (
-          <Text style={styles.serverNote}>Prize will credit after server verification (Stripe + Edge Function next).</Text>
+        {won && prizeCentsForDisplay > 0 && ENABLE_BACKEND ? (
+          <View style={styles.walletBanner}>
+            <Ionicons name="wallet" size={22} color={runit.neonCyan} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.walletTitle}>Cash wallet</Text>
+              <Text style={styles.walletBody}>
+                +{formatUsdFromCents(prizeCentsForDisplay)} skill-contest prize credited to your cash wallet (withdrawable when
+                payouts are enabled).
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {showLossCredits ? (
+          <View style={styles.arcadeCreditsBanner}>
+            <Ionicons name="ribbon-outline" size={22} color="#fbbf24" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.arcadeCreditsTitle}>Arcade Credits earned</Text>
+              <Text style={styles.arcadeCreditsBody}>
+                You didn&apos;t win this match, but you earned {lossCreditsShown.toLocaleString()} Arcade Credits for playing.
+              </Text>
+              <Text style={styles.arcadeCreditsFoot}>
+                Arcade Credits are for Arcade mode only — not cash, not transferable. Use them to keep playing, earn tickets, and
+                work toward prizes.
+              </Text>
+            </View>
+          </View>
         ) : null}
 
         {isDraw ? (
@@ -181,21 +293,37 @@ export default function MatchResultScreen() {
             <Text style={styles.drawTitle}>Same score — it&apos;s a draw</Text>
             <Text style={styles.drawBody}>
               {hasPrize
-                ? "No winner, so the prize was not awarded. Rematch with the same contest fee and reward tier."
+                ? 'No top performer this round, so the listed prize was not awarded. Run it back with the same contest tier if you like.'
                 : 'No winner this time. Queue again for another match.'}
             </Text>
           </View>
         ) : null}
 
-        {lost ? <Text style={styles.serverNote}>Tip: tap +Goal faster next run — this screen is a prototype.</Text> : null}
+        {lost && !showLossCredits ? (
+          <Text style={styles.serverNote}>
+            Every match is practice for the next run. Queue again when you&apos;re ready.
+          </Text>
+        ) : null}
       </LinearGradient>
 
       <View style={styles.btnCol}>
-        {isDraw ? (
-          <AppButton title={hasPaidRematch ? 'Rematch — same fee & reward tier' : 'Go again — find a match'} onPress={() => router.replace(rematchHref)} />
+        {lost ? (
+          <AppButton title="Play Arcade" onPress={goArcadeFromLoss} variant="primary" />
         ) : null}
-        <AppButton title="Arcade" onPress={() => router.replace('/(app)/(tabs)/play')} variant={isDraw ? 'secondary' : 'primary'} />
-        <AppButton title="Home" variant="ghost" onPress={() => router.replace('/(app)/(tabs)')} />
+        {isDraw ? (
+          <AppButton
+            title={hasPaidRematch ? 'Rematch — same contest tier' : 'Go again — find a match'}
+            onPress={() => router.replace(rematchHref)}
+          />
+        ) : null}
+        {!lost ? (
+          <AppButton
+            title="Arcade"
+            onPress={() => router.replace('/(app)/(tabs)/play')}
+            variant={isDraw ? 'secondary' : 'primary'}
+          />
+        ) : null}
+        <AppButton title="Back Home" variant="ghost" onPress={() => router.replace('/(app)/(tabs)')} />
       </View>
     </Screen>
   );
@@ -208,12 +336,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 6,
     textAlign: 'center',
-  },
-  defeatGlow: {
-    textShadowColor: 'rgba(148,163,184,0.9)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-    color: '#e2e8f0',
   },
   vsLine: { color: 'rgba(148,163,184,0.95)', fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
   outcomeLine: {
@@ -246,8 +368,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,240,255,0.35)',
   },
+  arcadeCreditsBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(120,53,15,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.35)',
+  },
   walletTitle: { color: runit.neonCyan, fontSize: 13, fontWeight: '900', marginBottom: 4 },
   walletBody: { color: 'rgba(226,232,240,0.95)', fontSize: 13, lineHeight: 18 },
+  arcadeCreditsTitle: { color: '#fbbf24', fontSize: 13, fontWeight: '900', marginBottom: 4 },
+  arcadeCreditsBody: { color: 'rgba(226,232,240,0.95)', fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  arcadeCreditsFoot: { color: 'rgba(148,163,184,0.95)', fontSize: 12, lineHeight: 17 },
   serverNote: { marginTop: 14, color: 'rgba(148,163,184,0.95)', fontSize: 12, lineHeight: 17 },
   drawBox: {
     marginTop: 14,

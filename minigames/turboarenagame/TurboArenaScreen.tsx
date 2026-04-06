@@ -27,7 +27,7 @@ import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from
 import { theme } from '@/lib/theme';
 import { awardRedeemTicketsForPrizeRun, ticketsFromTurboArenaPrizeRun } from '@/lib/ticketPayouts';
 import { useAuthStore } from '@/store/authStore';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
@@ -668,16 +668,22 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   }, []);
 
   const loop = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const s = stateRef.current;
       if (!s) return;
 
-      stepTurboArena(s, dtMs, p1InputsRef.current, effectiveDifficulty);
-
-      if (s.timeLeftMs <= 0 && !matchEndedRef.current) {
-        matchEndedRef.current = true;
-        setPhase('done');
-      }
+      runFixedPhysicsSteps(totalDtMs, (h) => {
+        if (matchEndedRef.current) return false;
+        stepTurboArena(s, h, p1InputsRef.current, effectiveDifficulty);
+        if (s.timeLeftMs <= 0) {
+          if (!matchEndedRef.current) {
+            matchEndedRef.current = true;
+            setPhase('done');
+          }
+          return false;
+        }
+        return true;
+      });
       bump();
     },
     [bump, effectiveDifficulty],

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { trackProductEvent } from '@/lib/analytics/productAnalytics';
+
 /** Guest start balance before welcome/daily grants (`applyArcadePrizeCreditGrants`). */
 const START_PRIZE_CREDITS = 0;
 
@@ -19,6 +21,7 @@ export const useDemoPrizeCreditsStore = create<State>((set, get) => ({
     const cur = get().credits;
     if (cur < n) return false;
     set({ credits: cur - n });
+    trackProductEvent('arcade_credit_spend', { credits: n, source: 'guest_device' });
     return true;
   },
   add: (amount) =>

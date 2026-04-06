@@ -22,7 +22,7 @@ import {
 } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
@@ -135,25 +135,29 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   );
 
   const step = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const g = gameRef.current;
       if (!g.alive) return;
 
-      const target = stackTarget(g.placed);
-      const bw = target.width;
-      const maxLeft = Math.max(0, STACKER_GRID_COLS - bw);
-      const t = dtMs / 1000;
-      g.blockLeft += g.blockDir * g.speed * t;
+      runFixedPhysicsSteps(totalDtMs, (dtMs) => {
+        if (!g.alive) return false;
+        const target = stackTarget(g.placed);
+        const bw = target.width;
+        const maxLeft = Math.max(0, STACKER_GRID_COLS - bw);
+        const t = dtMs / 1000;
+        g.blockLeft += g.blockDir * g.speed * t;
 
-      if (g.blockLeft <= 0) {
-        g.blockLeft = 0;
-        g.blockDir = 1;
-      } else if (g.blockLeft >= maxLeft) {
-        g.blockLeft = maxLeft;
-        g.blockDir = -1;
-      }
+        if (g.blockLeft <= 0) {
+          g.blockLeft = 0;
+          g.blockDir = 1;
+        } else if (g.blockLeft >= maxLeft) {
+          g.blockLeft = maxLeft;
+          g.blockDir = -1;
+        }
+        return true;
+      });
 
-      bump();
+      if (g.alive) bump();
     },
     [bump],
   );

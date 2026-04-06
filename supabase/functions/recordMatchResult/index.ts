@@ -5,6 +5,31 @@ import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 
 const Score = z.object({ a: z.number(), b: z.number() });
 
+type H2hEconomyPayload = {
+  loss_consolation_credits?: number;
+  prize_wallet_cents_added?: number;
+};
+
+async function h2hEconomyForUser(
+  admin: ReturnType<typeof createClient>,
+  matchSessionId: string,
+  userId: string,
+): Promise<H2hEconomyPayload> {
+  const { data: row, error } = await admin
+    .from('h2h_contest_economy_settlements')
+    .select('winner_user_id,loser_user_id,prize_wallet_cents_granted,consolation_prize_credits_granted')
+    .eq('match_session_id', matchSessionId)
+    .maybeSingle();
+  if (error || !row) return {};
+  const w = row.winner_user_id as string;
+  const l = row.loser_user_id as string;
+  const pw = Number(row.prize_wallet_cents_granted ?? 0);
+  const cc = Number(row.consolation_prize_credits_granted ?? 0);
+  if (userId === w && pw > 0) return { prize_wallet_cents_added: pw };
+  if (userId === l && cc > 0) return { loss_consolation_credits: cc };
+  return {};
+}
+
 const Body = z
   .object({
     match_session_id: z.string().uuid().optional(),
@@ -68,21 +93,25 @@ Deno.serve(async (req) => {
     if (p.match_session_id) {
       const { data: sess, error: sErr } = await admin
         .from('match_sessions')
-        .select(
-          'id,status,player_a_id,player_b_id',
-        )
+        .select('id,status,player_a_id,player_b_id,game_key')
         .eq('id', p.match_session_id)
         .single();
 
       if (sErr || !sess) return errorResponse('Match session not found', 404);
-      if (sess.status === 'completed') {
-        return json({ ok: true, idempotent: true });
-      }
 
       const pa = sess.player_a_id as string | null;
       const pb = sess.player_b_id as string | null;
       if (!pa || !pb) return errorResponse('Match session missing players', 400);
       if (uid !== pa && uid !== pb) return errorResponse('Not a participant', 403);
+
+      if (sess.status !== 'lobby' && sess.status !== 'in_progress' && sess.status !== 'completed') {
+        return errorResponse(`Match cannot accept results (status: ${sess.status})`, 400);
+      }
+
+      if (sess.status === 'completed') {
+        const econ = await h2hEconomyForUser(admin, p.match_session_id, uid);
+        return json({ ok: true, idempotent: true, ...econ });
+      }
 
       if (!p.is_draw) {
         const w = p.winner_user_id!;
@@ -92,15 +121,53 @@ Deno.serve(async (req) => {
         }
       }
 
-      const scoreA = p.score.a;
-      const scoreB = p.score.b;
+      const scoreA = Math.trunc(p.score.a);
+      const scoreB = Math.trunc(p.score.b);
+
+      const gk = String(sess.game_key ?? '').trim().toLowerCase();
+      const isTapDashSession = !gk || gk === 'tap-dash';
+      if (isTapDashSession) {
+        const { data: rowA, error: eA } = await admin
+          .from('minigame_scores')
+          .select('score')
+          .eq('match_session_id', p.match_session_id)
+          .eq('user_id', pa)
+          .eq('game_type', 'tap_dash')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const { data: rowB, error: eB } = await admin
+          .from('minigame_scores')
+          .select('score')
+          .eq('match_session_id', p.match_session_id)
+          .eq('user_id', pb)
+          .eq('game_type', 'tap_dash')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (eA || eB) return errorResponse('Could not verify minigame scores', 500);
+        if (rowA == null || rowB == null) {
+          return errorResponse(
+            'Both players must submit validated Tap Dash scores before this match can complete',
+            400,
+          );
+        }
+        const saDb = Math.trunc(Number(rowA.score));
+        const sbDb = Math.trunc(Number(rowB.score));
+        if (saDb !== scoreA || sbDb !== scoreB) {
+          return errorResponse('Submitted result does not match validated scores on record', 400);
+        }
+      }
 
       const { data: existing } = await admin
         .from('match_results')
         .select('id')
         .eq('match_session_id', p.match_session_id)
         .maybeSingle();
-      if (existing) return json({ ok: true, idempotent: true });
+      if (existing) {
+        const econ = await h2hEconomyForUser(admin, p.match_session_id, uid);
+        return json({ ok: true, idempotent: true, ...econ });
+      }
 
       const { error: upErr } = await admin
         .from('match_sessions')
@@ -128,11 +195,15 @@ Deno.serve(async (req) => {
         audit_ref: `auth:${uid}`,
       });
       if (insErr) {
-        if (insErr.code === '23505') return json({ ok: true, idempotent: true });
+        if (insErr.code === '23505') {
+          const econ = await h2hEconomyForUser(admin, p.match_session_id, uid);
+          return json({ ok: true, idempotent: true, ...econ });
+        }
         return errorResponse(insErr.message, 500);
       }
 
-      return json({ ok: true });
+      const econ = await h2hEconomyForUser(admin, p.match_session_id, uid);
+      return json({ ok: true, ...econ });
     }
 
     // Tournament branch: insert only (bracket updates handled elsewhere later)

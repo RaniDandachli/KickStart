@@ -130,9 +130,10 @@ export default function CreditCupPlayScreen() {
       forcedOutcome,
       localPlayerId: uid,
       opponentId: 'cup-opponent',
+      scoreVarianceKey: cup ? `${dayKey}|cup:${cup.id}|r${nextRound}|${uid}` : undefined,
       onComplete,
     }),
-    [oppName, opponentRoundScore, forcedOutcome, uid, onComplete],
+    [oppName, opponentRoundScore, forcedOutcome, uid, onComplete, dayKey, nextRound, cup],
   );
 
   if (!cup) {

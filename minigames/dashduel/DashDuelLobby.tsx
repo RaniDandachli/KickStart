@@ -24,7 +24,7 @@ export function DashDuelLobby({ onStart, onBack }: Props) {
             <Text style={styles.avt}>NeoRival</Text>
           </LinearGradient>
         </View>
-        <Text style={styles.demo}>Fee $5 · Prize $9 · Demo</Text>
+        <Text style={styles.feeLine}>Contest access $5 · Top performer prize $9 · Run It</Text>
       </LinearGradient>
       <AppButton title="Ready" onPress={onStart} />
     </View>
@@ -55,5 +55,5 @@ const styles = StyleSheet.create({
   },
   avt: { color: '#0f172a', fontWeight: '900', fontSize: 12 },
   vs: { color: '#FDE047', fontWeight: '900', fontSize: 18 },
-  demo: { color: 'rgba(100,116,139,0.95)', fontSize: 11, textAlign: 'center', fontWeight: '600' },
+  feeLine: { color: 'rgba(100,116,139,0.95)', fontSize: 11, textAlign: 'center', fontWeight: '600' },
 });

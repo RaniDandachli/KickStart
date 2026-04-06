@@ -6,10 +6,27 @@ const optionalUuidFromEnv = z.preprocess(
   z.string().uuid().optional(),
 );
 
+const optionalUrlFromEnv = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().url().optional(),
+);
+
+/** Email or `https://…` help URL — used for Support entry points. */
+const optionalSupportContactFromEnv = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().min(3).optional(),
+);
+
+/** Comma-separated profile `region` codes (e.g. NY,NJ) that cannot start paid skill contests. */
+const blockedSkillContestRegionsFromEnv = z.preprocess(
+  (v) => (typeof v === 'string' ? v : ''),
+  z.string().transform((s) => new Set(s.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean))),
+);
+
 const envSchema = z.object({
   EXPO_PUBLIC_SUPABASE_URL: z.string().url().optional().default('https://placeholder.supabase.co'),
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional().default('placeholder-anon-key'),
-  /** When true, use Supabase auth + API; when false, guest/demo mode (see `constants/featureFlags.ts`). */
+  /** When true, use Supabase auth + API; when false, guest mode (see `constants/featureFlags.ts`). */
   EXPO_PUBLIC_ENABLE_BACKEND: z
     .string()
     .optional()
@@ -28,6 +45,10 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
   /** Second Supabase Auth user id for mock H2H when `ENABLE_BACKEND` (create user in Dashboard, paste UUID). */
   EXPO_PUBLIC_DEV_OPPONENT_USER_ID: optionalUuidFromEnv,
+  EXPO_PUBLIC_TERMS_URL: optionalUrlFromEnv,
+  EXPO_PUBLIC_PRIVACY_URL: optionalUrlFromEnv,
+  EXPO_PUBLIC_SUPPORT_CONTACT: optionalSupportContactFromEnv,
+  EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: blockedSkillContestRegionsFromEnv,
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -40,4 +61,16 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED: process.env.EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED,
   EXPO_PUBLIC_ENABLE_REALTIME: process.env.EXPO_PUBLIC_ENABLE_REALTIME ?? 'false',
   EXPO_PUBLIC_DEV_OPPONENT_USER_ID: process.env.EXPO_PUBLIC_DEV_OPPONENT_USER_ID,
+  EXPO_PUBLIC_TERMS_URL: process.env.EXPO_PUBLIC_TERMS_URL,
+  EXPO_PUBLIC_PRIVACY_URL: process.env.EXPO_PUBLIC_PRIVACY_URL,
+  EXPO_PUBLIC_SUPPORT_CONTACT: process.env.EXPO_PUBLIC_SUPPORT_CONTACT,
+  EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: process.env.EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES,
 });
+
+/** `mailto:` or external https URL for in-app “Support”. */
+export function supportContactHref(): string | null {
+  const c = env.EXPO_PUBLIC_SUPPORT_CONTACT?.trim();
+  if (!c) return null;
+  if (/^https?:\/\//i.test(c)) return c;
+  return `mailto:${c}`;
+}

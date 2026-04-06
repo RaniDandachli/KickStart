@@ -1,7 +1,10 @@
 import type { ComponentProps } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 
-/** Demo tier list: contest participation fee (USD) and pre-announced fixed reward for 1v1 skill contests (platform-funded; not pooled P2P wagering). */
+/**
+ * Contest tiers: cash wallet access (USD) + listed top-performer prize (USD).
+ * Loser Arcade Credit amounts per tier live in `constants/h2hLossArcadeCredits.ts` (keep in sync with SQL).
+ */
 export type MatchEntryTier = {
   entry: number;
   prize: number;

@@ -15,7 +15,7 @@ export type GrantArcadePrizeCreditsParams = {
 
 /**
  * Credits a user's `profiles.prize_credits` once per idempotency key (cup + day + user).
- * Demo mode: updates local demo balance only.
+ * Guest mode: updates on-device Arcade Credits only.
  */
 export async function grantArcadePrizeCredits(params: GrantArcadePrizeCreditsParams): Promise<{
   ok: boolean;

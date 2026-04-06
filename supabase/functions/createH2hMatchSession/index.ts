@@ -39,24 +39,35 @@ Deno.serve(async (req) => {
     if (oppErr) return errorResponse(oppErr.message, 500);
     if (!oppRow) return errorResponse('Opponent profile not found', 404);
 
-    const { data: row, error: insErr } = await admin
-      .from('match_sessions')
-      .insert({
-        mode: parsed.data.mode,
-        status: 'lobby',
-        player_a_id: selfId,
-        player_b_id: parsed.data.opponent_user_id,
-        game_key: parsed.data.game_key ?? null,
-        entry_fee_wallet_cents: parsed.data.entry_fee_wallet_cents ?? 0,
-        listed_prize_usd_cents: parsed.data.listed_prize_usd_cents ?? null,
-        started_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+    const entryCents = parsed.data.entry_fee_wallet_cents ?? 0;
+    const prizeCents = parsed.data.listed_prize_usd_cents ?? null;
 
-    if (insErr) return errorResponse(insErr.message, 500);
+    const { data: sessionId, error: rpcErr } = await admin.rpc('h2h_create_match_session_and_debit_entries', {
+      p_initiator: selfId,
+      p_opponent: parsed.data.opponent_user_id,
+      p_mode: parsed.data.mode,
+      p_game_key: parsed.data.game_key ?? null,
+      p_entry_fee_wallet_cents: entryCents,
+      p_listed_prize_usd_cents: prizeCents,
+    });
 
-    return json({ ok: true, match_session_id: row.id });
+    if (rpcErr) {
+      const msg = rpcErr.message ?? '';
+      if (msg.includes('insufficient_wallet')) {
+        return errorResponse(
+          'Both players need enough cash wallet balance for this contest. Add funds or pick a lower tier.',
+          402,
+        );
+      }
+      if (msg.includes('profile_not_found')) return errorResponse('Player profile not found.', 404);
+      if (msg.includes('invalid_players') || msg.includes('invalid_mode')) return errorResponse('Invalid match request.', 400);
+      return errorResponse(msg, 500);
+    }
+
+    const mid = typeof sessionId === 'string' ? sessionId : (sessionId as string | null | undefined);
+    if (!mid) return errorResponse('Could not create match session', 500);
+
+    return json({ ok: true, match_session_id: mid });
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : 'error', 500);
   }

@@ -52,7 +52,14 @@ function formatCurrencyLabel(c: 'wallet_cents' | 'gems' | 'prize_credits' | 'red
 }
 
 function toneFor(k: TransactionKind): 'success' | 'warning' | 'neon' | 'default' {
-  if (k === 'credit_earn' || k === 'gem_earn' || k === 'reward_grant' || k === 'prize_credit_earn') return 'success';
+  if (
+    k === 'credit_earn' ||
+    k === 'gem_earn' ||
+    k === 'reward_grant' ||
+    k === 'prize_credit_earn' ||
+    k === 'h2h_contest_entry_refund'
+  )
+    return 'success';
   if (k === 'subscription_event') return 'neon';
   if (
     k === 'cosmetic_purchase' ||
@@ -60,7 +67,8 @@ function toneFor(k: TransactionKind): 'success' | 'warning' | 'neon' | 'default'
     k === 'gem_spend' ||
     k === 'prize_credit_spend' ||
     k === 'redeem_ticket_spend' ||
-    k === 'wallet_withdraw'
+    k === 'wallet_withdraw' ||
+    k === 'h2h_contest_entry'
   )
     return 'warning';
   return 'default';

@@ -8,7 +8,7 @@ import { DD } from '@/minigames/dashduel/constants';
 import { createDashRun, scoreForPlayer, stepDashRun, winnerLabel, type DashRunState } from '@/minigames/dashduel/engine';
 import type { Obstacle } from '@/minigames/dashduel/types';
 import { GdStyleLayer } from '@/minigames/dashduel/GdStyleLayer';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 
 import { DashDuelHud } from '@/minigames/dashduel/DashDuelHud';
 import { DashDuelOpponentStrip } from '@/minigames/dashduel/DashDuelOpponentStrip';
@@ -49,11 +49,18 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
   const loop = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const s = runRef.current;
       if (!s || s.roundOver || completedRef.current) return;
-      stepDashRun(s, dtMs, jumpRef.current, undefined);
-      jumpRef.current = false;
+      let first = true;
+      runFixedPhysicsSteps(totalDtMs, (h) => {
+        if (!s || s.roundOver || completedRef.current) return false;
+        const jump = first && jumpRef.current;
+        if (first) jumpRef.current = false;
+        first = false;
+        stepDashRun(s, h, jump, undefined);
+        return !s.roundOver;
+      });
       bump();
       if (s.roundOver && !completedRef.current) {
         completedRef.current = true;

@@ -24,7 +24,7 @@ import { Countdown } from '@/minigames/ui/Countdown';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
@@ -229,6 +229,7 @@ export default function NeonBallRunScreen() {
   const p1Ref = useRef<NeonBallRunState | null>(null);
   const p2Ref = useRef<NeonBallRunState | null>(null);
   const elapsedRef = useRef(0);
+  const matchDoneLatch = useRef(false);
 
   // P1 swipe
   const sx = useRef(0);
@@ -236,6 +237,7 @@ export default function NeonBallRunScreen() {
   const swipeFired = useRef(false);
 
   const startRun = useCallback(() => {
+    matchDoneLatch.current = false;
     p1Ref.current = createNeonBallRunState();
     p2Ref.current = createNeonBallRunState();
     elapsedRef.current = 0;
@@ -245,25 +247,36 @@ export default function NeonBallRunScreen() {
 
   const onCountdownDone = useCallback(() => setPhase('playing'), []);
 
-  const loop = useCallback((dtMs: number) => {
-    const p1 = p1Ref.current;
-    const p2 = p2Ref.current;
-    if (!p1 || !p2) return;
+  const loop = useCallback(
+    (totalDtMs: number) => {
+      const p1 = p1Ref.current;
+      const p2 = p2Ref.current;
+      if (!p1 || !p2) return;
 
-    elapsedRef.current += dtMs;
-    const dtSec = dtMs / 1000;
+      runFixedPhysicsSteps(totalDtMs, (h) => {
+        elapsedRef.current += h;
+        const dtSec = h / 1000;
 
-    stepNeonBallRun(p1, dtSec);
-    if (p2.alive) {
-      runBallRunAi(p2, difficulty);
-      stepNeonBallRun(p2, dtSec);
-    }
+        if (p1.alive) stepNeonBallRun(p1, dtSec);
+        if (p2.alive) {
+          runBallRunAi(p2, difficulty);
+          stepNeonBallRun(p2, dtSec);
+        }
 
-    if (elapsedRef.current >= MATCH_MS || (!p1.alive && !p2.alive)) {
-      setPhase('done');
-    }
-    setUiTick(t => t + 1);
-  }, [difficulty]);
+        const done = elapsedRef.current >= MATCH_MS || (!p1.alive && !p2.alive);
+        if (done) {
+          if (!matchDoneLatch.current) {
+            matchDoneLatch.current = true;
+            setPhase('done');
+          }
+          return false;
+        }
+        return true;
+      });
+      setUiTick((t) => t + 1);
+    },
+    [difficulty],
+  );
 
   useRafLoop(loop, phase === 'playing');
 

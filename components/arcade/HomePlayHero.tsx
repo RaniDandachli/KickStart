@@ -324,18 +324,28 @@ export function HomePlayHero({
                     <Ionicons name={tier.icon} size={22} color={v.iconColor} />
                   </View>
                   <Text style={styles.tierShort}>{tier.shortLabel.toUpperCase()}</Text>
-                  <Text style={styles.tierUsd}>${tier.entry}</Text>
-                  <Text style={styles.tierLbl}>FEE</Text>
-                  <Text style={styles.tierPrizeHint}>Prize ${tier.prize}</Text>
+
+                  <View style={styles.tierAccessBlock}>
+                    <Text style={styles.tierAccessLabel}>Match access</Text>
+                    <Text style={styles.tierAccessAmount}>${tier.entry}</Text>
+                  </View>
+
+                  <View style={styles.tierPrizeBlock}>
+                    <Text style={styles.tierPrizeTitle}>🏆 Top performer prize</Text>
+                    <Text style={styles.tierPrizeAmount}>${tier.prize}</Text>
+                  </View>
                 </LinearGradient>
               </Pressable>
             );
           })}
         </ScrollView>
       </View>
+      <Text style={styles.tierValueHint}>
+        Every match gives value — win the listed prize or earn Arcade Credits for the Arcade floor.
+      </Text>
       <Text style={styles.complianceHint}>
-        Your entry covers access to a skill contest. Prizes are fixed by tier, awarded by Run It, and not pooled with other
-        players&apos; fees.
+        Your entry covers access to a skill contest. Prizes are fixed by tier and awarded by Run It. Didn&apos;t win? You&apos;ll
+        still earn Arcade Credits to keep playing. Not pooled with other players&apos; fees.
       </Text>
     </View>
   );
@@ -549,12 +559,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tierOuter: {
-    width: 104,
+    width: 118,
     borderRadius: 14,
     overflow: 'visible',
   },
   tierInner: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
     borderRadius: 14,
@@ -582,34 +592,77 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '900',
     letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  tierAccessBlock: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.22)',
+  },
+  tierAccessLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
     marginBottom: 2,
   },
-  tierUsd: {
-    color: '#FFFBEB',
+  tierAccessAmount: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  tierPrizeBlock: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(253,224,71,0.35)',
+  },
+  tierPrizeTitle: {
+    color: 'rgba(254,243,199,0.95)',
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.35,
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 11,
+  },
+  tierPrizeAmount: {
+    color: '#FDE047',
     fontSize: 18,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 2 },
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  tierLbl: {
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    marginTop: 2,
-  },
-  tierPrizeHint: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 10,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
+  tierValueHint: {
+    marginTop: 10,
+    paddingHorizontal: 10,
+    color: 'rgba(226,232,240,0.9)',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15,
+    textAlign: 'center',
   },
   complianceHint: {
     marginTop: 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(148,163,184,0.2)',
     color: 'rgba(148,163,184,0.88)',
     fontSize: 10,
     fontWeight: '600',

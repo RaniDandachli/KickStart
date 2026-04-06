@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatUsdFromCents } from '@/lib/money';
+import { SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   entryUsd: number;
   /** Pre-announced fixed reward in USD (platform-funded framing in copy). */
   prizeUsd: number;
-  /** From Home open row: someone already queued vs empty slot (demo). */
+  /** From Home open row: someone already queued vs empty slot. */
   lobbyKind?: 'host_waiting' | 'empty_pool';
   onClose: () => void;
   /** Solo practice — no wallet, no credits. */
@@ -45,9 +46,22 @@ export function HeadToHeadPlayModal({
             {gameTitle}
           </Text>
           <Text style={styles.hint}>
-            Arcade uses prize credits. Here you use your <Text style={styles.hintStrong}>cash wallet</Text> for contest fees and{' '}
-            <Text style={styles.hintStrong}>listed prizes</Text> from Run It (skill contests — not player-vs-player wagering).
+            Arcade mode uses <Text style={styles.hintStrong}>Arcade Credits</Text>. Head-to-head uses your{' '}
+            <Text style={styles.hintStrong}>cash wallet</Text> for contest access only — listed prizes are fixed by tier and awarded
+            by Run It. Didn&apos;t win? You&apos;ll still earn Arcade Credits to keep playing.
           </Text>
+
+          <View style={styles.pricingSplit}>
+            <View style={styles.pricingSection}>
+              <Text style={styles.pricingSectionLbl}>Match access</Text>
+              <Text style={styles.pricingSectionAmt}>{entryLabel}</Text>
+            </View>
+            <View style={styles.pricingRule} />
+            <View style={[styles.pricingSection, styles.pricingSectionPrize]}>
+              <Text style={styles.pricingPrizeLbl}>🏆 Top performer prize</Text>
+              <Text style={styles.pricingPrizeAmt}>{prizeLabel}</Text>
+            </View>
+          </View>
 
           <View style={styles.explainBox}>
             <View style={styles.explainTitleRow}>
@@ -55,8 +69,9 @@ export function HeadToHeadPlayModal({
               <Text style={styles.explainTitle}>{joining ? 'Joining this lobby' : 'Starting a match'}</Text>
             </View>
             <Text style={styles.explainLine}>
-              <Text style={styles.explainBullet}>1.</Text> We charge <Text style={styles.explainEm}>{entryLabel}</Text> as your contest
-              participation fee when you enter the queue (demo wallet until billing is live).
+              <Text style={styles.explainBullet}>1.</Text> Your entry covers <Text style={styles.explainEm}>access</Text> to a skill
+              contest when you enter the queue — <Text style={styles.explainEm}>{entryLabel}</Text> from your cash wallet (charged when
+              the match is created; both players must have sufficient balance).
             </Text>
             <Text style={styles.explainLine}>
               <Text style={styles.explainBullet}>2.</Text>{' '}
@@ -67,18 +82,19 @@ export function HeadToHeadPlayModal({
                 </>
               ) : (
                 <>
-                  No one’s in queue yet for <Text style={styles.explainEm}>{gameTitle}</Text> at this reward tier — we search for the next
+                  No one&apos;s in queue yet for <Text style={styles.explainEm}>{gameTitle}</Text> at this reward tier — we search for the next
                   player entering the same contest.
                 </>
               )}
             </Text>
             <Text style={styles.explainLine}>
-              <Text style={styles.explainBullet}>3.</Text> When it’s go time, you play — best score wins the prize of{' '}
-              <Text style={styles.explainEm}>{prizeLabel}</Text> (awarded by Run It for this contest).
+              <Text style={styles.explainBullet}>3.</Text> When it&apos;s go time, you play — top score earns the listed prize of{' '}
+              <Text style={styles.explainEm}>{prizeLabel}</Text> (Run It — not a player pool). Every game earns something: losers get
+              Arcade Credits for the Arcade floor.
             </Text>
             <Text style={styles.explainFoot}>
-              Prizes are set amounts from Run It; they are not pooled with or paid from other players’ entry fees. Demo matchmaking is
-              instant; live servers will add fair skill pairing.
+              {SKILL_CONTEST_OPERATOR_PRIZE} Arcade Credits are gameplay-only — not cash. Matchmaking may be instant while the service
+              scales; pairing improves as more players queue.
             </Text>
           </View>
 
@@ -166,6 +182,62 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   hintStrong: { color: '#fde68a', fontWeight: '800' },
+  pricingSplit: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 0,
+    marginBottom: 14,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  pricingSection: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pricingSectionPrize: {
+    backgroundColor: 'rgba(30,27,75,0.55)',
+  },
+  pricingSectionLbl: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  pricingSectionAmt: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  pricingRule: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(148,163,184,0.35)',
+    marginVertical: 10,
+  },
+  pricingPrizeLbl: {
+    color: 'rgba(254,243,199,0.95)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    marginBottom: 6,
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  pricingPrizeAmt: {
+    color: '#FDE047',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
   explainBox: {
     borderRadius: 12,
     padding: 12,

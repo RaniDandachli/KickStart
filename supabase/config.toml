@@ -397,6 +397,9 @@ verify_jwt = false
 [functions.recordMatchResult]
 verify_jwt = false
 
+[functions.h2hMaintenance]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

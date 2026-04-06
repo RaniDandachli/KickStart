@@ -46,7 +46,7 @@ export function sortWaitersForDisplay(waiters: H2hBoardWaiter[]): H2hBoardWaiter
   return [...waiters].sort((a, b) => a.postedAt - b.postedAt);
 }
 
-function seedDemoWaiters(): H2hBoardWaiter[] {
+function seedSampleOpenRows(): H2hBoardWaiter[] {
   const out: H2hBoardWaiter[] = [];
   let n = 0;
   for (let i = 0; i < H2H_OPEN_GAMES.length; i++) {
@@ -76,7 +76,7 @@ function randomNewWaiter(): H2hBoardWaiter {
   };
 }
 
-/** When no one is queued yet — still pick a game + tier for the next pairing (demo). */
+/** When no one is queued yet — synthesize an open row so Quick Match still has a target tier/game. */
 export function buildSyntheticWaiter(): H2hBoardWaiter {
   return {
     id: makeId(),
@@ -88,11 +88,11 @@ export function buildSyntheticWaiter(): H2hBoardWaiter {
 }
 
 /**
- * Quick Match: pair with the longest-waiting open player across any game/tier (demo board),
- * or synthesize a lobby if the pool is empty.
+ * Quick Match: pair with the longest-waiting open row across any game/tier,
+ * or synthesize a lobby if the pool is empty (replace with live matchmaking when wired).
  */
 export function pickAnyOpenWaiterForQuickMatch(): H2hBoardWaiter {
-  useHomeH2hBoardStore.getState().initDemo();
+  useHomeH2hBoardStore.getState().ensureOpenMatchBoard();
   const sorted = sortWaitersForDisplay(useHomeH2hBoardStore.getState().waiters);
   if (sorted.length > 0) return sorted[0]!;
   return buildSyntheticWaiter();
@@ -100,8 +100,8 @@ export function pickAnyOpenWaiterForQuickMatch(): H2hBoardWaiter {
 
 type HomeH2hBoardState = {
   waiters: H2hBoardWaiter[];
-  /** One-time demo pool (replace with API / Realtime later). */
-  initDemo: () => void;
+  /** Seed sample open rows until live lobby data exists. */
+  ensureOpenMatchBoard: () => void;
   removeWaiter: (id: string) => void;
   /**
    * Simulates matches completing and new players queueing — removes “filled” slots
@@ -113,9 +113,9 @@ type HomeH2hBoardState = {
 export const useHomeH2hBoardStore = create<HomeH2hBoardState>((set, get) => ({
   waiters: [],
 
-  initDemo: () => {
+  ensureOpenMatchBoard: () => {
     if (get().waiters.length > 0) return;
-    set({ waiters: seedDemoWaiters() });
+    set({ waiters: seedSampleOpenRows() });
   },
 
   removeWaiter: (id) => set((s) => ({ waiters: s.waiters.filter((w) => w.id !== id) })),
@@ -123,7 +123,7 @@ export const useHomeH2hBoardStore = create<HomeH2hBoardState>((set, get) => ({
   tickSimulation: () => {
     const list = get().waiters;
     if (list.length === 0) {
-      set({ waiters: seedDemoWaiters() });
+      set({ waiters: seedSampleOpenRows() });
       return;
     }
     const r = Math.random();

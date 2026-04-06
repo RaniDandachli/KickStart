@@ -8,9 +8,9 @@ const START_CENTS = 1240;
 
 type DemoWalletState = {
   walletCents: number;
-  /** Add cash wallet balance (match payouts, demo top-up, simulated Stripe success). */
+  /** Add cash wallet balance (guest: payouts, local top-up). */
   addWalletCents: (cents: number) => void;
-  /** Head-to-head entry fee (demo). Returns false if balance too low. */
+  /** Guest: contest entry from local wallet. Returns false if balance too low. */
   trySpend: (cents: number) => boolean;
 };
 

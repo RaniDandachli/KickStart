@@ -23,7 +23,7 @@ import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arca
 import { arcade } from '@/lib/arcadeTheme';
 import { awardRedeemTicketsForPrizeRun, NEON_POOL_POINTS_PER_TICKET, ticketsFromNeonPoolScore } from '@/lib/ticketPayouts';
 import { getSupabase } from '@/supabase/client';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -153,16 +153,26 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
   }, [playMode, profileQ.data?.prize_credits, resetMatch]);
 
   const loop = useCallback(
-    (dtMs: number) => {
+    (totalDtMs: number) => {
       const s = stateRef.current;
       if (!s) return;
-      if (s.phase === 'simulate') stepPoolPhysics(s, dtMs);
-      if ((s.phase === 'won' || s.phase === 'lost') && !matchEndedRef.current) {
+      if (s.phase === 'simulate') {
+        runFixedPhysicsSteps(totalDtMs, (h) => {
+          const cur = stateRef.current;
+          if (!cur || cur.phase !== 'simulate') return false;
+          stepPoolPhysics(cur, h);
+          const after = stateRef.current;
+          return after != null && after.phase === 'simulate';
+        });
+      }
+      const snap = stateRef.current;
+      if (!snap) return;
+      if ((snap.phase === 'won' || snap.phase === 'lost') && !matchEndedRef.current) {
         matchEndedRef.current = true;
         endStatsRef.current = {
-          score: s.score,
+          score: snap.score,
           durationMs: Math.max(0, Date.now() - startTimeRef.current),
-          shots: s.shots,
+          shots: snap.shots,
         };
         setPhaseUi('over');
       }

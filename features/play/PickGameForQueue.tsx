@@ -63,9 +63,20 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
 
       <Text style={[styles.kicker, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>Choose your game</Text>
+      <View style={styles.tierSummary}>
+        <View style={styles.tierSummaryCol}>
+          <Text style={styles.tierSummaryLbl}>Match access</Text>
+          <Text style={styles.tierSummaryAmt}>{entry}</Text>
+        </View>
+        <View style={styles.tierSummaryRule} />
+        <View style={[styles.tierSummaryCol, styles.tierSummaryColPrize]}>
+          <Text style={styles.tierSummaryPrizeLbl}>🏆 Top performer prize</Text>
+          <Text style={styles.tierSummaryPrizeAmt}>{prize}</Text>
+        </View>
+      </View>
       <Text style={styles.sub}>
-        Contest fee <Text style={styles.em}>{entry}</Text> · prize <Text style={styles.em}>{prize}</Text> (Run It–funded). Tap a game —
-        same look as Arcade.
+        Your entry covers contest access; listed prizes are Run It–funded. Didn&apos;t win? You&apos;ll still earn Arcade Credits. Tap a
+        game — same neon look as Arcade.
       </Text>
 
       <View style={styles.list}>
@@ -116,12 +127,62 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  tierSummary: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 12,
+    marginHorizontal: 4,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.3)',
+    backgroundColor: 'rgba(15,23,42,0.75)',
+  },
+  tierSummaryCol: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  tierSummaryColPrize: { backgroundColor: 'rgba(30,27,75,0.5)' },
+  tierSummaryLbl: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  tierSummaryAmt: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  tierSummaryRule: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(148,163,184,0.35)',
+    marginVertical: 10,
+  },
+  tierSummaryPrizeLbl: {
+    color: 'rgba(254,243,199,0.95)',
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  tierSummaryPrizeAmt: {
+    color: '#FDE047',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   sub: {
-    color: 'rgba(203,213,225,0.92)',
-    fontSize: 14,
-    lineHeight: 20,
+    color: 'rgba(203,213,225,0.88)',
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: 'center',
     marginBottom: 18,
     paddingHorizontal: 4,

@@ -171,19 +171,56 @@ export function titleForDailyGame(gameKey: H2hGameKey): string {
   return g?.title ?? 'Skill challenge';
 }
 
+/**
+ * Builds a believable final scoreboard for scripted daily/cup bracket outcomes.
+ * Margins vary by match (`scoreVarianceKey`) so results don’t always read as “win by 1”.
+ */
 export function finalizeDailyScores(
   playerScore: number,
   opponentRoundScore: number,
   forcedOutcome: 'win' | 'lose',
   localPlayerId: string,
   opponentId: string,
+  scoreVarianceKey?: string,
 ): MatchFinishPayload {
+  const key =
+    scoreVarianceKey ??
+    `legacy|${localPlayerId}|${opponentId}|${Math.floor(playerScore)}|${Math.floor(opponentRoundScore)}`;
+  const self0 = Math.max(0, Math.floor(playerScore));
+  const oppBaseline = Math.max(0, Math.floor(opponentRoundScore));
+
+  const seed = hash32(`fin|${forcedOutcome}|${key}|${self0}|${oppBaseline}`);
+  const rng = mulberry32(seed);
+
   if (forcedOutcome === 'win') {
-    const opp = Math.max(0, Math.min(opponentRoundScore, Math.max(0, playerScore - 1)));
-    const self = Math.max(playerScore, opp + 1);
+    const mag = Math.max(1, self0);
+    const maxMarginByScore = Math.min(
+      Math.max(6, Math.floor(mag * 0.24) + 2),
+      Math.max(1, self0),
+    );
+    const margin = 1 + Math.floor(rng() * maxMarginByScore);
+    const maxOpp = Math.max(0, self0 - margin);
+
+    let opp = Math.min(oppBaseline, maxOpp);
+    const roll = rng();
+    if (roll < 0.24 && maxOpp >= 4) {
+      opp = Math.min(maxOpp, Math.floor(maxOpp * (0.32 + rng() * 0.55)));
+    } else if (roll > 0.82 && opp < maxOpp) {
+      const slack = maxOpp - opp;
+      opp = Math.min(maxOpp, opp + Math.floor(rng() * Math.min(10, slack + 1)));
+    }
+
+    opp = Math.max(0, Math.min(opp, maxOpp));
+    if (opp >= self0) opp = maxOpp;
+    const self = Math.max(self0, opp + 1);
     return { winnerId: localPlayerId, finalScore: { self, opponent: opp }, reason: 'normal' };
   }
-  const self = Math.max(0, playerScore);
-  const opp = Math.max(opponentRoundScore, self + 1);
-  return { winnerId: opponentId, finalScore: { self, opponent: opp }, reason: 'normal' };
+
+  const mag = Math.max(1, self0);
+  const minLead = 1 + Math.floor(rng() * Math.min(40, Math.max(4, Math.floor(mag * 0.16) + 4)));
+  let opp = Math.max(oppBaseline, self0 + minLead);
+  if (rng() < 0.3) {
+    opp += Math.floor(rng() * Math.min(120, mag + 20));
+  }
+  return { winnerId: opponentId, finalScore: { self: self0, opponent: opp }, reason: 'normal' };
 }

@@ -42,7 +42,7 @@ import { runit, runitFont, runitGlowPinkSoft, runitTextGlowPink } from '@/lib/ru
 type ShippingModal =
   | null
   | { kind: 'catalog'; prize: PrizeCatalogWithReward }
-  | { kind: 'demo' };
+  | { kind: 'guest_sample' };
 
 function isGiftCardPrize(p: PrizeCatalogWithReward): boolean {
   return !!p.reward_catalog?.reward_key;
@@ -133,7 +133,7 @@ export default function PrizesScreen() {
       return;
     }
     setShippingModal(null);
-    Alert.alert('Redeemed! (demo)', 'We would queue this for fulfillment with your saved address.');
+    Alert.alert('Redeemed (preview)', 'Saved on this device only — sign in with the live catalog for real fulfillment.');
   }, [draft, save, trySpendDemoTickets]);
 
   const startRedeemCatalog = useCallback(
@@ -197,14 +197,14 @@ export default function PrizesScreen() {
 
   const startRedeemDemo = useCallback(() => {
     if (!shippingComplete) {
-      setShippingModal({ kind: 'demo' });
+      setShippingModal({ kind: 'guest_sample' });
       return;
     }
     if (!trySpendDemoTickets(3)) {
       Alert.alert('Not enough tickets', 'Win arcade prize runs to earn redeem tickets.');
       return;
     }
-    Alert.alert('Redeemed! (demo)', 'Your prize would be queued for fulfillment with a live backend.');
+    Alert.alert('Redeemed (preview)', 'Guest mode — this device only. Sign in with Supabase for real redemptions.');
   }, [shippingComplete, trySpendDemoTickets]);
 
   return (
@@ -268,7 +268,9 @@ export default function PrizesScreen() {
             </View>
           ) : null}
           {!ENABLE_BACKEND ? (
-            <Text style={styles.balanceHint}>Demo balance — prize credits are for playing; tickets are for this shop</Text>
+            <Text style={styles.balanceHint}>
+              Guest mode — Arcade Credits are for playing; redeem tickets are for this preview catalog
+            </Text>
           ) : null}
         </View>
       </LinearGradient>
@@ -375,7 +377,7 @@ export default function PrizesScreen() {
             <View style={styles.prizeImgPlaceholder} />
             <View style={styles.prizeMeta}>
               <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                Sample physical (demo)
+                Sample physical (preview)
               </Text>
               <Text style={styles.prizeDesc} numberOfLines={2}>
                 Ship-to-you example — address required if not saved.
@@ -405,7 +407,7 @@ export default function PrizesScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.tileRedeemGrad}
                 >
-                  <Text style={styles.tileRedeemText}>{redeemTickets < 3 ? 'Need tickets' : 'Redeem (demo)'}</Text>
+                  <Text style={styles.tileRedeemText}>{redeemTickets < 3 ? 'Need tickets' : 'Redeem (preview)'}</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -433,13 +435,13 @@ export default function PrizesScreen() {
               <Text style={styles.modalSub}>
                 {shippingModal?.kind === 'catalog'
                   ? `Required for "${shippingModal.prize.title}".`
-                  : 'Required for this physical demo prize.'}
+                  : 'Required for this sample physical prize (preview).'}
               </Text>
               <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll}>
                 <ShippingAddressForm value={draft} onChange={setDraft} />
               </ScrollView>
               <AppButton
-                title={shippingModal?.kind === 'catalog' ? 'Save & redeem' : 'Save & redeem (demo)'}
+                title={shippingModal?.kind === 'catalog' ? 'Save & redeem' : 'Save & redeem (preview)'}
                 loading={redeem.isPending}
                 disabled={redeem.isPending}
                 onPress={() => {

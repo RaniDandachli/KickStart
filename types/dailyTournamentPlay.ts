@@ -8,5 +8,10 @@ export type DailyTournamentBundle = {
   forcedOutcome: 'win' | 'lose';
   localPlayerId: string;
   opponentId: string;
+  /**
+   * Unique per bracket match (e.g. `${dayKey}|r3|${userId}`). Drives varied final score margins on the results card
+   * so wins/losses don’t always look like +/-1.
+   */
+  scoreVarianceKey?: string;
   onComplete: (payload: MatchFinishPayload) => void;
 };

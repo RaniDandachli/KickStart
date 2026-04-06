@@ -137,7 +137,6 @@ export function stepTapDash(
   dtMs: number,
   inputs: { p1Flap: boolean; p2Flap: boolean },
 ): void {
-  const dt = Math.min(0.05, dtMs / 1000);
   state.timeLeftMs = Math.max(0, state.timeLeftMs - dtMs);
   state.spawnAcc += dtMs;
   const [a, b] = TAP_DASH.spawnEveryMs;

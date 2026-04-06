@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { TILE_CLASH } from '@/minigames/config/tuning';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
@@ -115,10 +115,14 @@ export default function TileClashScreen() {
     setPhase('playing');
   }, []);
 
-  const loop = useCallback((dtMs: number) => {
+  const loop = useCallback((totalDtMs: number) => {
     const s = stateRef.current;
     if (!s) return;
-    stepTileClash(s, dtMs);
+    runFixedPhysicsSteps(totalDtMs, (h) => {
+      stepTileClash(s, h);
+      if (s.timeLeftMs <= 0) return false;
+      return true;
+    });
     const col = tileClashAiPick(s);
     if (col >= 0) tapColumn(s, col, 2);
     if (s.timeLeftMs <= 0) setPhase('done');

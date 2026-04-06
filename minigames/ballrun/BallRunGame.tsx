@@ -27,7 +27,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -597,14 +597,26 @@ export default function NeonBallRunGame({
     bump();
   }, [bump]);
 
-  const step = useCallback((dtMs: number) => {
-    const s = stateRef.current;
-    if (!s) return;
-    stepNeonBallRun(s, dtMs / 1000);
-    if (!s.alive) { endGame(s); return; }
-    bump();
-    invalidate();
-  }, [bump, endGame]);
+  const step = useCallback(
+    (totalDtMs: number) => {
+      const s = stateRef.current;
+      if (!s || !s.alive) return;
+      runFixedPhysicsSteps(totalDtMs, (h) => {
+        if (!s.alive) return false;
+        stepNeonBallRun(s, h / 1000);
+        if (!s.alive) {
+          endGame(s);
+          return false;
+        }
+        return true;
+      });
+      if (s.alive) {
+        bump();
+        invalidate();
+      }
+    },
+    [bump, endGame],
+  );
 
   useRafLoop(step, phase === 'playing');
 
@@ -663,6 +675,7 @@ export default function NeonBallRunGame({
           dailyTournament.forcedOutcome,
           dailyTournament.localPlayerId,
           dailyTournament.opponentId,
+          dailyTournament.scoreVarianceKey,
         )
       : null;
 

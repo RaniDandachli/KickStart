@@ -25,8 +25,8 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
               {gameTitle}
             </Text>
             <Text style={styles.hint}>
-              Pick a <Text style={styles.hintStrong}>contest tier</Text>. We’ll match you with someone searching the same game and tier
-              (skill contest — fixed entry & listed reward).
+              Pick a <Text style={styles.hintStrong}>contest tier</Text>. We&apos;ll match you on the same game and tier. Your entry is
+              contest access only; prizes are fixed by Run It. Didn&apos;t win? You&apos;ll earn Arcade Credits for the Arcade floor.
             </Text>
 
             {MATCH_ENTRY_TIERS.map((tier) => {
@@ -48,9 +48,14 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
                       <Ionicons name={tier.icon} size={22} color={runit.neonCyan} />
                       <View style={styles.rowText}>
                         <Text style={[styles.tierName, { fontFamily: runitFont.black }, runitTextGlowCyan]}>{tier.shortLabel}</Text>
-                        <Text style={styles.tierMeta}>
-                          Entry {entry} · Listed reward {prize}
-                        </Text>
+                        <View style={styles.metaAccess}>
+                          <Text style={styles.metaLbl}>Match access</Text>
+                          <Text style={styles.metaAmt}>{entry}</Text>
+                        </View>
+                        <View style={styles.metaPrize}>
+                          <Text style={styles.metaPrizeLbl}>🏆 Top performer prize</Text>
+                          <Text style={styles.metaPrizeAmt}>{prize}</Text>
+                        </View>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color="rgba(148,163,184,0.9)" />
                     </View>
@@ -118,9 +123,47 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
-  rowText: { flex: 1 },
+  rowText: { flex: 1, gap: 8 },
   tierName: { fontSize: 16, color: '#fff', marginBottom: 2 },
-  tierMeta: { color: 'rgba(226,232,240,0.88)', fontSize: 12, fontWeight: '600' },
+  metaAccess: {
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(148,163,184,0.35)',
+  },
+  metaLbl: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  metaAmt: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  metaPrize: {
+    marginTop: 2,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15,23,42,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(253,224,71,0.28)',
+  },
+  metaPrizeLbl: {
+    color: 'rgba(254,243,199,0.95)',
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  metaPrizeAmt: {
+    color: '#FDE047',
+    fontSize: 18,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
   cancelBtn: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16 },
   cancelText: { color: 'rgba(148,163,184,0.95)', fontSize: 15, fontWeight: '700' },
 });

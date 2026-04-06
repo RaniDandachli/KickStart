@@ -16,7 +16,11 @@ export type TransactionKind =
   | 'prize_credit_earn'
   | 'prize_credit_spend'
   | 'redeem_ticket_spend'
-  | 'wallet_withdraw';
+  | 'wallet_withdraw'
+  /** Cash wallet debit for H2H contest access (collected by operator; not peer-to-peer). */
+  | 'h2h_contest_entry'
+  /** Wallet credit when both players leave paid H2H before play (lobby abandon). */
+  | 'h2h_contest_entry_refund';
 
 type PublicTable<
   Row extends Record<string, unknown>,
@@ -38,13 +42,13 @@ export type ProfileRow = {
   region: string;
   suspended_until: string | null;
   cheating_review_flag: boolean;
-  /** Cash wallet: head-to-head entry fees, tournament entry, withdrawals (cents). */
+  /** Cash wallet (withdrawable when payouts supported): contest access, tournaments, withdrawals — cents. */
   wallet_cents: number;
-  /** Arcade play currency (prize run entry); not for catalog redemption. */
+  /** Arcade Credits — gameplay-only (`user_wallet.arcade_credit_balance` equivalent); prize runs, H2H loss consolation; not cash. */
   prize_credits: number;
   /** UTC YYYY-MM-DD when `claim_daily_prize_credits` last ran; null on legacy rows. */
   last_daily_claim_ymd: string | null;
-  /** Prizes catalog only; separate from prize credits. */
+  /** Prize catalog progress currency (`user_wallet.ticket_balance` equivalent); separate from Arcade Credits. */
   redeem_tickets: number;
   /** JSON object — see `ShippingAddress` in app code. */
   shipping_address: Json | null;
@@ -333,6 +337,8 @@ export type MinigameScoreRow = {
   score: number;
   duration_ms: number;
   taps: number;
+  /** Official H2H run when set (validated `submitMinigameScore`). */
+  match_session_id: string | null;
   created_at: string;
 };
 
@@ -372,7 +378,8 @@ export interface Database {
       match_results: PublicTable<MatchResultRow, Partial<MatchResultRow>, Partial<MatchResultRow>>;
       minigame_scores: PublicTable<
         MinigameScoreRow,
-        Pick<MinigameScoreRow, 'user_id' | 'game_type' | 'score' | 'duration_ms' | 'taps'>,
+        Pick<MinigameScoreRow, 'user_id' | 'game_type' | 'score' | 'duration_ms' | 'taps'> &
+          Partial<Pick<MinigameScoreRow, 'match_session_id'>>,
         Partial<Pick<MinigameScoreRow, 'score' | 'duration_ms' | 'taps'>>
       >;
       user_stats: PublicTable<UserStatsRow, Partial<UserStatsRow>, Partial<UserStatsRow>>;
@@ -432,6 +439,21 @@ export interface Database {
         Args: Record<string, never>;
         Returns: Json;
       };
+      profile_fight_stats: {
+        Args: { p_user_id: string };
+        Returns: {
+          wins: number;
+          losses: number;
+          current_streak: number;
+          best_streak: number;
+          matches_played: number;
+          wins_rank: number;
+        }[];
+      };
+      recent_match_feed: {
+        Args: { p_limit?: number };
+        Returns: Json;
+      };
       fulfill_stripe_checkout_session: {
         Args: {
           p_user_id: string;
@@ -460,6 +482,50 @@ export interface Database {
           p_description: string;
           p_idempotency_key: string;
         };
+        Returns: Json;
+      };
+      h2h_create_match_session_and_debit_entries: {
+        Args: {
+          p_initiator: string;
+          p_opponent: string;
+          p_mode: string;
+          p_game_key: string | null;
+          p_entry_fee_wallet_cents: number;
+          p_listed_prize_usd_cents: number | null;
+        };
+        Returns: string;
+      };
+      h2h_enqueue_or_match: {
+        Args: {
+          p_mode: string;
+          p_game_key: string;
+          p_entry_fee_wallet_cents: number;
+          p_listed_prize_usd_cents: number;
+        };
+        Returns: Json;
+      };
+      h2h_cancel_queue: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      h2h_enter_match_play: {
+        Args: { p_match_session_id: string };
+        Returns: Json;
+      };
+      h2h_abandon_match_session: {
+        Args: { p_match_session_id: string };
+        Returns: Json;
+      };
+      h2h_maintenance_expire_stale: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      h2h_tap_dash_scores_for_match: {
+        Args: { p_match_session_id: string };
+        Returns: Json;
+      };
+      h2h_file_match_dispute: {
+        Args: { p_match_session_id: string; p_details: string };
         Returns: Json;
       };
     };

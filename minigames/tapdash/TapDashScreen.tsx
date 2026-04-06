@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { TAP_DASH } from '@/minigames/config/tuning';
-import { useRafLoop } from '@/minigames/core/useRafLoop';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
@@ -124,13 +124,19 @@ export default function TapDashScreen() {
     setPhase('playing');
   }, []);
 
-  const loop = useCallback((dtMs: number) => {
+  const loop = useCallback((totalDtMs: number) => {
     const s = stateRef.current;
     if (!s) return;
-    const p2f = tapDashAiFlap(s);
-    const p1f = p1Flap.current;
-    p1Flap.current = false;
-    stepTapDash(s, dtMs, { p1Flap: p1f, p2Flap: p2f });
+    let first = true;
+    runFixedPhysicsSteps(totalDtMs, (h) => {
+      const p2f = tapDashAiFlap(s);
+      const p1f = first && p1Flap.current;
+      if (first) p1Flap.current = false;
+      first = false;
+      stepTapDash(s, h, { p1Flap: p1f, p2Flap: p2f });
+      if (s.timeLeftMs <= 0) return false;
+      return true;
+    });
     if (s.timeLeftMs <= 0) setPhase('done');
     setUiTick((t) => t + 1);
   }, []);

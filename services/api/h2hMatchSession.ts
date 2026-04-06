@@ -14,10 +14,22 @@ export type MatchSessionWithPlayers = {
   score_a: number;
   score_b: number;
   game_key: string | null;
+  entry_fee_wallet_cents: number;
+  listed_prize_usd_cents: number | null;
   player_a_username: string | null;
   player_b_username: string | null;
   player_a_display: string | null;
   player_b_display: string | null;
+};
+
+export type RecordH2hMatchResultResponse = {
+  ok?: boolean;
+  idempotent?: boolean;
+  error?: string;
+  /** Arcade Credits (`prize_credits`) granted to the caller as H2H loser consolation. */
+  loss_consolation_credits?: number;
+  /** Cash wallet (cents) credited to caller as H2H winner prize. */
+  prize_wallet_cents_added?: number;
 };
 
 async function parseFunctionError(error: unknown): Promise<string> {
@@ -38,6 +50,65 @@ export function resolveDevOpponentUserId(opponentIdFromStore: string): string | 
     return env.EXPO_PUBLIC_DEV_OPPONENT_USER_ID;
   }
   return opponentIdFromStore;
+}
+
+export type H2hEnterMatchPlayResult =
+  | { ok: true; status: string; already?: boolean }
+  | { ok: false; error: string; status?: string };
+
+/** Mark H2H session as `in_progress` when opening play (`lobby` → `in_progress`). Idempotent. */
+export type H2hAbandonMatchSessionResult =
+  | { ok: true; noop?: boolean; reason?: string; refunded_wallet_cents_each?: number }
+  | { ok: false; error: string; status?: string };
+
+/** Cancel H2H from lobby (refunds paid entry for both players). No-op if already completed/cancelled. */
+export async function h2hAbandonMatchSessionRpc(matchSessionId: string): Promise<H2hAbandonMatchSessionResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('h2h_abandon_match_session', {
+    p_match_session_id: matchSessionId,
+  });
+  if (error) throw new Error(error.message);
+  const j = data as Record<string, unknown>;
+  if (j?.ok !== true) {
+    return {
+      ok: false,
+      error: String(j?.error ?? 'abandon_failed'),
+      status: typeof j?.status === 'string' ? j.status : undefined,
+    };
+  }
+  const refunded = j.refunded_wallet_cents_each;
+  return {
+    ok: true,
+    noop: j?.noop === true,
+    reason: typeof j?.reason === 'string' ? j.reason : undefined,
+    refunded_wallet_cents_each:
+      typeof refunded === 'number'
+        ? refunded
+        : refunded != null && refunded !== ''
+          ? Number(refunded)
+          : undefined,
+  };
+}
+
+export async function h2hEnterMatchPlayRpc(matchSessionId: string): Promise<H2hEnterMatchPlayResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('h2h_enter_match_play', {
+    p_match_session_id: matchSessionId,
+  });
+  if (error) throw new Error(error.message);
+  const j = data as Record<string, unknown>;
+  if (j?.ok !== true) {
+    return {
+      ok: false,
+      error: String(j?.error ?? 'enter_match_failed'),
+      status: typeof j?.status === 'string' ? j.status : undefined,
+    };
+  }
+  return {
+    ok: true,
+    status: String(j?.status ?? 'in_progress'),
+    already: j?.already === true,
+  };
 }
 
 export async function createH2hMatchSessionViaEdge(params: {
@@ -80,7 +151,7 @@ export async function recordH2hMatchResultViaEdge(params: {
   isDraw: boolean;
   score: { a: number; b: number };
   wasRanked?: boolean;
-}): Promise<void> {
+}): Promise<RecordH2hMatchResultResponse> {
   const supabase = getSupabase();
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session?.access_token) {
@@ -106,9 +177,10 @@ export async function recordH2hMatchResultViaEdge(params: {
 
   if (error) throw new Error(await parseFunctionError(error));
 
-  const payload = data as { ok?: boolean; error?: string; idempotent?: boolean };
+  const payload = data as RecordH2hMatchResultResponse;
   if (payload?.error) throw new Error(payload.error);
   if (!payload?.ok && !payload?.idempotent) throw new Error('Could not save match result');
+  return payload;
 }
 
 export async function fetchMatchSessionWithPlayers(matchSessionId: string): Promise<MatchSessionWithPlayers | null> {
@@ -132,6 +204,8 @@ export async function fetchMatchSessionWithPlayers(matchSessionId: string): Prom
       score_a: row.score_a,
       score_b: row.score_b,
       game_key: row.game_key ?? null,
+      entry_fee_wallet_cents: row.entry_fee_wallet_cents ?? 0,
+      listed_prize_usd_cents: row.listed_prize_usd_cents ?? null,
       player_a_username: null,
       player_b_username: null,
       player_a_display: null,
@@ -159,6 +233,8 @@ export async function fetchMatchSessionWithPlayers(matchSessionId: string): Prom
     score_a: row.score_a,
     score_b: row.score_b,
     game_key: row.game_key ?? null,
+    entry_fee_wallet_cents: row.entry_fee_wallet_cents ?? 0,
+    listed_prize_usd_cents: row.listed_prize_usd_cents ?? null,
     player_a_username: a?.username ?? null,
     player_b_username: b?.username ?? null,
     player_a_display: a?.display_name ?? null,

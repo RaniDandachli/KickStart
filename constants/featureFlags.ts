@@ -2,7 +2,7 @@ import { env } from '@/lib/env';
 
 /**
  * Supabase + API usage. Prefer `EXPO_PUBLIC_ENABLE_BACKEND=true` in `.env` for real backend; defaults to false.
- * When false, guest/demo mode (no required auth); local stores handle arcade credits.
+ * When false, guest mode (no required auth); local stores mirror balances on device only.
  *
  * Security: balances (`wallet_cents`, `prize_credits`, `redeem_tickets`, `gems`), `role`, Stripe ids, and
  * moderation fields are enforced server-side (`protect_profile_sensitive_columns` + RLS). Redemptions and

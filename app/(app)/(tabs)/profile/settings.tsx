@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
-import { Switch, Text, View } from 'react-native';
+import { Linking, Switch, Text, View } from 'react-native';
 import { useState } from 'react';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { supportContactHref } from '@/lib/env';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -35,7 +36,19 @@ export default function SettingsScreen() {
       </Card>
       <AppButton title="Dispute a match" variant="secondary" onPress={() => router.push('/(app)/(tabs)/profile/dispute')} />
       <AppButton className="mt-2" title="Legal" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/legal')} />
-      <AppButton className="mt-2" title="Support" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/support')} />
+      <AppButton
+        className="mt-2"
+        title="Support"
+        variant="ghost"
+        onPress={() => {
+          const href = supportContactHref();
+          if (href) {
+            void Linking.openURL(href);
+            return;
+          }
+          router.push('/(app)/(tabs)/profile/support');
+        }}
+      />
     </Screen>
   );
 }

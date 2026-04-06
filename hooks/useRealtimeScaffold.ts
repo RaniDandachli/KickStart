@@ -25,7 +25,21 @@ export function useRealtimeScaffold(userId: string | undefined): void {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_sessions' }, () => {
         void qc.invalidateQueries({ queryKey: ['profile'] });
         void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
+        void qc.invalidateQueries({ queryKey: ['userStats'] });
+        void qc.invalidateQueries({ queryKey: ['recentMatches'] });
       })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_stats',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ['userStats'] });
+        },
+      )
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'minigame_scores' }, () => {
         void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
       })

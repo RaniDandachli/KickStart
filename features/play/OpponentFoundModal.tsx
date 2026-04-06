@@ -30,7 +30,18 @@ export function OpponentFoundModal({
           {freeCasual ? (
             <Text className="mt-2 text-center text-sm font-bold text-slate-700">No entry fee · no cash prize</Text>
           ) : prizeUsd != null ? (
-            <Text className="mt-2 text-center text-sm font-bold text-emerald-700">Prize ${prizeUsd} (top score)</Text>
+            <View className="mt-3 rounded-xl border border-amber-200/60 bg-amber-50/90 px-3 py-2">
+              <Text className="text-center text-[10px] font-extrabold uppercase tracking-wide text-amber-900/80">
+                Top performer prize
+              </Text>
+              <Text className="text-center text-lg font-black text-amber-950">${prizeUsd}</Text>
+              <Text className="mt-1 text-center text-[10px] font-semibold text-amber-900/70">
+                Best score wins · Run It–listed amount
+              </Text>
+              <Text className="mt-2 text-center text-[10px] font-semibold text-amber-900/65">
+                Not top score? You&apos;ll earn Arcade Credits for the Arcade floor (gameplay only — not cash).
+              </Text>
+            </View>
           ) : null}
           {opponent ? (
             <View className="my-4 rounded-xl bg-slate-50 p-3">

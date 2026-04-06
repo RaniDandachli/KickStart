@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,12 +12,20 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { isUuid } from '@/lib/isUuid';
 import {
   createH2hMatchSessionViaEdge,
+  displayNameForProfile,
   resolveDevOpponentUserId,
 } from '@/services/api/h2hMatchSession';
+import { useH2hQueueMatchSignals } from '@/hooks/useH2hQueueMatchSignals';
+import { h2hCancelQueue, h2hEnqueueOrMatch } from '@/services/matchmaking/h2hQueue';
+import { getSupabase } from '@/supabase/client';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
+import { queryKeys } from '@/lib/queryKeys';
+import { SKILL_CONTEST_LAUNCH_BODY, SKILL_CONTEST_LAUNCH_TITLE } from '@/constants/skillContestLaunch';
+import { SKILL_CONTEST_ENTRY_SHORT } from '@/lib/skillContestCopy';
+import { profileBlocksPaidSkillContest } from '@/lib/skillContestRegionGate';
 import { mockMatchmakingSingleton } from '@/services/matchmaking/mockMatchmaking';
 import { arcade } from '@/lib/arcadeTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -43,24 +52,33 @@ export function QueueScreen({
   quickMatch,
 }: {
   mode: QueueKind;
-  /** When set with `listedPrizeUsd`, queue shows a paid 1v1 skill contest (fixed reward; UI only until billing). */
+  /** When set with `listedPrizeUsd`, queue shows a paid 1v1 skill contest (fixed reward tier). */
   entryFeeUsd?: number;
   listedPrizeUsd?: number;
   /** Which minigame this 1v1 is for (from Home / deep link). */
   gameTitle?: string;
   /** Minigame key for server `match_sessions.game_key` when backend is enabled. */
   gameKey?: string;
-  /** Join an existing lobby vs start search when pool is empty (demo UX). */
+  /** Join an existing lobby vs start search when pool is empty. */
   queueIntent?: 'join' | 'start';
   /** Home “Quick match” — pair across any open lobby / tier; wallet or free casual. */
   quickMatch?: boolean;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id ?? 'guest');
   const walletCents = useWalletDisplayCents();
   const trySpendWallet = useDemoWalletStore((s) => s.trySpend);
   const addWalletCents = useDemoWalletStore((s) => s.addWalletCents);
   const entryChargedDemoRef = useRef(0);
+  const backendQueueParamsRef = useRef<{
+    mode: QueueKind;
+    gameKey: string;
+    entryFeeWalletCents: number;
+    listedPrizeUsdCents: number;
+  } | null>(null);
+  /** One-shot alert for fatal queue RPC errors while polling (wallet drift, session create failure). */
+  const queuePollAlertShownRef = useRef(false);
   const [searchId, setSearchId] = useState<string | null>(null);
   const phase = useMatchmakingStore((s) => s.phase);
   const opponent = useMatchmakingStore((s) => s.opponent);
@@ -69,6 +87,12 @@ export function QueueScreen({
   const setActiveMatch = useMatchmakingStore((s) => s.setActiveMatch);
   const setQueue = useMatchmakingStore((s) => s.setQueue);
   const reset = useMatchmakingStore((s) => s.reset);
+
+  useH2hQueueMatchSignals({
+    enabled: ENABLE_BACKEND && userId !== 'guest' && phase === 'searching',
+    userId,
+    queueParamsRef: backendQueueParamsRef,
+  });
 
   const quickMatchCtxRef = useRef<QuickMatchCtx | null>(null);
   const quickAutoStartedRef = useRef(false);
@@ -87,6 +111,13 @@ export function QueueScreen({
       !Number.isNaN(effectivePrize);
 
     if (hasPaidEntry && effectiveEntry != null) {
+      if (ENABLE_BACKEND && userId !== 'guest' && (await profileBlocksPaidSkillContest(userId))) {
+        Alert.alert(
+          'Not available in your region',
+          'Paid skill contests are not offered for your profile region. Update region if it is wrong, or contact support.',
+        );
+        return;
+      }
       const needCents = Math.round(effectiveEntry * 100);
       if (!ENABLE_BACKEND) {
         if (!trySpendWallet(needCents)) {
@@ -111,6 +142,21 @@ export function QueueScreen({
 
     setQueue(mode);
     setPhase('searching');
+
+    if (ENABLE_BACKEND && userId !== 'guest') {
+      queuePollAlertShownRef.current = false;
+      backendQueueParamsRef.current = {
+        mode,
+        gameKey: gameKey ?? '',
+        entryFeeWalletCents:
+          hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : 0,
+        listedPrizeUsdCents:
+          hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : 0,
+      };
+      setSearchId('backend-h2h');
+      return;
+    }
+
     const { searchId: sid } = await mockMatchmakingSingleton.startSearch(userId, mode);
     setSearchId(sid);
     const unsub = mockMatchmakingSingleton.onOpponentFound(sid, ({ matchSessionId, opponentUserId }) => {
@@ -127,7 +173,82 @@ export function QueueScreen({
       });
       unsub();
     });
-  }, [mode, userId, entryFeeUsd, listedPrizeUsd, setQueue, setPhase, setFound, trySpendWallet, walletCents]);
+  }, [
+    mode,
+    userId,
+    entryFeeUsd,
+    listedPrizeUsd,
+    gameKey,
+    setQueue,
+    setPhase,
+    setFound,
+    trySpendWallet,
+    walletCents,
+  ]);
+
+  useEffect(() => {
+    if (!ENABLE_BACKEND || userId === 'guest' || phase !== 'searching') return;
+    const params = backendQueueParamsRef.current;
+    if (!params) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      const p = backendQueueParamsRef.current;
+      if (!p) return;
+      try {
+        const r = await h2hEnqueueOrMatch(p);
+        if (cancelled) return;
+        if (!r.ok) {
+          if (
+            (r.error === 'insufficient_wallet' || r.error === 'match_create_failed') &&
+            !queuePollAlertShownRef.current
+          ) {
+            queuePollAlertShownRef.current = true;
+            backendQueueParamsRef.current = null;
+            void h2hCancelQueue().catch(() => {});
+            useMatchmakingStore.getState().reset();
+            Alert.alert(
+              'Matchmaking issue',
+              r.error === 'insufficient_wallet'
+                ? 'Your wallet no longer covers contest access. Add funds or pick a different tier.'
+                : 'Could not create the match session. Please try again.',
+            );
+          }
+          return;
+        }
+        if (r.matched) {
+          const supabase = getSupabase();
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id,username,display_name,region')
+            .eq('id', r.opponent_user_id)
+            .maybeSingle();
+          const name = displayNameForProfile(prof?.username ?? null, prof?.display_name ?? null);
+          const reg = prof?.region?.trim();
+          useMatchmakingStore.getState().setFound(
+            r.match_session_id,
+            {
+              id: r.opponent_user_id,
+              username: name,
+              rating: 1500,
+              region: reg && reg.length > 0 ? reg : 'NA',
+            },
+            { serverSessionReady: true },
+          );
+        }
+      } catch {
+        /* transient errors while polling */
+      }
+    };
+
+    void tick();
+    const iv = setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [phase, userId]);
 
   const runQuickMatchResolve = useCallback(async () => {
     const w = pickAnyOpenWaiterForQuickMatch();
@@ -145,6 +266,14 @@ export function QueueScreen({
     };
 
     if (canPay) {
+      if (ENABLE_BACKEND && userId !== 'guest' && (await profileBlocksPaidSkillContest(userId))) {
+        setQuickResolving(false);
+        Alert.alert(
+          'Not available in your region',
+          'Paid skill contests are not offered for your profile region. Add funds only if you can play from an allowed region, or choose a free casual match.',
+        );
+        return;
+      }
       quickMatchCtxRef.current = {
         isFreeCasual: false,
         entryUsd: tier.entry,
@@ -195,9 +324,19 @@ export function QueueScreen({
     void runQuickMatchResolve();
   }, [quickMatch, runQuickMatchResolve]);
 
+  function cleanupBackendQueue() {
+    backendQueueParamsRef.current = null;
+    if (!ENABLE_BACKEND) return;
+    const uid = useAuthStore.getState().user?.id;
+    if (uid && uid !== 'guest') {
+      void h2hCancelQueue().catch(() => {});
+    }
+  }
+
   async function accept() {
+    backendQueueParamsRef.current = null;
     entryChargedDemoRef.current = 0;
-    const { mockMatchId: mid, opponent: opp } = useMatchmakingStore.getState();
+    const { mockMatchId: mid, opponent: opp, serverSessionReady } = useMatchmakingStore.getState();
     if (!mid || !opp) return;
     const q = quickMatchCtxRef.current;
     const isFreeCasual = q?.isFreeCasual === true;
@@ -214,21 +353,30 @@ export function QueueScreen({
     let resolvedOpp = opp;
 
     if (ENABLE_BACKEND && userId !== 'guest') {
-      const oppUuid = resolveDevOpponentUserId(opp.id);
-      if (oppUuid && isUuid(oppUuid)) {
-        try {
-          const { match_session_id } = await createH2hMatchSessionViaEdge({
-            mode,
-            opponentUserId: oppUuid,
-            gameKey,
-            entryFeeWalletCents: hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : undefined,
-            listedPrizeUsdCents: hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : undefined,
-          });
-          resolvedMatchId = match_session_id;
-          resolvedOpp = { ...opp, id: oppUuid };
-        } catch (e) {
-          Alert.alert('Could not start match', e instanceof Error ? e.message : 'Server error');
-          return;
+      if (serverSessionReady) {
+        resolvedMatchId = mid;
+        resolvedOpp = opp;
+        void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.transactions(userId) });
+      } else {
+        const oppUuid = resolveDevOpponentUserId(opp.id);
+        if (oppUuid && isUuid(oppUuid)) {
+          try {
+            const { match_session_id } = await createH2hMatchSessionViaEdge({
+              mode,
+              opponentUserId: oppUuid,
+              gameKey,
+              entryFeeWalletCents: hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : undefined,
+              listedPrizeUsdCents: hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : undefined,
+            });
+            resolvedMatchId = match_session_id;
+            resolvedOpp = { ...opp, id: oppUuid };
+            void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+            void qc.invalidateQueries({ queryKey: queryKeys.transactions(userId) });
+          } catch (e) {
+            Alert.alert('Could not start match', e instanceof Error ? e.message : 'Server error');
+            return;
+          }
         }
       }
     }
@@ -254,6 +402,7 @@ export function QueueScreen({
 
   function decline() {
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
+    cleanupBackendQueue();
     refundEntryIfQueuedDemo();
     quickMatchCtxRef.current = null;
     reset();
@@ -262,6 +411,7 @@ export function QueueScreen({
   /** Leave queue: always land on Arcade hub. `router.back()` after a cross-tab push from Home pops Home, not play/index. */
   function leaveScreen() {
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
+    cleanupBackendQueue();
     refundEntryIfQueuedDemo();
     quickMatchCtxRef.current = null;
     quickAutoStartedRef.current = false;
@@ -320,28 +470,48 @@ export function QueueScreen({
       <Text className="mb-2 text-2xl font-black text-white">{title}</Text>
       {quickMatch ? (
         <Text className="mb-4 text-center text-sm text-slate-400">
-          We match you with any open player in queue — any game, any contest tier. If your wallet can&apos;t cover the fee, you can add funds
-          or play a free casual match (no entry, no cash prize).
+          We match you with any open player in queue — any game, any contest tier. If your cash wallet can&apos;t cover contest access, add
+          funds or play a free casual match (no access charge, no listed prize).
         </Text>
       ) : hasPaidEntry ? (
         <>
-          <Text className="mb-1 text-center text-base font-semibold" style={{ color: '#FFFFFF' }}>
-            ${effectiveEntry} contest fee · ${effectivePrize} prize (top score)
-          </Text>
+          <View style={styles.contestPricing}>
+            <View style={styles.contestPricingCol}>
+              <Text style={styles.contestPricingLbl}>Match access</Text>
+              <Text style={styles.contestPricingAmt}>
+                {formatUsdFromCents(Math.round((effectiveEntry ?? 0) * 100))}
+              </Text>
+            </View>
+            <View style={styles.contestPricingRule} />
+            <View style={[styles.contestPricingCol, styles.contestPricingPrizeCol]}>
+              <Text style={styles.contestPrizeLbl}>🏆 Top performer prize</Text>
+              <Text style={styles.contestPrizeAmt}>
+                {formatUsdFromCents(Math.round((effectivePrize ?? 0) * 100))}
+              </Text>
+            </View>
+          </View>
           {queueIntent === 'join' ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
-              Someone is already in queue for this game at this reward tier — you’re joining them.
+              Someone is already in queue for this game at this reward tier — you&apos;re joining them.
             </Text>
           ) : queueIntent === 'start' ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
-              No one’s in queue yet — we’ll match you with the next player at this reward tier.
+              No one&apos;s in queue yet — we&apos;ll match you with the next player at this reward tier.
             </Text>
           ) : (
-            <Text className="mb-4 text-center text-sm text-slate-400">Cash wallet · skill contest (demo)</Text>
+            <>
+              <Text className="mb-2 text-center text-xs font-semibold text-amber-200/90">{SKILL_CONTEST_LAUNCH_TITLE}</Text>
+              <Text className="mb-2 text-center text-xs leading-5 text-slate-400">
+                {SKILL_CONTEST_LAUNCH_BODY[0]} {SKILL_CONTEST_LAUNCH_BODY[2]}
+              </Text>
+              <Text className="mb-4 text-center text-sm text-slate-400">
+                Cash wallet for access · top score wins the listed prize · losers earn Arcade Credits. {SKILL_CONTEST_ENTRY_SHORT}
+              </Text>
+            </>
           )}
         </>
       ) : (
-        <Text className="mb-4 text-sm text-slate-400">Free matchmaking (demo)</Text>
+        <Text className="mb-4 text-sm text-slate-400">Free casual matchmaking</Text>
       )}
       {quickResolving && phase === 'idle' ? (
         <View className="items-center py-10">
@@ -358,7 +528,8 @@ export function QueueScreen({
           <Text className="mt-4 text-center text-slate-300">{searchingMsg}</Text>
           {hasPaidEntry ? (
             <Text className="mt-2 text-center text-xs font-medium text-slate-400">
-              Demo: prizes are set by tier, awarded by Run It — not pooled from other players’ fees.
+              Prizes are set by tier and awarded by Run It — not a player pool. Every play earns something: Arcade Credits if you don&apos;t
+              take top score.
             </Text>
           ) : null}
           <AppButton className="mt-6" title="Cancel" variant="ghost" onPress={decline} />
@@ -382,6 +553,56 @@ export function QueueScreen({
 }
 
 const styles = StyleSheet.create({
+  contestPricing: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  contestPricingCol: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  contestPricingPrizeCol: { backgroundColor: 'rgba(30,27,75,0.45)' },
+  contestPricingLbl: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  contestPricingAmt: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  contestPricingRule: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(148,163,184,0.35)',
+    marginVertical: 8,
+  },
+  contestPrizeLbl: {
+    color: 'rgba(254,243,199,0.95)',
+    fontSize: 9,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  contestPrizeAmt: {
+    color: '#FDE047',
+    fontSize: 17,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
