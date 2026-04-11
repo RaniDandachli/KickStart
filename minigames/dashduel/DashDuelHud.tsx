@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -87,7 +87,7 @@ export function DashDuelHud(props: Props) {
         onPress={onBack}
         style={[styles.backBtn, compact && styles.backBtnCompact]}
       >
-        <Ionicons name="chevron-back" size={compact ? 22 : 24} color="#F8FAFC" />
+        <SafeIonicons name="chevron-back" size={compact ? 22 : 24} color="#F8FAFC" />
         <Text style={[styles.exitLabel, compact && styles.exitLabelCompact]}>Exit</Text>
       </Pressable>
 
@@ -113,7 +113,7 @@ export function DashDuelHud(props: Props) {
         {hideClock ? null : (
           <View style={styles.clockRow}>
             {isCritical ? (
-              <Ionicons name="flash" size={12} color={clockColor} accessibilityLabel="Critical time" />
+              <SafeIonicons name="flash" size={12} color={clockColor} accessibilityLabel="Critical time" />
             ) : null}
             <Text style={[styles.clockSmall, { color: clockColor }]}>{formatClock(timeLeftMs)}</Text>
           </View>

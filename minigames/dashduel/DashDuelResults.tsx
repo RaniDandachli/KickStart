@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -49,7 +49,7 @@ export function DashDuelResults({
             onPress={onExit}
             style={styles.topExit}
           >
-            <Ionicons name="chevron-back" size={26} color="#F8FAFC" />
+            <SafeIonicons name="chevron-back" size={26} color="#F8FAFC" />
             <Text style={styles.topExitLabel}>Exit to menu</Text>
           </Pressable>
         </View>

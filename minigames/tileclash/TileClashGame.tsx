@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
@@ -408,7 +408,7 @@ export default function TileClashGame({
           style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
           onPress={() => router.back()}
         >
-          <Ionicons name="chevron-back" size={28} color={arcade.white} />
+          <SafeIonicons name="chevron-back" size={28} color={arcade.white} />
         </Pressable>
         <Text style={styles.topBarTitle} numberOfLines={1}>
           Tile Clash

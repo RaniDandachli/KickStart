@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Defs, Line, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -334,11 +334,13 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
       <View style={styles.root}>
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
+            <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <Text style={styles.title}>Neon Pocket</Text>
           <View style={styles.creditsPill}>
-            <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+            <View style={{ marginRight: 4 }}>
+              <SafeIonicons name="gift-outline" size={16} color="#5EEAD4" />
+            </View>
             <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
           </View>
         </View>

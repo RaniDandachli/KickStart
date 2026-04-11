@@ -158,6 +158,22 @@ export function WebGlyphFlame({ size, color }: GProps) {
   );
 }
 
+function WebGlyphChevronBack({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M15 18l-6-6 6-6"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
 /** Tier / misc outline icons (names match MATCH_ENTRY_TIERS + common) */
 export function WebGlyphByIonName({ name, size, color }: { name: string; size: number; color: string }) {
   switch (name) {
@@ -195,6 +211,12 @@ export function WebGlyphByIonName({ name, size, color }: { name: string; size: n
       return <WebGlyphArrowForward size={size} color={color} />;
     case 'log-in-outline':
       return <WebGlyphLogInOutline size={size} color={color} />;
+    case 'chevron-back':
+      return <WebGlyphChevronBack size={size} color={color} />;
+    case 'home-outline':
+      return <WebGlyphHome size={size} color={color} />;
+    case 'gift-outline':
+      return <WebGlyphGift size={size} color={color} />;
     default:
       return <WebGlyphFlash size={size} color={color} />;
   }

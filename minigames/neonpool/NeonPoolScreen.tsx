@@ -1,7 +1,7 @@
 // NeonPoolScreen — 2P 8-ball duel UI (uses EightBallEngine).
 // Arcade route can import this screen separately from NeonPoolGame (solo / prize run).
 
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, {
@@ -661,7 +661,7 @@ export default function NeonPoolScreen() {
         {/* Top bar */}
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={N.dimText} />
+            <SafeIonicons name="chevron-back" size={24} color={N.dimText} />
           </Pressable>
           <Text style={styles.topTitle}>8 BALL POOL</Text>
           <View style={{ width: 40 }} />

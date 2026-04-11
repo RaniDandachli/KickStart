@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 /** Routes used by minigame “run ended” screens. */
@@ -30,7 +30,7 @@ export function GameOverExitRow({ onMinigames, onHome, lightBackground }: Props)
         accessibilityRole="button"
         accessibilityLabel="Back to minigames"
       >
-        <Ionicons name="chevron-back" size={24} color={icon} />
+        <SafeIonicons name="chevron-back" size={24} color={icon} />
         <Text style={labelStyle}>Minigames</Text>
       </Pressable>
       {onHome ? (
@@ -41,7 +41,7 @@ export function GameOverExitRow({ onMinigames, onHome, lightBackground }: Props)
           accessibilityRole="button"
           accessibilityLabel="Go to home"
         >
-          <Ionicons name="home-outline" size={24} color={icon} />
+          <SafeIonicons name="home-outline" size={24} color={icon} />
           <Text style={labelStyle}>Home</Text>
         </Pressable>
       ) : null}

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -10,7 +10,7 @@ export function DashDuelLobby({ onStart, onBack }: Props) {
   return (
     <View style={styles.wrap}>
       <Pressable style={styles.back} onPress={onBack} hitSlop={12}>
-        <Ionicons name="chevron-back" size={26} color="#E2E8F0" />
+        <SafeIonicons name="chevron-back" size={26} color="#E2E8F0" />
       </Pressable>
       <Text style={styles.title}>Match lobby</Text>
       <Text style={styles.sub}>1v1 same seed · PvP: random who goes first · higher score wins</Text>

@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { WebBrowseAuthBar } from '@/components/WebBrowseAuthBar';
 import { FirstRunTabTour } from '@/components/onboarding/FirstRunTabTour';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
@@ -28,6 +29,8 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
+  const authStatus = useAuthStore((s) => s.status);
+  const webBrowseAuth = Platform.OS === 'web' && authStatus === 'signedOut';
   const lastGrantUid = useRef<string | null>(null);
   const [showFirstRunTour, setShowFirstRunTour] = useState(false);
 
@@ -94,6 +97,7 @@ export default function TabsLayout() {
 
   return (
     <>
+    <WebBrowseAuthBar />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -109,12 +113,15 @@ export default function TabsLayout() {
               },
             }
           : {}),
-        tabBarStyle: getAppTabBarStyle({
-          top: insets.top,
-          bottom: insets.bottom,
-          left: insets.left,
-          right: insets.right,
-        }),
+        tabBarStyle: {
+          ...getAppTabBarStyle({
+            top: insets.top,
+            bottom: insets.bottom,
+            left: insets.left,
+            right: insets.right,
+          }),
+          ...(webBrowseAuth ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
+        },
         tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle:

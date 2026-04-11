@@ -11,7 +11,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -395,7 +395,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         {/* Floating chrome — does not shrink the board */}
         <View style={[styles.floatTop, { paddingTop: 4, paddingLeft: Math.max(insets.left, 6), paddingRight: Math.max(insets.right, 6) }]} pointerEvents="box-none">
           <Pressable onPress={() => router.back()} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}>
-            <Ionicons name="chevron-back" size={26} color={arcade.gold} />
+            <SafeIonicons name="chevron-back" size={26} color={arcade.gold} />
             <Text style={styles.backText}>Arcade</Text>
           </Pressable>
           <View style={styles.hudCluster}>

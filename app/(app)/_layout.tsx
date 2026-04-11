@@ -26,6 +26,7 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     if (ALLOW_GUEST_MODE) return;
+    if (Platform.OS === 'web') return;
     if (status === 'signedOut') {
       router.replace('/(auth)/sign-in');
     }
@@ -52,7 +53,7 @@ export default function AuthenticatedLayout() {
 
   if (!ALLOW_GUEST_MODE && status === 'loading') return null;
 
-  if (!ALLOW_GUEST_MODE && status === 'signedOut') {
+  if (!ALLOW_GUEST_MODE && status === 'signedOut' && Platform.OS !== 'web') {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

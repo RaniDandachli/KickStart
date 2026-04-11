@@ -3,7 +3,7 @@
 //  Mirrors TapDashScreen.tsx conventions exactly
 // ─────────────────────────────────────────────
 
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -779,7 +779,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
               onPress={goBack}
               style={styles.backBtn}
             >
-              <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+              <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
             </Pressable>
             <Text style={styles.topBarTitle}>Turbo Arena</Text>
             <View style={styles.backBtnPlaceholder} />
@@ -841,7 +841,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
                 onPress={goBack}
                 style={styles.hudBackBtn}
               >
-                <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+                <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
               </Pressable>
               <View style={styles.matchHudHud}>
                 <MiniGameHUD

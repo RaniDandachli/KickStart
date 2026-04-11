@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -493,7 +493,7 @@ export default function TurboArenaGame({
         {/* Top bar */}
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
+            <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <View style={styles.scoreCol}>
             <Text style={styles.scoreYou}>{s?.scoreP1 ?? 0}</Text>
@@ -509,7 +509,9 @@ export default function TurboArenaGame({
             <View style={{ width: 72 }} />
           ) : (
             <View style={styles.creditsPill}>
-              <Ionicons name="gift-outline" size={16} color="#5EEAD4" style={{ marginRight: 4 }} />
+              <View style={{ marginRight: 4 }}>
+                <SafeIonicons name="gift-outline" size={16} color="#5EEAD4" />
+              </View>
               <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
             </View>
           )}
