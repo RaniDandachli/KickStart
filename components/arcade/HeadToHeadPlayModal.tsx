@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -65,7 +65,7 @@ export function HeadToHeadPlayModal({
 
           <View style={styles.explainBox}>
             <View style={styles.explainTitleRow}>
-              <Ionicons name="git-merge-outline" size={18} color={runit.neonCyan} />
+              <SafeIonicons name="git-merge-outline" size={18} color={runit.neonCyan} />
               <Text style={styles.explainTitle}>{joining ? 'Joining this lobby' : 'Starting a match'}</Text>
             </View>
             <Text style={styles.explainLine}>
@@ -102,7 +102,7 @@ export function HeadToHeadPlayModal({
             <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardBorder, runitGlowPinkSoft]}>
               <View style={styles.cardInner}>
                 <View style={styles.rowTop}>
-                  <Ionicons name={joining ? 'log-in-outline' : 'people-outline'} size={26} color="#FDE047" />
+                  <SafeIonicons name={joining ? 'log-in-outline' : 'people-outline'} size={26} color="#FDE047" />
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>
                     {joining ? 'Join match' : 'Find opponent'}
                   </Text>
@@ -126,7 +126,7 @@ export function HeadToHeadPlayModal({
             <LinearGradient colors={[runit.neonCyan, 'rgba(0,240,255,0.35)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardBorder, runitGlowPinkSoft]}>
               <View style={styles.cardInner}>
                 <View style={styles.rowTop}>
-                  <Ionicons name="school-outline" size={26} color={runit.neonCyan} />
+                  <SafeIonicons name="school-outline" size={26} color={runit.neonCyan} />
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>Practice only</Text>
                 </View>
                 <Text style={styles.cardBody}>Free solo · no wallet · learn the game first.</Text>

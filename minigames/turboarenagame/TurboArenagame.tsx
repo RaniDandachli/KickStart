@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -59,8 +59,6 @@ const TURBO_POINTS_PER_TICKET = 3;
 function ticketsFromTurboScore(score: number) {
   return Math.floor(score / TURBO_POINTS_PER_TICKET);
 }
-
-const TURBO_DIALOG_MAX = minigameStageMaxWidth(360);
 
 // ── Scale ─────────────────────────────────────
 
@@ -314,6 +312,7 @@ export default function TurboArenaGame({
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw } = useWindowDimensions();
+  const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const { scale, arenaW, arenaH } = useArenaScale(sw);
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
@@ -617,7 +616,7 @@ export default function TurboArenaGame({
         {/* Game over card */}
         {phase === 'over' && (
           <View style={styles.overlay}>
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -862,7 +861,7 @@ const styles = StyleSheet.create({
     padding: 24, zIndex: 50,
   },
   card: {
-    width: '100%', maxWidth: TURBO_DIALOG_MAX,
+    width: '100%',
     padding: 20, borderRadius: 16,
     borderWidth: 1, borderColor: 'rgba(0,255,255,0.35)',
     backgroundColor: 'rgba(10,15,28,0.98)',

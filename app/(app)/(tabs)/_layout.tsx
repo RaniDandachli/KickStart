@@ -16,6 +16,7 @@ import {
 } from '@/lib/arcadeLocalNotifications';
 import { applyArcadePrizeCreditGrants, resetArcadeGrantFlight } from '@/lib/arcadeGrants';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
+import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
 import { getAppTabBarStyle } from '@/lib/tabBarStyle';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
@@ -30,6 +31,7 @@ export default function TabsLayout() {
   const queryClient = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
   const authStatus = useAuthStore((s) => s.status);
+  const webUsesTopTabBar = useWebUsesTopTabBar();
   const webBrowseAuth = Platform.OS === 'web' && authStatus === 'signedOut';
   const lastGrantUid = useRef<string | null>(null);
   const [showFirstRunTour, setShowFirstRunTour] = useState(false);
@@ -101,7 +103,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        ...(Platform.OS === 'web'
+        ...(Platform.OS === 'web' && webUsesTopTabBar
           ? {
               tabBarPosition: 'top' as const,
               tabBarVariant: 'uikit' as const,
@@ -114,18 +116,21 @@ export default function TabsLayout() {
             }
           : {}),
         tabBarStyle: {
-          ...getAppTabBarStyle({
-            top: insets.top,
-            bottom: insets.bottom,
-            left: insets.left,
-            right: insets.right,
-          }),
-          ...(webBrowseAuth ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
+          ...getAppTabBarStyle(
+            {
+              top: insets.top,
+              bottom: insets.bottom,
+              left: insets.left,
+              right: insets.right,
+            },
+            Platform.OS === 'web' ? { webTopBar: webUsesTopTabBar } : undefined,
+          ),
+          ...(webBrowseAuth && webUsesTopTabBar ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
         },
         tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle:
-          Platform.OS === 'web'
+          Platform.OS === 'web' && webUsesTopTabBar
             ? {
                 fontWeight: '700',
                 fontSize: 13,
@@ -138,9 +143,10 @@ export default function TabsLayout() {
                 marginTop: 2,
                 marginBottom: 2,
               },
-        tabBarIconStyle: Platform.OS === 'web' ? { marginTop: 0, marginRight: 6 } : { marginTop: 0 },
+        tabBarIconStyle:
+          Platform.OS === 'web' && webUsesTopTabBar ? { marginTop: 0, marginRight: 6 } : { marginTop: 0 },
         tabBarItemStyle: {
-          paddingVertical: Platform.OS === 'web' ? 8 : 4,
+          paddingVertical: Platform.OS === 'web' && webUsesTopTabBar ? 8 : 4,
           justifyContent: 'center',
         },
       }}

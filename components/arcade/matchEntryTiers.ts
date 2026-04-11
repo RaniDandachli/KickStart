@@ -1,5 +1,4 @@
 import type { ComponentProps } from 'react';
-import type { Ionicons } from '@expo/vector-icons';
 
 /**
  * Contest tiers: cash wallet access (USD) + listed top-performer prize (USD).
@@ -8,7 +7,7 @@ import type { Ionicons } from '@expo/vector-icons';
 export type MatchEntryTier = {
   entry: number;
   prize: number;
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: ComponentProps<typeof import('@/components/icons/SafeIonicons').SafeIonicons>['name'];
   shortLabel: string;
 };
 

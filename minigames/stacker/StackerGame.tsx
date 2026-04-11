@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -76,9 +76,6 @@ function tierColor(w: number): string {
   return '#FACC15';
 }
 
-const STACKER_STAGE_MAX = minigameStageMaxWidth(10000);
-const STACKER_DIALOG_MAX = minigameStageMaxWidth(360);
-
 type GameRef = {
   placed: Seg[];
   blockLeft: number;
@@ -105,6 +102,8 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { width: sw, height: sh } = useWindowDimensions();
+  const stageMax = useMemo(() => minigameStageMaxWidth(10000), [sw]);
+  const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
 
   const [gameSize, setGameSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -312,7 +311,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
       <View style={styles.shell}>
         {/* Full-screen playfield */}
         <View style={styles.gameFill} onLayout={onGameLayout}>
-          <View style={styles.boardWrap}>
+          <View style={[styles.boardWrap, { maxWidth: stageMax }]}>
             <View style={styles.gridHint}>
               {Array.from({ length: STACKER_GRID_COLS }, (_, i) => (
                 <View key={i} style={[styles.gridV, { left: i * unit, width: 1 }]} />
@@ -420,7 +419,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
 
         {phase === 'over' ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -507,7 +506,6 @@ const styles = StyleSheet.create({
   boardWrap: {
     flex: 1,
     width: '100%',
-    maxWidth: STACKER_STAGE_MAX,
     alignSelf: 'center',
     minHeight: 0,
     borderRadius: 0,
@@ -621,7 +619,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: STACKER_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,

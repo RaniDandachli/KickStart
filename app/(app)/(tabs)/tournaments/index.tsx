@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
@@ -62,7 +62,7 @@ export default function TournamentsListScreen() {
               </Text>
               <View style={styles.cardFooter}>
                 <Text style={styles.viewLink}>Enter</Text>
-                <Ionicons name="chevron-forward" size={14} color={runit.neonPink} />
+                <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
               </View>
             </View>
           </LinearGradient>
@@ -100,7 +100,7 @@ export default function TournamentsListScreen() {
                   <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>{cup.subtitle}</Text>
                   <View style={styles.cardFooter}>
                     <Text style={styles.viewLink}>Enter cup</Text>
-                    <Ionicons name="chevron-forward" size={14} color={runit.neonPink} />
+                    <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
                   </View>
                 </View>
               </LinearGradient>
@@ -142,7 +142,7 @@ export default function TournamentsListScreen() {
                 <Text style={styles.cardPrize} numberOfLines={3}>{t.prize_description}</Text>
                 <View style={styles.cardFooter}>
                   <Text style={styles.viewLink}>View details</Text>
-                  <Ionicons name="chevron-forward" size={14} color={runit.neonPink} />
+                  <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
                 </View>
               </View>
             </LinearGradient>

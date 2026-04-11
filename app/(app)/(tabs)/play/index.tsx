@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useNavigation, useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -79,7 +79,7 @@ export default function PlayHubScreen() {
         <ArcadeGrantBanner />
 
         <View style={styles.gamesSectionRow}>
-          <Ionicons name="flame" size={20} color="#ff006e" />
+          <SafeIonicons name="flame" size={20} color="#ff006e" />
           <Text style={[styles.gamesSection, { fontFamily: runitFont.black }, runitTextGlowPink]}>HOT GAMES</Text>
         </View>
         <Text style={styles.gamesSub}>Tap a game · practice free or prize run</Text>

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -57,7 +57,7 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
   return (
     <Screen>
       <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backRow, pressed && { opacity: 0.75 }]} hitSlop={12}>
-        <Ionicons name="chevron-back" size={24} color={arcade.gold} />
+        <SafeIonicons name="chevron-back" size={24} color={arcade.gold} />
         <Text style={styles.backText}>Back</Text>
       </Pressable>
 

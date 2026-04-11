@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -303,12 +303,12 @@ export default function ProfileScreen() {
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="person" size={32} color="rgba(255,255,255,0.85)" />
+                <SafeIonicons name="person" size={32} color="rgba(255,255,255,0.85)" />
               )}
             </View>
           </LinearGradient>
           <View style={styles.cameraBadge}>
-            <Ionicons name="camera" size={14} color="#050208" />
+            <SafeIonicons name="camera" size={14} color="#050208" />
           </View>
         </Pressable>
 
@@ -367,7 +367,7 @@ export default function ProfileScreen() {
         <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.walletOuter, runitGlowPinkSoft]}>
           <View style={styles.walletInner}>
             <View style={styles.walletTitleRow}>
-              <Ionicons name="wallet" size={20} color={runit.neonCyan} />
+              <SafeIonicons name="wallet" size={20} color={runit.neonCyan} />
               <Text style={[styles.walletTitle, { fontFamily: runitFont.black }]}>WALLET</Text>
             </View>
             <Text style={styles.walletBalance}>{formatUsdFromCents(walletCentsDisplay)}</Text>
@@ -400,19 +400,19 @@ export default function ProfileScreen() {
               style={({ pressed }) => [styles.addFundsBtn, pressed && { opacity: 0.88 }]}
               onPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
             >
-              <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              <SafeIonicons name="add-circle-outline" size={18} color="#fff" />
               <Text style={styles.addFundsBtnText}>ADD FUNDS</Text>
             </Pressable>
             <View style={styles.walletBtns}>
               <Pressable style={({ pressed }) => [styles.wBtn, styles.wBtnPrimary, pressed && { opacity: 0.85 }]} onPress={() => pushCrossTab(router, '/(app)/(tabs)/play')}>
-                <Ionicons name="game-controller-outline" size={16} color="#fff" />
+                <SafeIonicons name="game-controller-outline" size={16} color="#fff" />
                 <Text style={styles.wBtnText}>PLAY</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.wBtn, styles.wBtnGhost, pressed && { opacity: 0.85 }]}
                 onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')}
               >
-                <Ionicons name="arrow-down-circle-outline" size={16} color={runit.neonCyan} />
+                <SafeIonicons name="arrow-down-circle-outline" size={16} color={runit.neonCyan} />
                 <Text style={[styles.wBtnText, { color: runit.neonCyan }]}>WITHDRAW</Text>
               </Pressable>
             </View>
@@ -442,7 +442,7 @@ export default function ProfileScreen() {
               style={styles.statGrad}
             >
               <View style={styles.statInner}>
-                <Ionicons name={ico as 'trophy' | 'star' | 'flame'} size={18} color="#fff" style={{ marginBottom: 4 }} />
+                <SafeIonicons name={ico as 'trophy' | 'star' | 'flame'} size={18} color="#fff" style={{ marginBottom: 4 }} />
                 <Text style={[styles.statVal, { fontFamily: runitFont.black }]}>{val}</Text>
                 <Text style={styles.statLbl}>{lbl}</Text>
               </View>

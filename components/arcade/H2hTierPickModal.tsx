@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -45,7 +45,7 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
                     style={[styles.rowBorder, runitGlowPinkSoft]}
                   >
                     <View style={styles.rowInner}>
-                      <Ionicons name={tier.icon} size={22} color={runit.neonCyan} />
+                      <SafeIonicons name={tier.icon} size={22} color={runit.neonCyan} />
                       <View style={styles.rowText}>
                         <Text style={[styles.tierName, { fontFamily: runitFont.black }, runitTextGlowCyan]}>{tier.shortLabel}</Text>
                         <View style={styles.metaAccess}>
@@ -57,7 +57,7 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
                           <Text style={styles.metaPrizeAmt}>{prize}</Text>
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color="rgba(148,163,184,0.9)" />
+                      <SafeIonicons name="chevron-forward" size={18} color="rgba(148,163,184,0.9)" />
                     </View>
                   </LinearGradient>
                 </Pressable>

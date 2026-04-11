@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -154,11 +154,11 @@ export function ArcadeCabinetIntro({ onComplete }: Props) {
           style={styles.marqueeGrad}
         >
           <View style={styles.marqueeRow} accessibilityRole="text">
-            <Ionicons name="star" size={11} color="#fef08a" accessible={false} />
+            <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />
             <Text style={styles.marqueeText}> KICKCLASH </Text>
-            <Ionicons name="star" size={11} color="#fef08a" accessible={false} />
+            <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />
             <Text style={styles.marqueeText}> INSERT SKILL </Text>
-            <Ionicons name="star" size={11} color="#fef08a" accessible={false} />
+            <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />
           </View>
         </LinearGradient>
       </View>

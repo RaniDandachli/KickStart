@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type ViewStyle, StyleSheet, Text, View } from 'react-native';
 
@@ -7,7 +7,7 @@ import { runit, runitFont } from '@/lib/runitArcadeTheme';
 type StatConfig = {
   label: string;
   value: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: 'trophy-outline' | 'star-outline' | 'flame-outline';
   border: readonly [string, string];
   glow: ViewStyle;
 };
@@ -60,7 +60,7 @@ export function ArcadeStatsRow() {
       {STATS.map((s) => (
         <LinearGradient key={s.label} colors={s.border} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.gradPad, s.glow]}>
           <View style={styles.inner}>
-            <Ionicons name={s.icon} size={18} color={s.border[0]} style={styles.icon} />
+            <SafeIonicons name={s.icon} size={18} color={s.border[0]} style={styles.icon} />
             <Text style={styles.lbl}>{s.label}</Text>
             <Text style={[styles.val, { fontFamily: runitFont.black }]} numberOfLines={1}>
               {s.value}

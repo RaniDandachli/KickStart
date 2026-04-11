@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -95,7 +95,7 @@ export function ArcadeRewardsGuide() {
           style={({ pressed }) => [styles.seeMoreRow, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.seeMoreText}>{open ? 'See less' : 'See more'}</Text>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={runit.neonCyan} />
+          <SafeIonicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={runit.neonCyan} />
         </Pressable>
       </View>
     </LinearGradient>

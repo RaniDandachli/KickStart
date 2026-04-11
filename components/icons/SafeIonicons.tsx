@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { Platform, type StyleProp, type TextStyle } from 'react-native';
+import { Platform, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import { WebGlyphByIonName } from '@/components/icons/WebGlyphs';
 
@@ -17,7 +17,11 @@ export function SafeIonicons({
   ...rest
 }: IonProps) {
   if (Platform.OS === 'web') {
-    return <WebGlyphByIonName name={String(name)} size={size} color={String(color)} />;
+    return (
+      <View style={style as StyleProp<ViewStyle>}>
+        <WebGlyphByIonName name={String(name)} size={size} color={String(color)} />
+      </View>
+    );
   }
   return <Ionicons name={name} size={size} color={color} style={style as StyleProp<TextStyle>} {...rest} />;
 }

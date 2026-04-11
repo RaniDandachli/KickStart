@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -25,10 +25,10 @@ export function ArcadeGrantBanner() {
   return (
     <LinearGradient colors={['rgba(16,185,129,0.35)', 'rgba(6,182,212,0.25)']} style={styles.wrap}>
       <View style={styles.row}>
-        <Ionicons name="gift" size={22} color="#a7f3d0" />
+        <SafeIonicons name="gift" size={22} color="#a7f3d0" />
         <Text style={[styles.txt, { fontFamily: runitFont.black }]}>{msg}</Text>
         <Pressable onPress={() => clear()} hitSlop={12} accessibilityLabel="Dismiss">
-          <Ionicons name="close" size={20} color="rgba(226,232,240,0.85)" />
+          <SafeIonicons name="close" size={20} color="rgba(226,232,240,0.85)" />
         </Pressable>
       </View>
     </LinearGradient>

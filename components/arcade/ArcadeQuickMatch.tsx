@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -27,7 +27,7 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props
             end={{ x: 1, y: 0.5 }}
             style={[styles.card1, runitGlowPinkSoft]}
           >
-            <Ionicons name="flash" size={28} color="#fff" style={styles.cardIcon} />
+            <SafeIonicons name="flash" size={28} color="#fff" style={styles.cardIcon} />
             <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1</Text>
             <Text style={styles.cardSub}>BATTLE</Text>
           </LinearGradient>
@@ -39,7 +39,7 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props
             end={{ x: 1, y: 0.5 }}
             style={[styles.card1, runitGlowCyanSoft]}
           >
-            <Ionicons name="star" size={26} color="#fff" style={styles.cardIcon} />
+            <SafeIonicons name="star" size={26} color="#fff" style={styles.cardIcon} />
             <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>SOLO</Text>
             <Text style={styles.cardSub}>PLAY</Text>
           </LinearGradient>
@@ -53,9 +53,9 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props
           end={{ x: 1, y: 0 }}
           style={styles.eventsGrad}
         >
-          <Ionicons name="trophy" size={20} color="#fff" />
+          <SafeIonicons name="trophy" size={20} color="#fff" />
           <Text style={[styles.eventsText, { fontFamily: runitFont.black }]}>EVENTS · TOURNAMENTS</Text>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+          <SafeIonicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
         </LinearGradient>
       </Pressable>
     </View>

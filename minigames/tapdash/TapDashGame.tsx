@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -68,9 +69,6 @@ type Gate = {
   scored: boolean;
   scrollMul: number;
 };
-
-const TAP_DASH_LANE_MAX = minigameStageMaxWidth(440);
-const TAP_DASH_DIALOG_MAX = minigameStageMaxWidth(360);
 
 type PassBurst = { id: number; x: number; y: number; bornMs: number };
 
@@ -420,8 +418,10 @@ export default function TapDashGame({
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
+  const laneCap = useMemo(() => minigameStageMaxWidth(440), [sw]);
+  const dialogCap = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const [laneSize, setLaneSize] = useState(() => ({
-    w: Math.min(Math.max(200, sw - 16), TAP_DASH_LANE_MAX),
+    w: Math.min(Math.max(200, sw - 16), minigameStageMaxWidth(440)),
     h: Math.max(320, Math.min(sh * 0.72, 620)),
   }));
 
@@ -585,15 +585,6 @@ export default function TapDashGame({
     flapQueueRef.current = Math.min(2, flapQueueRef.current + 1);
   }, []);
 
-  useWebGameKeyboard(phase === 'playing', {
-    Space: (down) => {
-      if (down) queueFlap();
-    },
-    ArrowUp: (down) => {
-      if (down) queueFlap();
-    },
-  });
-
   const onTap = useCallback(() => {
     if (phase === 'ready') {
       if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
@@ -621,6 +612,16 @@ export default function TapDashGame({
       queueFlap();
     }
   }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament, h2hSkillContest]);
+
+  /** Same controls as in-play (Space / ↑): start from ready, flap while playing — web only. */
+  useWebGameKeyboard(phase === 'playing' || phase === 'ready', {
+    Space: (down) => {
+      if (down) onTap();
+    },
+    ArrowUp: (down) => {
+      if (down) onTap();
+    },
+  });
 
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -727,7 +728,7 @@ export default function TapDashGame({
 
         <Pressable style={styles.pressFlex} onPressIn={onTap} disabled={phase === 'over'}>
           <View
-            style={styles.lane}
+            style={[styles.lane, { maxWidth: laneCap }]}
             onLayout={(e) => {
               const { width, height } = e.nativeEvent.layout;
               if (width > 0 && height > 0) setLaneSize({ w: width, h: height });
@@ -819,15 +820,19 @@ export default function TapDashGame({
                       : 'Practice · free · no credits spent'}
               </Text>
               <Text style={styles.hintSub}>Neon sprint · precision run</Text>
-              <Text style={styles.hintBody}>Tap to thrust · thread the gates</Text>
-              <Text style={styles.hintCta}>Tap to start</Text>
+              <Text style={styles.hintBody}>
+                {Platform.OS === 'web' ? 'Tap or Space / ↑ to thrust · thread the gates' : 'Tap to thrust · thread the gates'}
+              </Text>
+              <Text style={styles.hintCta}>
+                {Platform.OS === 'web' ? 'Tap, Space, or ↑ to start' : 'Tap to start'}
+              </Text>
             </View>
           ) : null}
         </Pressable>
 
         {phase === 'over' && dailyTournament && dailyPayload ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -850,7 +855,7 @@ export default function TapDashGame({
         ) : null}
         {phase === 'over' && h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -883,7 +888,7 @@ export default function TapDashGame({
         ) : null}
         {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -1033,7 +1038,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     minHeight: 280,
-    maxWidth: TAP_DASH_LANE_MAX,
     alignSelf: 'center',
   },
   laneCenter: {
@@ -1171,7 +1175,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: TAP_DASH_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,

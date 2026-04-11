@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -75,7 +75,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
         <View style={styles.dim} />
 
         <View style={[styles.arrowWrap, { bottom: arrowBottom, left: tabCenterX - 14 }]} pointerEvents="none">
-          <Ionicons name="arrow-down" size={28} color={runit.neonCyan} />
+          <SafeIonicons name="arrow-down" size={28} color={runit.neonCyan} />
         </View>
 
         <View style={[styles.card, { marginBottom: cardBottomMargin }]} pointerEvents="box-none">
@@ -97,7 +97,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
               <Text style={[styles.primaryText, { fontFamily: runitFont.bold }]}>
                 {step >= STEPS.length - 1 ? 'GOT IT' : 'NEXT'}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color="#fff" />
+              <SafeIonicons name="chevron-forward" size={18} color="#fff" />
             </Pressable>
           </View>
         </View>

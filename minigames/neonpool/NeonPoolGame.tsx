@@ -50,7 +50,6 @@ import {
 } from './NeonPoolEngine';
 
 const RAIL = '#2d1810';
-const NEON_POOL_DIALOG_MAX = minigameStageMaxWidth(360);
 
 function ballColor(id: number): string {
   if (id === 0) return '#f8fafc';
@@ -95,6 +94,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
   const queryClient = useQueryClient();
   const prizeCredits = usePrizeCreditsDisplay();
   const { width: sw, height: sh } = useWindowDimensions();
+  const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
 
   const [, setTick] = useState(0);
   const stateRef = useRef<PoolState | null>(null);
@@ -445,7 +445,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
           }}
         >
           <View style={styles.modalBg}>
-            <View style={styles.modalCard}>
+            <View style={[styles.modalCard, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -570,7 +570,6 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: NEON_POOL_DIALOG_MAX,
     padding: 22,
     borderRadius: 16,
     borderWidth: 1,

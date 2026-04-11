@@ -5,11 +5,17 @@ import { runit } from '@/lib/runitArcadeTheme';
 
 export type TabBarSafeInsets = { top: number; bottom: number; left?: number; right?: number };
 
+export type AppTabBarOptions = {
+  /** Desktop-width web only: top tab strip. Narrow web uses the same bottom bar as native. */
+  webTopBar?: boolean;
+};
+
 /**
- * Tab bar chrome for the current platform. Web uses a top tab bar; native uses bottom tabs.
+ * Tab bar chrome. Native + narrow web: bottom tabs. Desktop web: top tab strip.
  */
-export function getAppTabBarStyle(insets: TabBarSafeInsets) {
-  if (Platform.OS === 'web') {
+export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOptions) {
+  const useWebTopChrome = Platform.OS === 'web' && opts?.webTopBar === true;
+  if (useWebTopChrome) {
     const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
     return {
       backgroundColor: runit.bgDeep,
@@ -50,9 +56,12 @@ export function getHiddenTabBarStyle() {
 }
 
 /** After hiding, restore visible tab bar (explicit display/opacity so nothing stays stuck hidden). */
-export function getRestoredTabBarStyle(insets: TabBarSafeInsets) {
+export function getRestoredTabBarStyle(insets: TabBarSafeInsets, webTopBar?: boolean) {
   return {
-    ...getAppTabBarStyle(insets),
+    ...getAppTabBarStyle(
+      insets,
+      Platform.OS === 'web' ? { webTopBar: webTopBar ?? false } : undefined,
+    ),
     display: 'flex' as const,
     opacity: 1,
   };
@@ -63,7 +72,7 @@ export function getRestoredTabBarStyle(insets: TabBarSafeInsets) {
  * More reliable than assuming a fixed depth (play stack vs nested routes).
  */
 export function findBottomTabNavigator(
-  nav: NavigationProp<ParamListBase> | undefined
+  nav: NavigationProp<ParamListBase> | undefined,
 ): NavigationProp<ParamListBase> | undefined {
   let current: NavigationProp<ParamListBase> | undefined = nav;
   for (let i = 0; i < 16; i++) {

@@ -1,6 +1,6 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 
@@ -27,6 +27,9 @@ export function DashDuelLobby({ onStart, onBack }: Props) {
         <Text style={styles.feeLine}>Contest access $5 · Top performer prize $9 · Run It</Text>
       </LinearGradient>
       <AppButton title="Ready" onPress={onStart} />
+      {Platform.OS === 'web' ? (
+        <Text style={styles.spaceHint}>Space or ↑ — same as jump · starts countdown</Text>
+      ) : null}
     </View>
   );
 }
@@ -56,4 +59,11 @@ const styles = StyleSheet.create({
   avt: { color: '#0f172a', fontWeight: '900', fontSize: 12 },
   vs: { color: '#FDE047', fontWeight: '900', fontSize: 18 },
   feeLine: { color: 'rgba(100,116,139,0.95)', fontSize: 11, textAlign: 'center', fontWeight: '600' },
+  spaceHint: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

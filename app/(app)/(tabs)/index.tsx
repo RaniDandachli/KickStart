@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
 import { HeadToHeadPlayModal } from '@/components/arcade/HeadToHeadPlayModal';
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
@@ -28,6 +29,7 @@ import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
+import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { DAILY_FREE_PRIZE_USD, DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
@@ -38,6 +40,7 @@ import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 export default function HomeScreen() {
+  const webDesktopTabs = useWebUsesTopTabBar();
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
@@ -196,6 +199,7 @@ export default function HomeScreen() {
               )
             }
             onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
+            onHowItWorksPress={() => setHowItWorksOpen(true)}
           />
 
           <View style={styles.sectionLabel}>
@@ -212,7 +216,7 @@ export default function HomeScreen() {
             <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
           </Text>
 
-          {Platform.OS === 'web' ? (
+          {Platform.OS === 'web' && webDesktopTabs ? (
             <HomeH2hCarouselWeb
               rows={h2hRows}
               h2hIconFor={h2hIconFor}
@@ -475,6 +479,8 @@ export default function HomeScreen() {
             setTierPick(null);
           }}
         />
+
+        <HowItWorksModal visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)} />
       </SafeAreaView>
     </LinearGradient>
   );

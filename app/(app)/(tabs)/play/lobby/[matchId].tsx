@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -214,7 +214,7 @@ export default function PreMatchLobbyScreen() {
 
           {prizeBlock.kind === 'paid' ? (
             <View style={styles.prizeRow}>
-              <Ionicons name="trophy-outline" size={18} color={runit.neonCyan} />
+              <SafeIonicons name="trophy-outline" size={18} color={runit.neonCyan} />
               <Text style={styles.prizeText}>
                 Prize ${prizeBlock.prize} · Contest access ${prizeBlock.entry} each (Run It)
               </Text>

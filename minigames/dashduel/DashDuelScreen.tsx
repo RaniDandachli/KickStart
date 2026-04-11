@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
 import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
@@ -126,6 +127,20 @@ export default function DashDuelScreen({
 
   const lobbyStart = useCallback(() => setPhase('countdown'), []);
   const onCountdownDone = useCallback(() => setPhase('playing'), []);
+
+  /** Web: Space starts the same way you jump in-run — practice from menu, Ready from prize lobby. */
+  useWebGameKeyboard(Platform.OS === 'web' && (phase === 'home' || phase === 'lobby'), {
+    Space: (down) => {
+      if (!down) return;
+      if (phase === 'home') goPractice();
+      else lobbyStart();
+    },
+    ArrowUp: (down) => {
+      if (!down) return;
+      if (phase === 'home') goPractice();
+      else lobbyStart();
+    },
+  });
 
   const onRoundComplete = useCallback(
     (score: number, distance: number, durationMs: number, jumpCount: number) => {
@@ -270,6 +285,9 @@ export default function DashDuelScreen({
                 }}
               >
                 <AppButton title="Practice run (free)" onPress={goPractice} />
+                {Platform.OS === 'web' ? (
+                  <Text className="mt-2 text-center text-xs font-semibold text-slate-500">Space or ↑ — same as jump · starts practice</Text>
+                ) : null}
                 <AppButton
                   className="mt-3"
                   title={`Prize run vs AI · ${PRIZE_RUN_ENTRY_CREDITS} credits`}

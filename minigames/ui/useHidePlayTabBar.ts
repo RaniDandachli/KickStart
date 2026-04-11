@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useRef } from 'react';
 import { InteractionManager, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import {
   findBottomTabNavigator,
   getHiddenTabBarStyle,
@@ -25,6 +26,7 @@ function getTabsNavigator(navigation: NavigationProp<ParamListBase>): Navigation
 /** Hides bottom tab bar while a full-screen mini-game is active. Restores full safe-area padding on exit. */
 export function useHidePlayTabBar(): void {
   const navigation = useNavigation();
+  const webTopBar = useWebUsesTopTabBar();
   const insets = useSafeAreaInsets();
   const insetsRef = useRef<TabBarSafeInsets>({
     top: insets.top,
@@ -50,7 +52,7 @@ export function useHidePlayTabBar(): void {
       if (!t) return;
       const apply = () => {
         t.setOptions({
-          tabBarStyle: getRestoredTabBarStyle(insetsRef.current),
+          tabBarStyle: getRestoredTabBarStyle(insetsRef.current, webTopBar),
         });
       };
       // Defer one frame after work + orientation settles so bottom inset / layout match portrait (avoids floating tab bar).
@@ -62,7 +64,7 @@ export function useHidePlayTabBar(): void {
         requestAnimationFrame(apply);
       });
     };
-  }, [navigation]);
+  }, [navigation, webTopBar]);
 }
 
 /**
@@ -71,6 +73,7 @@ export function useHidePlayTabBar(): void {
  */
 export function useRestoreBottomTabBarOnFocus(): void {
   const navigation = useNavigation();
+  const webTopBar = useWebUsesTopTabBar();
   const insets = useSafeAreaInsets();
   const insetsRef = useRef<TabBarSafeInsets>({
     top: insets.top,
@@ -89,8 +92,8 @@ export function useRestoreBottomTabBarOnFocus(): void {
     useCallback(() => {
       const tabs = getTabsNavigator(navigation as NavigationProp<ParamListBase>);
       tabs?.setOptions({
-        tabBarStyle: getRestoredTabBarStyle(insetsRef.current),
+        tabBarStyle: getRestoredTabBarStyle(insetsRef.current, webTopBar),
       });
-    }, [navigation])
+    }, [navigation, webTopBar])
   );
 }

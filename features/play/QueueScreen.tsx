@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -464,7 +464,7 @@ export function QueueScreen({
         style={({ pressed }) => [styles.backRow, pressed && styles.backPressed]}
         hitSlop={12}
       >
-        <Ionicons name="chevron-back" size={24} color={arcade.gold} />
+        <SafeIonicons name="chevron-back" size={24} color={arcade.gold} />
         <Text style={styles.backText}>Arcade</Text>
       </Pressable>
       <Text className="mb-2 text-2xl font-black text-white">{title}</Text>

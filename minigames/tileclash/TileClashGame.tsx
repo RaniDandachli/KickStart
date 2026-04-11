@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -44,8 +44,6 @@ import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { H2hSkillContestBundle } from '@/types/match';
 
 const COLS = 4;
-const TILE_CLASH_STAGE_MAX = minigameStageMaxWidth(10000);
-const TILE_CLASH_DIALOG_MAX = minigameStageMaxWidth(360);
 /** Abstract vertical range (game logic). */
 const LANE_H = 200;
 const TILE_H = 22;
@@ -126,6 +124,8 @@ export default function TileClashGame({
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
   const { width: sw } = useWindowDimensions();
+  const stageMax = useMemo(() => minigameStageMaxWidth(10000), [sw]);
+  const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const insets = useSafeAreaInsets();
   const [boardSize, setBoardSize] = useState({ w: Math.max(200, sw - 16), h: 0 });
 
@@ -434,7 +434,7 @@ export default function TileClashGame({
         </View>
 
         <View
-          style={styles.boardOuter}
+          style={[styles.boardOuter, { maxWidth: stageMax }]}
           onLayout={(e) => {
             const { width, height } = e.nativeEvent.layout;
             if (width > 0 && height > 0) {
@@ -535,7 +535,7 @@ export default function TileClashGame({
 
         {phase === 'over' && dailyTournament && dailyPayload ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -558,7 +558,7 @@ export default function TileClashGame({
         ) : null}
         {phase === 'over' && h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -587,7 +587,7 @@ export default function TileClashGame({
         ) : null}
         {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
                 onMinigames={() => router.replace(ROUTE_MINIGAMES)}
                 onHome={() => router.replace(ROUTE_HOME)}
@@ -747,7 +747,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     minHeight: 200,
-    maxWidth: TILE_CLASH_STAGE_MAX,
     width: '100%',
     alignSelf: 'center',
     borderRadius: 4,
@@ -837,7 +836,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: TILE_CLASH_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,

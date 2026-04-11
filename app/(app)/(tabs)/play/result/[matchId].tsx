@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -277,7 +277,7 @@ export default function MatchResultScreen() {
 
         {won && prizeCentsForDisplay > 0 && !ENABLE_BACKEND ? (
           <View style={styles.walletBanner}>
-            <Ionicons name="wallet" size={22} color={runit.neonCyan} />
+            <SafeIonicons name="wallet" size={22} color={runit.neonCyan} />
             <View style={{ flex: 1 }}>
               <Text style={styles.walletTitle}>Cash wallet updated</Text>
               <Text style={styles.walletBody}>
@@ -289,7 +289,7 @@ export default function MatchResultScreen() {
 
         {won && prizeCentsForDisplay > 0 && ENABLE_BACKEND ? (
           <View style={styles.walletBanner}>
-            <Ionicons name="wallet" size={22} color={runit.neonCyan} />
+            <SafeIonicons name="wallet" size={22} color={runit.neonCyan} />
             <View style={{ flex: 1 }}>
               <Text style={styles.walletTitle}>Cash wallet</Text>
               <Text style={styles.walletBody}>
@@ -302,7 +302,7 @@ export default function MatchResultScreen() {
 
         {showLossCredits ? (
           <View style={styles.arcadeCreditsBanner}>
-            <Ionicons name="ribbon-outline" size={22} color="#fbbf24" />
+            <SafeIonicons name="ribbon-outline" size={22} color="#fbbf24" />
             <View style={{ flex: 1 }}>
               <Text style={styles.arcadeCreditsTitle}>Arcade Credits earned</Text>
               <Text style={styles.arcadeCreditsBody}>
@@ -318,7 +318,7 @@ export default function MatchResultScreen() {
 
         {isDraw ? (
           <View style={styles.drawBox}>
-            <Ionicons name="git-compare-outline" size={22} color={runit.neonCyan} />
+            <SafeIonicons name="git-compare-outline" size={22} color={runit.neonCyan} />
             <Text style={styles.drawTitle}>Same score — it&apos;s a draw</Text>
             <Text style={styles.drawBody}>
               {hasPrize

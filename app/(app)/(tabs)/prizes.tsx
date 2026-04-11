@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -214,13 +214,13 @@ export default function PrizesScreen() {
 
       <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/shipping-address')} style={styles.shipLink}>
         <View style={styles.iconLine}>
-          <Ionicons name="cube-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+          <SafeIonicons name="cube-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Shipping address for physical prizes →</Text>
         </View>
       </Pressable>
       <View style={styles.digitalLine}>
         <View style={styles.iconLine}>
-          <Ionicons name="mail-outline" size={15} color="rgba(203,213,225,0.88)" accessibilityIgnoresInvertColors />
+          <SafeIonicons name="mail-outline" size={15} color="rgba(203,213,225,0.88)" accessibilityIgnoresInvertColors />
           <Text style={styles.digitalLineText}>
             Digital gift cards & codes go to your login email
             {accountEmail ? `: ${accountEmail}` : ' (shown when signed in).'}
@@ -229,7 +229,7 @@ export default function PrizesScreen() {
       </View>
       <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')} style={styles.shipLink}>
         <View style={styles.iconLine}>
-          <Ionicons name="card-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+          <SafeIonicons name="card-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Buy credits & tickets (pricing) →</Text>
         </View>
       </Pressable>
@@ -278,7 +278,7 @@ export default function PrizesScreen() {
       {!ENABLE_BACKEND ? (
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
-            <Ionicons name="folder-open-outline" size={14} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+            <SafeIonicons name="folder-open-outline" size={14} color={runit.neonCyan} accessibilityIgnoresInvertColors />
             <Text style={styles.infoTitle}>CATALOG</Text>
           </View>
           <Text style={styles.infoBody}>
@@ -337,7 +337,7 @@ export default function PrizesScreen() {
                 ) : null}
                 <View style={styles.prizeRow}>
                   <View style={styles.prizeCostRow}>
-                    <Ionicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+                    <SafeIonicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
                     <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()}</Text>
                   </View>
                 </View>
@@ -384,7 +384,7 @@ export default function PrizesScreen() {
               </Text>
               <View style={styles.prizeRow}>
                 <View style={styles.prizeCostRow}>
-                  <Ionicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+                  <SafeIonicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
                   <Text style={styles.prizeCost}>3</Text>
                 </View>
               </View>
@@ -419,7 +419,7 @@ export default function PrizesScreen() {
 
       <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/play')} style={styles.earnLink}>
         <View style={styles.iconLine}>
-          <Ionicons name="flash-outline" size={17} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+          <SafeIonicons name="flash-outline" size={17} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.earnLinkText}>Earn more in Arcade →</Text>
         </View>
       </Pressable>

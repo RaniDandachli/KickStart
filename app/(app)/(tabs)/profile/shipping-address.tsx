@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { ShippingAddressForm } from '@/components/profile/ShippingAddressForm';
 import { AppButton } from '@/components/ui/AppButton';
@@ -46,7 +46,7 @@ export default function ShippingAddressScreen() {
     <Screen>
       <View style={styles.top}>
         <Pressable onPress={() => safeBack(router, ROUTES.profileTab)} hitSlop={12} style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color="#e2e8f0" />
+          <SafeIonicons name="chevron-back" size={26} color="#e2e8f0" />
         </Pressable>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>SHIPPING</Text>
         <View style={styles.backSpacer} />

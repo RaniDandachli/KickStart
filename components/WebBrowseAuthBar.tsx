@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { runit } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 
@@ -13,13 +14,14 @@ export function WebBrowseAuthBar() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const status = useAuthStore((s) => s.status);
+  const webTopTabs = useWebUsesTopTabBar();
 
   if (Platform.OS !== 'web' || status !== 'signedOut') {
     return null;
   }
 
-  /** Align with top tab bar row (see getAppTabBarStyle padding). */
-  const top = Math.max(insets.top, 10) + 12;
+  /** Desktop web: align with top tab strip. Narrow web: status bar only (bottom tabs match native). */
+  const top = webTopTabs ? Math.max(insets.top, 10) + 12 : insets.top + 8;
   const right = Math.max(insets.right, 12);
 
   return (

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -239,7 +239,7 @@ export default function StripeConnectScreen() {
       >
         <View style={styles.topBar}>
           <Pressable onPress={() => safeBack(router, ROUTES.profileTab)} style={styles.backBtn} accessibilityRole="button">
-            <Ionicons name="chevron-back" size={24} color={runit.neonCyan} />
+            <SafeIonicons name="chevron-back" size={24} color={runit.neonCyan} />
             <Text style={styles.backLbl}>Back</Text>
           </Pressable>
           <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowCyan]}>PAYOUTS</Text>
@@ -291,7 +291,7 @@ export default function StripeConnectScreen() {
           {status?.dashboard_url ? (
             <Pressable onPress={onOpenDashboard} style={styles.dashBtn}>
               <Text style={styles.dashTxt}>Open Stripe Express dashboard</Text>
-              <Ionicons name="open-outline" size={16} color={runit.neonCyan} />
+              <SafeIonicons name="open-outline" size={16} color={runit.neonCyan} />
             </Pressable>
           ) : null}
 
@@ -312,7 +312,7 @@ export default function StripeConnectScreen() {
 
             {statusStale ? (
               <View style={styles.callout}>
-                <Ionicons name="cloud-offline-outline" size={22} color="#93c5fd" />
+                <SafeIonicons name="cloud-offline-outline" size={22} color="#93c5fd" />
                 <Text style={styles.calloutTxt}>
                   Could not load your payout status from Stripe. Pull down to refresh, then try again.
                 </Text>
@@ -321,7 +321,7 @@ export default function StripeConnectScreen() {
 
             {!statusLoading && !withdrawReady && walletCents >= 100 ? (
               <View style={styles.calloutWarn}>
-                <Ionicons name="information-circle" size={22} color="#fbbf24" />
+                <SafeIonicons name="information-circle" size={22} color="#fbbf24" />
                 <Text style={styles.calloutTxt}>
                   {hasAccount
                     ? 'Payouts are not enabled yet — finish Stripe steps (bank or ID) before we can send cash. Tap Withdraw below for shortcuts.'

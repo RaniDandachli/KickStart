@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -59,7 +59,7 @@ export default function DailyFreeTournamentScreen() {
         onPress={() => router.back()}
         style={styles.backRow}
       >
-        <Ionicons name="chevron-back" size={22} color="#22d3ee" />
+        <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
         <Text style={styles.backTxt}>Events</Text>
       </Pressable>
 

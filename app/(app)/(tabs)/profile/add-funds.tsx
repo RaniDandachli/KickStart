@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -74,7 +74,7 @@ function WalletPaySheetButton({
       <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
         {pending ? <ActivityIndicator color="#fff" /> : (
           <>
-            <Ionicons name="card-outline" size={22} color="#fff" />
+            <SafeIonicons name="card-outline" size={22} color="#fff" />
             <Text style={styles.ctaTxt}>Pay in app</Text>
           </>
         )}
@@ -115,7 +115,7 @@ function CreditsPaySheetButton({
       <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
         {pending ? <ActivityIndicator color="#fff" /> : (
           <>
-            <Ionicons name="cart-outline" size={22} color="#fff" />
+            <SafeIonicons name="cart-outline" size={22} color="#fff" />
             <Text style={styles.ctaTxt}>{payLabel}</Text>
           </>
         )}
@@ -280,7 +280,7 @@ export default function AddFundsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={24} color={runit.neonCyan} />
+          <SafeIonicons name="chevron-back" size={24} color={runit.neonCyan} />
           <Text style={styles.backLbl}>{shopTab === 'wallet' && step === 'payment' ? 'Amount' : 'Back'}</Text>
         </Pressable>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowCyan]}>SHOP</Text>
@@ -327,7 +327,7 @@ export default function AddFundsScreen() {
 
         {backendPending ? (
           <View style={styles.banner}>
-            <Ionicons name="information-circle" size={20} color="#FDE047" />
+            <SafeIonicons name="information-circle" size={20} color="#FDE047" />
             <Text style={styles.bannerTxt}>
               Stripe on the server is separate from this app build: add EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED=true to your project
               root .env (exactly true, no spaces), then stop Expo and run npx expo start --clear. Supabase secrets alone do not enable
@@ -338,7 +338,7 @@ export default function AddFundsScreen() {
 
         {stripeReady && Platform.OS !== 'web' && !stripePk ? (
           <View style={styles.banner}>
-            <Ionicons name="information-circle" size={20} color="#93c5fd" />
+            <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
             <Text style={styles.bannerTxt}>
               Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY (pk_test_… or pk_live_…) to .env for in-app card entry. Without it, this screen uses
               Stripe in the browser instead.
@@ -362,7 +362,7 @@ export default function AddFundsScreen() {
                 style={({ pressed }) => [styles.payoutGateCta, pressed && { opacity: 0.9 }]}
               >
                 <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.payoutGateCtaGrad}>
-                  <Ionicons name="wallet-outline" size={20} color="#fff" />
+                  <SafeIonicons name="wallet-outline" size={20} color="#fff" />
                   <Text style={styles.payoutGateCtaTxt}>Set up payouts</Text>
                 </LinearGradient>
               </Pressable>
@@ -411,7 +411,7 @@ export default function AddFundsScreen() {
                 <Pressable onPress={() => void onContinueToPayment()} style={({ pressed }) => [styles.ctaOuter, pressed && { opacity: 0.92 }]}>
                   <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaGrad}>
                     <Text style={styles.ctaTxt}>Continue to payment</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    <SafeIonicons name="arrow-forward" size={20} color="#fff" />
                   </LinearGradient>
                 </Pressable>
               </>
@@ -445,7 +445,7 @@ export default function AddFundsScreen() {
                         <ActivityIndicator color="#fff" />
                       ) : (
                         <>
-                          <Ionicons name="card-outline" size={22} color="#fff" />
+                          <SafeIonicons name="card-outline" size={22} color="#fff" />
                           <Text style={styles.ctaTxt}>{stripeReady ? 'Pay with Stripe' : 'Add cash (device)'}</Text>
                         </>
                       )}
@@ -478,7 +478,7 @@ export default function AddFundsScreen() {
                     <View style={styles.packTopRow}>
                       <Text style={[styles.packLabel, active && styles.packLabelOn]}>{p.label}</Text>
                       {active ? (
-                        <Ionicons name="checkmark-circle" size={22} color={runit.neonCyan} />
+                        <SafeIonicons name="checkmark-circle" size={22} color={runit.neonCyan} />
                       ) : (
                         <View style={styles.packCheckPlaceholder} />
                       )}
@@ -517,7 +517,7 @@ export default function AddFundsScreen() {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <Ionicons name="cart-outline" size={22} color="#fff" />
+                      <SafeIonicons name="cart-outline" size={22} color="#fff" />
                       <Text style={styles.ctaTxt}>
                         {stripeReady ? `Pay ${formatUsdFromCents(selectedPack.priceCents)}` : 'Add credits (device)'}
                       </Text>
@@ -531,9 +531,9 @@ export default function AddFundsScreen() {
 
         {ENABLE_BACKEND && stripeReady ? (
           <Pressable onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')} style={styles.linkRow}>
-            <Ionicons name="link-outline" size={18} color={runit.neonCyan} />
+            <SafeIonicons name="link-outline" size={18} color={runit.neonCyan} />
             <Text style={styles.linkTxt}>Creator payouts — Stripe Connect</Text>
-            <Ionicons name="chevron-forward" size={18} color="rgba(148,163,184,0.8)" />
+            <SafeIonicons name="chevron-forward" size={18} color="rgba(148,163,184,0.8)" />
           </Pressable>
         ) : null}
 

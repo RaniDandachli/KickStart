@@ -72,6 +72,8 @@ type Props = {
   onWalletPress?: () => void;
   onEntryTierPress: (entry: number, prize: number) => void;
   onQuickMatch: () => void;
+  /** Opens head-to-head explainer (Home). */
+  onHowItWorksPress?: () => void;
 };
 
 export function HomePlayHero({
@@ -84,6 +86,7 @@ export function HomePlayHero({
   onWalletPress,
   onEntryTierPress,
   onQuickMatch,
+  onHowItWorksPress,
 }: Props) {
   const [winnerIdx, setWinnerIdx] = useState(0);
   const tickOpacity = useRef(new Animated.Value(1)).current;
@@ -253,6 +256,17 @@ export function HomePlayHero({
         </LinearGradient>
       </Pressable>
       <Text style={styles.heroTag}>Find a match in seconds</Text>
+      {onHowItWorksPress ? (
+        <Pressable
+          onPress={onHowItWorksPress}
+          accessibilityRole="button"
+          accessibilityLabel="How head-to-head works"
+          style={({ pressed }) => [styles.howItWorksRow, pressed && { opacity: 0.88 }]}
+        >
+          <SafeIonicons name="information-circle-outline" size={18} color="rgba(0,240,255,0.95)" />
+          <Text style={styles.howItWorksText}>How head-to-head works</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.statsPanel}>
         <View style={styles.statsRow2}>
@@ -516,10 +530,25 @@ const styles = StyleSheet.create({
     color: '#FDE047',
     fontSize: 14,
     fontWeight: '800',
-    marginBottom: 16,
+    marginBottom: 10,
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  howItWorksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+    paddingVertical: 4,
+  },
+  howItWorksText: {
+    color: 'rgba(0,240,255,0.95)',
+    fontSize: 14,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+    textDecorationColor: 'rgba(0,240,255,0.45)',
   },
   statsPanel: {
     borderRadius: 12,

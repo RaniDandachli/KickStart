@@ -1,6 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 
@@ -37,7 +37,7 @@ export function ArcadePlayModeModal({
             <LinearGradient colors={[runit.neonCyan, 'rgba(0,240,255,0.35)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardBorder, runitGlowPinkSoft]}>
               <View style={styles.cardInner}>
                 <View style={styles.rowTop}>
-                  <Ionicons name="school-outline" size={26} color={runit.neonCyan} />
+                  <SafeIonicons name="school-outline" size={26} color={runit.neonCyan} />
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>Practice run</Text>
                 </View>
                 <Text style={styles.cardBody}>Free · no prize credits spent — learn the game.</Text>
@@ -49,7 +49,7 @@ export function ArcadePlayModeModal({
             <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardBorder, runitGlowPinkSoft]}>
               <View style={styles.cardInner}>
                 <View style={styles.rowTop}>
-                  <Ionicons name="diamond-outline" size={26} color="#FDE047" />
+                  <SafeIonicons name="diamond-outline" size={26} color="#FDE047" />
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>Play for prizes</Text>
                 </View>
                 <Text style={styles.cardBody}>

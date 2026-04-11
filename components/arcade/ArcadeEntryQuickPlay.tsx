@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
@@ -40,7 +40,7 @@ export function ArcadeEntryQuickPlay() {
           >
             <View style={styles.cardLeft}>
               <View style={styles.badge}>
-                <Ionicons name={tier.icon} size={18} color="#FFFBEB" />
+                <SafeIonicons name={tier.icon} size={18} color="#FFFBEB" />
               </View>
               <View>
                 <Text style={styles.entryLine}>
