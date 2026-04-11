@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { arcade } from '@/lib/arcadeTheme';
@@ -197,7 +197,7 @@ export function HomePlayHero({
       style={styles.walletPillOuter}
     >
       <View style={styles.walletPillInner}>
-        <Ionicons name="wallet-outline" size={14} color="#FDE047" />
+        <SafeIonicons name="wallet-outline" size={14} color="#FDE047" />
         <Text style={styles.walletPillCompact}>
           Wallet <Text style={styles.walletPillVal}>{walletDisplay}</Text>
         </Text>
@@ -210,7 +210,7 @@ export function HomePlayHero({
       <View style={styles.topBand}>
         <Animated.View style={[styles.winnerTicker, { opacity: tickOpacity }]} accessibilityLiveRegion="polite">
           <View style={styles.winnerTickerRow}>
-            <Ionicons name="trophy" size={14} color="#fbbf24" />
+            <SafeIonicons name="trophy" size={14} color="#fbbf24" />
             <Text style={styles.winnerTickerText} numberOfLines={1}>
               {winnerLine}
             </Text>
@@ -248,7 +248,7 @@ export function HomePlayHero({
         style={({ pressed }) => [styles.quickOuter, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
       >
         <LinearGradient colors={['#0369a1', '#0ea5e9', '#38bdf8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
-          <Ionicons name="flash" size={26} color="#FFFBEB" />
+          <SafeIonicons name="flash" size={26} color="#FFFBEB" />
           <Text style={styles.quickTitle}>QUICK MATCH</Text>
         </LinearGradient>
       </Pressable>
@@ -258,7 +258,7 @@ export function HomePlayHero({
         <View style={styles.statsRow2}>
           <View style={styles.statCell}>
             <View style={styles.statRowInline}>
-              <Ionicons name="people" size={13} color="#4ade80" />
+              <SafeIonicons name="people" size={13} color="#4ade80" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
                 <Text style={styles.statNum}>{formatOnlineShort(displayOnline)}</Text> online
               </Text>
@@ -266,7 +266,7 @@ export function HomePlayHero({
           </View>
           <View style={styles.statCell}>
             <View style={styles.statRowInline}>
-              <Ionicons name="cash-outline" size={13} color="#FDE047" />
+              <SafeIonicons name="cash-outline" size={13} color="#FDE047" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
                 <Text style={styles.statNum}>{displayRewardsLabel}</Text> rewards · {rewardsWindowLabel}
               </Text>
@@ -276,7 +276,7 @@ export function HomePlayHero({
         <View style={styles.statsRow2}>
           <View style={styles.statCell}>
             <View style={styles.statRowInline}>
-              <Ionicons name="flame" size={13} color="#fb923c" />
+              <SafeIonicons name="flame" size={13} color="#fb923c" />
               <Text style={styles.statTxtSm} numberOfLines={1}>
                 <Text style={styles.statNum}>{displayQueued}</Text> {queuedWord}
               </Text>
@@ -284,7 +284,7 @@ export function HomePlayHero({
           </View>
           <View style={styles.statCell}>
             <View style={styles.statRowInline}>
-              <Ionicons name="flash" size={13} color={runit.neonCyan} />
+              <SafeIonicons name="flash" size={13} color={runit.neonCyan} />
               <Text style={styles.statTxtSm} numberOfLines={1}>
                 <Text style={styles.statNum}>{displayLive}</Text> live
               </Text>
@@ -297,9 +297,12 @@ export function HomePlayHero({
       <View style={styles.tiersWrap}>
         <ScrollView
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={Platform.OS === 'web'}
           contentContainerStyle={styles.tiersScroll}
           style={styles.tiersScrollView}
+          {...(Platform.OS === 'web'
+            ? { snapToInterval: 158, decelerationRate: 'fast' as const }
+            : {})}
         >
           {MATCH_ENTRY_TIERS.map((tier, i) => {
             const v = TIER_PANEL_STYLES[i] ?? TIER_PANEL_STYLES[0];
@@ -321,7 +324,7 @@ export function HomePlayHero({
                   style={[styles.tierInner, { shadowColor: v.shadow }]}
                 >
                   <View style={styles.tierIconCircle}>
-                    <Ionicons name={tier.icon} size={22} color={v.iconColor} />
+                    <SafeIonicons name={tier.icon} size={22} color={v.iconColor} />
                   </View>
                   <Text style={styles.tierShort}>{tier.shortLabel.toUpperCase()}</Text>
 
@@ -559,7 +562,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tierOuter: {
-    width: 118,
+    width: Platform.OS === 'web' ? 148 : 118,
     borderRadius: 14,
     overflow: 'visible',
   },

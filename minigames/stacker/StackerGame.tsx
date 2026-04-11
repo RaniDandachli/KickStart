@@ -34,6 +34,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
@@ -74,6 +75,9 @@ function tierColor(w: number): string {
   if (w >= 2) return '#E879F9';
   return '#FACC15';
 }
+
+const STACKER_STAGE_MAX = minigameStageMaxWidth(10000);
+const STACKER_DIALOG_MAX = minigameStageMaxWidth(360);
 
 type GameRef = {
   placed: Seg[];
@@ -503,6 +507,8 @@ const styles = StyleSheet.create({
   boardWrap: {
     flex: 1,
     width: '100%',
+    maxWidth: STACKER_STAGE_MAX,
+    alignSelf: 'center',
     minHeight: 0,
     borderRadius: 0,
     borderWidth: 0,
@@ -615,7 +621,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: STACKER_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,

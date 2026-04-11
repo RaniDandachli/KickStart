@@ -34,6 +34,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
@@ -49,6 +50,7 @@ import {
 } from './NeonPoolEngine';
 
 const RAIL = '#2d1810';
+const NEON_POOL_DIALOG_MAX = minigameStageMaxWidth(360);
 
 function ballColor(id: number): string {
   if (id === 0) return '#f8fafc';
@@ -114,7 +116,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
     const chromeH = 190;
     const shortSide = Math.min(sw, sh);
     const longSide = Math.max(sw, sh);
-    const maxW = Math.min(longSide - 32, 680);
+    const maxW = Math.min(longSide - 32, minigameStageMaxWidth(680));
     const maxH = shortSide - chromeH;
     const aspect = P.tableW / P.tableH;
     const wFromHeight = maxH * aspect;
@@ -566,7 +568,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: NEON_POOL_DIALOG_MAX,
     padding: 22,
     borderRadius: 16,
     borderWidth: 1,

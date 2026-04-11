@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect, useRef, useState } from 'react';
@@ -142,35 +142,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <Ionicons name="home" color={color} size={ICON} />,
+          tabBarIcon: ({ color }) => <SafeIonicons name="home" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="tournaments"
         options={{
           title: 'Events',
-          tabBarIcon: ({ color }) => <Ionicons name="trophy" color={color} size={ICON} />,
+          tabBarIcon: ({ color }) => <SafeIonicons name="trophy" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
           title: 'Arcade',
-          tabBarIcon: ({ color }) => <Ionicons name="game-controller" color={color} size={ICON} />,
+          tabBarIcon: ({ color }) => <SafeIonicons name="game-controller" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="prizes"
         options={{
           title: 'Prizes',
-          tabBarIcon: ({ color }) => <Ionicons name="gift" color={color} size={ICON} />,
+          tabBarIcon: ({ color }) => <SafeIonicons name="gift" color={color} size={ICON} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'You',
-          tabBarIcon: ({ color }) => <Ionicons name="person" color={color} size={ICON} />,
+          tabBarIcon: ({ color }) => <SafeIonicons name="person" color={color} size={ICON} />,
         }}
       />
     </Tabs>

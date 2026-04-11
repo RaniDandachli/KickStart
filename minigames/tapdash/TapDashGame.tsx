@@ -27,6 +27,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -67,6 +68,9 @@ type Gate = {
   scored: boolean;
   scrollMul: number;
 };
+
+const TAP_DASH_LANE_MAX = minigameStageMaxWidth(440);
+const TAP_DASH_DIALOG_MAX = minigameStageMaxWidth(360);
 
 type PassBurst = { id: number; x: number; y: number; bornMs: number };
 
@@ -416,12 +420,17 @@ export default function TapDashGame({
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
-  const [laneSize, setLaneSize] = useState({ w: sw - 16, h: Math.max(320, Math.min(sh * 0.72, 620)) });
+  const [laneSize, setLaneSize] = useState(() => ({
+    w: Math.min(Math.max(200, sw - 16), TAP_DASH_LANE_MAX),
+    h: Math.max(320, Math.min(sh * 0.72, 620)),
+  }));
 
   const laneW = laneSize.w;
   const laneH = laneSize.h;
-  const scale = laneH / LANE_H;
-  const playPx = laneH;
+  const scale =
+    laneW > 0 && laneH > 0 ? Math.min(laneW / LANE_W, laneH / LANE_H) : laneH / LANE_H;
+  const gameW = LANE_W * scale;
+  const gameH = LANE_H * scale;
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
   const [, setUiTick] = useState(0);
@@ -722,17 +731,19 @@ export default function TapDashGame({
               if (width > 0 && height > 0) setLaneSize({ w: width, h: height });
             }}
           >
-            <LinearGradient
-              colors={['#070B14', '#0B1220', '#020617']}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <ParticleField seed={42} />
-            <GridLayer playW={laneW} playH={playPx} scrollPx={scrollPx} />
+            <View style={styles.laneCenter}>
+              <View style={[styles.laneStage, { width: gameW, height: gameH }]}>
+                <LinearGradient
+                  colors={['#070B14', '#0B1220', '#020617']}
+                  locations={[0, 0.45, 1]}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <ParticleField seed={42} />
+                <GridLayer playW={gameW} playH={gameH} scrollPx={scrollPx} />
 
-            <View style={[styles.playSlice, { height: playPx }]}>
+                <View style={[styles.playSlice, { height: gameH, width: gameW }]}>
               {m.gates.map((g) => {
                 const px = g.x * scale;
                 const pw = GATE_W * scale;
@@ -740,7 +751,7 @@ export default function TapDashGame({
                 const g1 = (g.gapY + g.gapHalf) * scale;
                 return (
                   <View key={g.id} style={StyleSheet.absoluteFill} pointerEvents="none">
-                    <NeonGateColumn px={px} pw={pw} g0={g0} g1={g1} playH={playPx} tint={tintAt(g.id)} />
+                    <NeonGateColumn px={px} pw={pw} g0={g0} g1={g1} playH={gameH} tint={tintAt(g.id)} />
                   </View>
                 );
               })}
@@ -782,13 +793,15 @@ export default function TapDashGame({
               </View>
             </View>
 
-            <LinearGradient
-              colors={['rgba(34,211,238,0.12)', 'transparent', 'rgba(167,139,250,0.1)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[StyleSheet.absoluteFill, styles.vignette]}
-              pointerEvents="none"
-            />
+                <LinearGradient
+                  colors={['rgba(34,211,238,0.12)', 'transparent', 'rgba(167,139,250,0.1)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, styles.vignette]}
+                  pointerEvents="none"
+                />
+              </View>
+            </View>
           </View>
 
           {phase === 'ready' ? (
@@ -1018,7 +1031,16 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     minHeight: 280,
-    maxWidth: 440,
+    maxWidth: TAP_DASH_LANE_MAX,
+    alignSelf: 'center',
+  },
+  laneCenter: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  laneStage: {
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1147,7 +1169,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: TAP_DASH_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,

@@ -34,6 +34,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
 import { useAuthStore } from '@/store/authStore';
@@ -43,6 +44,8 @@ import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { H2hSkillContestBundle } from '@/types/match';
 
 const COLS = 4;
+const TILE_CLASH_STAGE_MAX = minigameStageMaxWidth(10000);
+const TILE_CLASH_DIALOG_MAX = minigameStageMaxWidth(360);
 /** Abstract vertical range (game logic). */
 const LANE_H = 200;
 const TILE_H = 22;
@@ -744,6 +747,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     minHeight: 200,
+    maxWidth: TILE_CLASH_STAGE_MAX,
+    width: '100%',
+    alignSelf: 'center',
     borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 1,
@@ -831,7 +837,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: TILE_CLASH_DIALOG_MAX,
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,

@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+import { HomeH2hCarouselWeb } from '@/components/arcade/HomeH2hCarouselWeb';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
@@ -211,88 +212,111 @@ export default function HomeScreen() {
             <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
           </Text>
 
-          {h2hRows.map((row) => {
-            const [c1, c2] = h2hGradients(row.gameKey);
-            const hostWaiting = row.activeWaiter != null;
-            const entryLbl = row.activeWaiter
-              ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100))
-              : '—';
-            const prizeLbl = row.activeWaiter
-              ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100))
-              : '—';
-            return (
-              <Pressable
-                key={row.gameKey}
-                style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
-                onPress={() => {
-                  if (row.activeWaiter) {
-                    setH2hGate({
-                      path: row.route,
-                      title: row.title,
-                      entryUsd: row.activeWaiter.entryUsd,
-                      prizeUsd: row.activeWaiter.prizeUsd,
-                      gameKey: row.gameKey,
-                      lobbyKind: 'host_waiting',
-                      waiterId: row.activeWaiter.id,
-                    });
-                  } else {
-                    setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
-                  }
-                }}
-              >
-                <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
-                  <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
-                    <View style={styles.gameRow}>
-                      <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
-                      <View style={styles.gameTextCol}>
-                        <View style={styles.h2hTitleRow}>
-                          <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
-                            {row.title}
-                          </Text>
-                          <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
-                            <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
-                              {hostWaiting ? 'IN QUEUE' : 'OPEN'}
+          {Platform.OS === 'web' ? (
+            <HomeH2hCarouselWeb
+              rows={h2hRows}
+              h2hIconFor={h2hIconFor}
+              h2hGradients={h2hGradients}
+              onRowPress={(row) => {
+                if (row.activeWaiter) {
+                  setH2hGate({
+                    path: row.route,
+                    title: row.title,
+                    entryUsd: row.activeWaiter.entryUsd,
+                    prizeUsd: row.activeWaiter.prizeUsd,
+                    gameKey: row.gameKey,
+                    lobbyKind: 'host_waiting',
+                    waiterId: row.activeWaiter.id,
+                  });
+                } else {
+                  setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
+                }
+              }}
+            />
+          ) : (
+            h2hRows.map((row) => {
+              const [c1, c2] = h2hGradients(row.gameKey);
+              const hostWaiting = row.activeWaiter != null;
+              const entryLbl = row.activeWaiter
+                ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100))
+                : '—';
+              const prizeLbl = row.activeWaiter
+                ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100))
+                : '—';
+              return (
+                <Pressable
+                  key={row.gameKey}
+                  style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
+                  onPress={() => {
+                    if (row.activeWaiter) {
+                      setH2hGate({
+                        path: row.route,
+                        title: row.title,
+                        entryUsd: row.activeWaiter.entryUsd,
+                        prizeUsd: row.activeWaiter.prizeUsd,
+                        gameKey: row.gameKey,
+                        lobbyKind: 'host_waiting',
+                        waiterId: row.activeWaiter.id,
+                      });
+                    } else {
+                      setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
+                    }
+                  }}
+                >
+                  <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
+                    <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
+                      <View style={styles.gameRow}>
+                        <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
+                        <View style={styles.gameTextCol}>
+                          <View style={styles.h2hTitleRow}>
+                            <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
+                              {row.title}
                             </Text>
-                          </View>
-                        </View>
-                        {hostWaiting && row.activeWaiter ? (
-                          <>
-                            <Text style={styles.hostLine} numberOfLines={2}>
-                              <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
-                            </Text>
-                            {row.queueTotal > 1 ? (
-                              <Text style={styles.queueRotate}>
-                                Showing {row.rotateIndex} of {row.queueTotal} in queue
+                            <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
+                              <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
+                                {hostWaiting ? 'IN QUEUE' : 'OPEN'}
                               </Text>
-                            ) : null}
-                            <Text style={styles.tierTag} numberOfLines={1}>
-                              {row.activeWaiter.tierShortLabel} tier
-                            </Text>
-                            <Text style={styles.gameEntry}>
-                              Entry {entryLbl} · Listed reward {prizeLbl}
-                            </Text>
-                          </>
-                        ) : (
-                          <>
-                            <Text style={styles.hostLine} numberOfLines={2}>
-                              No open searches right now — tap to pick a contest tier and start matchmaking.
-                            </Text>
-                            <Text style={styles.tierTag} numberOfLines={1}>
-                              Choose tier on next step
-                            </Text>
-                            <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
-                          </>
-                        )}
+                            </View>
+                          </View>
+                          {hostWaiting && row.activeWaiter ? (
+                            <>
+                              <Text style={styles.hostLine} numberOfLines={2}>
+                                <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
+                              </Text>
+                              {row.queueTotal > 1 ? (
+                                <Text style={styles.queueRotate}>
+                                  Showing {row.rotateIndex} of {row.queueTotal} in queue
+                                </Text>
+                              ) : null}
+                              <Text style={styles.tierTag} numberOfLines={1}>
+                                {row.activeWaiter.tierShortLabel} tier
+                              </Text>
+                              <Text style={styles.gameEntry}>
+                                Entry {entryLbl} · Listed reward {prizeLbl}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={styles.hostLine} numberOfLines={2}>
+                                No open searches right now — tap to pick a contest tier and start matchmaking.
+                              </Text>
+                              <Text style={styles.tierTag} numberOfLines={1}>
+                                Choose tier on next step
+                              </Text>
+                              <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
+                            </>
+                          )}
+                        </View>
+                        <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
+                          <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
+                        </LinearGradient>
                       </View>
-                      <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
-                        <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
-                      </LinearGradient>
-                    </View>
+                    </LinearGradient>
                   </LinearGradient>
-                </LinearGradient>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })
+          )}
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
@@ -326,7 +350,7 @@ export default function HomeScreen() {
             >
               <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
                 <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                  <Ionicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
+                  <SafeIonicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
                 </View>
                 <View style={styles.tourneyMid}>
                   {ENABLE_DAILY_FREE_TOURNAMENT ? (

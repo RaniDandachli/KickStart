@@ -36,6 +36,7 @@ import {
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -59,10 +60,13 @@ function ticketsFromTurboScore(score: number) {
   return Math.floor(score / TURBO_POINTS_PER_TICKET);
 }
 
+const TURBO_DIALOG_MAX = minigameStageMaxWidth(360);
+
 // ── Scale ─────────────────────────────────────
 
 function useArenaScale(sw: number) {
-  const maxW = Math.min(sw - 16, 680);
+  const cap = minigameStageMaxWidth(680);
+  const maxW = Math.min(sw - 16, cap);
   const scale = maxW / TURBO.worldW;
   return { scale, arenaW: TURBO.worldW * scale, arenaH: TURBO.worldH * scale };
 }
@@ -856,7 +860,7 @@ const styles = StyleSheet.create({
     padding: 24, zIndex: 50,
   },
   card: {
-    width: '100%', maxWidth: 360,
+    width: '100%', maxWidth: TURBO_DIALOG_MAX,
     padding: 20, borderRadius: 16,
     borderWidth: 1, borderColor: 'rgba(0,255,255,0.35)',
     backgroundColor: 'rgba(10,15,28,0.98)',

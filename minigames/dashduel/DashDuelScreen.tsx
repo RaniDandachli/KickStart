@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
 import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
 import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';
@@ -249,7 +250,9 @@ export default function DashDuelScreen({
                 gap: isLandscapeLayout ? 32 : 0,
               }}
             >
-              <View style={{ flex: isLandscapeLayout ? 1 : undefined, maxWidth: 420, width: '100%' }}>
+              <View
+                style={{ flex: isLandscapeLayout ? 1 : undefined, maxWidth: minigameStageMaxWidth(420), width: '100%' }}
+              >
                 <Text className="mb-2 text-center text-3xl font-black text-cyan-300">Dash Duel</Text>
                 <Text className="mb-2 text-center text-sm font-semibold text-slate-400">
                   Neon runner · tap to jump · procedural course
@@ -259,7 +262,13 @@ export default function DashDuelScreen({
                   while holding jump for a boost.
                 </Text>
               </View>
-              <View style={{ flex: isLandscapeLayout ? 0.9 : undefined, width: '100%', maxWidth: 360 }}>
+              <View
+                style={{
+                  flex: isLandscapeLayout ? 0.9 : undefined,
+                  width: '100%',
+                  maxWidth: minigameStageMaxWidth(360),
+                }}
+              >
                 <AppButton title="Practice run (free)" onPress={goPractice} />
                 <AppButton
                   className="mt-3"
