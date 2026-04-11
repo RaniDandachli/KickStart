@@ -20,6 +20,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  MINIGAME_HUD_MS_MOTION,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import {
@@ -463,6 +468,7 @@ export default function NeonPoolScreen() {
   
     const stateRef = useRef<EightBallState>(createEightBallState());
     const [, setTick] = useState(0);
+    const lastHudEmitRef = useRef(0);
     const bump = useCallback(() => setTick((t) => t + 1), []);
   
     // Aiming gesture state
@@ -504,7 +510,9 @@ export default function NeonPoolScreen() {
             Animated.timing(flashAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
           ]).start();
         }
-        bump();
+        if (hitGameOver || shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) {
+          bump();
+        }
       },
       [bump, flashAnim],
     );
@@ -516,6 +524,7 @@ export default function NeonPoolScreen() {
       setLocalAngle(Math.PI);
       setLocalPower(0.5);
       setLocalSpin(0);
+      resetMinigameHudClock(lastHudEmitRef);
       setPhase('playing');
       bump();
     }, [bump]);

@@ -16,10 +16,10 @@ export const BALL_RUN = {
   laneShiftDuration: 0.085,
 
   /** Starting and top forward speed (units/s along −Z). Actual speed eases exponentially toward max. */
-  baseSpeed: 24,
-  maxSpeed: 60,
-  /** ~63% of max speed near this many seconds (smaller = hits top speed sooner). */
-  speedRampTimeConstantSec: 15,
+  baseSpeed: 20,
+  maxSpeed: 56,
+  /** ~63% of max speed near this many seconds (larger = longer “learnable” early game). */
+  speedRampTimeConstantSec: 22,
 
   /** @deprecated Engine uses exponential ramp; kept for AI / tools reading “ramp rate”. */
   speedRampPerSec: 0.2,
@@ -52,6 +52,10 @@ export const BALL_RUN = {
   startGapBetweenObstacles: 2,
   minGapAtMaxSpeed: 1,
 
-  scorePerSec: 10,
-  scorePerDodge: 15,
+  scorePerSec: 12,
+  scorePerDodge: 18,
+  /** Small reward for clearing a “empty” runway between hazards. */
+  scorePerBreezySection: 4,
+  /** dodgeScore = scorePerDodge × (1 + min(streak, 15) × streakMultiplierStep); caps implicitly by streak cap. */
+  streakMultiplierStep: 0.085,
 } as const;

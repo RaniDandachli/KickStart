@@ -48,6 +48,13 @@ export type ProfileRow = {
   prize_credits: number;
   /** UTC YYYY-MM-DD when `claim_daily_prize_credits` last ran; null on legacy rows. */
   last_daily_claim_ymd: string | null;
+  expo_push_token: string | null;
+  expo_push_token_updated_at: string | null;
+  push_notify_match_invites: boolean;
+  push_notify_tournament_of_day: boolean;
+  push_notify_daily_credits: boolean;
+  last_daily_credits_push_sent_ymd: string | null;
+  last_tournament_of_day_push_sent_ymd: string | null;
   /** Prize catalog progress currency (`user_wallet.ticket_balance` equivalent); separate from Arcade Credits. */
   redeem_tickets: number;
   /** JSON object — see `ShippingAddress` in app code. */

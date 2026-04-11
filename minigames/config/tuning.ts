@@ -55,7 +55,8 @@ export const TILE_CLASH = {
   roundMs: 26_000,
 };
 
-/** Dash Duel — endless runner (see `minigames/dashduel/constants.ts` for physics). */
+/** Dash Duel — Neon runner physics in `minigames/dashduel/constants.ts` (`NR`, `GROUND_Y`). */
 export const DASH_DUEL = {
-  roundMs: 90_000,
+  /** Legacy UI hint; engine uses `NR.ROUND_MS` (0 = endless). */
+  roundMs: 0,
 };

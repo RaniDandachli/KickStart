@@ -49,6 +49,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_PRIVACY_URL: optionalUrlFromEnv,
   EXPO_PUBLIC_SUPPORT_CONTACT: optionalSupportContactFromEnv,
   EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: blockedSkillContestRegionsFromEnv,
+  /** Expo project UUID for `getExpoPushTokenAsync` (Dashboard → Project settings, or app.json `extra.eas.projectId`). */
+  EXPO_PUBLIC_EXPO_PROJECT_ID: z.string().optional().default(''),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -65,7 +67,20 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_PRIVACY_URL: process.env.EXPO_PUBLIC_PRIVACY_URL,
   EXPO_PUBLIC_SUPPORT_CONTACT: process.env.EXPO_PUBLIC_SUPPORT_CONTACT,
   EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: process.env.EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES,
+  EXPO_PUBLIC_EXPO_PROJECT_ID: process.env.EXPO_PUBLIC_EXPO_PROJECT_ID,
 });
+
+/**
+ * True when `.env` has real Supabase project values (not template placeholders).
+ * Use to warn in dev if `EXPO_PUBLIC_ENABLE_BACKEND=true` but keys were not filled in.
+ */
+export function isSupabaseLikelyConfigured(): boolean {
+  const u = env.EXPO_PUBLIC_SUPABASE_URL;
+  const k = env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (u.includes('placeholder.supabase.co') || u.includes('YOUR_PROJECT')) return false;
+  if (k === 'placeholder-anon-key' || k.includes('your_anon')) return false;
+  return k.length >= 32;
+}
 
 /** `mailto:` or external https URL for in-app “Support”. */
 export function supportContactHref(): string | null {

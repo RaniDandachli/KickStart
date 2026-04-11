@@ -21,6 +21,7 @@ import {
   TileClashGameIcon,
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
+import { BackendModeBanner } from '@/components/BackendModeBanner';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -61,6 +62,7 @@ export default function PlayHubScreen() {
   return (
     <View style={styles.root}>
       <ArcadeFloor>
+        <BackendModeBanner />
         <View style={styles.brandBlock}>
           <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RunitArcade</Text>
           <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>

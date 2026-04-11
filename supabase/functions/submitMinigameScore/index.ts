@@ -5,13 +5,68 @@ import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 
 const TAP_DASH_SPAWN_MS = 1500;
 
+/** Mirrors `lib/ticketPayouts.ts` — server-authoritative for prize runs. */
+const TAP_DASH_POINTS_PER_TICKET = 1;
+const TILE_CLASH_POINTS_PER_TICKET = 50;
+const BALL_RUN_POINTS_PER_TICKET = 25;
+const NEON_POOL_POINTS_PER_TICKET = 200;
+const DASH_DUEL_POINTS_PER_TICKET = 120;
+const TURBO_ARENA_POINTS_PER_TICKET = 3;
+const STACKER_JACKPOT_TICKETS = 10_000;
+/** Matches `minigames/stacker/stackerConstants.ts` STACKER_WIN_ROWS */
+const STACKER_WIN_ROWS = 26;
+const DEFAULT_PRIZE_RUN_ENTRY_CREDITS = 10;
+const STACKER_PRIZE_RUN_ENTRY_CREDITS = 20;
+
+function prizeRunEntryAndTickets(gameType: string, score: number): { entry: number; tickets: number } {
+  switch (gameType) {
+    case 'tap_dash':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / TAP_DASH_POINTS_PER_TICKET)),
+      };
+    case 'tile_clash':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / TILE_CLASH_POINTS_PER_TICKET)),
+      };
+    case 'ball_run':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / BALL_RUN_POINTS_PER_TICKET)),
+      };
+    case 'neon_pool':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / NEON_POOL_POINTS_PER_TICKET)),
+      };
+    case 'stacker':
+      return {
+        entry: STACKER_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: score >= STACKER_WIN_ROWS ? STACKER_JACKPOT_TICKETS : 0,
+      };
+    case 'dash_duel':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / DASH_DUEL_POINTS_PER_TICKET)),
+      };
+    case 'turbo_arena':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / TURBO_ARENA_POINTS_PER_TICKET)),
+      };
+    default:
+      return { entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS, tickets: 0 };
+  }
+}
+
 const Body = z.discriminatedUnion('game_type', [
   z.object({
     game_type: z.literal('tap_dash'),
     score: z.number().int().min(0).max(1_000_000),
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
-    /** When set, ties this run to an H2H `match_sessions` row (Tap Dash only). */
+    /** Ties this run to an H2H `match_sessions` row (must match `game_key`). */
     match_session_id: z.string().uuid().optional(),
   }),
   z.object({
@@ -20,12 +75,14 @@ const Body = z.discriminatedUnion('game_type', [
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
     tap_intervals_ms: z.array(z.number().int().min(0).max(60_000)).max(8000),
+    match_session_id: z.string().uuid().optional(),
   }),
   z.object({
     game_type: z.literal('ball_run'),
     score: z.number().int().min(0).max(1_000_000),
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(2_000_000),
+    match_session_id: z.string().uuid().optional(),
   }),
   z.object({
     game_type: z.literal('neon_pool'),
@@ -38,6 +95,20 @@ const Body = z.discriminatedUnion('game_type', [
     score: z.number().int().min(0).max(64),
     duration_ms: z.number().int().min(0).max(3_600_000),
     taps: z.number().int().min(0).max(500),
+  }),
+  z.object({
+    game_type: z.literal('dash_duel'),
+    score: z.number().int().min(0).max(1_000_000),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(2_000_000),
+    match_session_id: z.string().uuid().optional(),
+  }),
+  z.object({
+    game_type: z.literal('turbo_arena'),
+    score: z.number().int().min(0).max(200),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(8_000),
+    match_session_id: z.string().uuid().optional(),
   }),
 ]);
 
@@ -62,6 +133,25 @@ function maxPlausibleNeonPoolScore(durationMs: number): number {
 function maxPlausibleStackerScore(durationMs: number): number {
   return Math.min(64, Math.floor(durationMs / 400 + 24));
 }
+
+/** Dash Duel: score = floor(scroll * DIST_SCALE); scroll ~ RUN_SPEED * time. */
+function maxPlausibleDashDuelScore(durationMs: number): number {
+  return Math.min(1_000_000, Math.floor(durationMs * 0.08) + 2000);
+}
+
+/** Turbo Arena: goals in a short match; generous vs clock. */
+function maxPlausibleTurboArenaGoals(durationMs: number): number {
+  return Math.min(200, Math.floor(durationMs / 1800) + 24);
+}
+
+/** `minigame_scores.game_type` → `match_sessions.game_key` slug for H2H validation. */
+const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
+  tap_dash: 'tap-dash',
+  tile_clash: 'tile-clash',
+  ball_run: 'ball-run',
+  dash_duel: 'dash-duel',
+  turbo_arena: 'turbo-arena',
+};
 
 function stdev(arr: number[]): number {
   if (arr.length < 2) return 0;
@@ -123,13 +213,13 @@ Deno.serve(async (req) => {
       return errorResponse('Too many score submissions. Wait a minute and try again.', 429);
     }
 
-    const parsed = Body.safeParse(await req.json());
+    const rawJson: unknown = await req.json();
+    const prizeRun = typeof rawJson === 'object' && rawJson !== null && (rawJson as { prize_run?: unknown }).prize_run === true;
+
+    const parsed = Body.safeParse(rawJson);
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
     const data = parsed.data;
-    if ('match_session_id' in data && data.game_type !== 'tap_dash') {
-      return errorResponse('match_session_id is only valid for tap_dash', 422);
-    }
     const { score, duration_ms, taps } = data;
 
     const maxTaps = Math.floor(duration_ms / 50) + 120;
@@ -154,16 +244,33 @@ Deno.serve(async (req) => {
       }
       const maxShots = Math.floor(duration_ms / 400) + 400;
       if (taps > maxShots) return errorResponse('Invalid shot count for duration', 422);
-    } else {
+    } else if (data.game_type === 'stacker') {
       if (score > maxPlausibleStackerScore(duration_ms)) {
         return errorResponse('Score impossible for session duration', 422);
       }
       if (taps > score + 4) return errorResponse('Invalid taps for stacker score', 422);
+    } else if (data.game_type === 'dash_duel') {
+      if (score > maxPlausibleDashDuelScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      const maxJumps = Math.floor(duration_ms / 50) + 500;
+      if (taps > maxJumps) return errorResponse('Invalid jump count for duration', 422);
+    } else if (data.game_type === 'turbo_arena') {
+      if (score > maxPlausibleTurboArenaGoals(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+    } else {
+      return errorResponse('Unsupported game_type', 422);
     }
 
     let matchSessionId: string | undefined;
-    if (data.game_type === 'tap_dash' && data.match_session_id) {
-      matchSessionId = data.match_session_id;
+    const rawMid = 'match_session_id' in data ? data.match_session_id : undefined;
+    if (rawMid) {
+      const expectedGk = H2H_GAME_KEY_FOR_TYPE[data.game_type];
+      if (!expectedGk) {
+        return errorResponse('match_session_id is not valid for this game_type', 422);
+      }
+      matchSessionId = rawMid;
       const { data: ms, error: msErr } = await admin
         .from('match_sessions')
         .select('id,status,player_a_id,player_b_id,game_key')
@@ -180,9 +287,54 @@ Deno.serve(async (req) => {
         return errorResponse('Match is not open for score submission', 400);
       }
       const gk = String(ms.game_key ?? '').trim().toLowerCase();
-      if (gk && gk !== 'tap-dash') {
-        return errorResponse('This match does not use Tap Dash', 400);
+      const okGk = expectedGk === 'tap-dash' ? (gk === '' || gk === 'tap-dash') : gk === expectedGk;
+      if (!okGk) {
+        return errorResponse('This match session is not for this minigame', 400);
       }
+    }
+
+    if (prizeRun) {
+      if (matchSessionId) {
+        return errorResponse('prize_run cannot be combined with match_session_id', 422);
+      }
+      const gt = data.game_type;
+      const supportedPrize = new Set([
+        'tap_dash',
+        'tile_clash',
+        'ball_run',
+        'neon_pool',
+        'stacker',
+        'dash_duel',
+        'turbo_arena',
+      ]);
+      if (!supportedPrize.has(gt)) {
+        return errorResponse('prize_run is not supported for this game_type', 422);
+      }
+      const { entry, tickets: ticketsGranted } = prizeRunEntryAndTickets(gt, score);
+      const { data: rpcData, error: rpcErr } = await admin.rpc('record_minigame_prize_run', {
+        p_user_id: userData.user.id,
+        p_game_type: gt,
+        p_score: score,
+        p_duration_ms: duration_ms,
+        p_taps: taps,
+        p_entry_credits: entry,
+        p_tickets_granted: ticketsGranted,
+      });
+      if (rpcErr) return errorResponse(rpcErr.message, 500);
+      const row = rpcData as { ok?: boolean; error?: string; prize_credits?: number; redeem_tickets?: number; tickets_granted?: number };
+      if (!row?.ok) {
+        if (row?.error === 'insufficient_credits') {
+          return errorResponse('Not enough prize credits for this run', 402);
+        }
+        return errorResponse(row?.error ?? 'Prize run failed', 400);
+      }
+      return json({
+        ok: true,
+        prize_run: true,
+        prize_credits: row.prize_credits,
+        redeem_tickets: row.redeem_tickets,
+        tickets_granted: row.tickets_granted ?? ticketsGranted,
+      });
     }
 
     const insertRow: Record<string, unknown> = {

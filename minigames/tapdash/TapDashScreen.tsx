@@ -1,4 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+
+import {
+  MINIGAME_HUD_MS,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +15,7 @@ import { TAP_DASH } from '@/minigames/config/tuning';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
+import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import {
   createTapDashState,
@@ -102,12 +110,14 @@ function LaneView({
 
 export default function TapDashScreen() {
   useHidePlayTabBar();
+  const router = useRouter();
   const { width: sw } = useWindowDimensions();
   const [phase, setPhase] = useState<'intro' | 'countdown' | 'playing' | 'done'>('intro');
   const [uiTick, setUiTick] = useState(0);
   const stateRef = useRef<TapDashState | null>(null);
   const seedRef = useRef(Date.now() & 0xfffffff);
   const p1Flap = useRef(false);
+  const lastHudEmitRef = useRef(0);
 
   const laneW = useMemo(() => (sw - 20) / 2, [sw]);
   const scale = laneW / TAP_DASH.laneW;
@@ -116,11 +126,13 @@ export default function TapDashScreen() {
   const startRun = useCallback(() => {
     seedRef.current = (Date.now() ^ 0xdeadbeef) >>> 0;
     stateRef.current = createTapDashState(seedRef.current);
+    resetMinigameHudClock(lastHudEmitRef);
     setUiTick((t) => t + 1);
     setPhase('countdown');
   }, []);
 
   const onCountdownDone = useCallback(() => {
+    resetMinigameHudClock(lastHudEmitRef);
     setPhase('playing');
   }, []);
 
@@ -137,8 +149,14 @@ export default function TapDashScreen() {
       if (s.timeLeftMs <= 0) return false;
       return true;
     });
-    if (s.timeLeftMs <= 0) setPhase('done');
-    setUiTick((t) => t + 1);
+    if (s.timeLeftMs <= 0) {
+      setPhase('done');
+      setUiTick((t) => t + 1);
+      return;
+    }
+    if (shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS)) {
+      setUiTick((t) => t + 1);
+    }
   }, []);
 
   useRafLoop(loop, phase === 'playing');
@@ -208,9 +226,9 @@ export default function TapDashScreen() {
         onRematch={() => {
           startRun();
         }}
-        onMenu={() => {
-          setPhase('intro');
-        }}
+        onMenu={() => {}}
+        onExitMinigames={() => router.replace(ROUTE_MINIGAMES)}
+        onExitHome={() => router.replace(ROUTE_HOME)}
       />
     </SafeAreaView>
   );

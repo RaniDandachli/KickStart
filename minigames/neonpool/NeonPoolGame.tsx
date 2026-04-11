@@ -1,4 +1,5 @@
 // Neon Pocket — top-down pool (generic 8-ball style). Brand as "Neon Pocket", not third-party trademarks.
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,10 +21,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { arcade } from '@/lib/arcadeTheme';
 import { awardRedeemTicketsForPrizeRun, NEON_POOL_POINTS_PER_TICKET, ticketsFromNeonPoolScore } from '@/lib/ticketPayouts';
 import { getSupabase } from '@/supabase/client';
+import {
+  MINIGAME_HUD_MS_MOTION,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -81,6 +90,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const queryClient = useQueryClient();
   const prizeCredits = usePrizeCreditsDisplay();
   const { width: sw, height: sh } = useWindowDimensions();
 
@@ -91,9 +101,12 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
   const [phaseUi, setPhaseUi] = useState<'ready' | 'playing' | 'over'>('ready');
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const [submitErr, setSubmitErr] = useState(false);
+  const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const endStatsRef = useRef({ score: 0, durationMs: 0, shots: 0 });
   const matchEndedRef = useRef(false);
   const ticketsAwardedRef = useRef(false);
+  const lastHudEmitRef = useRef(0);
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
@@ -111,21 +124,14 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
     return { tableW, tableH, scale };
   }, [sw, sh]);
 
-  /** Landscape while playing; portrait when leaving (same pattern as Turbo Arena). */
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-    return () => {
-      requestAnimationFrame(() => {
-        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
-      });
-    };
-  }, []);
-
+  /** Landscape while focused; portrait on blur so tab shell + dimensions stay in sync when leaving. */
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'web') return;
       void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+      return () => {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      };
     }, []),
   );
 
@@ -136,8 +142,10 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
     aimSessionRef.current = null;
     startTimeRef.current = Date.now();
     matchEndedRef.current = false;
+    resetMinigameHudClock(lastHudEmitRef);
     setPhaseUi('playing');
     setSubmitOk(false);
+    setSubmitErr(false);
     bump();
   }, [bump]);
 
@@ -167,16 +175,21 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
       }
       const snap = stateRef.current;
       if (!snap) return;
+      let matchJustEnded = false;
       if ((snap.phase === 'won' || snap.phase === 'lost') && !matchEndedRef.current) {
         matchEndedRef.current = true;
+        matchJustEnded = true;
         endStatsRef.current = {
           score: snap.score,
           durationMs: Math.max(0, Date.now() - startTimeRef.current),
           shots: snap.shots,
         };
         setPhaseUi('over');
+        setAutoSubmitSeq((n) => n + 1);
       }
-      bump();
+      if (matchJustEnded || shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) {
+        bump();
+      }
     },
     [bump],
   );
@@ -274,22 +287,43 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
   const submitScore = useCallback(async () => {
     const { score, durationMs, shots } = endStatsRef.current;
     setSubmitting(true);
+    setSubmitErr(false);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) {
         Alert.alert('Sign in required', 'Log in to submit your score.');
+        setSubmitErr(true);
         return;
       }
+      const prizeRun = playMode === 'prize';
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
-        body: { game_type: 'neon_pool', score, duration_ms: durationMs, taps: shots },
+        body: {
+          ...(prizeRun ? { prize_run: true as const } : {}),
+          game_type: 'neon_pool',
+          score,
+          duration_ms: durationMs,
+          taps: shots,
+        },
       });
-      if (error) Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
-      else setSubmitOk(true);
+      if (error) {
+        Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        setSubmitErr(true);
+      } else {
+        invalidateProfileEconomy(queryClient, uid);
+        setSubmitOk(true);
+      }
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [playMode, queryClient, uid]);
+
+  useAutoSubmitOnPhaseOver({
+    phase: phaseUi,
+    overValue: 'over',
+    runToken: autoSubmitSeq,
+    onSubmit: submitScore,
+  });
 
   const prizeTickets = playMode === 'prize' ? ticketsFromNeonPoolScore(endStatsRef.current.score) : 0;
 
@@ -408,6 +442,10 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
         >
           <View style={styles.modalBg}>
             <View style={styles.modalCard}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.modalTitle}>
                 {stateRef.current?.phase === 'won' ? 'Table cleared!' : 'Game over'}
               </Text>
@@ -423,25 +461,57 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
               />
               {playMode === 'prize' ? (
                 <>
-                  <AppButton
-                    className="mt-3"
-                    title={submitOk ? 'Submitted ✓' : 'Submit score'}
-                    variant="secondary"
-                    loading={submitting}
-                    disabled={submitOk || submitting}
-                    onPress={submitScore}
-                  />
-                  {submitting ? <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} /> : null}
+                  {submitting ? (
+                    <>
+                      <Text style={[styles.practiceNote, { marginTop: 10 }]}>Saving score…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? <Text style={[styles.practiceNote, { marginTop: 10 }]}>Score saved.</Text> : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={[styles.practiceNote, { marginTop: 10 }]}>Could not save score.</Text>
+                      <AppButton
+                        className="mt-2"
+                        title="Retry"
+                        variant="secondary"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
                 </>
               ) : (
-                <Text style={styles.practiceNote}>Practice — scores are local only.</Text>
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={[styles.practiceNote, { marginTop: 10 }]}>Saving practice run…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? (
+                    <Text style={[styles.practiceNote, { marginTop: 10 }]}>
+                      Practice run saved (no prize tickets).
+                    </Text>
+                  ) : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={[styles.practiceNote, { marginTop: 10 }]}>Could not save run.</Text>
+                      <AppButton
+                        className="mt-2"
+                        title="Retry"
+                        variant="secondary"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
               )}
-              <Pressable
-                style={styles.modalLink}
-                onPress={() => router.replace('/(app)/(tabs)/play/minigames')}
-              >
-                <Text style={styles.modalLinkText}>← Minigames</Text>
-              </Pressable>
             </View>
           </View>
         </Modal>
@@ -508,6 +578,4 @@ const styles = StyleSheet.create({
   modalScore: { color: '#f8fafc', fontSize: 20, fontWeight: '800', textAlign: 'center' },
   modalTickets: { color: '#fde047', fontSize: 15, fontWeight: '800', textAlign: 'center' },
   practiceNote: { color: '#94a3b8', fontSize: 13, textAlign: 'center' },
-  modalLink: { marginTop: 8, padding: 8 },
-  modalLinkText: { color: '#22d3ee', fontWeight: '800', textAlign: 'center', fontSize: 15 },
 });

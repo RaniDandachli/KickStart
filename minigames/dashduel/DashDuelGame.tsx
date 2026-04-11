@@ -1,75 +1,179 @@
-import { useCallback, useRef, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+// ─── NEON RUNNER — Game Screen ─────────────────────────────────────────────
+// Locked to landscape via expo-screen-orientation.
+// GD-authentic visuals: neon grid, glowing player, sharp spikes, solid stairs.
+
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Polygon, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 
-import { DD } from '@/minigames/dashduel/constants';
-import { createDashRun, scoreForPlayer, stepDashRun, winnerLabel, type DashRunState } from '@/minigames/dashduel/engine';
-import type { Obstacle } from '@/minigames/dashduel/types';
-import { GdStyleLayer } from '@/minigames/dashduel/GdStyleLayer';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
+import { GROUND_Y, NR } from '@/minigames/dashduel/constants';
 import { DashDuelHud } from '@/minigames/dashduel/DashDuelHud';
 import { DashDuelOpponentStrip } from '@/minigames/dashduel/DashDuelOpponentStrip';
+import { createInputState, createRunState, scoreFromState, stepRun, type InputState } from '@/minigames/dashduel/engine';
+import type { Obstacle, RunState } from '@/minigames/dashduel/types';
 
 type Props = {
   seed: number;
   practiceLabel?: string;
   prizeLabel?: string;
   onExit: () => void;
-  onRoundComplete: (winner: 'p1' | 'p2' | 'draw', state: DashRunState) => void;
+  onRoundComplete: (finalScore: number, distance: number, durationMs: number, jumpCount: number) => void;
 };
 
-/** HUD + strip + hint — reserve vertical space so the playfield scales correctly in landscape. */
-const HUD_RESERVE = 118;
+function camX(playerWorldX: number): number {
+  return playerWorldX - NR.PLAY_W * NR.PLAYER_SCREEN_X_RATIO;
+}
+
+/** RN Text / layout can misbehave with NaN/∞ from bad game state — coerce for HUD. */
+function safeNonNegInt(n: number): number {
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+function safeDrive(n: number): number {
+  return Number.isFinite(n) ? n : 0;
+}
+
+function obstacleStableKey(o: Obstacle): string {
+  const base = `${o.kind}:${o.x.toFixed(1)}:${o.y.toFixed(1)}:${o.w.toFixed(1)}:${o.h.toFixed(1)}`;
+  return o.kind === 'ring' ? `${base}:${o.used ? 1 : 0}` : base;
+}
+
+const HUD_BUMP_MIN_MS = 100;
+/** Hard cap — dense segments + SVG spikes can stall JS if we mount hundreds at once. */
+const MAX_RENDERED_OBSTACLES = 96;
 
 export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundComplete }: Props) {
+  // Orientation: parent `DashDuelScreen` locks landscape for the whole flow (game unmount must not unlock).
+
+  // ── Layout — always use landscape dimensions ─────────────────────────────
   const { width: sw, height: sh } = useWindowDimensions();
+  // After orientation lock, sw > sh. Before it settles, take the max as width.
+  const lw = Math.max(sw, sh);
+  const lh = Math.min(sw, sh);
   const insets = useSafeAreaInsets();
 
-  const availH = sh - insets.top - insets.bottom - HUD_RESERVE;
-  const availW = Math.max(40, sw - Math.max(insets.left, insets.right) - 4);
-  const rawScale = Math.min(availW / DD.PLAY_W, Math.max(120, availH) / DD.PLAY_H);
-  const scale = Number.isFinite(rawScale) && rawScale > 0 ? Math.max(0.08, Math.min(rawScale, 4)) : 0.5;
-  const playW = DD.PLAY_W * scale;
-  const playH = DD.PLAY_H * scale;
+  // Available area: full width minus notch/sides, height minus HUD (~52px) and hint (~28px)
+  const HUD_H = 52;
+  const HINT_H = 28;
+  const availW = lw - Math.max(insets.left, insets.right) * 2 - 8;
+  const availH = lh - insets.top - insets.bottom - HUD_H - HINT_H;
 
-  const runRef = useRef<DashRunState | null>(null);
-  const jumpRef = useRef(false);
+  const scaleByW = availW / NR.PLAY_W;
+  const scaleByH = availH / NR.PLAY_H;
+  const rawScale = Math.min(scaleByW, scaleByH);
+  const scale = Number.isFinite(rawScale) && rawScale > 0 ? Math.max(0.1, Math.min(rawScale, 6)) : 1;
+  const playW = NR.PLAY_W * scale;
+  const playH = NR.PLAY_H * scale;
+
+  // ── Engine refs ──────────────────────────────────────────────────────────
+  const stateRef = useRef<RunState | null>(null);
+  const inputRef = useRef<InputState>(createInputState());
   const completedRef = useRef(false);
+  const abortedRef = useRef(false);
+  const lastHudBumpRef = useRef(0);
+  const lastObsCountRef = useRef(0);
+  const roundCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+
+  /**
+   * RN core `Animated.Value` + `setValue` from rAF — avoids Reanimated shared-value
+   * teardown races that can hard-crash the app when the round ends and this screen unmounts.
+   */
+  const worldTxAnim = useRef(new Animated.Value(0)).current;
+  const playerLAnim = useRef(new Animated.Value(0)).current;
+  const playerTAnim = useRef(new Animated.Value(0)).current;
+  const playerWAnim = useRef(new Animated.Value(NR.PLAYER_W)).current;
+  const playerHAnim = useRef(new Animated.Value(NR.PLAYER_H)).current;
+  /** Rotation in degrees (RN transform rotate string). */
+  const playerDegAnim = useRef(new Animated.Value(0)).current;
+  const playerRotate = useMemo(
+    () =>
+      playerDegAnim.interpolate({
+        inputRange: [-72000, 72000],
+        outputRange: ['-72000deg', '72000deg'],
+      }),
+    [playerDegAnim],
+  );
+
   const [, setTick] = useState(0);
   const [engineOn, setEngineOn] = useState(true);
+  /** Tear down spikes/SVG/Animated world before parent unmount — avoids native crash + freeze on death. */
+  const [stripPlayfield, setStripPlayfield] = useState(false);
 
-  /** Never call setState during render — parent remounts with key={seed} when seed changes. */
-  if (runRef.current === null) {
-    runRef.current = createDashRun(seed);
+  if (stateRef.current === null) {
+    stateRef.current = createRunState(seed);
+    inputRef.current = createInputState();
   }
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
+  // ── RAF loop ─────────────────────────────────────────────────────────────
   const loop = useCallback(
     (totalDtMs: number) => {
-      const s = runRef.current;
-      if (!s || s.roundOver || completedRef.current) return;
-      let first = true;
+      if (abortedRef.current) return;
+      const s = stateRef.current;
+      if (!s || s.phase !== 'playing' || completedRef.current) return;
+
       runFixedPhysicsSteps(totalDtMs, (h) => {
-        if (!s || s.roundOver || completedRef.current) return false;
-        const jump = first && jumpRef.current;
-        if (first) jumpRef.current = false;
-        first = false;
-        stepDashRun(s, h, jump, undefined);
-        return !s.roundOver;
+        if (!s || abortedRef.current) return false;
+        stepRun(s, inputRef.current, h);
+        return s.phase === 'playing';
       });
-      bump();
-      if (s.roundOver && !completedRef.current) {
+
+      const snap = stateRef.current!;
+      const sc = scaleRef.current;
+      const cx = camX(snap.player.worldX);
+      worldTxAnim.setValue(safeDrive(-cx * sc));
+      playerLAnim.setValue(safeDrive(snap.player.worldX * sc));
+      playerTAnim.setValue(safeDrive(snap.player.y * sc));
+      playerWAnim.setValue(safeDrive(NR.PLAYER_W * sc));
+      playerHAnim.setValue(safeDrive(NR.PLAYER_H * sc));
+      playerDegAnim.setValue(safeDrive((snap.player.angle * 180) / Math.PI));
+
+      const ended = snap.phase === 'dead';
+      const now = performance.now();
+      const oc = snap.obstacles.length;
+      const obsChanged = oc !== lastObsCountRef.current;
+      if (obsChanged) lastObsCountRef.current = oc;
+      if (ended || obsChanged || now - lastHudBumpRef.current >= HUD_BUMP_MIN_MS) {
+        lastHudBumpRef.current = now;
+        bump();
+      }
+
+      if (ended && !completedRef.current) {
         completedRef.current = true;
+        setStripPlayfield(true);
         setEngineOn(false);
-        const w = winnerLabel(s.p1, s.p2, s.scroll, s.timeMs >= DD.ROUND_MS);
-        const snap = s;
-        queueMicrotask(() => {
-          onRoundComplete(w, snap);
-        });
+        const pts = safeNonNegInt(scoreFromState(snap));
+        const dist = safeNonNegInt(snap.scroll);
+        const dur = safeNonNegInt(Number.isFinite(snap.elapsed) ? snap.elapsed : 0);
+        const jumps = safeNonNegInt(snap.jumpCount);
+        if (roundCompleteTimerRef.current) clearTimeout(roundCompleteTimerRef.current);
+        // Let React commit the stripped playfield (no SVG / wide world) before parent swaps to results — prevents landscape Modal/native teardown crashes.
+        roundCompleteTimerRef.current = setTimeout(() => {
+          roundCompleteTimerRef.current = null;
+          if (abortedRef.current) return;
+          try {
+            onRoundComplete(pts, dist, dur, jumps);
+          } catch (e) {
+            if (__DEV__) console.warn('[DashDuelGame] onRoundComplete failed', e);
+          }
+        }, 72);
       }
     },
     [bump, onRoundComplete],
@@ -77,431 +181,456 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
 
   useRafLoop(loop, engineOn);
 
-  const s = runRef.current;
-  const speedFrac = Math.max(0, Math.min(1, (s.scrollSpeed - DD.BASE_SCROLL_PER_MS) / (DD.MAX_SCROLL_PER_MS - DD.BASE_SCROLL_PER_MS)));
+  useEffect(() => {
+    if (roundCompleteTimerRef.current) {
+      clearTimeout(roundCompleteTimerRef.current);
+      roundCompleteTimerRef.current = null;
+    }
+    abortedRef.current = false;
+    completedRef.current = false;
+    lastHudBumpRef.current = 0;
+    lastObsCountRef.current = 0;
+    setStripPlayfield(false);
+    stateRef.current = createRunState(seed);
+    inputRef.current = createInputState();
+    setEngineOn(true);
+    bump();
+  }, [seed, bump]);
+
+  useEffect(
+    () => () => {
+      if (roundCompleteTimerRef.current) {
+        clearTimeout(roundCompleteTimerRef.current);
+        roundCompleteTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    if (stripPlayfield) return;
+    const st = stateRef.current;
+    if (!st) return;
+    const cx = camX(st.player.worldX);
+    const sc = scale;
+    worldTxAnim.setValue(safeDrive(-cx * sc));
+    playerLAnim.setValue(safeDrive(st.player.worldX * sc));
+    playerTAnim.setValue(safeDrive(st.player.y * sc));
+    playerWAnim.setValue(safeDrive(NR.PLAYER_W * sc));
+    playerHAnim.setValue(safeDrive(NR.PLAYER_H * sc));
+    playerDegAnim.setValue(safeDrive((st.player.angle * 180) / Math.PI));
+  }, [scale, seed, stripPlayfield]);
+
+  // ── Render data ──────────────────────────────────────────────────────────
+  const s = stateRef.current!;
+  const cx = camX(s.player.worldX);
+  const displayScore = safeNonNegInt(scoreFromState(s));
+  const rivalDist = safeNonNegInt(s.scroll * 0.92);
+
+  const visLeft = cx - 60;
+  const visRight = cx + NR.PLAY_W + 80;
+  const visibleObstacles: Obstacle[] = [];
+  if (!stripPlayfield) {
+    for (const o of s.obstacles) {
+      if (o.x + o.w < visLeft || o.x > visRight) continue;
+      visibleObstacles.push(o);
+      if (visibleObstacles.length >= MAX_RENDERED_OBSTACLES) break;
+    }
+  }
+
+  const obs = s.obstacles;
+  const tailWorld =
+    obs.length === 0
+      ? NR.PLAY_W * 3
+      : obs[obs.length - 1].x + obs[obs.length - 1].w + NR.TILE * 2;
+  const worldUnits = Math.max(NR.PLAY_W * 3, tailWorld, s.player.worldX + NR.PLAY_W * 2);
+  /** Failsafe: extremely wide native layer has crashed some devices after long runs. */
+  const worldWpx = Math.min(worldUnits * scale, 28000);
+
+  const onJumpIn = () => {
+    inputRef.current.jumpPressedThisFrame = true;
+    inputRef.current.jumpHeld = true;
+  };
+  const onJumpOut = () => {
+    inputRef.current.jumpHeld = false;
+  };
+
+  const keyboardPlayActive = engineOn && !stripPlayfield;
+  useWebGameKeyboard(keyboardPlayActive, {
+    Space: (down) => {
+      if (down) onJumpIn();
+      else onJumpOut();
+    },
+    ArrowUp: (down) => {
+      if (down) onJumpIn();
+      else onJumpOut();
+    },
+  });
+
+  const handleExit = useCallback(() => {
+    abortedRef.current = true;
+    if (roundCompleteTimerRef.current) {
+      clearTimeout(roundCompleteTimerRef.current);
+      roundCompleteTimerRef.current = null;
+    }
+    setEngineOn(false);
+    onExit();
+  }, [onExit]);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 2 }]}>
-      <DashDuelHud
-        distance={Math.floor(s.scroll)}
-        score={scoreForPlayer(s.p1, s.scroll)}
-        streak={s.p1.streak}
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* HUD */}
+      <MemoHud
+        distance={safeNonNegInt(s.scroll)}
+        score={displayScore}
         practiceLabel={practiceLabel}
         prizeLabel={prizeLabel}
-        onBack={onExit}
-        timeLeftMs={Math.max(0, DD.ROUND_MS - s.timeMs)}
-        compact
-        speedFrac={speedFrac}
+        onBack={handleExit}
+        speedFrac={1}
+        timeLeftMs={NR.ROUND_MS > 0 ? NR.ROUND_MS - s.elapsed : 0}
       />
-      <DashDuelOpponentStrip
-        p1Alive={s.p1.alive}
-        p2Alive={s.p2.alive}
-        p1Dist={s.p1.bestScroll}
-        p2Dist={s.p2.bestScroll}
-        p1Flash={s.p1.dangerFlash}
-        compact
+      <MemoOpponentStrip
+        p1Alive={!s.player.dead}
+        p2Alive
+        p1Dist={safeNonNegInt(s.scroll)}
+        p2Dist={rivalDist}
+        p1Flash={s.player.dead ? 1 : 0}
       />
 
-      <View style={styles.fieldOuter}>
-        <Pressable
-          style={[styles.fieldWrap, { width: playW, height: playH }]}
-          onPressIn={() => {
-            jumpRef.current = true;
-          }}
-        >
-          <GdStyleLayer scroll={s.scroll} playW={playW} playH={playH} speedFrac={speedFrac} />
+      {/* Playfield — stripped to a plain box on death so unmount doesn’t tear down 100+ SVG nodes at once */}
+      {stripPlayfield ? (
+        <View
+          style={[styles.fieldOuter, { width: playW, height: playH, backgroundColor: '#060f1e' }]}
+          collapsable={false}
+        />
+      ) : (
+        <View style={[styles.fieldOuter, { width: playW, height: playH }]} collapsable={false}>
+          <Pressable style={StyleSheet.absoluteFill} onPressIn={onJumpIn} onPressOut={onJumpOut}>
+            <View style={[styles.sky, { width: playW, height: playH }]} collapsable={false}>
+              <MemoGridBg width={playW} height={playH} groundY={GROUND_Y * scale} />
+              <Animated.View
+                style={[
+                  styles.world,
+                  {
+                    width: worldWpx,
+                    height: playH,
+                    transform: [{ translateX: worldTxAnim }],
+                  },
+                ]}
+                collapsable={false}
+              >
+                <View
+                  style={[
+                    styles.ground,
+                    {
+                      top: GROUND_Y * scale,
+                      height: (NR.PLAY_H - GROUND_Y) * scale,
+                      width: worldWpx,
+                    },
+                  ]}
+                />
+                {visibleObstacles.map((o, idx) => (
+                  <MemoObstacle key={`${obstacleStableKey(o)}#${idx}`} o={o} scale={scale} playH={playH} />
+                ))}
+                <Animated.View
+                  style={[
+                    styles.player,
+                    {
+                      left: playerLAnim,
+                      top: playerTAnim,
+                      width: playerWAnim,
+                      height: playerHAnim,
+                      transform: [{ rotate: playerRotate }],
+                    },
+                  ]}
+                  collapsable={false}
+                >
+                  <View style={styles.playerInner} />
+                </Animated.View>
+              </Animated.View>
+            </View>
+          </Pressable>
+        </View>
+      )}
 
-          {/* Speed-pulse vignette — brightens at high speed */}
-          {speedFrac > 0.5 ? (
-            <LinearGradient
-              colors={[`rgba(255,0,110,${(speedFrac - 0.5) * 0.18})`, 'transparent', 'transparent', `rgba(0,240,255,${(speedFrac - 0.5) * 0.12})`]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-          ) : null}
-
-          <PlayfieldContent scale={scale} scroll={s.scroll} course={s.course} p1={s.p1} nearFlash={s.p1.dangerFlash} />
-
-          {/* Danger flash — red tint when near hazard */}
-          {s.p1.dangerFlash > 0.1 ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(239,68,68,${s.p1.dangerFlash * 0.22})` }]}
-              pointerEvents="none"
-            />
-          ) : null}
-        </Pressable>
-      </View>
-
+      {/* Hint */}
       <View style={[styles.hintBlock, { marginBottom: Math.max(4, insets.bottom) }]}>
-        <Text style={styles.tapHint}>Tap to jump</Text>
-        <Text style={styles.legendHint}>
-          Red pit = jump over · Cyan spike = avoid · Purple ceiling = duck under
+        <Text style={styles.tapHint}>
+          {Platform.OS === 'web' ? 'CLICK / SPACE / ↑ TO JUMP · HOLD TO CHAIN' : 'TAP TO JUMP · HOLD TO CHAIN'}
         </Text>
       </View>
     </View>
   );
 }
 
-function PlayfieldContent({
-  scale,
-  scroll,
-  course,
-  p1,
-  nearFlash,
+// ─── Background Grid ──────────────────────────────────────────────────────────
+
+const MemoGridBg = memo(function GridBg({
+  width, height, groundY,
+}: { width: number; height: number; groundY: number }) {
+  const gridSize = 22;
+  const vLines: ReactNode[] = [];
+  const hLines: ReactNode[] = [];
+  for (let x = 0; x <= width; x += gridSize) {
+    vLines.push(
+      <View key={`v${x}`} style={{ position: 'absolute', left: x, top: 0, width: 0.5, height: groundY, backgroundColor: 'rgba(56,189,248,0.06)' }} />
+    );
+  }
+  for (let y = 0; y <= groundY; y += gridSize) {
+    hLines.push(
+      <View key={`h${y}`} style={{ position: 'absolute', left: 0, top: y, height: 0.5, width, backgroundColor: 'rgba(56,189,248,0.06)' }} />
+    );
+  }
+  return <View style={StyleSheet.absoluteFill} pointerEvents="none">{vLines}{hLines}</View>;
+});
+
+// ─── Obstacle rendering ───────────────────────────────────────────────────────
+
+type ObstacleProps = { o: Obstacle; scale: number; playH: number };
+
+function SpikeView({
+  left,
+  top,
+  w,
+  h,
+  pointingUp,
+  gradientId,
 }: {
-  scale: number;
-  scroll: number;
-  course: Obstacle[];
-  p1: { y: number; vy: number; squash: number; alive: boolean };
-  nearFlash: number;
-}) {
-  const viewL = scroll - 40;
-  const viewR = scroll + DD.PLAY_W + 80;
-  const groundY = DD.GROUND_Y * scale;
-  const blockH = Math.max(10, 14 * scale);
-
+  left: number;
+  top: number;
+  w: number;
+  h: number;
+  pointingUp: boolean;
+  /** Must be unique per spike — duplicate SVG ids crash some native renderers after long runs. */
+  gradientId: string;
+}): ReactNode {
+  const sw = Math.max(1.2, Math.min(w, h) * 0.1);
+  const ins = Math.max(0.4, sw * 0.4);
+  const points = pointingUp
+    ? `${w / 2},${ins} ${w - ins},${h - ins} ${ins},${h - ins}`
+    : `${w / 2},${h - ins} ${ins},${ins} ${w - ins},${ins}`;
   return (
-    <View style={StyleSheet.absoluteFill}>
-      {course.map((o) => {
-        if (o.x1 < viewL || o.x0 > viewR) return null;
-        const left = (o.x0 - scroll) * scale;
-
-        if (o.kind === 'gap') {
-          const gw = (o.x1 - o.x0) * scale;
-          return (
-            <View
-              key={o.key}
-              style={[
-                styles.gap,
-                {
-                  left,
-                  width: gw,
-                  height: 52 * scale,
-                  top: groundY,
-                },
-              ]}
-            >
-              {/* Red glow rim on top of pit */}
-              <View style={[styles.gapRim, { width: gw }]} />
-              <Text style={[styles.hazardTag, { fontSize: Math.max(8, 10 * scale) }]}>PIT</Text>
-              <Text style={[styles.hazardTagSub, { fontSize: Math.max(6, 7 * scale) }]}>↑ jump</Text>
-            </View>
-          );
-        }
-        if (o.kind === 'platform') {
-          return (
-            <View
-              key={o.key}
-              style={[
-                styles.plat,
-                {
-                  left,
-                  width: (o.x1 - o.x0) * scale,
-                  top: o.yTop * scale,
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={['rgba(0,240,255,0.85)', 'rgba(0,240,255,0.4)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </View>
-          );
-        }
-        if (o.kind === 'spike') {
-          const w = (o.x1 - o.x0) * scale;
-          const h = (o.y1 - o.y0) * scale;
-          const top = o.y0 * scale;
-          return (
-            <View key={o.key} style={[styles.spikeWrap, { left, top, width: w, height: h }]}>
-              <LinearGradient
-                colors={['#ff006e', '#e8007a', '#9d4edd']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.spikeInner, { borderRadius: 2 }]}
-              />
-              <View style={[styles.spikeEdge, StyleSheet.absoluteFill]} />
-              <View style={styles.spikeLabelBox} pointerEvents="none">
-                <Ionicons
-                  name="warning"
-                  size={Math.max(8, 10 * scale)}
-                  color="rgba(255,255,255,0.92)"
-                  accessibilityLabel="Hazard"
-                />
-              </View>
-            </View>
-          );
-        }
-        if (o.kind === 'ceiling') {
-          const ch = (o.y1 - o.y0) * scale;
-          return (
-            <View
-              key={o.key}
-              style={[
-                styles.ceilWrap,
-                {
-                  left,
-                  width: (o.x1 - o.x0) * scale,
-                  top: o.y0 * scale,
-                  height: ch,
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={['rgba(157,78,221,0.75)', 'rgba(99,102,241,0.45)', 'rgba(0,240,255,0.15)']}
-                style={[styles.ceil, StyleSheet.absoluteFill]}
-              />
-              <Text style={[styles.hazardTagCeil, { fontSize: Math.max(7, 8 * scale), bottom: Math.min(6, ch * 0.35) }]}>
-                LOW
-              </Text>
-            </View>
-          );
-        }
-        return null;
-      })}
-
-      {/* Ground — neon cyan/pink rim */}
-      <View style={[styles.groundShadow, { top: groundY + 2, width: DD.PLAY_W * scale, height: blockH }]} />
-      <LinearGradient
-        colors={['#06020e', '#0c0520', '#06020e']}
-        style={[styles.groundBlock, { top: groundY, width: DD.PLAY_W * scale, height: blockH }]}
-      />
-      <LinearGradient
-        colors={['#ff006e', '#9d4edd', '#00f0ff']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.groundTopLine, { top: groundY, width: DD.PLAY_W * scale }]}
-      />
-      <LinearGradient
-        colors={['rgba(255,255,255,0.45)', 'rgba(0,240,255,0.3)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.groundRim, { top: groundY - 1, width: DD.PLAY_W * scale }]}
-      />
-
-      {/* Player trail — neon pink/cyan alternating */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <View
-            key={i}
-            style={[
-              styles.trail,
-              {
-                left: DD.PLAYER_OFFSET_X * scale - 7 - i * 7,
-                top: p1.y * scale - 7,
-                opacity: 0.08 + i * 0.09,
-                transform: [{ scale: 1 - i * 0.06 }],
-                backgroundColor: i % 2 === 0 ? 'rgba(255,0,110,0.55)' : 'rgba(0,240,255,0.5)',
-                borderColor: i % 2 === 0 ? 'rgba(255,0,110,0.4)' : 'rgba(0,240,255,0.35)',
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      {/* Player — RuniT pink→purple gradient, neon border */}
-      <View
-        style={[
-          styles.player,
-          {
-            left: DD.PLAYER_OFFSET_X * scale - (DD.PLAYER_W / 2) * scale,
-            top: p1.y * scale - (DD.PLAYER_H / 2) * scale,
-            width: DD.PLAYER_W * scale * (1 - 0.06 * p1.squash),
-            height: DD.PLAYER_H * scale * (1 + 0.08 * p1.squash),
-            opacity: p1.alive ? 1 : 0.35,
-            borderColor: nearFlash > 0.2 ? '#FCA5A5' : '#00f0ff',
-            shadowColor: nearFlash > 0.2 ? '#ef4444' : '#ff006e',
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={['#ff006e', '#c026d3', '#9d4edd']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
+    <View style={{ position: 'absolute', left, top, width: w, height: h }}>
+      <Svg width={w} height={h}>
+        <Defs>
+          <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={pointingUp ? '#fef08a' : '#ff6b6b'} />
+            <Stop offset="1" stopColor={pointingUp ? '#ca8a04' : '#b91c1c'} />
+          </SvgLinearGradient>
+        </Defs>
+        <Polygon
+          points={points}
+          fill={`url(#${gradientId})`}
+          stroke={pointingUp ? 'rgba(255,255,255,0.9)' : 'rgba(255,180,180,0.9)'}
+          strokeWidth={sw}
+          strokeLinejoin="round"
         />
-        <View style={styles.playerShine} />
-        {/* Cyan edge highlight */}
-        <View style={styles.playerEdge} />
-      </View>
+      </Svg>
     </View>
   );
 }
 
+const MemoObstacle = memo(function ObstacleView({ o, scale, playH }: ObstacleProps): ReactNode {
+  const spikeGradientId = useId().replace(/:/g, '_');
+  const left = o.x * scale;
+  const w = Math.max(1, o.w * scale);
+  const top = o.y * scale;
+  const h = Math.max(1, o.h * scale);
+
+  switch (o.kind) {
+    case 'void':
+      return (
+        <View style={[styles.voidPit, {
+          left,
+          top: GROUND_Y * scale,
+          width: w,
+          height: Math.max(0, playH - GROUND_Y * scale),
+        }]} />
+      );
+
+    case 'spike':
+      return <SpikeView gradientId={spikeGradientId} left={left} top={top} w={w} h={h} pointingUp />;
+
+    case 'ceilingSpike':
+      return (
+        <SpikeView gradientId={spikeGradientId} left={left} top={top} w={w} h={h} pointingUp={false} />
+      );
+
+    case 'wall':
+      return (
+        <View style={[styles.wall, { left, top, width: w, height: h }]}>
+          <View style={[styles.wallTopStripe, { width: w }]} />
+          {/* Vertical seam lines for taller blocks — GD aesthetic */}
+          {h > w * 1.2 && (
+            <View style={[styles.wallMidLine, { top: h * 0.45, width: w }]} />
+          )}
+        </View>
+      );
+
+    case 'crystal':
+      return <View style={[styles.crystal, { left, top, width: w, height: h }]} />;
+
+    case 'laser':
+      return <View style={[styles.laser, { left, top, width: w, height: Math.max(4, h) }]} />;
+
+    case 'ring': {
+      const dim = Math.max(w, h);
+      return (
+        <View style={[styles.ring, {
+          left: left + (w - dim) / 2,
+          top: top + (h - dim) / 2,
+          width: dim,
+          height: dim,
+          borderRadius: dim / 2,
+          opacity: o.used ? 0.2 : 1,
+        }]} />
+      );
+    }
+
+    default:
+      return null;
+  }
+});
+
+// ─── HUD wrappers ─────────────────────────────────────────────────────────────
+
+const MemoHud = memo(function HudWrap(props: {
+  distance: number; score: number; practiceLabel?: string; prizeLabel?: string;
+  onBack: () => void; speedFrac: number; timeLeftMs: number;
+}) {
+  return (
+    <DashDuelHud
+      distance={props.distance}
+      score={props.score}
+      streak={0}
+      practiceLabel={props.practiceLabel}
+      prizeLabel={props.prizeLabel}
+      onBack={props.onBack}
+      timeLeftMs={props.timeLeftMs}
+      hideClock={NR.ROUND_MS <= 0}
+      compact
+      speedFrac={props.speedFrac}
+    />
+  );
+});
+
+const MemoOpponentStrip = memo(function StripWrap(props: {
+  p1Alive: boolean; p2Alive: boolean; p1Dist: number; p2Dist: number; p1Flash: number;
+}) {
+  return <DashDuelOpponentStrip {...props} compact />;
+});
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  root: { flex: 1, width: '100%', alignItems: 'center', backgroundColor: '#06020e' },
-  fieldOuter: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
-  fieldWrap: {
-    borderRadius: 10,
+  root: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#020617',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldOuter: {
+    alignSelf: 'center',
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(255,0,110,0.55)',
-    shadowColor: '#ff006e',
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
+    borderColor: 'rgba(56,189,248,0.55)',
+    borderRadius: 3,
+    shadowColor: '#38bdf8',
     shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     elevation: 14,
   },
-  gap: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+  sky: {
+    backgroundColor: '#060f1e',
   },
-  gapRim: {
+  world: {
     position: 'absolute',
+    left: 0,
     top: 0,
+  },
+  ground: {
+    position: 'absolute',
+    left: 0,
+    backgroundColor: '#0d2240',
+    borderTopWidth: 2,
+    borderTopColor: '#38bdf8',
+  },
+  voidPit: {
+    position: 'absolute',
+    backgroundColor: '#020617',
+    borderTopWidth: 1.5,
+    borderTopColor: 'rgba(239,68,68,0.6)',
+  },
+  // GD blocks: blue steel with bright top edge and glow border
+  wall: {
+    position: 'absolute',
+    backgroundColor: '#1a4a72',
+    borderWidth: 1.5,
+    borderColor: '#38bdf8',
+    overflow: 'hidden',
+  },
+  wallTopStripe: {
     height: 3,
+    backgroundColor: 'rgba(186,230,253,0.8)',
+  },
+  wallMidLine: {
+    position: 'absolute',
+    height: 1,
+    backgroundColor: 'rgba(56,189,248,0.25)',
+  },
+  crystal: {
+    position: 'absolute',
+    backgroundColor: 'rgba(167,139,250,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(196,181,253,0.9)',
+    borderRadius: 2,
+  },
+  laser: {
+    position: 'absolute',
     backgroundColor: 'rgba(248,113,113,0.9)',
-    shadowColor: '#ef4444',
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+    borderRadius: 1,
   },
-  hazardTag: {
-    color: 'rgba(248,113,113,0.95)',
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 4,
-  },
-  hazardTagSub: {
-    color: 'rgba(254,202,202,0.8)',
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  spikeLabelBox: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ceilWrap: {
+  ring: {
     position: 'absolute',
-    overflow: 'hidden',
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-    borderBottomWidth: 2,
-    borderColor: 'rgba(157,78,221,0.75)',
-    shadowColor: '#9d4edd',
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
+    borderWidth: 3,
+    borderColor: 'rgba(163,230,53,0.95)',
+    backgroundColor: 'transparent',
   },
-  hazardTagCeil: {
-    position: 'absolute',
-    alignSelf: 'center',
-    color: 'rgba(216,180,254,0.95)',
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  plat: {
-    position: 'absolute',
-    height: 6,
-    borderRadius: 2,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0,240,255,0.6)',
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.55,
-    shadowRadius: 6,
-  },
-  spikeWrap: {
-    position: 'absolute',
-    overflow: 'hidden',
-    borderRadius: 2,
-    borderWidth: 2,
-    borderColor: 'rgba(255,0,110,0.85)',
-    shadowColor: '#ff006e',
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  spikeInner: { flex: 1 },
-  spikeEdge: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  ceil: {
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-  },
-  groundShadow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 2,
-  },
-  groundBlock: {
-    position: 'absolute',
-    borderTopWidth: 0,
-  },
-  groundTopLine: {
-    position: 'absolute',
-    height: 3,
-    shadowColor: '#ff006e',
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  groundRim: {
-    position: 'absolute',
-    height: 4,
-  },
-  trail: {
-    position: 'absolute',
-    width: 11,
-    height: 11,
-    borderRadius: 2,
-    borderWidth: 1,
-    transform: [{ rotate: '45deg' }],
-  },
+  // GD player: cyan square, glowing, white inner diamond
   player: {
     position: 'absolute',
-    borderRadius: 3,
-    overflow: 'hidden',
-    borderWidth: 2.5,
-    shadowOpacity: 0.95,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
-  playerShine: {
-    position: 'absolute',
-    top: 2,
-    left: 2,
-    width: '38%',
-    height: '38%',
+    backgroundColor: '#22d3ee',
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1.5,
+    borderColor: '#e0f7ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#22d3ee',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 7,
+    elevation: 10,
   },
-  playerEdge: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: 'rgba(0,240,255,0.7)',
+  playerInner: {
+    width: '42%',
+    height: '42%',
+    backgroundColor: '#ffffff',
+    borderRadius: 1,
+    opacity: 0.9,
+    transform: [{ rotate: '45deg' }],
   },
   hintBlock: {
-    marginTop: 4,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    maxWidth: 420,
+    paddingTop: 5,
   },
   tapHint: {
-    color: 'rgba(226,232,240,0.9)',
+    color: 'rgba(148,163,184,0.7)',
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '700',
     textAlign: 'center',
-  },
-  legendHint: {
-    marginTop: 3,
-    color: 'rgba(148,163,184,0.75)',
-    fontSize: 9,
-    fontWeight: '600',
-    lineHeight: 13,
-    textAlign: 'center',
+    letterSpacing: 1.5,
   },
 });
+
+export default DashDuelGame;

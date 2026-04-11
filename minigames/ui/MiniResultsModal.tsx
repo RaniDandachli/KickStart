@@ -3,6 +3,8 @@ import { Modal, Text, View } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { theme } from '@/lib/theme';
 
+import { GameOverExitRow } from './GameOverExitRow';
+
 interface Props {
   visible: boolean;
   title: string;
@@ -14,6 +16,9 @@ interface Props {
   prizeFootnote?: string;
   onRematch: () => void;
   onMenu: () => void;
+  /** When set, shows top back row and hides the duplicate “Mini-games” button. */
+  onExitMinigames?: () => void;
+  onExitHome?: () => void;
   /** Optional — e.g. leave fullscreen / go to app home tab. */
   onHome?: () => void;
   /** Android hardware back — defaults to same as Mini-games. */
@@ -30,6 +35,8 @@ export function MiniResultsModal({
   prizeFootnote,
   onRematch,
   onMenu,
+  onExitMinigames,
+  onExitHome,
   onHome,
   onRequestClose,
 }: Props) {
@@ -38,13 +45,22 @@ export function MiniResultsModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onRequestClose ?? onMenu}
+      onRequestClose={onRequestClose ?? onExitMinigames ?? onMenu}
     >
       <View className="flex-1 items-center justify-center bg-violet-950/55 px-5">
         <View
           className="w-full max-w-md rounded-3xl border-4 border-amber-400 bg-fuchsia-50 p-6"
           style={theme.shadow.card}
         >
+          {onExitMinigames ? (
+            <View className="mb-2">
+              <GameOverExitRow
+                lightBackground
+                onMinigames={onExitMinigames}
+                onHome={onExitHome}
+              />
+            </View>
+          ) : null}
           <Text className="mb-2 text-center text-3xl font-black text-fuchsia-700">{title}</Text>
           <View className="mb-6 flex-row items-center justify-center gap-6">
             <View className="items-center">
@@ -61,8 +77,10 @@ export function MiniResultsModal({
             <Text className="mb-4 text-center text-sm font-bold text-violet-700">{prizeFootnote}</Text>
           ) : null}
           <AppButton title="Rematch" onPress={onRematch} />
-          <AppButton className="mt-3" title="Mini-games" variant="secondary" onPress={onMenu} />
-          {onHome ? (
+          {!onExitMinigames ? (
+            <AppButton className="mt-3" title="Mini-games" variant="secondary" onPress={onMenu} />
+          ) : null}
+          {onHome && !onExitHome ? (
             <AppButton className="mt-3" title="Home" variant="ghost" onPress={onHome} />
           ) : null}
         </View>

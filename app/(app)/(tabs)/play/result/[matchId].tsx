@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -87,6 +87,8 @@ export default function MatchResultScreen() {
 
   const [serverLossCredits, setServerLossCredits] = useState<number | null>(null);
   const [serverPrizeWalletCents, setServerPrizeWalletCents] = useState<number | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  const [recordSubmitting, setRecordSubmitting] = useState(false);
 
   const lossCreditsShown = serverLossCredits ?? expectedLossCredits;
   const showLossCredits = lost && !isDraw && lossCreditsShown != null && lossCreditsShown > 0;
@@ -97,10 +99,12 @@ export default function MatchResultScreen() {
     return `You didn't take the top score this time — ${oppName} did.`;
   }, [isDraw, won, oppName]);
 
-  const recordedRef = useRef(false);
-  useEffect(() => {
+  const recordedOkRef = useRef(false);
+  const submitInFlightRef = useRef(false);
+
+  const submitMatchToServer = useCallback(async () => {
     if (!ENABLE_BACKEND || !matchId || !isUuid(matchId) || uid === 'guest') return;
-    if (recordedRef.current) return;
+    if (recordedOkRef.current || submitInFlightRef.current) return;
     if (!ms) return;
 
     const saNum = Number(saRaw);
@@ -126,41 +130,47 @@ export default function MatchResultScreen() {
       }
     }
 
-    recordedRef.current = true;
-    void recordH2hMatchResultViaEdge({
-      matchSessionId: matchId,
-      isDraw,
-      winnerUserId,
-      loserUserId,
-      score: scorePayload,
-      wasRanked: false,
-    })
-      .then((res) => {
-        if (res.loss_consolation_credits != null && res.loss_consolation_credits > 0) {
-          setServerLossCredits(res.loss_consolation_credits);
-          trackProductEvent('h2h_loss_credits_granted', {
-            credits: res.loss_consolation_credits,
-            entry_fee_wallet_cents: entryFeeWalletCents,
-            source: 'server',
-          });
-        }
-        if (res.prize_wallet_cents_added != null && res.prize_wallet_cents_added > 0) {
-          setServerPrizeWalletCents(res.prize_wallet_cents_added);
-          trackProductEvent('h2h_win_prize_credited', {
-            wallet_cents: res.prize_wallet_cents_added,
-            source: 'server',
-          });
-        }
-        void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
-        void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
-        void qc.invalidateQueries({ queryKey: queryKeys.userStats(uid) });
-        void qc.invalidateQueries({ queryKey: queryKeys.recentMatches(uid) });
-        void qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) });
-      })
-      .catch((e) => {
-        console.warn('[recordH2hMatchResult]', e);
-        recordedRef.current = false;
+    setRecordError(null);
+    setRecordSubmitting(true);
+    submitInFlightRef.current = true;
+    try {
+      const res = await recordH2hMatchResultViaEdge({
+        matchSessionId: matchId,
+        isDraw,
+        winnerUserId,
+        loserUserId,
+        score: scorePayload,
+        wasRanked: false,
       });
+      recordedOkRef.current = true;
+      if (res.loss_consolation_credits != null && res.loss_consolation_credits > 0) {
+        setServerLossCredits(res.loss_consolation_credits);
+        trackProductEvent('h2h_loss_credits_granted', {
+          credits: res.loss_consolation_credits,
+          entry_fee_wallet_cents: entryFeeWalletCents,
+          source: 'server',
+        });
+      }
+      if (res.prize_wallet_cents_added != null && res.prize_wallet_cents_added > 0) {
+        setServerPrizeWalletCents(res.prize_wallet_cents_added);
+        trackProductEvent('h2h_win_prize_credited', {
+          wallet_cents: res.prize_wallet_cents_added,
+          source: 'server',
+        });
+      }
+      void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.userStats(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.recentMatches(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) });
+    } catch (e: unknown) {
+      console.warn('[recordH2hMatchResult]', e);
+      const msg = e instanceof Error ? e.message : 'Could not save match to the server.';
+      setRecordError(msg);
+    } finally {
+      submitInFlightRef.current = false;
+      setRecordSubmitting(false);
+    }
   }, [
     ENABLE_BACKEND,
     matchId,
@@ -168,12 +178,15 @@ export default function MatchResultScreen() {
     ms,
     saRaw,
     sbRaw,
-    draw,
     winner,
     isDraw,
     qc,
     entryFeeWalletCents,
   ]);
+
+  useEffect(() => {
+    void submitMatchToServer();
+  }, [submitMatchToServer]);
 
   const payoutApplied = useRef(false);
   useEffect(() => {
@@ -231,6 +244,22 @@ export default function MatchResultScreen() {
       <Text style={styles.vsLine}>Skill contest</Text>
       <Text style={styles.outcomeLine}>{outcomeLine}</Text>
       <Text style={styles.oppHint}>vs {oppName}</Text>
+
+      {ENABLE_BACKEND && recordSubmitting && !recordError ? (
+        <View style={styles.recordPending}>
+          <ActivityIndicator color="#5eead4" />
+          <Text style={styles.recordPendingText}>Recording result and prizes on the server…</Text>
+        </View>
+      ) : null}
+
+      {ENABLE_BACKEND && recordError ? (
+        <View style={styles.recordErrorBox}>
+          <Text style={styles.recordErrorText}>
+            Could not save this match: {recordError}. Your wallet will not update until this succeeds.
+          </Text>
+          <AppButton title="Retry save" variant="secondary" onPress={() => void submitMatchToServer()} />
+        </View>
+      ) : null}
 
       <LinearGradient
         colors={[runit.neonPurple, 'rgba(12,6,22,0.95)']}
@@ -347,6 +376,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   oppHint: { color: 'rgba(148,163,184,0.9)', fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 16 },
+  recordPending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 14,
+    paddingVertical: 8,
+  },
+  recordPendingText: { color: 'rgba(148,163,184,0.95)', fontSize: 13, fontWeight: '600' },
+  recordErrorBox: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(127,29,29,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.45)',
+    gap: 10,
+  },
+  recordErrorText: { color: 'rgba(254,226,226,0.95)', fontSize: 13, lineHeight: 18 },
   card: {
     borderRadius: 16,
     padding: 18,

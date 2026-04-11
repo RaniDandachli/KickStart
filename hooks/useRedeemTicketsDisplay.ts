@@ -8,7 +8,7 @@ export function useRedeemTicketsDisplay(): number {
   const demo = useDemoRedeemTicketsStore((s) => s.tickets);
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
-  if (ENABLE_BACKEND) {
+  if (ENABLE_BACKEND && uid) {
     return profileQ.data?.redeem_tickets ?? 0;
   }
   return demo;

@@ -7,11 +7,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { FirstRunTabTour } from '@/components/onboarding/FirstRunTabTour';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import {
+  ensureArcadeNotificationPermissionAndSchedule,
+  presentDailyCreditsGrantedIfEnabled,
+  refreshArcadeScheduledNotifications,
+} from '@/lib/arcadeLocalNotifications';
 import { applyArcadePrizeCreditGrants, resetArcadeGrantFlight } from '@/lib/arcadeGrants';
+import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
 import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
 import { useAuthStore } from '@/store/authStore';
+import { getSupabase } from '@/supabase/client';
 
 const ICON = 20;
 
@@ -32,12 +40,31 @@ export default function TabsLayout() {
       resetArcadeGrantFlight();
       lastGrantUid.current = uid;
     }
-    void applyArcadePrizeCreditGrants(queryClient).then(({ welcome, daily }) => {
+    void applyArcadePrizeCreditGrants(queryClient).then(async ({ welcome, daily }) => {
       if (welcome > 0 || daily > 0) {
         useArcadeGrantBannerStore.getState().setGrants(welcome, daily);
       }
+      if (daily > 0 && ENABLE_BACKEND && Platform.OS !== 'web') {
+        await registerExpoPushWithSupabase(uid);
+        const { error } = await getSupabase().functions.invoke('notifyDailyCreditsPush', { body: {} });
+        if (error) console.warn('[notifyDailyCreditsPush]', error.message);
+      }
+      if (daily > 0) {
+        void presentDailyCreditsGrantedIfEnabled();
+      }
     });
   }, [uid, queryClient]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void (async () => {
+      await ensureArcadeNotificationPermissionAndSchedule();
+      if (uid && ENABLE_BACKEND) {
+        await registerExpoPushWithSupabase(uid);
+      }
+      await refreshArcadeScheduledNotifications();
+    })();
+  }, [uid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,8 +79,15 @@ export default function TabsLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    // Turbo Arena locks landscape in-screen until unmount; don't fight it here.
-    if (pathname.includes('turbo-arena') || pathname.includes('neon-pool')) return;
+    // These routes set their own orientation until blur; don't fight them here.
+    if (
+      pathname.includes('turbo-arena') ||
+      pathname.includes('neon-pool') ||
+      pathname.includes('dash-duel') ||
+      pathname.includes('play/match')
+    ) {
+      return;
+    }
     void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
   }, [pathname]);
 

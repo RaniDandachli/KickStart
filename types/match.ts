@@ -1,7 +1,7 @@
 import type { QueueKind } from '@/store/matchmakingStore';
 
-/** Client-side match model until gameplay engine exists. */
-export interface KickClashMatchSession {
+/** Client-side match model for H2H placeholder / generic flows. */
+export interface HeadToHeadMatchSession {
   id: string;
   mode: QueueKind;
   localPlayerId: string;
@@ -26,3 +26,12 @@ export interface MatchFinishPayload {
   finalScore: { self: number; opponent: number };
   reason: MatchResultReason;
 }
+
+/** Props for embedding a minigame inside an H2H `match_sessions` flow (server-validated score + poll). */
+export type H2hSkillContestBundle = {
+  matchSessionId: string;
+  localPlayerId: string;
+  opponentId: string;
+  opponentDisplayName: string;
+  onComplete: (p: MatchFinishPayload) => void;
+};

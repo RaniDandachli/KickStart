@@ -29,6 +29,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-screen-orientation",
       "expo-font",
       "expo-web-browser",
       [
@@ -43,6 +44,12 @@
         {
           "merchantIdentifier": "",
           "enableGooglePay": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#ff006e"
         }
       ]
     ],

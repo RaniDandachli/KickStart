@@ -1,28 +1,45 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { scoreForPlayer, type DashRunState } from '@/minigames/dashduel/engine';
 
 type Props = {
   visible: boolean;
-  winner: 'p1' | 'p2' | 'draw';
-  state: DashRunState;
-  /** Set for prize (vs AI) runs — redeem tickets granted from score. */
+  finalScore: number;
+  distance: number;
+  seed: number;
+  /** Set for prize (vs AI flavor) runs — redeem tickets granted from score. */
   ticketsEarned?: number;
+  /** Head-to-head: one run per match session — hide rematch. */
+  hideRematch?: boolean;
+  /** Extra status (submit / poll) under the stats. */
+  h2hFooter?: ReactNode;
   onRematch: () => void;
   onExit: () => void;
 };
 
-export function DashDuelResults({ visible, winner, state, ticketsEarned, onRematch, onExit }: Props) {
-  const s1 = scoreForPlayer(state.p1, state.scroll);
-  const s2 = scoreForPlayer(state.p2, state.scroll);
-  const title = winner === 'p1' ? 'You win' : winner === 'p2' ? 'Rival wins' : 'Draw';
+/**
+ * Full-screen overlay (not RN `Modal`) — Modal + landscape + orientation locks has caused
+ * native freezes/crashes on some Android/iOS builds when the game view unmounts underneath.
+ */
+export function DashDuelResults({
+  visible,
+  finalScore,
+  distance,
+  seed,
+  ticketsEarned,
+  hideRematch,
+  h2hFooter,
+  onRematch,
+  onExit,
+}: Props) {
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onExit}>
+    <View style={styles.overlay} accessibilityViewIsModal accessibilityLabel="Run results">
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.topBar}>
           <Pressable
@@ -44,32 +61,44 @@ export function DashDuelResults({ visible, winner, state, ticketsEarned, onRemat
         >
           <LinearGradient colors={['rgba(2,6,23,0.94)', 'rgba(15,23,42,0.97)']} style={styles.card}>
             <Text style={styles.kicker}>Run complete</Text>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.title}>Neon run ended</Text>
             <View style={styles.row}>
               <View style={styles.col}>
-                <Text style={styles.lbl}>You</Text>
-                <Text style={styles.val}>{Math.floor(state.p1.bestScroll)}m</Text>
-                <Text style={styles.sub}>{s1} pts</Text>
+                <Text style={styles.lbl}>Distance</Text>
+                <Text style={styles.val}>
+                  {Number.isFinite(distance) ? Math.max(0, Math.floor(distance)) : 0}m
+                </Text>
               </View>
-              <Text style={styles.sep}>vs</Text>
+              <Text style={styles.sep}>·</Text>
               <View style={styles.col}>
-                <Text style={styles.lbl}>Rival</Text>
-                <Text style={styles.val}>{Math.floor(state.p2.bestScroll)}m</Text>
-                <Text style={styles.sub}>{s2} pts</Text>
+                <Text style={styles.lbl}>Score</Text>
+                <Text style={styles.val}>
+                  {Number.isFinite(finalScore) ? Math.max(0, Math.floor(finalScore)) : 0}
+                </Text>
               </View>
             </View>
-            <Text style={styles.seed}>Seed {state.seed}</Text>
-            <AppButton title="Rematch" onPress={onRematch} />
+            <Text style={styles.seed}>Seed {seed}</Text>
+            {ticketsEarned != null && ticketsEarned > 0 ? (
+              <Text style={styles.ticketsLine}>+{ticketsEarned} redeem tickets</Text>
+            ) : null}
+            {h2hFooter}
+            {hideRematch ? null : <AppButton title="Rematch" onPress={onRematch} />}
             <AppButton className="mt-3" title="Exit to menu" variant="secondary" onPress={onExit} />
           </LinearGradient>
         </ScrollView>
       </SafeAreaView>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 200,
+    elevation: 200,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  safe: { flex: 1 },
   topBar: {
     paddingHorizontal: 8,
     paddingBottom: 8,
@@ -114,7 +143,6 @@ const styles = StyleSheet.create({
   col: { alignItems: 'center', minWidth: 100 },
   lbl: { color: 'rgba(148,163,184,0.9)', fontSize: 11, fontWeight: '700' },
   val: { color: '#5EEAD4', fontSize: 24, fontWeight: '900' },
-  sub: { color: '#94A3B8', fontSize: 13, fontWeight: '700', marginTop: 2 },
   sep: { color: 'rgba(148,163,184,0.6)', fontWeight: '900' },
   seed: { color: 'rgba(100,116,139,0.95)', fontSize: 10, textAlign: 'center', marginBottom: 8, fontWeight: '600' },
   ticketsLine: {

@@ -1,28 +1,16 @@
-import { Alert, Linking, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
-import { SKILL_CONTEST_ENTRY_SHORT, SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 import { env } from '@/lib/env';
-
-async function tryOpen(url: string | undefined, label: string) {
-  if (!url) {
-    Alert.alert(label, 'Set the URL in EXPO_PUBLIC environment variables for production.');
-    return;
-  }
-  const ok = await Linking.canOpenURL(url);
-  if (!ok) {
-    Alert.alert(label, 'Cannot open this link.');
-    return;
-  }
-  await Linking.openURL(url);
-}
+import { openPrivacyPolicy, openTermsOfService } from '@/lib/legalLinks';
+import { SKILL_CONTEST_ENTRY_SHORT, SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 
 export default function LegalScreen() {
   const terms = env.EXPO_PUBLIC_TERMS_URL;
   const privacy = env.EXPO_PUBLIC_PRIVACY_URL;
-  const hasUrls = Boolean(terms && privacy);
+  const hasUrls = Boolean(terms?.trim() && privacy?.trim());
 
   return (
     <Screen>
@@ -32,12 +20,12 @@ export default function LegalScreen() {
           Run It offers skill-based contests. {SKILL_CONTEST_OPERATOR_PRIZE} {SKILL_CONTEST_ENTRY_SHORT}
         </Text>
         <Text className="text-sm text-slate-600">
-          Official terms, privacy policy, age requirements, and regional eligibility must be drafted and hosted by your counsel —
-          then linked here via environment variables.
+          RuniT Arcade’s official terms and privacy policy are linked below. Host the documents you publish and set the URLs in your
+          environment for production builds.
         </Text>
       </Card>
-      <AppButton className="mb-2" title="Terms of service" variant="secondary" onPress={() => void tryOpen(terms, 'Terms')} />
-      <AppButton className="mb-4" title="Privacy policy" variant="secondary" onPress={() => void tryOpen(privacy, 'Privacy')} />
+      <AppButton className="mb-2" title="Terms of service" variant="secondary" onPress={() => void openTermsOfService()} />
+      <AppButton className="mb-4" title="Privacy policy" variant="secondary" onPress={() => void openPrivacyPolicy()} />
       {!hasUrls ? (
         <Text className="text-xs text-amber-700">
           Set EXPO_PUBLIC_TERMS_URL and EXPO_PUBLIC_PRIVACY_URL for production builds.

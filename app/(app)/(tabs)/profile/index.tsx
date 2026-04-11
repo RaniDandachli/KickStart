@@ -26,6 +26,7 @@ import { useRecentMatches } from '@/hooks/useRecentMatches';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
+import { clearExpoPushTokenOnSupabase, clearRemotePushLocalFlag } from '@/lib/expoPushRegistration';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { shortRelativeTime } from '@/lib/relativeTime';
 import { queryKeys } from '@/lib/queryKeys';
@@ -232,6 +233,10 @@ export default function ProfileScreen() {
     try {
       const { resetArcadeGrantFlight } = await import('@/lib/arcadeGrants');
       resetArcadeGrantFlight();
+      if (uid && ENABLE_BACKEND) {
+        await clearExpoPushTokenOnSupabase(uid);
+        clearRemotePushLocalFlag();
+      }
       await getSupabase().auth.signOut();
     } catch {
       /* ignore */

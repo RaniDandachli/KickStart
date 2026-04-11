@@ -27,18 +27,25 @@ import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from
 import { theme } from '@/lib/theme';
 import { awardRedeemTicketsForPrizeRun, ticketsFromTurboArenaPrizeRun } from '@/lib/ticketPayouts';
 import { useAuthStore } from '@/store/authStore';
+import {
+  MINIGAME_HUD_MS_MOTION,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
+import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import {
-    AiDifficulty,
-    createTurboArenaState,
-    stepTurboArena,
-    TURBO,
-    type TurboArenaState,
-    type TurboInputs,
+  AiDifficulty,
+  createTurboArenaState,
+  stepTurboArena,
+  TURBO,
+  type TurboArenaState,
+  type TurboInputs,
 } from './TurboArenaEngine';
 
 // ── Scaling helpers ───────────────────────────
@@ -568,6 +575,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   const stateRef = useRef<TurboArenaState | null>(null);
   const ticketsAwardedRef = useRef(false);
   const matchEndedRef = useRef(false);
+  const lastHudEmitRef = useRef(0);
   const navigation = useNavigation();
 
   const p1InputsRef = useRef<TurboInputs>({
@@ -603,25 +611,21 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
     };
     setArenaSlot(null);
     setPhase('intro');
+    resetMinigameHudClock(lastHudEmitRef);
     bump();
   }, [bump]);
 
-  /** Landscape for the whole Turbo Arena session (intro → match → results). Portrait only after unmount / leave. */
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-    return () => {
-      requestAnimationFrame(() => {
-        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
-      });
-    };
-  }, []);
-
-  /** Re-assert landscape when returning to this screen (e.g. app switcher) — no cleanup (avoids Modal blur bugs). */
+  /**
+   * Landscape while this screen is focused; portrait as soon as the user navigates away or switches tabs.
+   * Mount-only lock + delayed unmount portrait caused orientation/layout desync (tab bar misplaced, half-height UI).
+   */
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'web') return;
       void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+      return () => {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      };
     }, []),
   );
 
@@ -659,11 +663,13 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
     }
     ticketsAwardedRef.current = false;
     stateRef.current = createTurboArenaState();
+    resetMinigameHudClock(lastHudEmitRef);
     setPhase('countdown');
     bump();
   }, [bump, playMode, profileQ.data?.prize_credits]);
 
   const onCountdownDone = useCallback(() => {
+    resetMinigameHudClock(lastHudEmitRef);
     setPhase('playing');
   }, []);
 
@@ -672,6 +678,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
       const s = stateRef.current;
       if (!s) return;
 
+      let roundJustEnded = false;
       runFixedPhysicsSteps(totalDtMs, (h) => {
         if (matchEndedRef.current) return false;
         stepTurboArena(s, h, p1InputsRef.current, effectiveDifficulty);
@@ -679,17 +686,58 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
           if (!matchEndedRef.current) {
             matchEndedRef.current = true;
             setPhase('done');
+            roundJustEnded = true;
           }
           return false;
         }
         return true;
       });
-      bump();
+      if (roundJustEnded || shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) {
+        bump();
+      }
     },
     [bump, effectiveDifficulty],
   );
 
   useRafLoop(loop, phase === 'playing');
+
+  const pulseWebJump = useCallback(() => {
+    p1InputsRef.current = { ...p1InputsRef.current, jump: true };
+    setTimeout(() => {
+      p1InputsRef.current = { ...p1InputsRef.current, jump: false };
+    }, 38);
+  }, []);
+
+  useWebGameKeyboard(phase === 'playing', {
+    ArrowLeft: (d) => {
+      p1InputsRef.current = { ...p1InputsRef.current, left: d };
+    },
+    ArrowRight: (d) => {
+      p1InputsRef.current = { ...p1InputsRef.current, right: d };
+    },
+    ShiftLeft: (d) => {
+      p1InputsRef.current = { ...p1InputsRef.current, boost: d };
+    },
+    ShiftRight: (d) => {
+      p1InputsRef.current = { ...p1InputsRef.current, boost: d };
+    },
+    Space: (d) => {
+      if (d) pulseWebJump();
+    },
+    ArrowUp: (d) => {
+      if (d) pulseWebJump();
+    },
+    KeyX: (d) => {
+      if (d) {
+        p1InputsRef.current = { ...p1InputsRef.current, kick: true };
+        setTimeout(() => {
+          p1InputsRef.current = { ...p1InputsRef.current, kick: false };
+        }, 80);
+      } else {
+        p1InputsRef.current = { ...p1InputsRef.current, kick: false };
+      }
+    },
+  });
 
   const snap = stateRef.current;
 
@@ -776,6 +824,9 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
             <AppButton title="▶  PLAY" onPress={startRun} />
             <Text style={styles.introHint}>
               Drive · jump · boost · kick the ball into the opponent&apos;s goal
+              {Platform.OS === 'web'
+                ? '\nWeb: ← → steer · Space/↑ jump · Shift boost · X kick'
+                : ''}
             </Text>
           </View>
         ) : null}
@@ -841,7 +892,9 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
           scoreP2={snap?.scoreP2 ?? 0}
           prizeFootnote={prizeResultFootnote}
           onRematch={startRun}
-          onMenu={() => setPhase('intro')}
+          onMenu={() => {}}
+          onExitMinigames={() => router.replace(ROUTE_MINIGAMES)}
+          onExitHome={() => router.replace(ROUTE_HOME)}
         />
       </View>
     </SafeAreaView>

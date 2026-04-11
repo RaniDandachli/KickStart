@@ -400,6 +400,13 @@ verify_jwt = false
 [functions.h2hMaintenance]
 verify_jwt = false
 
+[functions.notifyDailyCreditsPush]
+verify_jwt = true
+
+# Cron / operator-only: Authorization: Bearer <PUSH_CRON_SECRET>
+[functions.broadcastTournamentOfDayPush]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

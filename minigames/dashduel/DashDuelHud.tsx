@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   distance: number;
@@ -14,6 +14,8 @@ type Props = {
   compact?: boolean;
   /** 0–1 fraction of max speed reached — drives speed pip color. */
   speedFrac?: number;
+  /** Hide countdown when round has no time cap (endless). */
+  hideClock?: boolean;
 };
 
 function formatClock(ms: number): string {
@@ -53,7 +55,18 @@ const pipStyles = StyleSheet.create({
 });
 
 export function DashDuelHud(props: Props) {
-  const { distance, score, streak, practiceLabel, prizeLabel, timeLeftMs, onBack, compact, speedFrac = 0 } = props;
+  const {
+    distance,
+    score,
+    streak,
+    practiceLabel,
+    prizeLabel,
+    timeLeftMs,
+    onBack,
+    compact,
+    speedFrac = 0,
+    hideClock,
+  } = props;
   const c = compact ? stylesCompact : null;
 
   const isUrgent = timeLeftMs < 10_000;
@@ -97,12 +110,14 @@ export function DashDuelHud(props: Props) {
         ) : practiceLabel ? (
           <Text style={styles.practice}>{practiceLabel}</Text>
         ) : null}
-        <View style={styles.clockRow}>
-          {isCritical ? (
-            <Ionicons name="flash" size={12} color={clockColor} accessibilityLabel="Critical time" />
-          ) : null}
-          <Text style={[styles.clockSmall, { color: clockColor }]}>{formatClock(timeLeftMs)}</Text>
-        </View>
+        {hideClock ? null : (
+          <View style={styles.clockRow}>
+            {isCritical ? (
+              <Ionicons name="flash" size={12} color={clockColor} accessibilityLabel="Critical time" />
+            ) : null}
+            <Text style={[styles.clockSmall, { color: clockColor }]}>{formatClock(timeLeftMs)}</Text>
+          </View>
+        )}
       </View>
     </View>
   );

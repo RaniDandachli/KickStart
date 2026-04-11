@@ -9,8 +9,8 @@ export function usePrizeCreditsDisplay(): number {
   const profileQ = useProfile(uid);
   const demo = useDemoPrizeCreditsStore((s) => s.credits);
 
-  if (ENABLE_BACKEND && profileQ.data) {
-    return profileQ.data.prize_credits ?? 0;
+  if (ENABLE_BACKEND && uid) {
+    return profileQ.data?.prize_credits ?? 0;
   }
   return demo;
 }

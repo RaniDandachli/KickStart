@@ -80,6 +80,8 @@ export interface NeonBallRunState {
 
   score: number;
   dodgeCount: number;
+  /** Consecutive hazard runways cleared — multiplies dodge score. */
+  dodgeStreak: number;
 
   alive: boolean;
   deathReason: string;
@@ -147,13 +149,13 @@ function makeObstacleData(kind: ObstacleKind, elapsedSec: number): ObstacleData 
   return { blockedLanes: [sl], movingLane: sl, movingDir: sl === 0 ? 1 : -1, movingSpeed: 2.5 + Math.random() * 3.2 };
 }
 
-/** Calmer mix — fewer moving trains on screen; gaps a touch more common. */
+/** Readable variety: gaps + spikes for “thread the needle”; fewer pure brick walls. */
 function pickKindHard(_elapsed: number): ObstacleKind {
   const r = Math.random();
-  if (r < 0.24) return 'spike';
-  if (r < 0.46) return 'moving';
-  if (r < 0.68) return 'wall';
-  if (r < 0.82) return 'barricade';
+  if (r < 0.26) return 'spike';
+  if (r < 0.48) return 'moving';
+  if (r < 0.66) return 'wall';
+  if (r < 0.8) return 'barricade';
   return 'gap';
 }
 
@@ -172,7 +174,7 @@ function spawnRampSegment(state: NeonBallRunState, forceClear: boolean): void {
   let obstacleAnchorZ2: number | null = null;
 
   if (!forceClear) {
-    const breezy = Math.random() < 0.4;
+    const breezy = Math.random() < 0.34;
     if (breezy) {
       state.rowsSinceObstacle = 0;
     } else {
@@ -285,8 +287,18 @@ function checkDodges(state: NeonBallRunState): void {
       seg.passed = true;
       if (seg.obstacle) {
         state.dodgeCount++;
-        state.score += BALL_RUN.scorePerDodge;
-        burst(state, getBallX(state), state.ballY + 1, state.ballZ, '#00ff88', 6, 2);
+        state.dodgeStreak += 1;
+        const mult = Math.min(
+          2.6,
+          1 + Math.min(15, state.dodgeStreak) * BALL_RUN.streakMultiplierStep,
+        );
+        const pts = BALL_RUN.scorePerDodge * mult;
+        state.score += pts;
+        const juice = Math.min(14, 6 + Math.floor(state.dodgeStreak * 0.6));
+        burst(state, getBallX(state), state.ballY + 1, state.ballZ, '#00ff88', juice, 2 + state.dodgeStreak * 0.12);
+        burst(state, getBallX(state), state.ballY + 1, state.ballZ, '#ff00cc', Math.min(8, 3 + state.dodgeStreak % 4), 1.8);
+      } else {
+        state.score += BALL_RUN.scorePerBreezySection;
       }
     }
   }
@@ -307,7 +319,7 @@ export function createNeonBallRunState(): NeonBallRunState {
     spawnIndex: 0,
     /** 0 = first hazard can appear right after the two intro clean segments. */
     rowsSinceObstacle: 0, nextObstacleIn: 0,
-    score: 0, dodgeCount: 0,
+    score: 0, dodgeCount: 0, dodgeStreak: 0,
     alive: true, deathReason: '',
     particles: [], pendingShift: 0, pendingJump: false,
   };
@@ -417,6 +429,7 @@ export function stepNeonBallRun(state: NeonBallRunState, dtSec: number): void {
 }
 
 function updateParticles(state: NeonBallRunState, dtSec: number): void {
+  while (state.particles.length > 100) state.particles.shift();
   for (let i = state.particles.length - 1; i >= 0; i--) {
     const p = state.particles[i];
     p.x += p.vx * dtSec; p.y += p.vy * dtSec; p.z += p.vz * dtSec;

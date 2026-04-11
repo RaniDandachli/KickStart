@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   p1Alive: boolean;
@@ -10,9 +10,15 @@ type Props = {
   compact?: boolean;
 };
 
+function safeBarFlex(n: number): number {
+  const v = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  /** `flex: NaN` / 0 can crash native layout; keep a positive ratio. */
+  return Math.max(1, v);
+}
+
 export function DashDuelOpponentStrip({ p1Alive, p2Alive, p1Dist, p2Dist, p1Flash, compact }: Props) {
-  const a = Math.max(1, p1Dist);
-  const b = Math.max(1, p2Dist);
+  const a = safeBarFlex(p1Dist);
+  const b = safeBarFlex(p2Dist);
 
   const av = compact ? styles.avSm : undefined;
   const metaSt = compact ? styles.metaSm : undefined;

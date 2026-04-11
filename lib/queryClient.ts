@@ -6,6 +6,8 @@ export function createAppQueryClient(): QueryClient {
       queries: {
         staleTime: 30_000,
         retry: 2,
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
       },
     },
   });

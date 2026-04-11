@@ -8,12 +8,16 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { GameplayPlaceholder } from '@/features/play/GameplayPlaceholder';
+import { H2hBallRunMatch } from '@/features/play/H2hBallRunMatch';
+import { H2hDashDuelMatch } from '@/features/play/H2hDashDuelMatch';
 import { H2hTapDashMatch } from '@/features/play/H2hTapDashMatch';
+import { H2hTileClashMatch } from '@/features/play/H2hTileClashMatch';
+import { H2hTurboArenaMatch } from '@/features/play/H2hTurboArenaMatch';
 import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
 import { displayNameForProfile, h2hEnterMatchPlayRpc } from '@/services/api/h2hMatchSession';
-import type { KickClashMatchSession, MatchFinishPayload } from '@/types/match';
+import type { HeadToHeadMatchSession, MatchFinishPayload } from '@/types/match';
 import type { QueueKind } from '@/store/matchmakingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
@@ -52,7 +56,7 @@ export default function MatchPlayScreen() {
       });
   }, [ENABLE_BACKEND, userId, matchId, msQ.data, qc]);
 
-  const session = useMemo<KickClashMatchSession>(() => {
+  const session = useMemo<HeadToHeadMatchSession>(() => {
     const mid = matchId ?? '';
     const opp = activeMatch?.matchId === mid ? activeMatch.opponent : null;
     let opponentId = opp?.id ?? 'opponent';
@@ -199,7 +203,7 @@ export default function MatchPlayScreen() {
     ENABLE_BACKEND;
 
   const serverGameKey = (msQ.data?.game_key ?? '').trim().toLowerCase();
-  const useTapDashH2h =
+  const kickClashRetired =
     ENABLE_BACKEND &&
     userId !== 'guest' &&
     !!matchId &&
@@ -208,7 +212,22 @@ export default function MatchPlayScreen() {
     !!msQ.data &&
     (msQ.data.status === 'lobby' || msQ.data.status === 'in_progress') &&
     !done &&
-    (serverGameKey === '' || serverGameKey === 'tap-dash');
+    serverGameKey === 'kick-clash';
+  const useSkillContestH2h =
+    ENABLE_BACKEND &&
+    userId !== 'guest' &&
+    !!matchId &&
+    isUuid(matchId) &&
+    isParticipant &&
+    !!msQ.data &&
+    (msQ.data.status === 'lobby' || msQ.data.status === 'in_progress') &&
+    !done &&
+    (serverGameKey === '' ||
+      serverGameKey === 'tap-dash' ||
+      serverGameKey === 'tile-clash' ||
+      serverGameKey === 'ball-run' ||
+      serverGameKey === 'dash-duel' ||
+      serverGameKey === 'turbo-arena');
 
   if (msQ.isError) {
     return (
@@ -314,17 +333,50 @@ export default function MatchPlayScreen() {
     );
   }
 
-  if (useTapDashH2h) {
+  if (kickClashRetired) {
+    return (
+      <Screen scroll={false}>
+        <Text className="text-lg font-black text-white">Minigame unavailable</Text>
+        <Text className="mt-2 text-sm text-slate-400">
+          This head-to-head used a minigame that has been removed. Please return to the Arcade — staff can cancel stale
+          matches if needed.
+        </Text>
+        <AppButton
+          className="mt-6"
+          title="Back to Arcade"
+          onPress={() => {
+            useMatchmakingStore.getState().setActiveMatch(null);
+            router.replace('/(app)/(tabs)/play');
+          }}
+        />
+      </Screen>
+    );
+  }
+
+  if (useSkillContestH2h) {
+    const h2hProps = {
+      matchSessionId: matchId!,
+      localPlayerId: userId,
+      opponentId: session.opponentId,
+      opponentDisplayName: session.opponentDisplayName ?? 'Opponent',
+      onComplete: onFinish,
+    };
+    const game =
+      serverGameKey === 'tile-clash' ? (
+        <H2hTileClashMatch {...h2hProps} />
+      ) : serverGameKey === 'ball-run' ? (
+        <H2hBallRunMatch {...h2hProps} />
+      ) : serverGameKey === 'dash-duel' ? (
+        <H2hDashDuelMatch {...h2hProps} />
+      ) : serverGameKey === 'turbo-arena' ? (
+        <H2hTurboArenaMatch {...h2hProps} />
+      ) : (
+        <H2hTapDashMatch {...h2hProps} />
+      );
     return (
       <Screen scroll={false} className="px-0">
         <View className="flex-1" style={{ marginHorizontal: -16 }}>
-          <H2hTapDashMatch
-            matchSessionId={matchId!}
-            localPlayerId={userId}
-            opponentId={session.opponentId}
-            opponentDisplayName={session.opponentDisplayName ?? 'Opponent'}
-            onComplete={onFinish}
-          />
+          {game}
         </View>
         {canForfeit ? (
           <View className="px-4 pb-4">
@@ -347,7 +399,7 @@ export default function MatchPlayScreen() {
         hideOpponentControls={hideOppControls}
         onFinish={onFinish}
         onPauseToggle={(p) => {
-          if (p) Alert.alert('Paused', 'TODO: engine pause + sync');
+          if (p) Alert.alert('Paused', 'Take a breather — resume when you are ready.');
         }}
       />
       {canForfeit ? (

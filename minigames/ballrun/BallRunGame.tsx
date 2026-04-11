@@ -4,11 +4,13 @@
 //  Mirrors TapDashGame.tsx conventions exactly
 // ─────────────────────────────────────────────────────────────
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -25,15 +27,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
+import type { H2hSkillContestBundle } from '@/types/match';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
@@ -59,6 +67,9 @@ const PINK = '#ff00cc';
 const PURPLE = '#aa00ff';
 const CHEVRON_YELLOW = '#e8cf00';
 const TRACK_BLACK = '#080810';
+
+/** React HUD (score / speed / streak) — physics + R3F invalidate every frame; avoid 60 RN reconciles/sec. */
+const HUD_REACT_INTERVAL_MS = 1000 / 20;
 
 // ── 3D Scene components ───────────────────────────────────────
 
@@ -94,7 +105,7 @@ function NeonGrid({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunSt
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]}>
-      <planeGeometry args={[80, 120, 20, 30]} />
+      <planeGeometry args={[80, 120, 10, 14]} />
       <meshBasicMaterial color="#1e1a4a" wireframe opacity={0.22} transparent />
     </mesh>
   );
@@ -118,12 +129,12 @@ function VoidAbyss({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunS
   );
 }
 
-/** Sky backdrop with stars */
+/** Sky backdrop with stars (keep count modest — each star is a draw call). */
 function SkyDome() {
   return (
     <>
       {/* Fog-like background color handled by scene */}
-      {Array.from({ length: 60 }, (_, i) => {
+      {Array.from({ length: 22 }, (_, i) => {
         const x = (((i * 73 + 17) % 100) / 100 - 0.5) * 80;
         const y = ((i * 47 + 31) % 100) / 100 * 20 + 3;
         const z = -(((i * 31 + 7) % 100) / 100) * 80 - 5;
@@ -334,53 +345,61 @@ function BallMesh({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunSt
   );
 }
 
-/** Burst particles */
+const PARTICLE_POOL = 100;
+
+/** Burst particles — pooled meshes (no per-frame Geometry/Mesh alloc — was a major hitch). */
 function ParticleMeshes({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
   const groupRef = useRef<THREE.Group>(null);
+  const poolReadyRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const g = groupRef.current;
+    if (!g || poolReadyRef.current) return;
+    poolReadyRef.current = true;
+    const geo = new THREE.SphereGeometry(0.08, 4, 4);
+    for (let i = 0; i < PARTICLE_POOL; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.visible = false;
+      g.add(mesh);
+    }
+  }, []);
 
   useFrame(() => {
     const s = stateRef.current;
-    if (!s || !groupRef.current) return;
-
-    // Update child meshes to match particle state
-    const children = groupRef.current.children;
+    const g = groupRef.current;
+    if (!s || !g) return;
     const particles = s.particles;
-
-    // Add/remove children as needed
-    while (children.length < particles.length) {
-      const geo = new THREE.SphereGeometry(0.08, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-      groupRef.current.add(new THREE.Mesh(geo, mat));
+    const children = g.children as THREE.Mesh[];
+    for (let i = 0; i < PARTICLE_POOL; i++) {
+      const mesh = children[i];
+      if (!mesh) continue;
+      if (i < particles.length) {
+        const p = particles[i]!;
+        mesh.visible = true;
+        mesh.position.set(p.x, p.y, p.z);
+        mesh.scale.setScalar(p.size * p.life * 12);
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        mat.color.set(p.color);
+        mat.opacity = p.life;
+      } else {
+        mesh.visible = false;
+      }
     }
-    while (children.length > particles.length) {
-      groupRef.current.remove(children[children.length - 1]);
-    }
-
-    particles.forEach((p, i) => {
-      const child = children[i] as THREE.Mesh;
-      if (!child) return;
-      child.position.set(p.x, p.y, p.z);
-      child.scale.setScalar(p.size * p.life * 12);
-      const mat = child.material as THREE.MeshBasicMaterial;
-      mat.color.set(p.color);
-      mat.opacity = p.life;
-      mat.transparent = true;
-    });
   });
 
   return <group ref={groupRef} />;
 }
 
-/** Full track rendered from engine state.
- *  R3F often will not reconcile row children when only `stateRef` mutates (parent React state is elsewhere).
- *  Tick state from useFrame forces a React pass every frame so tiles/obstacles stay in sync with the sim.
- */
-function TrackScene({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
-  const [, setTick] = useState(0);
-  useFrame(() => {
-    setTick((n) => (n + 1) % 1_000_000);
-  });
-
+/** Track meshes — re-render only when `trackRevision` bumps (segment list changed), not every frame. */
+function TrackScene({
+  stateRef,
+  trackRevision,
+}: {
+  stateRef: React.MutableRefObject<NeonBallRunState | null>;
+  trackRevision: number;
+}) {
+  void trackRevision;
   const s = stateRef.current;
   if (!s) return null;
 
@@ -484,7 +503,13 @@ function NeonLights({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRun
 }
 
 /** Full 3D scene */
-function GameScene({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunState | null> }) {
+function GameScene({
+  stateRef,
+  trackRevision,
+}: {
+  stateRef: React.MutableRefObject<NeonBallRunState | null>;
+  trackRevision: number;
+}) {
   return (
     <>
       <color attach="background" args={['#02001a']} />
@@ -493,7 +518,7 @@ function GameScene({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRunS
       <SkyDome />
       <NeonGrid stateRef={stateRef} />
       <VoidAbyss stateRef={stateRef} />
-      <TrackScene stateRef={stateRef} />
+      <TrackScene stateRef={stateRef} trackRevision={trackRevision} />
       <BallMesh stateRef={stateRef} />
       <ParticleMeshes stateRef={stateRef} />
       <FollowCamera stateRef={stateRef} />
@@ -562,27 +587,35 @@ export default function NeonBallRunGame({
   playMode = 'practice',
   runSeed: _runSeed,
   dailyTournament,
+  h2hSkillContest,
 }: {
   playMode?: 'practice' | 'prize';
   /** Reserved for deterministic runs / leaderboards (engine is RNG today). */
   runSeed?: number;
   dailyTournament?: DailyTournamentBundle;
+  h2hSkillContest?: H2hSkillContestBundle;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const queryClient = useQueryClient();
   const prizeCredits = usePrizeCreditsDisplay();
   const { height: sh } = useWindowDimensions();
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
   const [, setUiTick] = useState(0);
+  const [trackRevision, setTrackRevision] = useState(0);
 
   const stateRef = useRef<NeonBallRunState | null>(null);
+  const lastTrackSigRef = useRef('');
+  const lastHudReactRef = useRef(0);
   const startTimeRef = useRef(0);
   const endStatsRef = useRef({ score: 0, dodgeCount: 0, durationMs: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const [submitErr, setSubmitErr] = useState(false);
+  const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const dailyCompleteRef = useRef(false);
 
   const bump = useCallback(() => setUiTick(t => t + 1), []);
@@ -594,8 +627,11 @@ export default function NeonBallRunGame({
       durationMs: Math.max(0, Date.now() - startTimeRef.current),
     };
     setPhase('over');
+    if (!dailyTournament && !h2hSkillContest) {
+      setAutoSubmitSeq((n) => n + 1);
+    }
     bump();
-  }, [bump]);
+  }, [bump, dailyTournament, h2hSkillContest]);
 
   const step = useCallback(
     (totalDtMs: number) => {
@@ -611,7 +647,19 @@ export default function NeonBallRunGame({
         return true;
       });
       if (s.alive) {
-        bump();
+        const sig = s.segments
+          .map((x) => x.id)
+          .sort((a, b) => a - b)
+          .join(',');
+        if (sig !== lastTrackSigRef.current) {
+          lastTrackSigRef.current = sig;
+          setTrackRevision((n) => n + 1);
+        }
+        const now = performance.now();
+        if (now - lastHudReactRef.current >= HUD_REACT_INTERVAL_MS) {
+          lastHudReactRef.current = now;
+          bump();
+        }
         invalidate();
       }
     },
@@ -620,8 +668,25 @@ export default function NeonBallRunGame({
 
   useRafLoop(step, phase === 'playing');
 
+  const buildH2hBody = useCallback(() => {
+    const { score, dodgeCount, durationMs } = endStatsRef.current;
+    return {
+      game_type: 'ball_run' as const,
+      score,
+      duration_ms: durationMs,
+      taps: dodgeCount,
+      match_session_id: h2hSkillContest!.matchSessionId,
+    };
+  }, [h2hSkillContest]);
+
+  const { h2hSubmitPhase, h2hPoll, setH2hRetryKey } = useH2hSkillContestSubmitAndPoll(
+    h2hSkillContest,
+    phase,
+    buildH2hBody,
+  );
+
   const startGame = useCallback(() => {
-    if (!dailyTournament && playMode === 'prize') {
+    if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
         Alert.alert('Not enough prize credits', `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits.`);
@@ -630,14 +695,23 @@ export default function NeonBallRunGame({
     }
     stateRef.current = createNeonBallRunState();
     startTimeRef.current = Date.now();
+    lastTrackSigRef.current = stateRef.current.segments
+      .map((x) => x.id)
+      .sort((a, b) => a - b)
+      .join(',');
+    setTrackRevision((n) => n + 1);
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('playing');
+    lastHudReactRef.current = 0;
     bump();
-  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament]);
+  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament, h2hSkillContest]);
 
   const resetRun = useCallback(() => {
     stateRef.current = null;
+    lastTrackSigRef.current = '';
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('ready');
     bump();
   }, [bump]);
@@ -645,27 +719,63 @@ export default function NeonBallRunGame({
   const submitScore = useCallback(async () => {
     const { score, dodgeCount, durationMs } = endStatsRef.current;
     setSubmitting(true);
+    setSubmitErr(false);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) { Alert.alert('Sign in required', 'Log in to submit your score.'); return; }
+      if (!sess.session) {
+        Alert.alert('Sign in required', 'Log in to submit your score.');
+        setSubmitErr(true);
+        return;
+      }
+      const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
         body: {
+          ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'ball_run',
           score,
           duration_ms: durationMs,
           taps: dodgeCount,
         },
       });
-      if (error) { Alert.alert('Submit failed', error.message ?? 'Could not reach server.'); return; }
+      if (error) {
+        Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        setSubmitErr(true);
+        return;
+      }
+      invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
     } finally {
-      setSubmitting(false); }
-  }, []);
+      setSubmitting(false);
+    }
+  }, [dailyTournament, playMode, h2hSkillContest, queryClient, uid]);
+
+  useAutoSubmitOnPhaseOver({
+    phase,
+    overValue: 'over',
+    runToken: autoSubmitSeq,
+    disabled: Boolean(dailyTournament || h2hSkillContest),
+    onSubmit: submitScore,
+  });
 
   const s = stateRef.current;
   const swipe = useSwipe(stateRef);
   const canvasH = sh * 0.68;
+
+  useWebGameKeyboard(phase === 'playing', {
+    ArrowLeft: (down) => {
+      if (down && stateRef.current?.alive) queueShift(stateRef.current, -1);
+    },
+    ArrowRight: (down) => {
+      if (down && stateRef.current?.alive) queueShift(stateRef.current, 1);
+    },
+    ArrowUp: (down) => {
+      if (down && stateRef.current?.alive) queueJump(stateRef.current!);
+    },
+    Space: (down) => {
+      if (down && stateRef.current?.alive) queueJump(stateRef.current!);
+    },
+  });
 
   const dailyPayload =
     dailyTournament && phase === 'over'
@@ -696,16 +806,19 @@ export default function NeonBallRunGame({
           </Pressable>
           <View style={styles.scoreCol}>
             <Text style={styles.scoreText}>{s ? Math.floor(s.score) : 0}</Text>
+            {s && s.dodgeStreak >= 2 ? (
+              <Text style={styles.streakText}>{s.dodgeStreak}x HAZARD STREAK</Text>
+            ) : null}
             {s && s.dodgeCount > 0 && (
-              <Text style={styles.dodgeText}>+{s.dodgeCount} dodge{s.dodgeCount !== 1 ? 's' : ''}</Text>
+              <Text style={styles.dodgeText}>+{s.dodgeCount} hazard{s.dodgeCount !== 1 ? 's' : ''} cleared</Text>
             )}
-            {dailyTournament && phase !== 'over' ? (
+            {(dailyTournament || h2hSkillContest) && phase !== 'over' ? (
               <Text style={styles.vsOppBall} numberOfLines={1}>
-                vs {dailyTournament.opponentDisplayName}
+                vs {dailyTournament?.opponentDisplayName ?? h2hSkillContest?.opponentDisplayName}
               </Text>
             ) : null}
           </View>
-          {dailyTournament ? (
+          {dailyTournament || h2hSkillContest ? (
             <View style={styles.topBarRightSpacer} />
           ) : (
             <View style={styles.creditsPill}>
@@ -729,9 +842,9 @@ export default function NeonBallRunGame({
             style={{ flex: 1 }}
             frameloop="always"
             camera={{ position: [0, 6, 12], fov: 65, near: 0.1, far: 220 }}
-            gl={{ antialias: true }}
+            gl={{ antialias: true, powerPreference: 'high-performance' }}
           >
-            <GameScene stateRef={stateRef} />
+            <GameScene stateRef={stateRef} trackRevision={trackRevision} />
           </Canvas>
 
           {/* Ready overlay */}
@@ -741,14 +854,21 @@ export default function NeonBallRunGame({
               <Text style={styles.readySub}>RAMP RUN · JUMP THE GAPS</Text>
               <View style={styles.readyDivider} />
               <Text style={styles.readyMode}>
-                {dailyTournament
-                  ? `Tournament of the Day · vs ${dailyTournament.opponentDisplayName}`
-                  : playMode === 'prize'
-                    ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${POINTS_PER_TICKET} score`
-                    : 'Practice · free · no credits spent'}
+                {h2hSkillContest
+                  ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
+                  : dailyTournament
+                    ? `Tournament of the Day · vs ${dailyTournament.opponentDisplayName}`
+                    : playMode === 'prize'
+                      ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${POINTS_PER_TICKET} score`
+                      : 'Practice · free · no credits spent'}
               </Text>
-              <Text style={styles.readyHint}>Swipe ← → to dodge · Swipe ↑ or tap to jump</Text>
-              <Text style={styles.readyHint2}>Roll the ramps · jump gaps · dodge spikes and trains</Text>
+              <Text style={styles.readyHint}>
+                Swipe ← → to dodge · Swipe ↑ or tap to jump
+                {Platform.OS === 'web' ? '\nWeb: arrow keys + Space to jump' : ''}
+              </Text>
+              <Text style={styles.readyHint2}>
+                Chain hazard clears for a streak bonus · roll the ramps · jump gaps · dodge spikes & trains
+              </Text>
               <AppButton title="▶  ROLL" onPress={startGame} />
             </View>
           )}
@@ -757,7 +877,11 @@ export default function NeonBallRunGame({
         {/* Control hint */}
         {phase === 'playing' && (
           <View style={styles.hintRow}>
-            <Text style={styles.hintText}>← swipe → to switch lanes · swipe ↑ or tap to jump gaps</Text>
+            <Text style={styles.hintText}>
+              {Platform.OS === 'web'
+                ? '← → lanes · ↑ or Space jump'
+                : '← swipe → to switch lanes · swipe ↑ or tap to jump gaps'}
+            </Text>
           </View>
         )}
 
@@ -776,6 +900,10 @@ export default function NeonBallRunGame({
             <View style={styles.card}>
               {dailyTournament && dailyPayload ? (
                 <>
+                  <GameOverExitRow
+                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                    onHome={() => router.replace(ROUTE_HOME)}
+                  />
                   <Text style={styles.goTitle}>Round result</Text>
                   <Text style={styles.goVsBall} numberOfLines={1}>
                     You vs {dailyTournament.opponentDisplayName}
@@ -790,30 +918,38 @@ export default function NeonBallRunGame({
                   </Text>
                   <AppButton title="Continue" onPress={onContinueDaily} />
                 </>
+              ) : h2hSkillContest ? (
+                <>
+                  <GameOverExitRow
+                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                    onHome={() => router.replace(ROUTE_HOME)}
+                  />
+                  <Text style={styles.goTitle}>Run ended</Text>
+                  <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+                  {h2hSubmitPhase === 'loading' ? (
+                    <Text style={styles.practiceNote}>Submitting your run…</Text>
+                  ) : null}
+                  {h2hSubmitPhase === 'error' ? (
+                    <>
+                      <Text style={styles.practiceNote}>Could not submit this run. Check your connection.</Text>
+                      <AppButton title="Retry submit" className="mt-3" onPress={() => setH2hRetryKey((k) => k + 1)} />
+                    </>
+                  ) : null}
+                  {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
+                    <Text style={styles.practiceNote}>
+                      Waiting for {h2hSkillContest.opponentDisplayName} to finish…
+                    </Text>
+                  ) : null}
+                  {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
+                    <Text style={styles.practiceNote}>Both runs in — finalizing match…</Text>
+                  ) : null}
+                </>
               ) : (
                 <>
-                  <View style={styles.goNavRow}>
-                    <Pressable
-                      style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
-                      onPress={() => router.replace('/(app)/(tabs)/play/minigames')}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to minigames menu"
-                    >
-                      <Ionicons name="chevron-back" size={24} color="#e2e8f0" />
-                      <Text style={styles.goNavLabel}>Minigames</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [styles.goNavBtn, pressed && { opacity: 0.75 }]}
-                      onPress={() => router.replace('/(app)/(tabs)')}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Go to home"
-                    >
-                      <Ionicons name="home-outline" size={24} color="#e2e8f0" />
-                      <Text style={styles.goNavLabel}>Home</Text>
-                    </Pressable>
-                  </View>
+                  <GameOverExitRow
+                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                    onHome={() => router.replace(ROUTE_HOME)}
+                  />
                   <Text style={styles.goTitle}>WIPED OUT</Text>
                   {s && <Text style={styles.goReason}>{s.deathReason}</Text>}
                   <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
@@ -826,17 +962,54 @@ export default function NeonBallRunGame({
                   <AppButton title="Roll Again" onPress={resetRun} className="mb-3" />
                   {playMode === 'prize' ? (
                     <>
-                      <AppButton
-                        title={submitOk ? 'Score submitted ✓' : 'Submit Score'}
-                        variant="secondary"
-                        loading={submitting}
-                        disabled={submitOk || submitting}
-                        onPress={submitScore}
-                      />
-                      {submitting && <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />}
+                      {submitting ? (
+                        <>
+                          <Text style={styles.practiceNote}>Saving score…</Text>
+                          <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                        </>
+                      ) : null}
+                      {submitOk ? <Text style={styles.practiceNote}>Score saved.</Text> : null}
+                      {submitErr && !submitting ? (
+                        <>
+                          <Text style={styles.practiceNote}>Could not save score.</Text>
+                          <AppButton
+                            title="Retry"
+                            variant="secondary"
+                            className="mt-2"
+                            onPress={() => {
+                              setSubmitErr(false);
+                              void submitScore();
+                            }}
+                          />
+                        </>
+                      ) : null}
                     </>
                   ) : (
-                    <Text style={styles.practiceNote}>Practice run — not submitted to leaderboards.</Text>
+                    <>
+                      {submitting ? (
+                        <>
+                          <Text style={styles.practiceNote}>Saving practice run…</Text>
+                          <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                        </>
+                      ) : null}
+                      {submitOk ? (
+                        <Text style={styles.practiceNote}>Practice run saved (no prize tickets).</Text>
+                      ) : null}
+                      {submitErr && !submitting ? (
+                        <>
+                          <Text style={styles.practiceNote}>Could not save run.</Text>
+                          <AppButton
+                            title="Retry"
+                            variant="secondary"
+                            className="mt-2"
+                            onPress={() => {
+                              setSubmitErr(false);
+                              void submitScore();
+                            }}
+                          />
+                        </>
+                      ) : null}
+                    </>
                   )}
                 </>
               )}
@@ -866,6 +1039,13 @@ const styles = StyleSheet.create({
     textShadowColor: '#00ffff', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
   },
   dodgeText: { marginTop: 1, color: 'rgba(0,255,136,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  streakText: {
+    marginTop: 2,
+    color: 'rgba(255, 0, 204, 0.95)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
   vsOppBall: {
     marginTop: 4,
     fontSize: 11,
@@ -931,18 +1111,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(0,255,255,0.3)',
     backgroundColor: 'rgba(8,0,30,0.98)',
     shadowColor: '#00ffff', shadowOpacity: 0.14, shadowRadius: 20, gap: 8,
-  },
-  goNavRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    width: '100%', marginBottom: 4, paddingBottom: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,255,255,0.12)',
-  },
-  goNavBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 6, paddingHorizontal: 4,
-  },
-  goNavLabel: {
-    color: '#f1f5f9', fontSize: 14, fontWeight: '800', letterSpacing: 0.3,
   },
   goTitle: {
     color: '#ff00cc', fontSize: 26, fontWeight: '900', textAlign: 'center', letterSpacing: 4,

@@ -1,8 +1,8 @@
 import type { QueueKind } from '@/store/matchmakingStore';
 
 /**
- * Supabase-ready adapter contract: swap mock for Realtime channel + Edge Function ticket flow.
- * TODO: Wire to `match_sessions` writes and authoritative server matchmaking.
+ * Production H2H uses Supabase queue RPCs + Realtime on `match_sessions` (see `h2hEnqueueOrMatch`, `useH2hQueueMatchSignals`).
+ * Lockstep / WebRTC P2P would require a relay or native `react-native-webrtc` and is not part of this async skill-contest flow.
  */
 export interface MatchmakingService {
   startSearch: (userId: string, queue: QueueKind) => Promise<{ searchId: string }>;

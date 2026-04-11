@@ -16,5 +16,5 @@ export function trackProductEvent(eventName: string, props?: ProductAnalyticsPro
   if (__DEV__) {
     console.log(`[productAnalytics] ${eventName}`, props ?? {});
   }
-  // TODO: forward to production analytics when configured
+  /* Production: forward `eventName` + props to your analytics SDK here. */
 }

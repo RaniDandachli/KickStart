@@ -1,13 +1,20 @@
 import { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { TILE_CLASH } from '@/minigames/config/tuning';
+import {
+  MINIGAME_HUD_MS,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
+import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import {
   createTileClashState,
@@ -16,6 +23,7 @@ import {
   tileClashAiPick,
   type TileClashState,
 } from '@/minigames/tileclash/TileClashEngine';
+import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
 
 const ABSTRACT_W = 100;
 
@@ -95,10 +103,13 @@ function TileBoard({
 
 export default function TileClashScreen() {
   useHidePlayTabBar();
+  const router = useRouter();
   const { width: sw } = useWindowDimensions();
   const [phase, setPhase] = useState<'intro' | 'countdown' | 'playing' | 'done'>('intro');
+  useTileClashMusic(phase === 'countdown' || phase === 'playing');
   const [uiTick, setUiTick] = useState(0);
   const stateRef = useRef<TileClashState | null>(null);
+  const lastHudEmitRef = useRef(0);
 
   const pad = 10;
   const boardW = (sw - pad * 3) / 2;
@@ -107,6 +118,7 @@ export default function TileClashScreen() {
 
   const startRun = useCallback(() => {
     stateRef.current = createTileClashState((Date.now() ^ 0xcafebabe) >>> 0);
+    resetMinigameHudClock(lastHudEmitRef);
     setUiTick((t) => t + 1);
     setPhase('countdown');
   }, []);
@@ -126,7 +138,9 @@ export default function TileClashScreen() {
     const col = tileClashAiPick(s);
     if (col >= 0) tapColumn(s, col, 2);
     if (s.timeLeftMs <= 0) setPhase('done');
-    setUiTick((t) => t + 1);
+    if (shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS)) {
+      setUiTick((t) => t + 1);
+    }
   }, []);
 
   useRafLoop(loop, phase === 'playing');
@@ -207,7 +221,9 @@ export default function TileClashScreen() {
         scoreP1={snap?.scoreP1 ?? 0}
         scoreP2={snap?.scoreP2 ?? 0}
         onRematch={startRun}
-        onMenu={() => setPhase('intro')}
+        onMenu={() => {}}
+        onExitMinigames={() => router.replace(ROUTE_MINIGAMES)}
+        onExitHome={() => router.replace(ROUTE_HOME)}
       />
     </SafeAreaView>
   );

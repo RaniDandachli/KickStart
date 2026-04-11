@@ -1,7 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +16,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import {
   awardRedeemTicketsForPrizeRun,
   TILE_CLASH_POINTS_PER_TICKET,
@@ -19,12 +26,21 @@ import {
 } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
+import {
+  MINIGAME_HUD_MS,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
+import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
+import type { H2hSkillContestBundle } from '@/types/match';
 
 const COLS = 4;
 /** Abstract vertical range (game logic). */
@@ -95,13 +111,17 @@ function spawnRow(m: GameModel, baseY?: number): void {
 export default function TileClashGame({
   playMode = 'practice',
   dailyTournament,
+  h2hSkillContest,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
+  h2hSkillContest?: H2hSkillContestBundle;
 }) {
   useHidePlayTabBar();
+  const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const queryClient = useQueryClient();
   const { width: sw } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [boardSize, setBoardSize] = useState({ w: Math.max(200, sw - 16), h: 0 });
@@ -112,6 +132,7 @@ export default function TileClashGame({
   const colW = boardW / COLS;
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  useTileClashMusic(phase === 'playing');
   const [, setUiTick] = useState(0);
   const modelRef = useRef<GameModel>(createGame());
   const startTimeRef = useRef(0);
@@ -121,8 +142,11 @@ export default function TileClashGame({
   const endStatsRef = useRef({ score: 0, durationMs: 0, taps: 0, intervals: [] as number[] });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const [submitErr, setSubmitErr] = useState(false);
+  const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const [redFlash, setRedFlash] = useState(false);
   const dailyCompleteRef = useRef(false);
+  const lastHudEmitRef = useRef(0);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -141,13 +165,16 @@ export default function TileClashGame({
         taps: tapCountRef.current,
         intervals: [...intervalsRef.current],
       };
-      if (!dailyTournament && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
         awardRedeemTicketsForPrizeRun(ticketsFromTileClashScore(m.score));
       }
       setPhase('over');
+      if (!dailyTournament && !h2hSkillContest) {
+        setAutoSubmitSeq((n) => n + 1);
+      }
       bump();
     },
-    [bump, playMode, dailyTournament],
+    [bump, playMode, dailyTournament, h2hSkillContest],
   );
 
   const step = useCallback(
@@ -180,7 +207,7 @@ export default function TileClashGame({
         return true;
       });
 
-      if (m.alive) bump();
+      if (m.alive && shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS)) bump();
     },
     [bump, endGame],
   );
@@ -193,13 +220,33 @@ export default function TileClashGame({
     lastTapAtRef.current = 0;
     intervalsRef.current = [];
     tapCountRef.current = 0;
+    resetMinigameHudClock(lastHudEmitRef);
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('ready');
     bump();
   }, [bump]);
 
+  const buildH2hBody = useCallback(() => {
+    const { score, durationMs, taps, intervals } = endStatsRef.current;
+    return {
+      game_type: 'tile_clash' as const,
+      score,
+      duration_ms: durationMs,
+      taps,
+      tap_intervals_ms: intervals,
+      match_session_id: h2hSkillContest!.matchSessionId,
+    };
+  }, [h2hSkillContest]);
+
+  const { h2hSubmitPhase, h2hPoll, h2hRetryKey, setH2hRetryKey } = useH2hSkillContestSubmitAndPoll(
+    h2hSkillContest,
+    phase,
+    buildH2hBody,
+  );
+
   const startGame = useCallback(() => {
-    if (!dailyTournament && playMode === 'prize') {
+    if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
         Alert.alert(
@@ -216,10 +263,12 @@ export default function TileClashGame({
     lastTapAtRef.current = 0;
     intervalsRef.current = [];
     tapCountRef.current = 0;
+    resetMinigameHudClock(lastHudEmitRef);
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('playing');
     bump();
-  }, [bump, playMode, dailyTournament]);
+  }, [bump, playMode, dailyTournament, h2hSkillContest]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -265,18 +314,37 @@ export default function TileClashGame({
     [phase, applyPlayingTap],
   );
 
+  useWebGameKeyboard(phase === 'playing', {
+    Digit1: (down) => {
+      if (down) onColumnPress(0);
+    },
+    Digit2: (down) => {
+      if (down) onColumnPress(1);
+    },
+    Digit3: (down) => {
+      if (down) onColumnPress(2);
+    },
+    Digit4: (down) => {
+      if (down) onColumnPress(3);
+    },
+  });
+
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps, intervals } = endStatsRef.current;
     setSubmitting(true);
+    setSubmitErr(false);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) {
         Alert.alert('Sign in required', 'Log in to submit your score.');
+        setSubmitErr(true);
         return;
       }
+      const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
         body: {
+          ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'tile_clash' as const,
           score,
           duration_ms: durationMs,
@@ -286,13 +354,23 @@ export default function TileClashGame({
       });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        setSubmitErr(true);
         return;
       }
+      invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [dailyTournament, playMode, h2hSkillContest, queryClient, uid]);
+
+  useAutoSubmitOnPhaseOver({
+    phase,
+    overValue: 'over',
+    runToken: autoSubmitSeq,
+    disabled: Boolean(dailyTournament || h2hSkillContest),
+    onSubmit: submitScore,
+  });
 
   const m = modelRef.current;
   const hitTopPx = HIT_TOP * scaleY;
@@ -319,6 +397,21 @@ export default function TileClashGame({
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <View style={styles.topBar} accessibilityRole="toolbar">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={12}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={28} color={arcade.white} />
+        </Pressable>
+        <Text style={styles.topBarTitle} numberOfLines={1}>
+          Tile Clash
+        </Text>
+        <View style={styles.topBarSpacer} />
+      </View>
       <View style={styles.root}>
         {/* Reference-style gold score ring */}
         <View style={styles.hudRow}>
@@ -330,9 +423,9 @@ export default function TileClashGame({
               Streak {m.streak} · ×{mult}
             </Text>
           )}
-          {dailyTournament && phase !== 'over' ? (
+          {(dailyTournament || h2hSkillContest) && phase !== 'over' ? (
             <Text style={styles.vsOppTile} numberOfLines={1}>
-              vs {dailyTournament.opponentDisplayName}
+              vs {dailyTournament?.opponentDisplayName ?? h2hSkillContest?.opponentDisplayName}
             </Text>
           ) : null}
         </View>
@@ -414,14 +507,19 @@ export default function TileClashGame({
             <Pressable style={styles.tapToStartLayer} onPress={startGame}>
               <View style={styles.tapToStartHint} pointerEvents="none">
                 <Text style={styles.tapMode}>
-                  {dailyTournament
-                    ? `Live event · vs ${dailyTournament.opponentDisplayName}`
-                    : playMode === 'prize'
-                      ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
-                      : 'Practice · free'}
+                  {h2hSkillContest
+                    ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
+                    : dailyTournament
+                      ? `Live event · vs ${dailyTournament.opponentDisplayName}`
+                      : playMode === 'prize'
+                        ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
+                        : 'Practice · free'}
                 </Text>
                 <Text style={styles.tapToStartTitle}>TAP TO START</Text>
-                <Text style={styles.tapToStartSub}>Hit the glowing tile in the gold zone</Text>
+                <Text style={styles.tapToStartSub}>
+                  Hit the glowing tile in the gold zone
+                  {Platform.OS === 'web' ? '\nWeb: keys 1–4 = lanes' : ''}
+                </Text>
               </View>
             </Pressable>
           ) : null}
@@ -429,11 +527,16 @@ export default function TileClashGame({
 
         <Text style={[styles.footerHint, { paddingBottom: Math.max(insets.bottom, 8) }]}>
           Wrong tile or miss ends the run · Speed up every 5 hits
+          {Platform.OS === 'web' ? ' · Web: 1–4' : ''}
         </Text>
 
         {phase === 'over' && dailyTournament && dailyPayload ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>Round result</Text>
               <Text style={styles.goVsTile} numberOfLines={1}>
                 You vs {dailyTournament.opponentDisplayName}
@@ -450,9 +553,42 @@ export default function TileClashGame({
             </View>
           </View>
         ) : null}
-        {phase === 'over' && !dailyTournament ? (
+        {phase === 'over' && h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
+              <Text style={styles.goTitle}>Run ended</Text>
+              <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+              {h2hSubmitPhase === 'loading' ? (
+                <Text style={styles.footerHintCenter}>Submitting your run…</Text>
+              ) : null}
+              {h2hSubmitPhase === 'error' ? (
+                <>
+                  <Text style={styles.footerHintCenter}>Could not submit this run. Check your connection.</Text>
+                  <AppButton title="Retry submit" className="mt-3" onPress={() => setH2hRetryKey((k) => k + 1)} />
+                </>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
+                <Text style={styles.footerHintCenter}>
+                  Waiting for {h2hSkillContest.opponentDisplayName} to finish…
+                </Text>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
+                <Text style={styles.footerHintCenter}>Both runs in — finalizing match…</Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>Run over</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
               {playMode === 'prize' ? (
@@ -461,16 +597,57 @@ export default function TileClashGame({
                 </Text>
               ) : null}
               <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
-              <AppButton
-                title={submitOk ? 'Score submitted' : 'Submit Score'}
-                variant="secondary"
-                loading={submitting}
-                disabled={submitOk || submitting}
-                onPress={submitScore}
-              />
-              {submitting ? (
-                <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
-              ) : null}
+              {playMode === 'prize' ? (
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={styles.footerHintCenter}>Saving score…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? <Text style={styles.footerHintCenter}>Score saved.</Text> : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.footerHintCenter}>Could not save score.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={styles.footerHintCenter}>Saving practice run…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? (
+                    <Text style={styles.footerHintCenter}>Practice run saved (no prize tickets).</Text>
+                  ) : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.footerHintCenter}>Could not save run.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
+              )}
             </View>
           </View>
         ) : null}
@@ -481,6 +658,33 @@ export default function TileClashGame({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: arcade.navy0 },
+  topBar: {
+    zIndex: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: arcade.navy0,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  backBtnPressed: { opacity: 0.7 },
+  topBarTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: arcade.white,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  topBarSpacer: { width: 44 },
   root: { flex: 1, width: '100%' },
   hudRow: {
     alignItems: 'center',

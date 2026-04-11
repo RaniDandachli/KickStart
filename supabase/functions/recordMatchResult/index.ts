@@ -125,14 +125,22 @@ Deno.serve(async (req) => {
       const scoreB = Math.trunc(p.score.b);
 
       const gk = String(sess.game_key ?? '').trim().toLowerCase();
-      const isTapDashSession = !gk || gk === 'tap-dash';
-      if (isTapDashSession) {
+      const skillGameType = ((): string | null => {
+        if (gk === '' || gk === 'tap-dash') return 'tap_dash';
+        if (gk === 'tile-clash') return 'tile_clash';
+        if (gk === 'ball-run') return 'ball_run';
+        if (gk === 'dash-duel') return 'dash_duel';
+        if (gk === 'turbo-arena') return 'turbo_arena';
+        return null;
+      })();
+      if (skillGameType) {
+        const gt = skillGameType;
         const { data: rowA, error: eA } = await admin
           .from('minigame_scores')
           .select('score')
           .eq('match_session_id', p.match_session_id)
           .eq('user_id', pa)
-          .eq('game_type', 'tap_dash')
+          .eq('game_type', gt)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -141,14 +149,14 @@ Deno.serve(async (req) => {
           .select('score')
           .eq('match_session_id', p.match_session_id)
           .eq('user_id', pb)
-          .eq('game_type', 'tap_dash')
+          .eq('game_type', gt)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
         if (eA || eB) return errorResponse('Could not verify minigame scores', 500);
         if (rowA == null || rowB == null) {
           return errorResponse(
-            'Both players must submit validated Tap Dash scores before this match can complete',
+            'Both players must submit validated skill-contest scores before this match can complete',
             400,
           );
         }

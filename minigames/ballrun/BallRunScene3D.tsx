@@ -22,8 +22,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
+import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import {
+  MINIGAME_HUD_MS_MOTION,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 
 import { BALL_RUN } from './ballRunConstants';
@@ -230,6 +236,7 @@ export default function NeonBallRunScreen() {
   const p2Ref = useRef<NeonBallRunState | null>(null);
   const elapsedRef = useRef(0);
   const matchDoneLatch = useRef(false);
+  const lastHudEmitRef = useRef(0);
 
   // P1 swipe
   const sx = useRef(0);
@@ -241,11 +248,15 @@ export default function NeonBallRunScreen() {
     p1Ref.current = createNeonBallRunState();
     p2Ref.current = createNeonBallRunState();
     elapsedRef.current = 0;
+    resetMinigameHudClock(lastHudEmitRef);
     setUiTick(t => t + 1);
     setPhase('countdown');
   }, []);
 
-  const onCountdownDone = useCallback(() => setPhase('playing'), []);
+  const onCountdownDone = useCallback(() => {
+    resetMinigameHudClock(lastHudEmitRef);
+    setPhase('playing');
+  }, []);
 
   const loop = useCallback(
     (totalDtMs: number) => {
@@ -253,6 +264,7 @@ export default function NeonBallRunScreen() {
       const p2 = p2Ref.current;
       if (!p1 || !p2) return;
 
+      let matchJustEnded = false;
       runFixedPhysicsSteps(totalDtMs, (h) => {
         elapsedRef.current += h;
         const dtSec = h / 1000;
@@ -268,12 +280,15 @@ export default function NeonBallRunScreen() {
           if (!matchDoneLatch.current) {
             matchDoneLatch.current = true;
             setPhase('done');
+            matchJustEnded = true;
           }
           return false;
         }
         return true;
       });
-      setUiTick((t) => t + 1);
+      if (matchJustEnded || shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) {
+        setUiTick((t) => t + 1);
+      }
     },
     [difficulty],
   );
@@ -386,8 +401,9 @@ export default function NeonBallRunScreen() {
         scoreP1={p1 ? Math.floor(p1.score) : 0}
         scoreP2={p2 ? Math.floor(p2.score) : 0}
         onRematch={startRun}
-        onMenu={() => router.replace('/(app)/(tabs)/play/minigames')}
-        onHome={() => router.replace('/(app)/(tabs)')}
+        onMenu={() => {}}
+        onExitMinigames={() => router.replace(ROUTE_MINIGAMES)}
+        onExitHome={() => router.replace(ROUTE_HOME)}
       />
     </SafeAreaView>
   );

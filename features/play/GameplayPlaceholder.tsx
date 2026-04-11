@@ -3,10 +3,10 @@ import { Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Card } from '@/components/ui/Card';
-import type { MatchFinishPayload, KickClashMatchSession } from '@/types/match';
+import type { HeadToHeadMatchSession, MatchFinishPayload } from '@/types/match';
 
 export interface GameplayPlaceholderProps {
-  session: KickClashMatchSession;
+  session: HeadToHeadMatchSession;
   onFinish: (result: MatchFinishPayload) => void;
   onPauseToggle?: (paused: boolean) => void;
   /**

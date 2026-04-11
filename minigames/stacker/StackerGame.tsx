@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +17,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, STACKER_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import {
   awardRedeemTicketsForPrizeRun,
   STACKER_JACKPOT_TICKETS,
@@ -22,8 +26,15 @@ import {
 } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
+import {
+  MINIGAME_HUD_MS_MOTION,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
 
@@ -87,6 +98,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { width: sw, height: sh } = useWindowDimensions();
 
@@ -114,6 +126,9 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const endStatsRef = useRef({ rows: 0, durationMs: 0, won: false });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const [submitErr, setSubmitErr] = useState(false);
+  const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
+  const lastHudEmitRef = useRef(0);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -129,6 +144,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         awardRedeemTicketsForPrizeRun(ticketsFromStackerPrizeRun(won));
       }
       setPhase('over');
+      setAutoSubmitSeq((n) => n + 1);
       bump();
     },
     [bump, playMode],
@@ -157,7 +173,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         return true;
       });
 
-      if (g.alive) bump();
+      if (g.alive && shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) bump();
     },
     [bump],
   );
@@ -170,7 +186,9 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     tapCountRef.current = 0;
     lastTapAtRef.current = 0;
     wonRef.current = false;
+    resetMinigameHudClock(lastHudEmitRef);
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('ready');
     bump();
   }, [bump]);
@@ -191,7 +209,9 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     tapCountRef.current = 0;
     lastTapAtRef.current = 0;
     wonRef.current = false;
+    resetMinigameHudClock(lastHudEmitRef);
     setSubmitOk(false);
+    setSubmitErr(false);
     setPhase('playing');
     bump();
   }, [bump, playMode, profileQ.data?.prize_credits]);
@@ -229,18 +249,31 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     bump();
   }, [bump, endGame, phase]);
 
+  useWebGameKeyboard(phase === 'playing', {
+    Space: (down) => {
+      if (down) onStackTap();
+    },
+    Enter: (down) => {
+      if (down) onStackTap();
+    },
+  });
+
   const submitScore = useCallback(async () => {
     const { rows, durationMs } = endStatsRef.current;
     setSubmitting(true);
+    setSubmitErr(false);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) {
         Alert.alert('Sign in required', 'Log in to submit your score.');
+        setSubmitErr(true);
         return;
       }
+      const prizeRun = playMode === 'prize';
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
         body: {
+          ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'stacker' as const,
           score: rows,
           duration_ms: durationMs,
@@ -249,13 +282,22 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
       });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        setSubmitErr(true);
         return;
       }
+      invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [playMode, queryClient, uid]);
+
+  useAutoSubmitOnPhaseOver({
+    phase,
+    overValue: 'over',
+    runToken: autoSubmitSeq,
+    onSubmit: submitScore,
+  });
 
   const g = gameRef.current;
   const target = stackTarget(g.placed);
@@ -334,6 +376,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
                   <Text style={styles.startTitle}>TAP TO START</Text>
                   <Text style={styles.startSub}>
                     Full screen · tap to drop · {STACKER_WIN_ROWS} rows to jackpot · speed ramps hard
+                    {Platform.OS === 'web' ? '\nWeb: Space or Enter to drop' : ''}
                   </Text>
                 </View>
               </Pressable>
@@ -367,13 +410,17 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
 
         {phase === 'playing' ? (
           <Text style={[styles.tapHint, { bottom: Math.max(insets.bottom, 10) + 6 }]} pointerEvents="none">
-            Tap anywhere to drop
+            {Platform.OS === 'web' ? 'Space / Enter / tap to drop' : 'Tap anywhere to drop'}
           </Text>
         ) : null}
 
         {phase === 'over' ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>{wonRef.current ? 'Jackpot!' : 'Game over'}</Text>
               <Text style={styles.goScore}>
                 Rows stacked: {endStatsRef.current.rows}/{STACKER_WIN_ROWS}
@@ -386,14 +433,57 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
                 </Text>
               ) : null}
               <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
-              <AppButton
-                title={submitOk ? 'Score submitted' : 'Submit score'}
-                variant="secondary"
-                loading={submitting}
-                disabled={submitOk || submitting}
-                onPress={submitScore}
-              />
-              {submitting ? <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} /> : null}
+              {playMode === 'prize' ? (
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={styles.goTickets}>Saving score…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? <Text style={styles.goTickets}>Score saved.</Text> : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.goTickets}>Could not save score.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={styles.goTickets}>Saving practice run…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? (
+                    <Text style={styles.goTickets}>Practice run saved (no prize tickets).</Text>
+                  ) : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.goTickets}>Could not save run.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
+              )}
             </View>
           </View>
         ) : null}

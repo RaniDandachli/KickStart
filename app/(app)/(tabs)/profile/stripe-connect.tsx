@@ -23,6 +23,7 @@ import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
+import { PAYOUT_BANK_TIMING_SHORT, PAYOUT_BANK_TIMING_WITHDRAWAL_SUCCESS } from '@/lib/payoutCopy';
 import { STRIPE_CONNECT_PREFILL_SUMMARY } from '@/lib/stripeConnectPrefill';
 import {
   fetchStripeConnectStatus,
@@ -187,10 +188,7 @@ export default function StripeConnectScreen() {
       setWithdrawUsd('');
       void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
       void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
-      Alert.alert(
-        'Withdrawal sent',
-        'Funds were sent to your Stripe Connect balance. Stripe will pay out to your bank on their schedule — check the Express dashboard for status.',
-      );
+      Alert.alert('Withdrawal started', PAYOUT_BANK_TIMING_WITHDRAWAL_SUCCESS);
       await loadStatus();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -307,9 +305,10 @@ export default function StripeConnectScreen() {
           <LinearGradient colors={['#0f172a', '#1e1b4b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
             <Text style={styles.head}>Withdraw cash</Text>
             <Text style={styles.body}>
-              Available balance: <Text style={styles.em}>{formatUsdFromCents(walletCents)}</Text>. Minimum $1.00. Money moves to
-              your Stripe Connect balance, then Stripe pays out to your bank (timing depends on your bank and Stripe).
+              Available balance: <Text style={styles.em}>{formatUsdFromCents(walletCents)}</Text>. Minimum $1.00. We verify your
+              balance on the server, then send funds to your Stripe Connect account — Stripe routes them to your linked bank.
             </Text>
+            <Text style={styles.timingNote}>{PAYOUT_BANK_TIMING_SHORT}</Text>
 
             {statusStale ? (
               <View style={styles.callout}>
@@ -370,7 +369,7 @@ export default function StripeConnectScreen() {
                   : 'If you are stuck, open the Stripe dashboard from above — Stripe may need extra verification.'}
               </Text>
             ) : (
-              <Text style={styles.hint}>Transfers require an active bank connection and enabled payouts.</Text>
+              <Text style={styles.hint}>We check your balance and Stripe payout status before each transfer.</Text>
             )}
           </LinearGradient>
         ) : null}
@@ -435,6 +434,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,4,18,0.75)',
   },
   hint: { color: 'rgba(148,163,184,0.9)', fontSize: 12, marginTop: 10, lineHeight: 17 },
+  timingNote: {
+    color: 'rgba(203,213,225,0.95)',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(14,165,233,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.25)',
+  },
   callout: {
     flexDirection: 'row',
     gap: 10,

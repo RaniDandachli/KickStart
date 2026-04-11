@@ -7,8 +7,8 @@ import { getSupabase } from '@/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
 /**
- * TODO: Flip `EXPO_PUBLIC_ENABLE_REALTIME=true` and channel names to match your Supabase Realtime publication.
- * Subscribes to generic table events and invalidates TanStack Query caches.
+ * When `EXPO_PUBLIC_ENABLE_REALTIME=true` and tables are in `supabase_realtime`, invalidates
+ * lobby/profile caches on relevant rows. Enable replication in Supabase for the tables you use.
  */
 export function useRealtimeScaffold(userId: string | undefined): void {
   const qc = useQueryClient();
@@ -40,9 +40,19 @@ export function useRealtimeScaffold(userId: string | undefined): void {
           void qc.invalidateQueries({ queryKey: ['userStats'] });
         },
       )
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'minigame_scores' }, () => {
-        void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'minigame_scores',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+          void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
+        },
+      )
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transactions' }, () => {
         void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
       })

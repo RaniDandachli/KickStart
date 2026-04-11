@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,17 +19,24 @@ import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arca
 import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
+import {
+  MINIGAME_HUD_MS,
+  resetMinigameHudClock,
+  shouldEmitMinigameHudFrame,
+} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
-import { finalizeH2hTapDashScores } from '@/lib/h2hMinigameOutcome';
-import { queryKeys } from '@/lib/queryKeys';
-import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
+import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { MatchFinishPayload } from '@/types/match';
+import type { H2hSkillContestBundle, MatchFinishPayload } from '@/types/match';
 
 /** 60 FPS reference frame duration (ms). */
 const FRAME_MS = 1000 / 60;
@@ -261,8 +268,8 @@ function NeonGateColumn({
 }
 
 function GridLayer({ playW, playH, scrollPx }: { playW: number; playH: number; scrollPx: number }) {
-  const cols = 14;
-  const rows = 18;
+  const cols = 9;
+  const rows = 12;
   const cw = playW / cols;
   const rh = playH / rows;
   const ox = scrollPx % cw;
@@ -299,9 +306,9 @@ function GridLayer({ playW, playH, scrollPx }: { playW: number; playH: number; s
   );
 }
 
-function ParticleField({ seed }: { seed: number }) {
+const ParticleField = memo(function ParticleField({ seed }: { seed: number }) {
   const dots = useMemo(() => {
-    return Array.from({ length: 42 }, (_, i) => ({
+    return Array.from({ length: 24 }, (_, i) => ({
       key: i,
       left: ((i * 47 + seed) % 100) / 100,
       top: ((i * 73 + seed * 3) % 100) / 100,
@@ -328,7 +335,7 @@ function ParticleField({ seed }: { seed: number }) {
       ))}
     </View>
   );
-}
+});
 
 function PassBurstView({
   bursts,
@@ -351,9 +358,9 @@ function PassBurstView({
         const a = 1 - t;
         return (
           <View key={b.id} style={[StyleSheet.absoluteFill, { zIndex: 12 }]} pointerEvents="none">
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-              const ang = (i / 8) * Math.PI * 2 + t * 3;
-              const dist = (24 + i * 6) * scale * (0.4 + t * 0.6);
+            {[0, 1, 2, 3, 4, 5].map((i) => {
+              const ang = (i / 6) * Math.PI * 2 + t * 3;
+              const dist = (24 + i * 7) * scale * (0.4 + t * 0.6);
               return (
                 <View
                   key={i}
@@ -390,13 +397,7 @@ function PassBurstView({
   );
 }
 
-export type H2hSkillContestBundle = {
-  matchSessionId: string;
-  localPlayerId: string;
-  opponentId: string;
-  opponentDisplayName: string;
-  onComplete: (p: MatchFinishPayload) => void;
-};
+export type { H2hSkillContestBundle };
 
 export default function TapDashGame({
   playMode = 'practice',
@@ -411,6 +412,7 @@ export default function TapDashGame({
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const queryClient = useQueryClient();
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
@@ -424,103 +426,32 @@ export default function TapDashGame({
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
   const [, setUiTick] = useState(0);
   const modelRef = useRef<GameModel>(createGame());
+  const lastHudEmitRef = useRef(0);
   const flapQueueRef = useRef(0);
   const startTimeRef = useRef(0);
   const endStatsRef = useRef({ score: 0, durationMs: 0, taps: 0 });
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(false);
+  const [submitErr, setSubmitErr] = useState(false);
+  const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const dailyCompleteRef = useRef(false);
 
-  const [h2hSubmitPhase, setH2hSubmitPhase] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
-  const [h2hRetryKey, setH2hRetryKey] = useState(0);
-  const h2hSubmitInFlight = useRef(false);
-  const h2hDoneRef = useRef(false);
-
-  const h2hSid = h2hSkillContest?.matchSessionId ?? '';
-  const { data: h2hPoll } = useQuery({
-    queryKey: queryKeys.h2hTapDashScores(h2hSid),
-    queryFn: () => fetchH2hTapDashScoresForMatch(h2hSid),
-    enabled: Boolean(h2hSkillContest) && h2hSubmitPhase === 'ok' && h2hSid.length > 0,
-    refetchInterval: (q) => (q.state.data?.both_submitted ? false : 2000),
-  });
-
-  useEffect(() => {
-    if (!h2hSkillContest) return;
-    setH2hSubmitPhase('idle');
-    h2hDoneRef.current = false;
-    h2hSubmitInFlight.current = false;
-    setH2hRetryKey(0);
-  }, [h2hSkillContest?.matchSessionId]);
-
-  useEffect(() => {
-    if (!h2hSkillContest || h2hSubmitPhase !== 'ok' || h2hDoneRef.current) return;
-    if (!h2hPoll?.both_submitted || h2hPoll.self_score == null || h2hPoll.opponent_score == null) return;
-    h2hDoneRef.current = true;
-    h2hSkillContest.onComplete(
-      finalizeH2hTapDashScores(
-        h2hPoll.self_score,
-        h2hPoll.opponent_score,
-        h2hSkillContest.localPlayerId,
-        h2hSkillContest.opponentId,
-      ),
-    );
-  }, [h2hSkillContest, h2hSubmitPhase, h2hPoll]);
-
-  useEffect(() => {
-    if (phase !== 'over' || !h2hSkillContest) {
-      if (phase === 'ready') {
-        setH2hSubmitPhase('idle');
-        h2hDoneRef.current = false;
-        h2hSubmitInFlight.current = false;
-      }
-      return;
-    }
-    if (h2hSubmitPhase === 'ok') return;
-    if (h2hSubmitInFlight.current) return;
-
-    h2hSubmitInFlight.current = true;
-    setH2hSubmitPhase('loading');
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const supabase = getSupabase();
-        const { data: sess } = await supabase.auth.getSession();
-        if (!sess.session) {
-          if (!cancelled) {
-            Alert.alert('Sign in required', 'Log in to submit your score.');
-            setH2hSubmitPhase('error');
-          }
-          return;
-        }
-        const { score, durationMs, taps } = endStatsRef.current;
-        const { error } = await supabase.functions.invoke('submitMinigameScore', {
-          body: {
-            game_type: 'tap_dash' as const,
-            score,
-            duration_ms: durationMs,
-            taps,
-            match_session_id: h2hSkillContest.matchSessionId,
-          },
-        });
-        if (cancelled) return;
-        if (error) {
-          Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
-          if (!cancelled) setH2hSubmitPhase('error');
-          return;
-        }
-        if (!cancelled) setH2hSubmitPhase('ok');
-      } catch {
-        if (!cancelled) setH2hSubmitPhase('error');
-      } finally {
-        h2hSubmitInFlight.current = false;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
+  const buildH2hBody = useCallback(() => {
+    const { score, durationMs, taps } = endStatsRef.current;
+    return {
+      game_type: 'tap_dash' as const,
+      score,
+      duration_ms: durationMs,
+      taps,
+      match_session_id: h2hSkillContest!.matchSessionId,
     };
-  }, [phase, h2hSkillContest, h2hRetryKey]);
+  }, [h2hSkillContest]);
+
+  const { h2hSubmitPhase, h2hPoll, h2hRetryKey, setH2hRetryKey } = useH2hSkillContestSubmitAndPoll(
+    h2hSkillContest,
+    phase,
+    buildH2hBody,
+  );
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -529,9 +460,7 @@ export default function TapDashGame({
     flapQueueRef.current = 0;
     startTimeRef.current = 0;
     setSubmitOk(false);
-    setH2hSubmitPhase('idle');
-    h2hDoneRef.current = false;
-    h2hSubmitInFlight.current = false;
+    setSubmitErr(false);
     setPhase('ready');
     bump();
   }, [bump]);
@@ -547,6 +476,9 @@ export default function TapDashGame({
         awardRedeemTicketsForPrizeRun(t);
       }
       setPhase('over');
+      if (!dailyTournament && !h2hSkillContest) {
+        setAutoSubmitSeq((n) => n + 1);
+      }
       bump();
     },
     [bump, playMode, dailyTournament, h2hSkillContest],
@@ -630,7 +562,10 @@ export default function TapDashGame({
       tr.push({ x: ORB_X, y: m.orbY });
       while (tr.length > 14) tr.shift();
       m.bursts = m.bursts.filter((b) => m.worldTimeMs - b.bornMs < 550);
-      bump();
+
+      if (shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS)) {
+        bump();
+      }
     },
     [bump, endGame],
   );
@@ -640,6 +575,15 @@ export default function TapDashGame({
   const queueFlap = useCallback(() => {
     flapQueueRef.current = Math.min(2, flapQueueRef.current + 1);
   }, []);
+
+  useWebGameKeyboard(phase === 'playing', {
+    Space: (down) => {
+      if (down) queueFlap();
+    },
+    ArrowUp: (down) => {
+      if (down) queueFlap();
+    },
+  });
 
   const onTap = useCallback(() => {
     if (phase === 'ready') {
@@ -657,7 +601,9 @@ export default function TapDashGame({
       startTimeRef.current = Date.now();
       modelRef.current.worldTimeMs = 0;
       setSubmitOk(false);
+      setSubmitErr(false);
       setPhase('playing');
+      resetMinigameHudClock(lastHudEmitRef);
       queueFlap();
       bump();
       return;
@@ -670,15 +616,19 @@ export default function TapDashGame({
   const submitScore = useCallback(async () => {
     const { score, durationMs, taps } = endStatsRef.current;
     setSubmitting(true);
+    setSubmitErr(false);
     try {
       const supabase = getSupabase();
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) {
         Alert.alert('Sign in required', 'Log in to submit your score.');
+        setSubmitErr(true);
         return;
       }
+      const prizeRun = playMode === 'prize' && !dailyTournament && !h2hSkillContest;
       const { error } = await supabase.functions.invoke('submitMinigameScore', {
         body: {
+          ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'tap_dash' as const,
           score,
           duration_ms: durationMs,
@@ -687,13 +637,23 @@ export default function TapDashGame({
       });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        setSubmitErr(true);
         return;
       }
+      invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [playMode, dailyTournament, h2hSkillContest, queryClient, uid]);
+
+  useAutoSubmitOnPhaseOver({
+    phase,
+    overValue: 'over',
+    runToken: autoSubmitSeq,
+    disabled: Boolean(dailyTournament || h2hSkillContest),
+    onSubmit: submitScore,
+  });
 
   const m = modelRef.current;
   const orbSize = ORB_VIS_R * scale * 2;
@@ -853,6 +813,10 @@ export default function TapDashGame({
         {phase === 'over' && dailyTournament && dailyPayload ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>Round result</Text>
               <Text style={styles.goVs} numberOfLines={1}>
                 You vs {dailyTournament.opponentDisplayName}
@@ -872,6 +836,10 @@ export default function TapDashGame({
         {phase === 'over' && h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Your gates: {endStatsRef.current.score}</Text>
               {h2hSubmitPhase === 'loading' ? (
@@ -883,11 +851,7 @@ export default function TapDashGame({
                   <AppButton
                     title="Retry submit"
                     className="mt-3"
-                    onPress={() => {
-                      h2hSubmitInFlight.current = false;
-                      setH2hSubmitPhase('idle');
-                      setH2hRetryKey((k) => k + 1);
-                    }}
+                    onPress={() => setH2hRetryKey((k) => k + 1)}
                   />
                 </>
               ) : null}
@@ -905,6 +869,10 @@ export default function TapDashGame({
         {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.card}>
+              <GameOverExitRow
+                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
+                onHome={() => router.replace(ROUTE_HOME)}
+              />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
               {playMode === 'prize' ? (
@@ -915,19 +883,54 @@ export default function TapDashGame({
               <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
               {playMode === 'prize' ? (
                 <>
-                  <AppButton
-                    title={submitOk ? 'Score submitted' : 'Submit Score'}
-                    variant="secondary"
-                    loading={submitting}
-                    disabled={submitOk || submitting}
-                    onPress={submitScore}
-                  />
                   {submitting ? (
-                    <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    <>
+                      <Text style={styles.practiceNote}>Saving score…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? <Text style={styles.practiceNote}>Score saved.</Text> : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.practiceNote}>Could not save score. Check your connection.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
                   ) : null}
                 </>
               ) : (
-                <Text style={styles.practiceNote}>Practice run — not submitted to prize leaderboards.</Text>
+                <>
+                  {submitting ? (
+                    <>
+                      <Text style={styles.practiceNote}>Saving practice run…</Text>
+                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                    </>
+                  ) : null}
+                  {submitOk ? (
+                    <Text style={styles.practiceNote}>Practice run saved (no prize tickets).</Text>
+                  ) : null}
+                  {submitErr && !submitting ? (
+                    <>
+                      <Text style={styles.practiceNote}>Could not save run.</Text>
+                      <AppButton
+                        title="Retry"
+                        variant="secondary"
+                        className="mt-2"
+                        onPress={() => {
+                          setSubmitErr(false);
+                          void submitScore();
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </>
               )}
             </View>
           </View>

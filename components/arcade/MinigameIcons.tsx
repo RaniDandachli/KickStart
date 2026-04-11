@@ -257,3 +257,4 @@ export function DashDuelGameIcon({ size = 40 }: IconProps) {
     </View>
   );
 }
+

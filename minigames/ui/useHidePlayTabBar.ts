@@ -2,6 +2,7 @@ import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useNavigation } from 'expo-router';
 import { useCallback, useLayoutEffect, useRef } from 'react';
+import { InteractionManager, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -34,8 +35,21 @@ export function useHidePlayTabBar(): void {
       tabBarStyle: getHiddenTabBarStyle(),
     });
     return () => {
-      tabs?.setOptions({
-        tabBarStyle: getRestoredTabBarStyle(bottomInsetRef.current),
+      const t = tabs;
+      if (!t) return;
+      const inset = bottomInsetRef.current;
+      const apply = () => {
+        t.setOptions({
+          tabBarStyle: getRestoredTabBarStyle(inset),
+        });
+      };
+      // Defer one frame after work + orientation settles so bottom inset / layout match portrait (avoids floating tab bar).
+      if (Platform.OS === 'web') {
+        apply();
+        return;
+      }
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(apply);
       });
     };
   }, [navigation]);

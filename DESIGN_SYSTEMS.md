@@ -218,3 +218,4 @@ className="animate-pulse"
 
 **When asking Cursor to make changes, reference this file:**
 "Follow the design patterns in /DESIGN_SYSTEM.md to maintain the 80s retro arcade aesthetic"
+E4 

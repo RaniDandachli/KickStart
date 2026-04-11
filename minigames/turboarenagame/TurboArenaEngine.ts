@@ -7,40 +7,40 @@ export const TURBO = {
     worldW: 600,
     worldH: 320,
   
-    // Car
+    // Car — toned down from “pinball” so reads, positioning, and timing read as skill
     carW: 52,
     carH: 26,
-    carSpeed: 7.1,
-    carJumpVy: -10.2,
-    carGravity: 0.4,
-    carFriction: 0.82,
-    carMaxVx: 12.4,
-    carBoostForce: 2.65,
-    carBoostDrain: 0.016,
+    carSpeed: 5.35,
+    carJumpVy: -8.85,
+    carGravity: 0.38,
+    carFriction: 0.84,
+    carMaxVx: 9.6,
+    carBoostForce: 2.05,
+    carBoostDrain: 0.014,
     carBoostRegen: 0.007,
     boostTrailInterval: 3, // frames between trail spawns
   
-    // Ball — tuned for more midfield play / fewer “auto” goals
+    // Ball — heavier / less elastic so rallies last longer and shots are more deliberate
     ballR: 18,
-    ballGravity: 0.32,
-    ballElasticity: 0.72,
-    ballFriction: 0.986,
-    ballGroundFriction: 0.84,
+    ballGravity: 0.34,
+    ballElasticity: 0.62,
+    ballFriction: 0.972,
+    ballGroundFriction: 0.74,
   
     // Goals (slightly shorter mouth = harder to score)
     goalW: 16,
     goalH: 96,
   
-    // Kick — weaker shots so defense / positioning matter more
-    kickPower: 11.8,
+    // Kick — lower peak speed so aim + timing matter more than twitch
+    kickPower: 8.85,
     /** Slightly generous so kicks connect while drifting past the ball */
-    kickRange: 84,
-    kickCooldownFrames: 22,
+    kickRange: 82,
+    kickCooldownFrames: 26,
     /** Horizontal knockback when a kick hits the other car (Head Soccer–style) */
-    kickCarKnockback: 5.8,
+    kickCarKnockback: 4.45,
 
     /** Extra kick strength when the human clears a ball rolling toward their goal */
-    defensiveKickMul: 1.24,
+    defensiveKickMul: 1.34,
     /** Extra car↔ball impulse when the human is saving in the defensive third */
     defensiveCollisionImpulseMul: 1.2,
   
@@ -138,8 +138,8 @@ export const TURBO = {
     return {
       x: TURBO.worldW / 2,
       y: TURBO.groundY - TURBO.ballR * 3,
-      vx: (Math.random() - 0.5) * 3,
-      vy: -2,
+      vx: (Math.random() - 0.5) * 2,
+      vy: -1.35,
       spin: 0,
       trail: [],
     };
@@ -354,8 +354,8 @@ export const TURBO = {
       const dot = relVx * nx + relVy * ny;
       if (dot < 0) {
         const impulseMul = opts?.defensiveAssist ? TURBO.defensiveCollisionImpulseMul : 1;
-        const impulse = 1.55 * impulseMul;
-        const carPush = 0.34 * (opts?.defensiveAssist ? 1.08 : 1);
+        const impulse = 1.32 * impulseMul;
+        const carPush = 0.3 * (opts?.defensiveAssist ? 1.08 : 1);
         ball.vx -= dot * nx * impulse;
         ball.vy -= dot * ny * impulse;
         car.vx += dot * nx * carPush;
@@ -395,7 +395,7 @@ export const TURBO = {
     difficulty: AiDifficulty,
     frameCount: number,
   ): void {
-    const reactionMap = { easy: 0.45, medium: 0.7, hard: 0.95 };
+    const reactionMap = { easy: 0.42, medium: 0.62, hard: 0.8 };
     const r = reactionMap[difficulty];
   
     const cpuCx = cpu.x + TURBO.carW / 2;
@@ -411,9 +411,9 @@ export const TURBO = {
       ball.x < TURBO.worldW * 0.5 && ball.vx < -0.95 && ball.x > TURBO.goalW + 28;
     const attackDampen = threatToHumanGoal ? 0.86 : 1;
 
-    // Target: move toward ball
+    // Target: move toward ball — cap accel so CPU doesn’t out-twitch a human at high tiers
     const targetX = ball.x - TURBO.carW * 0.5;
-    const baseAccel = 0.96 * r * defendMul * attackDampen;
+    const baseAccel = 0.78 * r * defendMul * attackDampen;
     if (cpuCx < targetX - 8) {
       cpu.vx += baseAccel;
       cpu.flipped = false;
@@ -563,8 +563,8 @@ export const TURBO = {
     const player = state.player;
     if (!player) return;
 
-    // Steering accel per frame — tuned for immediate, snappy lateral response
-    const steerAccel = TURBO.carSpeed * 0.22;
+    // Steering accel per frame — snappy but bounded so speed stays readable
+    const steerAccel = TURBO.carSpeed * 0.2;
     if (inputs.left) {
       player.vx -= steerAccel;
       player.flipped = true;
