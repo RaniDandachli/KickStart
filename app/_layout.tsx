@@ -3,6 +3,7 @@ import {
   Orbitron_700Bold,
   Orbitron_900Black,
 } from '@expo-google-fonts/orbitron';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -27,6 +28,8 @@ export default function RootLayout() {
     Orbitron_400Regular,
     Orbitron_700Bold,
     Orbitron_900Black,
+    /** Required for web (incl. static export): Ionicon font must be in the synchronous font map. */
+    ...Ionicons.font,
   });
   const [splashDone, setSplashDone] = useState(false);
 

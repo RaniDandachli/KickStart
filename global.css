@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Web shell: letterbox wide viewports so the app doesn’t float on white */
+@media (min-width: 900px) {
+  html,
+  body {
+    background-color: #030208;
+  }
+}

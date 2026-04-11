@@ -16,7 +16,7 @@ import {
 import { applyArcadePrizeCreditGrants, resetArcadeGrantFlight } from '@/lib/arcadeGrants';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
-import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
+import { getAppTabBarStyle } from '@/lib/tabBarStyle';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
@@ -67,6 +67,7 @@ export default function TabsLayout() {
   }, [uid]);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     let cancelled = false;
     void (async () => {
       const done = await getHasCompletedTabTour();
@@ -96,18 +97,43 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: getDefaultTabBarStyle(insets.bottom),
+        ...(Platform.OS === 'web'
+          ? {
+              tabBarPosition: 'top' as const,
+              tabBarVariant: 'uikit' as const,
+              tabBarLabelPosition: 'beside-icon' as const,
+              sceneStyle: {
+                maxWidth: 1280,
+                width: '100%' as const,
+                alignSelf: 'center' as const,
+              },
+            }
+          : {}),
+        tabBarStyle: getAppTabBarStyle({
+          top: insets.top,
+          bottom: insets.bottom,
+          left: insets.left,
+          right: insets.right,
+        }),
         tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#94A3B8',
-        tabBarLabelStyle: {
-          fontWeight: '800',
-          fontSize: 10,
-          marginTop: 2,
-          marginBottom: 2,
-        },
-        tabBarIconStyle: { marginTop: 0 },
+        tabBarLabelStyle:
+          Platform.OS === 'web'
+            ? {
+                fontWeight: '700',
+                fontSize: 13,
+                marginTop: 0,
+                marginBottom: 0,
+              }
+            : {
+                fontWeight: '800',
+                fontSize: 10,
+                marginTop: 2,
+                marginBottom: 2,
+              },
+        tabBarIconStyle: Platform.OS === 'web' ? { marginTop: 0, marginRight: 6 } : { marginTop: 0 },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: Platform.OS === 'web' ? 8 : 4,
           justifyContent: 'center',
         },
       }}

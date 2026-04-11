@@ -3,12 +3,26 @@ import { Platform } from 'react-native';
 
 import { runit } from '@/lib/runitArcadeTheme';
 
+export type TabBarSafeInsets = { top: number; bottom: number; left?: number; right?: number };
+
 /**
- * Single source of truth for the bottom tab bar look + safe-area padding.
- * Used by the tabs layout and when restoring after full-screen games hide the bar.
+ * Tab bar chrome for the current platform. Web uses a top tab bar; native uses bottom tabs.
  */
-export function getDefaultTabBarStyle(bottomInset: number) {
-  const bottomPad = Math.max(bottomInset, Platform.OS === 'ios' ? 14 : 12) + 2;
+export function getAppTabBarStyle(insets: TabBarSafeInsets) {
+  if (Platform.OS === 'web') {
+    const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
+    return {
+      backgroundColor: runit.bgDeep,
+      borderTopWidth: 0,
+      borderBottomWidth: 2,
+      borderBottomColor: 'rgba(157, 78, 237, 0.45)',
+      paddingTop: Math.max(insets.top, 10) + 4,
+      paddingBottom: 12,
+      paddingHorizontal: padH,
+      minHeight: 52,
+    };
+  }
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 12) + 2;
   return {
     backgroundColor: runit.bgDeep,
     borderTopWidth: 2,
@@ -17,6 +31,13 @@ export function getDefaultTabBarStyle(bottomInset: number) {
     paddingBottom: bottomPad,
     paddingHorizontal: 6,
   };
+}
+
+/**
+ * @deprecated Prefer getAppTabBarStyle — kept for call sites that only pass bottom inset (native).
+ */
+export function getDefaultTabBarStyle(bottomInset: number) {
+  return getAppTabBarStyle({ top: 0, bottom: bottomInset });
 }
 
 /** Hide tab bar without leaving stale height/padding when we restore defaults. */
@@ -29,9 +50,9 @@ export function getHiddenTabBarStyle() {
 }
 
 /** After hiding, restore visible tab bar (explicit display/opacity so nothing stays stuck hidden). */
-export function getRestoredTabBarStyle(bottomInset: number) {
+export function getRestoredTabBarStyle(insets: TabBarSafeInsets) {
   return {
-    ...getDefaultTabBarStyle(bottomInset),
+    ...getAppTabBarStyle(insets),
     display: 'flex' as const,
     opacity: 1,
   };

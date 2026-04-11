@@ -9,6 +9,7 @@ import {
   findBottomTabNavigator,
   getHiddenTabBarStyle,
   getRestoredTabBarStyle,
+  type TabBarSafeInsets,
 } from '@/lib/tabBarStyle';
 
 function getTabsNavigator(navigation: NavigationProp<ParamListBase>): NavigationProp<ParamListBase> | undefined {
@@ -25,8 +26,18 @@ function getTabsNavigator(navigation: NavigationProp<ParamListBase>): Navigation
 export function useHidePlayTabBar(): void {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const bottomInsetRef = useRef(insets.bottom);
-  bottomInsetRef.current = insets.bottom;
+  const insetsRef = useRef<TabBarSafeInsets>({
+    top: insets.top,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+  });
+  insetsRef.current = {
+    top: insets.top,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -37,10 +48,9 @@ export function useHidePlayTabBar(): void {
     return () => {
       const t = tabs;
       if (!t) return;
-      const inset = bottomInsetRef.current;
       const apply = () => {
         t.setOptions({
-          tabBarStyle: getRestoredTabBarStyle(inset),
+          tabBarStyle: getRestoredTabBarStyle(insetsRef.current),
         });
       };
       // Defer one frame after work + orientation settles so bottom inset / layout match portrait (avoids floating tab bar).
@@ -62,14 +72,24 @@ export function useHidePlayTabBar(): void {
 export function useRestoreBottomTabBarOnFocus(): void {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const bottomInsetRef = useRef(insets.bottom);
-  bottomInsetRef.current = insets.bottom;
+  const insetsRef = useRef<TabBarSafeInsets>({
+    top: insets.top,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+  });
+  insetsRef.current = {
+    top: insets.top,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+  };
 
   useFocusEffect(
     useCallback(() => {
       const tabs = getTabsNavigator(navigation as NavigationProp<ParamListBase>);
       tabs?.setOptions({
-        tabBarStyle: getRestoredTabBarStyle(bottomInsetRef.current),
+        tabBarStyle: getRestoredTabBarStyle(insetsRef.current),
       });
     }, [navigation])
   );
