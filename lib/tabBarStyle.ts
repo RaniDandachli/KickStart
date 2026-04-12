@@ -8,6 +8,8 @@ export type TabBarSafeInsets = { top: number; bottom: number; left?: number; rig
 export type AppTabBarOptions = {
   /** Desktop-width web only: top tab strip. Narrow web uses the same bottom bar as native. */
   webTopBar?: boolean;
+  /** iPhone Safari / narrow web: floating glass bar, room for labels above browser chrome. */
+  webMobileBottom?: boolean;
 };
 
 /**
@@ -28,6 +30,31 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       minHeight: 52,
     };
   }
+
+  const webMobileBottom = Platform.OS === 'web' && opts?.webMobileBottom === true;
+  if (webMobileBottom) {
+    const safeBottom = Math.max(insets.bottom, 22);
+    return {
+      backgroundColor: 'rgba(5, 2, 14, 0.76)',
+      borderTopWidth: 0,
+      borderWidth: 1,
+      borderColor: 'rgba(157, 78, 237, 0.4)',
+      borderRadius: 22,
+      marginHorizontal: 12,
+      marginBottom: 10,
+      marginTop: 4,
+      paddingTop: 6,
+      paddingBottom: 8 + safeBottom,
+      paddingHorizontal: 2,
+      minHeight: 64 + Math.min(safeBottom, 8) * 0.5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 18,
+      elevation: 20,
+    };
+  }
+
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 12) + 2;
   return {
     backgroundColor: runit.bgDeep,
@@ -57,10 +84,11 @@ export function getHiddenTabBarStyle() {
 
 /** After hiding, restore visible tab bar (explicit display/opacity so nothing stays stuck hidden). */
 export function getRestoredTabBarStyle(insets: TabBarSafeInsets, webTopBar?: boolean) {
+  const wt = webTopBar ?? false;
   return {
     ...getAppTabBarStyle(
       insets,
-      Platform.OS === 'web' ? { webTopBar: webTopBar ?? false } : undefined,
+      Platform.OS === 'web' ? { webTopBar: wt, webMobileBottom: !wt } : undefined,
     ),
     display: 'flex' as const,
     opacity: 1,

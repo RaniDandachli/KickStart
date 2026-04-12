@@ -123,12 +123,15 @@ export default function TabsLayout() {
               left: insets.left,
               right: insets.right,
             },
-            Platform.OS === 'web' ? { webTopBar: webUsesTopTabBar } : undefined,
+            Platform.OS === 'web'
+              ? { webTopBar: webUsesTopTabBar, webMobileBottom: !webUsesTopTabBar }
+              : undefined,
           ),
           ...(webBrowseAuth && webUsesTopTabBar ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
         },
         tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#94A3B8',
+        tabBarShowLabel: true,
         tabBarLabelStyle:
           Platform.OS === 'web' && webUsesTopTabBar
             ? {
@@ -137,17 +140,33 @@ export default function TabsLayout() {
                 marginTop: 0,
                 marginBottom: 0,
               }
-            : {
-                fontWeight: '800',
-                fontSize: 10,
-                marginTop: 2,
-                marginBottom: 2,
-              },
+            : Platform.OS === 'web'
+              ? {
+                  fontWeight: '700',
+                  fontSize: 11,
+                  letterSpacing: 0.2,
+                  marginTop: 0,
+                  marginBottom: 2,
+                }
+              : {
+                  fontWeight: '800',
+                  fontSize: 10,
+                  marginTop: 2,
+                  marginBottom: 2,
+                },
         tabBarIconStyle:
-          Platform.OS === 'web' && webUsesTopTabBar ? { marginTop: 0, marginRight: 6 } : { marginTop: 0 },
+          Platform.OS === 'web' && webUsesTopTabBar
+            ? { marginTop: 0, marginRight: 6 }
+            : Platform.OS === 'web'
+              ? { marginTop: 2, marginBottom: 0 }
+              : { marginTop: 0 },
         tabBarItemStyle: {
-          paddingVertical: Platform.OS === 'web' && webUsesTopTabBar ? 8 : 4,
+          paddingVertical:
+            Platform.OS === 'web' && webUsesTopTabBar ? 8 : Platform.OS === 'web' ? 6 : 4,
           justifyContent: 'center',
+          ...(Platform.OS === 'web' && !webUsesTopTabBar
+            ? { alignItems: 'center' as const, flex: 1, minWidth: 0 }
+            : {}),
         },
       }}
     >

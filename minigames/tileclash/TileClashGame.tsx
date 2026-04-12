@@ -11,6 +11,8 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type GestureResponderEvent,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,6 +54,17 @@ const HIT_BOTTOM = 178;
 const BASE_SCROLL = 0.056;
 const SPAWN_MS = 520;
 const SPEED_BUMP = 1.12;
+
+/** iOS Safari + RN Web: reduce tap delay / gesture conflicts on the game board. */
+const WEB_BOARD_TOUCH: ViewStyle | undefined =
+  Platform.OS === 'web'
+    ? ({
+        touchAction: 'manipulation',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      } as ViewStyle)
+    : undefined;
 
 type Tile = { id: number; col: number; y: number; kind: 'good' | 'bad' };
 
@@ -317,6 +330,16 @@ export default function TileClashGame({
     [phase, applyPlayingTap],
   );
 
+  const onBoardPressIn = useCallback(
+    (e: GestureResponderEvent) => {
+      if (phase !== 'playing' || boardW <= 0) return;
+      const x = e.nativeEvent.locationX;
+      const col = Math.min(COLS - 1, Math.max(0, Math.floor((x / boardW) * COLS)));
+      onColumnPress(col);
+    },
+    [phase, boardW, onColumnPress],
+  );
+
   useWebGameKeyboard(phase === 'playing', {
     Digit1: (down) => {
       if (down) onColumnPress(0);
@@ -434,7 +457,7 @@ export default function TileClashGame({
         </View>
 
         <View
-          style={[styles.boardOuter, { maxWidth: stageMax }]}
+          style={[styles.boardOuter, WEB_BOARD_TOUCH ?? false, { maxWidth: stageMax }]}
           onLayout={(e) => {
             const { width, height } = e.nativeEvent.layout;
             if (width > 0 && height > 0) {
@@ -443,7 +466,7 @@ export default function TileClashGame({
           }}
         >
           {/* Lane backgrounds + vertical dividers (reference: 4 navy lanes) */}
-          <View style={styles.laneStripes}>
+          <View style={styles.laneStripes} pointerEvents="none">
             {Array.from({ length: COLS }, (_, i) => (
               <View
                 key={i}
@@ -459,7 +482,7 @@ export default function TileClashGame({
             ))}
           </View>
 
-          <View style={[styles.hitZone, { top: hitTopPx, height: hitH }]} />
+          <View style={[styles.hitZone, { top: hitTopPx, height: hitH }]} pointerEvents="none" />
 
           {m.tiles.map((t) => {
             const x = t.col * colW;
@@ -471,6 +494,7 @@ export default function TileClashGame({
             return (
               <View
                 key={t.id}
+                pointerEvents="none"
                 style={[
                   styles.tile,
                   {
@@ -494,20 +518,17 @@ export default function TileClashGame({
           {redFlash ? <View style={styles.redFlash} pointerEvents="none" /> : null}
 
           {phase === 'playing' ? (
-            <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-              {Array.from({ length: COLS }, (_, col) => (
-                <Pressable
-                  key={col}
-                  style={[styles.laneHit, { left: col * colW, width: colW }]}
-                  onPress={() => onColumnPress(col)}
-                />
-              ))}
-            </View>
+            <Pressable
+              accessibilityRole="none"
+              importantForAccessibility="no-hide-descendants"
+              style={[StyleSheet.absoluteFill, styles.laneHitLayer, WEB_BOARD_TOUCH]}
+              onPressIn={onBoardPressIn}
+            />
           ) : null}
 
           {/* Tap anywhere to start — does not hide the gold band */}
           {phase === 'ready' ? (
-            <Pressable style={styles.tapToStartLayer} onPress={startGame}>
+            <Pressable style={[styles.tapToStartLayer, WEB_BOARD_TOUCH]} onPressIn={startGame}>
               <View style={styles.tapToStartHint} pointerEvents="none">
                 <Text style={styles.tapMode}>
                   {h2hSkillContest
@@ -782,10 +803,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(220, 38, 38, 0.42)',
     zIndex: 12,
   },
-  laneHit: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
+  laneHitLayer: {
     zIndex: 8,
   },
   tapToStartLayer: {

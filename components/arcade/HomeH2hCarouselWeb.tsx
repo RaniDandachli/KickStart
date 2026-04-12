@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
@@ -33,20 +35,75 @@ type Props = {
 /**
  * Desktop web: horizontal snap carousel for H2H games (VAZA-style peek).
  */
+const AUTO_MS = 4200;
+const PAUSE_AFTER_DRAG_MS = 9000;
+
 export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress }: Props) {
   const { width: winW } = useWindowDimensions();
   const cardW = Math.min(Math.max(winW * 0.78, 300), 560);
   const sidePad = Math.max(12, (winW - cardW) / 2);
+  const stepPx = cardW + 14;
+
+  const scrollRef = useRef<ScrollView>(null);
+  const cardWRef = useRef(cardW);
+  cardWRef.current = cardW;
+  const stepRef = useRef(stepPx);
+  stepRef.current = stepPx;
+  const indexRef = useRef(0);
+  const pausedUntilRef = useRef(0);
+
+  const scrollToIndex = useCallback(
+    (index: number, animated: boolean) => {
+      const step = stepRef.current;
+      const i = Math.max(0, Math.min(rows.length - 1, index));
+      indexRef.current = i;
+      scrollRef.current?.scrollTo({ x: i * step, y: 0, animated });
+    },
+    [rows.length],
+  );
+
+  useEffect(() => {
+    indexRef.current = 0;
+    scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+  }, [stepPx, rows.length]);
+
+  useEffect(() => {
+    if (rows.length <= 1) return;
+    const id = setInterval(() => {
+      if (Date.now() < pausedUntilRef.current) return;
+      const next = (indexRef.current + 1) % rows.length;
+      scrollToIndex(next, true);
+    }, AUTO_MS);
+    return () => clearInterval(id);
+  }, [rows.length, scrollToIndex]);
+
+  const onScrollBeginDrag = useCallback(() => {
+    pausedUntilRef.current = Date.now() + PAUSE_AFTER_DRAG_MS;
+  }, []);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const x = e.nativeEvent.contentOffset.x;
+      const step = stepRef.current;
+      if (step <= 0) return;
+      const idx = Math.round(x / step);
+      indexRef.current = Math.max(0, Math.min(rows.length - 1, idx));
+    },
+    [rows.length],
+  );
 
   return (
     <View style={styles.wrap}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
-        snapToInterval={cardW + 14}
+        snapToInterval={stepPx}
         snapToAlignment="start"
         contentContainerStyle={[styles.scrollContent, { paddingHorizontal: sidePad }]}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onMomentumScrollEnd={onMomentumScrollEnd}
       >
         {rows.map((row) => {
           const [c1, c2] = h2hGradients(row.gameKey);
@@ -124,7 +181,11 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
           );
         })}
       </ScrollView>
-      <Text style={styles.hint}>Swipe for more games · same tiers as Quick Match</Text>
+      <Text style={styles.hint}>
+        {rows.length > 1
+          ? 'Auto-cycles through games — swipe anytime · same tiers as Quick Match'
+          : 'Same tiers as Quick Match'}
+      </Text>
     </View>
   );
 }
