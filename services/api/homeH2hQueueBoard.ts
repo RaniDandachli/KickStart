@@ -43,6 +43,8 @@ export function mapQueueBoardRowToWaiter(row: HomeH2hQueueBoardRow): H2hBoardWai
     tierIndex,
     hostLabel: row.host_display_name || 'Player',
     postedAt: new Date(row.created_at).getTime(),
+    entryFeeWalletCents: entryCents,
+    listedPrizeUsdCents: prizeCents,
   };
 }
 

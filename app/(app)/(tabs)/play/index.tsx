@@ -1,8 +1,9 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useNavigation, useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
 import { ArcadeCabinetIntro } from '@/components/arcade/ArcadeCabinetIntro';
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
@@ -39,6 +40,7 @@ export default function PlayHubScreen() {
   const navigation = useNavigation();
   const [showCabinetIntro, setShowCabinetIntro] = useState(() => !arcadeCabinetIntroPlayedThisSession);
   const [soloPlayGate, setSoloPlayGate] = useState(false);
+  const [arcadeHowItWorksOpen, setArcadeHowItWorksOpen] = useState(false);
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const demoPrizeCredits = usePrizeCreditsDisplay();
@@ -64,12 +66,20 @@ export default function PlayHubScreen() {
       <ArcadeFloor>
         <BackendModeBanner />
         <View style={styles.brandBlock}>
-          <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RunitArcade</Text>
-          <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
+          <Text style={[styles.brandArcadeOnly, { fontFamily: runitFont.black }, runitTextGlowCyan]}>Arcade</Text>
         </View>
         <Text style={styles.arcadeTagline}>
           Spend Arcade Credits on runs (about 10–20 per game) · earn tickets · redeem in Prizes
         </Text>
+        <Pressable
+          onPress={() => setArcadeHowItWorksOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="How Arcade works"
+          style={({ pressed }) => [styles.howItWorksRow, pressed && { opacity: 0.88 }]}
+        >
+          <SafeIonicons name="information-circle-outline" size={18} color="rgba(0,240,255,0.95)" />
+          <Text style={styles.howItWorksText}>How Arcade works</Text>
+        </Pressable>
 
         <ArcadeBalanceBar
           balanceLabel={prizeBalanceLabel}
@@ -189,6 +199,7 @@ export default function PlayHubScreen() {
         </Text>
       </ArcadeFloor>
       {showCabinetIntro ? <ArcadeCabinetIntro onComplete={onCabinetIntroDone} /> : null}
+      <ArcadeHowItWorksModal visible={arcadeHowItWorksOpen} onClose={() => setArcadeHowItWorksOpen(false)} />
     </View>
   );
 }
@@ -197,30 +208,38 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   brandBlock: {
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
     marginTop: 4,
   },
-  brandRunit: {
-    color: '#ff006e',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  brandArcade: {
+  brandArcadeOnly: {
     color: '#00f0ff',
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
-    letterSpacing: 10,
-    marginTop: -4,
+    letterSpacing: 4,
   },
   arcadeTagline: {
     color: 'rgba(203, 213, 225, 0.95)',
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
     paddingHorizontal: 8,
     lineHeight: 18,
+  },
+  howItWorksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  howItWorksText: {
+    color: 'rgba(0,240,255,0.95)',
+    fontSize: 14,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+    textDecorationColor: 'rgba(0,240,255,0.45)',
   },
   gamesSectionRow: {
     flexDirection: 'row',

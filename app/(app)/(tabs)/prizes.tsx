@@ -55,13 +55,18 @@ function newIdempotencyKey(): string {
 }
 
 const SCREEN_H_PAD = 16;
-const CATALOG_GAP = 10;
+const CATALOG_GAP = 8;
+/** Match Arcade “compact” rows — smaller tiles so more catalog items fit above the fold. */
+const PRIZE_IMG_H = 58;
 
 export default function PrizesScreen() {
   const { width: windowWidth } = useWindowDimensions();
+  const catalogCols = windowWidth >= 540 ? 3 : 2;
   const catalogTileW = Math.max(
-    140,
-    Math.floor((windowWidth - SCREEN_H_PAD * 2 - CATALOG_GAP) / 2),
+    108,
+    Math.floor(
+      (windowWidth - SCREEN_H_PAD * 2 - CATALOG_GAP * (catalogCols - 1)) / catalogCols,
+    ),
   );
 
   const router = useRouter();
@@ -302,9 +307,9 @@ export default function PrizesScreen() {
           <Text style={styles.catalogHeading}>Catalog</Text>
           <View style={styles.catalogGrid}>
             {catalogQ.isLoading
-              ? [0, 1, 2, 3].map((k) => (
+              ? [0, 1, 2, 3, 4, 5].map((k) => (
                   <View key={k} style={{ width: catalogTileW }}>
-                    <SkeletonBlock className="h-48 w-full rounded-xl" />
+                    <SkeletonBlock className="h-36 w-full rounded-lg" />
                   </View>
                 ))
               : null}
@@ -322,9 +327,9 @@ export default function PrizesScreen() {
           return (
             <View key={p.id} style={[styles.prizeCard, { width: catalogTileW }]}>
               {p.image_url ? (
-                <Image source={{ uri: p.image_url }} style={styles.prizeImg} resizeMode="cover" />
+                <Image source={{ uri: p.image_url }} style={[styles.prizeImg, { height: PRIZE_IMG_H }]} resizeMode="cover" />
               ) : (
-                <View style={styles.prizeImgPlaceholder} />
+                <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
               )}
               <View style={styles.prizeMeta}>
                 <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
@@ -374,7 +379,7 @@ export default function PrizesScreen() {
 
         {!catalogQ.isLoading && !ENABLE_BACKEND ? (
           <View style={[styles.prizeCard, { width: catalogTileW }]}>
-            <View style={styles.prizeImgPlaceholder} />
+            <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
             <View style={styles.prizeMeta}>
               <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
                 Sample physical (preview)
@@ -462,13 +467,13 @@ export default function PrizesScreen() {
 }
 
 const styles = StyleSheet.create({
-  pageTitle: { color: runit.neonPink, fontSize: 30, fontWeight: '900', letterSpacing: 3, marginBottom: 4 },
-  pageSub: { color: 'rgba(203,213,225,0.9)', fontSize: 13, fontWeight: '600', marginBottom: 8 },
-  shipLink: { marginBottom: 8 },
+  pageTitle: { color: runit.neonPink, fontSize: 22, fontWeight: '900', letterSpacing: 2, marginBottom: 2 },
+  pageSub: { color: 'rgba(203,213,225,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  shipLink: { marginBottom: 6 },
   shipLinkText: { color: runit.neonCyan, fontSize: 13, fontWeight: '700', flex: 1 },
   iconLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   digitalLine: {
-    marginBottom: 10,
+    marginBottom: 8,
     paddingHorizontal: 2,
   },
   digitalLineText: {
@@ -477,62 +482,62 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     flex: 1,
   },
-  balanceOuter: { borderRadius: 16, padding: 2, marginBottom: 16 },
+  balanceOuter: { borderRadius: 14, padding: 2, marginBottom: 12 },
   balanceInner: {
     backgroundColor: 'rgba(6,2,14,0.7)',
-    borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
   },
-  balanceLbl: { color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
-  balanceVal: { color: '#fff', fontSize: 38, fontWeight: '900', textShadowColor: runit.neonPink, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 },
-  progressBlock: { marginTop: 14, width: '100%', alignSelf: 'stretch' },
+  balanceLbl: { color: 'rgba(255,255,255,0.75)', fontSize: 9, fontWeight: '800', letterSpacing: 1.8, marginBottom: 4 },
+  balanceVal: { color: '#fff', fontSize: 28, fontWeight: '900', textShadowColor: runit.neonPink, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 },
+  progressBlock: { marginTop: 10, width: '100%', alignSelf: 'stretch' },
   progressTrack: {
-    height: 10,
-    borderRadius: 5,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   progressFill: { height: '100%', borderRadius: 5, minWidth: 0 },
   progressHeadline: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
-    lineHeight: 20,
+    marginBottom: 2,
+    lineHeight: 17,
   },
-  progressSub: { color: 'rgba(203,213,225,0.95)', fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  balanceHint: { color: 'rgba(148,163,184,0.85)', fontSize: 11, marginTop: 6 },
+  progressSub: { color: 'rgba(203,213,225,0.95)', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  balanceHint: { color: 'rgba(148,163,184,0.85)', fontSize: 10, marginTop: 4 },
   infoCard: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(157,78,237,0.4)',
     backgroundColor: 'rgba(12,6,22,0.85)',
-    padding: 14,
-    marginBottom: 14,
+    padding: 12,
+    marginBottom: 10,
   },
   infoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   infoTitle: { color: runit.neonCyan, fontSize: 11, fontWeight: '900', letterSpacing: 2 },
   infoBody: { color: 'rgba(203,213,225,0.85)', fontSize: 13, lineHeight: 18 },
   catalogHeading: {
     color: 'rgba(226,232,240,0.88)',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 10,
-    marginTop: 2,
+    letterSpacing: 1.8,
+    marginBottom: 8,
+    marginTop: 0,
   },
   catalogGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: CATALOG_GAP,
     marginBottom: 4,
   },
   prizeCard: {
-    borderRadius: 12,
+    borderRadius: 11,
     borderWidth: 1,
     borderColor: 'rgba(157,78,237,0.45)',
     backgroundColor: 'rgba(12,6,22,0.88)',
@@ -540,35 +545,34 @@ const styles = StyleSheet.create({
     shadowColor: 'rgba(157,78,237,0.22)',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  prizeImg: { width: '100%', height: 88 },
+  prizeImg: { width: '100%' },
   prizeImgPlaceholder: {
     width: '100%',
-    height: 88,
     backgroundColor: 'rgba(30,27,75,0.65)',
   },
-  prizeMeta: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 },
-  prizeTitle: { color: '#fff', fontSize: 13, fontWeight: '900', marginBottom: 3, lineHeight: 17 },
-  prizeDesc: { color: 'rgba(203,213,225,0.8)', fontSize: 10, marginBottom: 6, lineHeight: 14 },
-  prizeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginBottom: 2 },
-  prizeCostRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  prizeCost: { color: runit.neonCyan, fontSize: 12, fontWeight: '800' },
-  prizeMetaLine: { color: 'rgba(148,163,184,0.92)', fontSize: 9, fontWeight: '600', marginBottom: 8 },
-  tileRedeemOuter: { borderRadius: 10, overflow: 'hidden' },
+  prizeMeta: { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 8 },
+  prizeTitle: { color: '#fff', fontSize: 12, fontWeight: '900', marginBottom: 2, lineHeight: 15 },
+  prizeDesc: { color: 'rgba(203,213,225,0.8)', fontSize: 9, marginBottom: 4, lineHeight: 12 },
+  prizeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3, marginBottom: 1 },
+  prizeCostRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  prizeCost: { color: runit.neonCyan, fontSize: 11, fontWeight: '800' },
+  prizeMetaLine: { color: 'rgba(148,163,184,0.92)', fontSize: 8, fontWeight: '600', marginBottom: 6 },
+  tileRedeemOuter: { borderRadius: 9, overflow: 'hidden' },
   tileRedeemOuterDisabled: { opacity: 0.55 },
   tileRedeemPressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   tileRedeemGrad: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
-  tileRedeemText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
-  earnLink: { paddingVertical: 12, alignItems: 'center' },
+  tileRedeemText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.2 },
+  earnLink: { paddingVertical: 10, alignItems: 'center' },
   earnLinkText: { color: runit.neonCyan, fontSize: 14, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalSafe: { maxHeight: '92%' },

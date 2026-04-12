@@ -19,15 +19,20 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   const useWebTopChrome = Platform.OS === 'web' && opts?.webTopBar === true;
   if (useWebTopChrome) {
     const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
+    const padTop = Math.max(insets.top, 10) + 4;
+    const padBottom = 14;
+    /** RN `getTabBarHeight` only reads `height`, not `minHeight` — without this (~49px) clips icon+label. */
+    const contentIconAndLabel = 50;
     return {
       backgroundColor: runit.bgDeep,
       borderTopWidth: 0,
       borderBottomWidth: 2,
       borderBottomColor: 'rgba(157, 78, 237, 0.45)',
-      paddingTop: Math.max(insets.top, 10) + 4,
-      paddingBottom: 14,
+      paddingTop: padTop,
+      paddingBottom: padBottom,
       paddingHorizontal: padH,
-      minHeight: 76,
+      height: padTop + contentIconAndLabel + padBottom,
+      overflow: 'visible' as const,
     };
   }
 
@@ -64,13 +69,18 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   }
 
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 12) + 2;
+  const padTop = 8;
+  /** Same as web: default tab bar height (~49px + inset) hides labels under icons without explicit `height`. */
+  const contentIconAndLabel = 52;
   return {
     backgroundColor: runit.bgDeep,
     borderTopWidth: 2,
     borderTopColor: 'rgba(157, 78, 237, 0.45)',
-    paddingTop: 8,
+    paddingTop: padTop,
     paddingBottom: bottomPad,
     paddingHorizontal: 6,
+    height: padTop + contentIconAndLabel + bottomPad,
+    overflow: 'visible' as const,
   };
 }
 

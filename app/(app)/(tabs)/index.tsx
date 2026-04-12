@@ -147,13 +147,17 @@ export default function HomeScreen() {
       const postedMinutesAgo = Math.max(1, Math.floor((Date.now() - w.postedAt) / 60_000));
       const queueTotal = forGame.length;
       const rotateIndex = queueTotal > 0 ? (rotateTick % queueTotal) + 1 : 0;
+      const entryUsd =
+        w.entryFeeWalletCents != null ? w.entryFeeWalletCents / 100 : tier.entry;
+      const prizeUsd =
+        w.listedPrizeUsdCents != null ? w.listedPrizeUsdCents / 100 : tier.prize;
       return {
         ...g,
         activeWaiter: {
           id: w.id,
           tierShortLabel: tier.shortLabel,
-          entryUsd: tier.entry,
-          prizeUsd: tier.prize,
+          entryUsd,
+          prizeUsd,
           hostLabel: w.hostLabel,
           postedMinutesAgo,
         },

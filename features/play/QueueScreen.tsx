@@ -18,6 +18,7 @@ import {
 import { useH2hQueueMatchSignals } from '@/hooks/useH2hQueueMatchSignals';
 import { h2hCancelQueue, h2hEnqueueOrMatch } from '@/services/matchmaking/h2hQueue';
 import { getSupabase } from '@/supabase/client';
+import { useProfile } from '@/hooks/useProfile';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
@@ -67,6 +68,7 @@ export function QueueScreen({
   const router = useRouter();
   const qc = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id ?? 'guest');
+  const profileQ = useProfile(ENABLE_BACKEND && userId !== 'guest' ? userId : undefined);
   const walletCents = useWalletDisplayCents();
   const trySpendWallet = useDemoWalletStore((s) => s.trySpend);
   const addWalletCents = useDemoWalletStore((s) => s.addWalletCents);
@@ -79,6 +81,9 @@ export function QueueScreen({
   } | null>(null);
   /** One-shot alert for fatal queue RPC errors while polling (wallet drift, session create failure). */
   const queuePollAlertShownRef = useRef(false);
+  const queuePollTransientFailRef = useRef(0);
+  /** True after Home `intent=join|start` auto-fired `start()` once, or user cancelled — no repeat autostart until next navigation. */
+  const h2hIntentAutostartDoneOrCancelledRef = useRef(false);
   const [searchId, setSearchId] = useState<string | null>(null);
   const phase = useMatchmakingStore((s) => s.phase);
   const opponent = useMatchmakingStore((s) => s.opponent);
@@ -218,6 +223,7 @@ export function QueueScreen({
           return;
         }
         if (r.matched) {
+          queuePollTransientFailRef.current = 0;
           const supabase = getSupabase();
           const { data: prof } = await supabase
             .from('profiles')
@@ -236,9 +242,23 @@ export function QueueScreen({
             },
             { serverSessionReady: true },
           );
+        } else {
+          queuePollTransientFailRef.current = 0;
         }
-      } catch {
-        /* transient errors while polling */
+      } catch (e) {
+        queuePollTransientFailRef.current += 1;
+        if (queuePollTransientFailRef.current >= 6 && !queuePollAlertShownRef.current) {
+          queuePollAlertShownRef.current = true;
+          backendQueueParamsRef.current = null;
+          void h2hCancelQueue().catch(() => {});
+          useMatchmakingStore.getState().reset();
+          Alert.alert(
+            'Matchmaking issue',
+            e instanceof Error
+              ? e.message
+              : 'Could not reach the matchmaking service. Check your connection and try again.',
+          );
+        }
       }
     };
 
@@ -324,6 +344,30 @@ export function QueueScreen({
     void runQuickMatchResolve();
   }, [quickMatch, runQuickMatchResolve]);
 
+  /** Home deep-links with `intent=join|start` — begin queue immediately so the host is actually in `h2h_queue_entries` when a joiner arrives. */
+  useEffect(() => {
+    if (!ENABLE_BACKEND || userId === 'guest') return;
+    if (!profileQ.isFetched) return;
+    if (quickMatch) return;
+    if (queueIntent !== 'join' && queueIntent !== 'start') return;
+    if (!gameKey || entryFeeUsd == null || listedPrizeUsd == null) return;
+    if (phase !== 'idle') return;
+    if (h2hIntentAutostartDoneOrCancelledRef.current) return;
+    h2hIntentAutostartDoneOrCancelledRef.current = true;
+    void start();
+  }, [
+    ENABLE_BACKEND,
+    userId,
+    profileQ.isFetched,
+    quickMatch,
+    queueIntent,
+    gameKey,
+    entryFeeUsd,
+    listedPrizeUsd,
+    phase,
+    start,
+  ]);
+
   function cleanupBackendQueue() {
     backendQueueParamsRef.current = null;
     if (!ENABLE_BACKEND) return;
@@ -401,6 +445,7 @@ export function QueueScreen({
   }
 
   function decline() {
+    h2hIntentAutostartDoneOrCancelledRef.current = true;
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
     cleanupBackendQueue();
     refundEntryIfQueuedDemo();
@@ -410,6 +455,7 @@ export function QueueScreen({
 
   /** Leave queue: always land on Arcade hub. `router.back()` after a cross-tab push from Home pops Home, not play/index. */
   function leaveScreen() {
+    h2hIntentAutostartDoneOrCancelledRef.current = true;
     if (searchId) void mockMatchmakingSingleton.cancelSearch(searchId);
     cleanupBackendQueue();
     refundEntryIfQueuedDemo();

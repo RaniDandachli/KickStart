@@ -23,6 +23,9 @@ export type H2hBoardWaiter = {
   tierIndex: number;
   hostLabel: string;
   postedAt: number;
+  /** From `home_h2h_queue_board` — use for queue URLs so RPC params match the DB row exactly. */
+  entryFeeWalletCents?: number;
+  listedPrizeUsdCents?: number;
 };
 
 function makeId(): string {
