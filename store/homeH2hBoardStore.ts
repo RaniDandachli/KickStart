@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 
 const HOSTS = [
@@ -87,14 +88,26 @@ export function buildSyntheticWaiter(): H2hBoardWaiter {
   };
 }
 
+/** Sentinel id: real backend, empty board — Quick Match still enqueues with default game/tier. */
+export const QUICK_MATCH_PLACEHOLDER_WAITER_ID = '__quick_match__';
+
 /**
- * Quick Match: pair with the longest-waiting open row across any game/tier,
- * or synthesize a lobby if the pool is empty (replace with live matchmaking when wired).
+ * Quick Match: longest-waiting real row when backend is on; else demo board / synthetic.
  */
 export function pickAnyOpenWaiterForQuickMatch(): H2hBoardWaiter {
-  useHomeH2hBoardStore.getState().ensureOpenMatchBoard();
-  const sorted = sortWaitersForDisplay(useHomeH2hBoardStore.getState().waiters);
+  const st = useHomeH2hBoardStore.getState();
+  if (!ENABLE_BACKEND) st.ensureOpenMatchBoard();
+  const sorted = sortWaitersForDisplay(st.waiters);
   if (sorted.length > 0) return sorted[0]!;
+  if (ENABLE_BACKEND) {
+    return {
+      id: QUICK_MATCH_PLACEHOLDER_WAITER_ID,
+      gameKey: H2H_OPEN_GAMES[0]!.gameKey,
+      tierIndex: 0,
+      hostLabel: 'Matchmaking pool',
+      postedAt: Date.now(),
+    };
+  }
   return buildSyntheticWaiter();
 }
 
@@ -102,6 +115,8 @@ type HomeH2hBoardState = {
   waiters: H2hBoardWaiter[];
   /** Seed sample open rows until live lobby data exists. */
   ensureOpenMatchBoard: () => void;
+  /** Replace board from Supabase `home_h2h_queue_board` (ENABLE_BACKEND). */
+  replaceWaitersFromServer: (waiters: H2hBoardWaiter[]) => void;
   removeWaiter: (id: string) => void;
   /**
    * Simulates matches completing and new players queueing — removes “filled” slots
@@ -114,13 +129,20 @@ export const useHomeH2hBoardStore = create<HomeH2hBoardState>((set, get) => ({
   waiters: [],
 
   ensureOpenMatchBoard: () => {
+    if (ENABLE_BACKEND) return;
     if (get().waiters.length > 0) return;
     set({ waiters: seedSampleOpenRows() });
   },
 
-  removeWaiter: (id) => set((s) => ({ waiters: s.waiters.filter((w) => w.id !== id) })),
+  replaceWaitersFromServer: (waiters) => set({ waiters }),
+
+  removeWaiter: (id) => {
+    if (id === QUICK_MATCH_PLACEHOLDER_WAITER_ID) return;
+    set((s) => ({ waiters: s.waiters.filter((w) => w.id !== id) }));
+  },
 
   tickSimulation: () => {
+    if (ENABLE_BACKEND) return;
     const list = get().waiters;
     if (list.length === 0) {
       set({ waiters: seedSampleOpenRows() });

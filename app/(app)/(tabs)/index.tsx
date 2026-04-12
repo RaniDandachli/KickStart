@@ -3,6 +3,7 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,14 +33,17 @@ import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOp
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
+import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { DAILY_FREE_PRIZE_USD, DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
 import { formatUsdFromCents } from '@/lib/money';
+import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
   const router = useRouter();
@@ -52,6 +56,7 @@ export default function HomeScreen() {
   const seasonQ = useActiveSeason();
   const tournamentsQ = useTournaments(true);
   const lobbyStatsQ = useHomeLobbyStats();
+  const h2hBoardQuery = useHomeH2hQueueBoard();
 
   const liveLobby = useMemo(() => {
     if (!ENABLE_BACKEND || lobbyStatsQ.data == null) return null;
@@ -102,17 +107,25 @@ export default function HomeScreen() {
 
   const waiters = useHomeH2hBoardStore((s) => s.waiters);
   const ensureOpenMatchBoard = useHomeH2hBoardStore((s) => s.ensureOpenMatchBoard);
+  const replaceWaitersFromServer = useHomeH2hBoardStore((s) => s.replaceWaitersFromServer);
   const removeWaiter = useHomeH2hBoardStore((s) => s.removeWaiter);
   const tickSimulation = useHomeH2hBoardStore((s) => s.tickSimulation);
 
   useEffect(() => {
-    ensureOpenMatchBoard();
-  }, [ensureOpenMatchBoard]);
+    if (!ENABLE_BACKEND) return;
+    replaceWaitersFromServer(h2hBoardQuery.data ?? []);
+  }, [ENABLE_BACKEND, h2hBoardQuery.data, replaceWaitersFromServer]);
 
   useEffect(() => {
+    if (ENABLE_BACKEND) return;
+    ensureOpenMatchBoard();
+  }, [ENABLE_BACKEND, ensureOpenMatchBoard]);
+
+  useEffect(() => {
+    if (ENABLE_BACKEND) return;
     const id = setInterval(() => tickSimulation(), 12_000);
     return () => clearInterval(id);
-  }, [tickSimulation]);
+  }, [ENABLE_BACKEND, tickSimulation]);
 
   const [rotateTick, setRotateTick] = useState(0);
   useEffect(() => {
@@ -538,6 +551,7 @@ export default function HomeScreen() {
           onHeadToHeadPrize={() => {
             if (!h2hGate) return;
             if (h2hGate.waiterId) removeWaiter(h2hGate.waiterId);
+            if (ENABLE_BACKEND) void queryClient.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
             const e = encodeURIComponent(String(h2hGate.entryUsd));
             const p = encodeURIComponent(String(h2hGate.prizeUsd));
             const gk = encodeURIComponent(h2hGate.gameKey);

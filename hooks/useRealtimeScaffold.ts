@@ -25,6 +25,7 @@ export function useRealtimeScaffold(userId: string | undefined): void {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_sessions' }, () => {
         void qc.invalidateQueries({ queryKey: ['profile'] });
         void qc.invalidateQueries({ queryKey: queryKeys.homeLobby() });
+        void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
         void qc.invalidateQueries({ queryKey: ['userStats'] });
         void qc.invalidateQueries({ queryKey: ['recentMatches'] });
       })

@@ -1,5 +1,6 @@
 export const queryKeys = {
   homeLobby: () => ['homeLobby'] as const,
+  homeH2hBoard: () => ['homeH2hBoard'] as const,
   profile: (userId: string) => ['profile', userId] as const,
   profileByUsername: (username: string) => ['profileUsername', username] as const,
   tournaments: (filters?: Record<string, string>) => ['tournaments', filters ?? {}] as const,
