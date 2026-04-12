@@ -97,6 +97,7 @@ export default function HomeScreen() {
   } | null>(null);
 
   const [tierPick, setTierPick] = useState<{ title: string; gameKey: H2hGameKey; route: string } | null>(null);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const waiters = useHomeH2hBoardStore((s) => s.waiters);
   const ensureOpenMatchBoard = useHomeH2hBoardStore((s) => s.ensureOpenMatchBoard);
