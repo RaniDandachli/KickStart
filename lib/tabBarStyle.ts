@@ -34,6 +34,13 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   const webMobileBottom = Platform.OS === 'web' && opts?.webMobileBottom === true;
   if (webMobileBottom) {
     const safeBottom = Math.max(insets.bottom, 22);
+    /**
+     * RN BottomTabBar sets a fixed `height` (~49px + inset) which clips labels under icons.
+     * Our style merges last — set an explicit tall `height` so icon + title fit (iPhone Safari web).
+     */
+    const padTop = 10;
+    const padBottom = 12 + safeBottom;
+    const contentForIconAndLabel = 56;
     return {
       backgroundColor: 'rgba(5, 2, 14, 0.76)',
       borderTopWidth: 0,
@@ -43,10 +50,11 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       marginHorizontal: 12,
       marginBottom: 10,
       marginTop: 4,
-      paddingTop: 8,
-      paddingBottom: 10 + safeBottom,
+      paddingTop: padTop,
+      paddingBottom: padBottom,
       paddingHorizontal: 2,
-      minHeight: 72 + safeBottom * 0.35,
+      height: padTop + contentForIconAndLabel + padBottom,
+      overflow: 'visible',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.4,

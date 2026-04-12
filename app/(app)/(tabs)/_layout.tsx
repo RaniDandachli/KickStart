@@ -108,8 +108,8 @@ export default function TabsLayout() {
         ...(Platform.OS === 'web' && webUsesTopTabBar
           ? {
               tabBarPosition: 'top' as const,
-              /** `uikit` on web often hides tab titles — material shows icon + label */
-              tabBarVariant: 'material' as const,
+              /** Top bar must not use `material` — RN only allows that for left/right side tabs. */
+              tabBarVariant: 'uikit' as const,
               sceneStyle: {
                 maxWidth: 1280,
                 width: '100%' as const,
@@ -145,9 +145,9 @@ export default function TabsLayout() {
             : Platform.OS === 'web'
               ? {
                   fontWeight: '700',
-                  fontSize: 10,
-                  letterSpacing: 0.15,
-                  marginTop: 4,
+                  fontSize: 11,
+                  letterSpacing: 0.1,
+                  marginTop: 3,
                   marginBottom: 0,
                 }
               : {
