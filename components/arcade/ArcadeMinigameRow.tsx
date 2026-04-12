@@ -24,13 +24,14 @@ type Props = {
   entryColor?: string;
   /** Bigger card + glow on Arcade “Hot games” */
   emphasized?: boolean;
+  compact?: boolean;
 };
 
 const BASE = '/(app)/(tabs)/play/minigames';
 
 export function ArcadeMinigameRow(props: Props) {
   const router = useRouter();
-  const { gameRoute, title, emphasized, ...rowProps } = props;
+  const { gameRoute, title, emphasized, compact, ...rowProps } = props;
   const [open, setOpen] = useState(false);
   const path = `${BASE}/${gameRoute}`;
   const prizeEntryCredits =
@@ -42,7 +43,7 @@ export function ArcadeMinigameRow(props: Props) {
 
   return (
     <>
-      <ArcadeGameRow {...rowProps} title={title} emphasized={emphasized} onPress={() => setOpen(true)} />
+      <ArcadeGameRow {...rowProps} title={title} emphasized={emphasized} compact={compact} onPress={() => setOpen(true)} />
       <ArcadePlayModeModal
         visible={open}
         gameTitle={title}

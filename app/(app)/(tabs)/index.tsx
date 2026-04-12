@@ -209,7 +209,7 @@ export default function HomeScreen() {
 
           <View style={styles.sectionLabel}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {webDesktopTabs ? 'LIVE MATCHES' : 'HEAD-TO-HEAD'}
+              {Platform.OS === 'web' ? 'LIVE MATCHES' : 'HEAD-TO-HEAD'}
             </Text>
             <View style={styles.livePill} accessibilityRole="text" accessibilityLabel="Live skill contests">
               <View style={styles.liveDot} />
@@ -218,7 +218,7 @@ export default function HomeScreen() {
             <View style={styles.sectionLine} />
           </View>
           <Text style={styles.sectionSub}>
-            {webDesktopTabs ? (
+            {Platform.OS === 'web' ? (
               <>
                 Real-time 1v1 queues — <Text style={styles.sectionEm}>Join</Text> matches their tier.{' '}
                 <Text style={styles.sectionEm}>Find opponent</Text> picks your tier first.
@@ -232,11 +232,12 @@ export default function HomeScreen() {
             )}
           </Text>
 
-          {Platform.OS === 'web' && webDesktopTabs ? (
+          {Platform.OS === 'web' ? (
             <HomeH2hCarouselWeb
               rows={h2hRows}
               h2hIconFor={h2hIconFor}
               h2hGradients={h2hGradients}
+              phoneWeb={!webDesktopTabs}
               onRowPress={(row) => {
                 if (row.activeWaiter) {
                   setH2hGate({

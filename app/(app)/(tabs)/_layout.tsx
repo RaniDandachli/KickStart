@@ -103,11 +103,12 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        /** Icon on top, title under (Home, Events, Arcade, …) — all platforms / web widths */
+        tabBarLabelPosition: 'below-icon',
         ...(Platform.OS === 'web' && webUsesTopTabBar
           ? {
               tabBarPosition: 'top' as const,
               tabBarVariant: 'uikit' as const,
-              tabBarLabelPosition: 'beside-icon' as const,
               sceneStyle: {
                 maxWidth: 1280,
                 width: '100%' as const,
@@ -136,33 +137,33 @@ export default function TabsLayout() {
           Platform.OS === 'web' && webUsesTopTabBar
             ? {
                 fontWeight: '700',
-                fontSize: 13,
-                marginTop: 0,
+                fontSize: 11,
+                marginTop: 2,
                 marginBottom: 0,
               }
             : Platform.OS === 'web'
               ? {
                   fontWeight: '700',
-                  fontSize: 11,
-                  letterSpacing: 0.2,
-                  marginTop: 0,
-                  marginBottom: 2,
+                  fontSize: 10,
+                  letterSpacing: 0.15,
+                  marginTop: 4,
+                  marginBottom: 0,
                 }
               : {
                   fontWeight: '800',
                   fontSize: 10,
-                  marginTop: 2,
-                  marginBottom: 2,
+                  marginTop: 4,
+                  marginBottom: 0,
                 },
         tabBarIconStyle:
           Platform.OS === 'web' && webUsesTopTabBar
-            ? { marginTop: 0, marginRight: 6 }
+            ? { marginTop: 4, marginBottom: 0, marginRight: 0 }
             : Platform.OS === 'web'
-              ? { marginTop: 2, marginBottom: 0 }
-              : { marginTop: 0 },
+              ? { marginTop: 0, marginBottom: 0 }
+              : { marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
           paddingVertical:
-            Platform.OS === 'web' && webUsesTopTabBar ? 8 : Platform.OS === 'web' ? 6 : 4,
+            Platform.OS === 'web' && webUsesTopTabBar ? 10 : Platform.OS === 'web' ? 6 : 5,
           justifyContent: 'center',
           ...(Platform.OS === 'web' && !webUsesTopTabBar
             ? { alignItems: 'center' as const, flex: 1, minWidth: 0 }

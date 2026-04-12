@@ -86,6 +86,7 @@ export default function PlayHubScreen() {
 
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="tap-dash"
           title="Tap Dash"
           entryLabel="Practice or prize run"
@@ -93,10 +94,11 @@ export default function PlayHubScreen() {
           bgColors={['#1e1b4b', '#312e81', '#4c1d95']}
           borderAccent="pink"
           entryColor="rgba(226,232,240,0.9)"
-          iconSlot={<TapDashGameIcon size={42} />}
+          iconSlot={<TapDashGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="tile-clash"
           title="Tile Clash"
           entryLabel="Practice or prize run"
@@ -104,10 +106,11 @@ export default function PlayHubScreen() {
           bgColors={['#0f172a', '#1e1b4b', '#5b21b6']}
           borderAccent="purple"
           entryColor="rgba(226,232,240,0.9)"
-          iconSlot={<TileClashGameIcon size={42} />}
+          iconSlot={<TileClashGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="dash-duel"
           title="Dash Duel"
           entryLabel="Practice or prize run"
@@ -116,10 +119,11 @@ export default function PlayHubScreen() {
           borderAccent="cyan"
           titleColor="#e2e8f0"
           entryColor="rgba(148,163,184,0.95)"
-          iconSlot={<DashDuelGameIcon size={42} />}
+          iconSlot={<DashDuelGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="ball-run"
           title="Neon Ball Run"
           entryLabel="Practice or prize run"
@@ -127,10 +131,11 @@ export default function PlayHubScreen() {
           bgColors={['#1a0b2e', '#4c1d95', '#831843']}
           borderAccent="pink"
           entryColor="rgba(248,250,252,0.9)"
-          iconSlot={<BallRunGameIcon size={42} />}
+          iconSlot={<BallRunGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="turbo-arena"
           title="Turbo Arena"
           entryLabel="Practice or prize run"
@@ -138,10 +143,11 @@ export default function PlayHubScreen() {
           bgColors={['#020617', '#0c4a6e', '#7c2d12']}
           borderAccent="cyan"
           entryColor="rgba(226,232,240,0.9)"
-          iconSlot={<TurboArenaGameIcon size={42} />}
+          iconSlot={<TurboArenaGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized
+          compact
           gameRoute="stacker"
           title="Stacker"
           entryLabel="Jackpot prize · practice or prize run"
@@ -149,7 +155,7 @@ export default function PlayHubScreen() {
           bgColors={['#0c0a0f', '#1e1b4b', '#831843']}
           borderAccent="purple"
           entryColor="rgba(226,232,240,0.9)"
-          iconSlot={<StackerGameIcon size={42} />}
+          iconSlot={<StackerGameIcon size={36} />}
         />
 
         <ArcadeStatsRow />
@@ -221,8 +227,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 4,
-    marginTop: 8,
+    marginBottom: 2,
+    marginTop: 6,
   },
   gamesSection: {
     color: 'rgba(255, 255, 255, 0.98)',
@@ -234,10 +240,10 @@ const styles = StyleSheet.create({
   },
   gamesSub: {
     color: 'rgba(148, 163, 184, 0.95)',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 8,
     paddingHorizontal: 12,
   },
   footer: {

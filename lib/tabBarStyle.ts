@@ -27,7 +27,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       paddingTop: Math.max(insets.top, 10) + 4,
       paddingBottom: 12,
       paddingHorizontal: padH,
-      minHeight: 52,
+      minHeight: 64,
     };
   }
 
