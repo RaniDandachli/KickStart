@@ -25,9 +25,9 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       borderBottomWidth: 2,
       borderBottomColor: 'rgba(157, 78, 237, 0.45)',
       paddingTop: Math.max(insets.top, 10) + 4,
-      paddingBottom: 12,
+      paddingBottom: 14,
       paddingHorizontal: padH,
-      minHeight: 64,
+      minHeight: 76,
     };
   }
 
@@ -43,10 +43,10 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       marginHorizontal: 12,
       marginBottom: 10,
       marginTop: 4,
-      paddingTop: 6,
-      paddingBottom: 8 + safeBottom,
+      paddingTop: 8,
+      paddingBottom: 10 + safeBottom,
       paddingHorizontal: 2,
-      minHeight: 64 + Math.min(safeBottom, 8) * 0.5,
+      minHeight: 72 + safeBottom * 0.35,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.4,

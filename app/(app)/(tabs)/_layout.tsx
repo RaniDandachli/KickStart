@@ -108,7 +108,8 @@ export default function TabsLayout() {
         ...(Platform.OS === 'web' && webUsesTopTabBar
           ? {
               tabBarPosition: 'top' as const,
-              tabBarVariant: 'uikit' as const,
+              /** `uikit` on web often hides tab titles — material shows icon + label */
+              tabBarVariant: 'material' as const,
               sceneStyle: {
                 maxWidth: 1280,
                 width: '100%' as const,
@@ -175,6 +176,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => <SafeIonicons name="home" color={color} size={ICON} />,
         }}
       />
@@ -182,6 +184,7 @@ export default function TabsLayout() {
         name="tournaments"
         options={{
           title: 'Events',
+          tabBarLabel: 'Events',
           tabBarIcon: ({ color }) => <SafeIonicons name="trophy" color={color} size={ICON} />,
         }}
       />
@@ -189,6 +192,7 @@ export default function TabsLayout() {
         name="play"
         options={{
           title: 'Arcade',
+          tabBarLabel: 'Arcade',
           tabBarIcon: ({ color }) => <SafeIonicons name="game-controller" color={color} size={ICON} />,
         }}
       />
@@ -196,6 +200,7 @@ export default function TabsLayout() {
         name="prizes"
         options={{
           title: 'Prizes',
+          tabBarLabel: 'Prizes',
           tabBarIcon: ({ color }) => <SafeIonicons name="gift" color={color} size={ICON} />,
         }}
       />
@@ -203,6 +208,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'You',
+          tabBarLabel: 'You',
           tabBarIcon: ({ color }) => <SafeIonicons name="person" color={color} size={ICON} />,
         }}
       />

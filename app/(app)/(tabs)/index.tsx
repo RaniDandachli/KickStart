@@ -41,6 +41,7 @@ import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoar
 
 export default function HomeScreen() {
   const webDesktopTabs = useWebUsesTopTabBar();
+  const isWeb = Platform.OS === 'web';
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
@@ -189,7 +190,7 @@ export default function HomeScreen() {
       <HomeNeonBackground />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, webDesktopTabs && styles.scrollWebDesktop]}
+          contentContainerStyle={[styles.scroll, isWeb && styles.scrollWebDesktop]}
           showsVerticalScrollIndicator={false}
         >
           <HomePlayHero
@@ -204,7 +205,7 @@ export default function HomeScreen() {
             }
             onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
             onHowItWorksPress={() => setHowItWorksOpen(true)}
-            webStacked={webDesktopTabs}
+            webStacked={isWeb}
           />
 
           <View style={styles.sectionLabel}>
@@ -341,7 +342,7 @@ export default function HomeScreen() {
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {ENABLE_DAILY_FREE_TOURNAMENT && webDesktopTabs
+              {ENABLE_DAILY_FREE_TOURNAMENT && isWeb
                 ? 'DAILY TOURNAMENT'
                 : ENABLE_DAILY_FREE_TOURNAMENT
                   ? 'DAILY EVENT'
@@ -363,7 +364,7 @@ export default function HomeScreen() {
                 : pushCrossTab(router, '/(app)/(tabs)/tournaments')
             }
           >
-            {ENABLE_DAILY_FREE_TOURNAMENT && webDesktopTabs ? (
+            {ENABLE_DAILY_FREE_TOURNAMENT && isWeb ? (
               <View style={styles.dailyBannerOuter}>
                 <LinearGradient
                   colors={['rgba(251,191,36,0)', 'rgba(245,158,11,0.35)', 'rgba(234,88,12,0.45)']}
@@ -470,7 +471,7 @@ export default function HomeScreen() {
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {webDesktopTabs ? 'ARCADE GAMES' : 'YOUR STATS'}
+              {isWeb ? 'ARCADE GAMES' : 'YOUR STATS'}
             </Text>
             <View style={styles.sectionLine} />
           </View>
@@ -489,7 +490,7 @@ export default function HomeScreen() {
               ))
             )}
           </View>
-          {webDesktopTabs ? (
+          {isWeb ? (
             <>
               <HomeArcadeTierPickRow
                 onEntryTierPress={(entry, prize) =>
@@ -498,7 +499,7 @@ export default function HomeScreen() {
                     `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
                   )
                 }
-                webWideSnap
+                webWideSnap={webDesktopTabs}
               />
               <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
             </>
