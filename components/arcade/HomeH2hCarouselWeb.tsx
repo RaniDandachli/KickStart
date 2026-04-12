@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -32,9 +32,6 @@ type Props = {
   onRowPress: (row: H2hCarouselRow) => void;
 };
 
-/**
- * Desktop web: horizontal snap carousel for H2H games (VAZA-style peek).
- */
 const AUTO_MS = 4200;
 const PAUSE_AFTER_DRAG_MS = 9000;
 
@@ -51,12 +48,14 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
   stepRef.current = stepPx;
   const indexRef = useRef(0);
   const pausedUntilRef = useRef(0);
+  const [pageIdx, setPageIdx] = useState(0);
 
   const scrollToIndex = useCallback(
     (index: number, animated: boolean) => {
       const step = stepRef.current;
       const i = Math.max(0, Math.min(rows.length - 1, index));
       indexRef.current = i;
+      setPageIdx(i);
       scrollRef.current?.scrollTo({ x: i * step, y: 0, animated });
     },
     [rows.length],
@@ -64,6 +63,7 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
 
   useEffect(() => {
     indexRef.current = 0;
+    setPageIdx(0);
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [stepPx, rows.length]);
 
@@ -87,7 +87,9 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
       const step = stepRef.current;
       if (step <= 0) return;
       const idx = Math.round(x / step);
-      indexRef.current = Math.max(0, Math.min(rows.length - 1, idx));
+      const clamped = Math.max(0, Math.min(rows.length - 1, idx));
+      indexRef.current = clamped;
+      setPageIdx(clamped);
     },
     [rows.length],
   );
@@ -111,9 +113,9 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
           const entryLbl = row.activeWaiter
             ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100))
             : '—';
-          const prizeLbl = row.activeWaiter
-            ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100))
-            : '—';
+          const tierLine = row.activeWaiter
+            ? `${row.activeWaiter.tierShortLabel.toUpperCase()} TIER`
+            : 'PICK A TIER TO MATCH';
           return (
             <Pressable
               key={row.gameKey}
@@ -122,57 +124,46 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
             >
               <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
                 <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
-                  <View style={styles.gameRow}>
-                    <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 56)}</View>
+                  <View style={styles.cardTop}>
+                    <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 52)}</View>
                     <View style={styles.gameTextCol}>
-                      <View style={styles.h2hTitleRow}>
-                        <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={2}>
-                          {row.title}
-                        </Text>
-                        <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
-                          <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
-                            {hostWaiting ? 'IN QUEUE' : 'OPEN'}
-                          </Text>
-                        </View>
-                      </View>
+                      <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
+                        {row.title}
+                      </Text>
                       {hostWaiting && row.activeWaiter ? (
                         <>
-                          <Text style={styles.hostLine} numberOfLines={3}>
+                          <Text style={styles.hostLine} numberOfLines={2}>
                             <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting ·{' '}
                             {row.activeWaiter.postedMinutesAgo}m ago
                           </Text>
                           {row.queueTotal > 1 ? (
                             <Text style={styles.queueRotate}>
-                              Showing {row.rotateIndex} of {row.queueTotal} in queue
+                              {row.rotateIndex} of {row.queueTotal} in queue
                             </Text>
                           ) : null}
-                          <Text style={styles.tierTag} numberOfLines={1}>
-                            {row.activeWaiter.tierShortLabel} tier
-                          </Text>
-                          <Text style={styles.gameEntry}>
-                            Entry {entryLbl} · Listed reward {prizeLbl}
-                          </Text>
                         </>
                       ) : (
-                        <>
-                          <Text style={styles.hostLine} numberOfLines={3}>
-                            No open searches — tap to pick a contest tier ({MATCH_ENTRY_TIERS[0]?.shortLabel ?? 'Starter'}–
-                            {MATCH_ENTRY_TIERS[MATCH_ENTRY_TIERS.length - 1]?.shortLabel ?? 'Legend'}) and matchmake.
-                          </Text>
-                          <Text style={styles.tierTag} numberOfLines={1}>
-                            Choose tier on next step
-                          </Text>
-                          <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
-                        </>
+                        <Text style={styles.hostLine} numberOfLines={2}>
+                          No open search — tap to pick a tier ({MATCH_ENTRY_TIERS[0]?.shortLabel ?? 'Starter'}–
+                          {MATCH_ENTRY_TIERS[MATCH_ENTRY_TIERS.length - 1]?.shortLabel ?? 'Legend'}).
+                        </Text>
                       )}
+                      <Text style={styles.tierTag} numberOfLines={1}>
+                        {tierLine}
+                      </Text>
                     </View>
+                  </View>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.entryLine}>
+                      Entry <Text style={styles.entryAmt}>{entryLbl}</Text>
+                    </Text>
                     <LinearGradient
-                      colors={[runit.neonPink, runit.neonPurple]}
+                      colors={[runit.neonPink, '#ec4899']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.prizeBtn}
+                      style={styles.joinBtn}
                     >
-                      <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
+                      <Text style={styles.joinBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
                     </LinearGradient>
                   </View>
                 </LinearGradient>
@@ -181,17 +172,24 @@ export function HomeH2hCarouselWeb({ rows, h2hIconFor, h2hGradients, onRowPress 
           );
         })}
       </ScrollView>
-      <Text style={styles.hint}>
-        {rows.length > 1
-          ? 'Auto-cycles through games — swipe anytime · same tiers as Quick Match'
-          : 'Same tiers as Quick Match'}
-      </Text>
+      {rows.length > 1 ? (
+        <View style={styles.dotsRow} accessibilityRole="adjustable">
+          {rows.map((r, i) => (
+            <View
+              key={r.gameKey}
+              style={[styles.dot, i === pageIdx ? styles.dotActive : styles.dotIdle]}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: 6 },
+  wrap: { marginBottom: 4 },
   scrollContent: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -200,7 +198,7 @@ const styles = StyleSheet.create({
   },
   cardShell: { marginRight: 0 },
   gameBorder: {
-    borderRadius: 18,
+    borderRadius: 14,
     padding: 2,
     shadowColor: 'rgba(255,0,110,0.45)',
     shadowOffset: { width: 0, height: 0 },
@@ -208,59 +206,58 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  gameCard: { borderRadius: 16, paddingVertical: 14, paddingHorizontal: 14, minHeight: 120 },
-  gameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gameIconCol: { width: 58, alignItems: 'center', justifyContent: 'center' },
+  gameCard: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, minHeight: 128 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  gameIconCol: { width: 56, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   gameTextCol: { flex: 1, minWidth: 0 },
-  h2hTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-  gameTitle: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.3, flexShrink: 1 },
-  waitingPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 7,
-    borderWidth: 1,
-  },
-  pillQueued: {
-    backgroundColor: 'rgba(0,240,255,0.12)',
-    borderColor: 'rgba(0,240,255,0.35)',
-  },
-  pillOpenSlot: {
-    backgroundColor: 'rgba(250,204,21,0.1)',
-    borderColor: 'rgba(250,204,21,0.4)',
-  },
-  waitingPillTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 0.9 },
-  pillTagQueued: { color: runit.neonCyan },
-  pillTagOpen: { color: '#fbbf24' },
+  gameTitle: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.3, marginBottom: 4 },
   hostLine: { color: 'rgba(203,213,225,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 4, lineHeight: 16 },
   hostName: { color: '#fde68a', fontWeight: '800' },
   tierTag: {
-    color: 'rgba(167,139,250,0.95)',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 3,
+    color: 'rgba(167,139,250,0.98)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  gameEntry: { color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: '700' },
-  gameEntryMuted: { color: 'rgba(148,163,184,0.88)', fontSize: 12, fontWeight: '600' },
-  queueRotate: { color: 'rgba(167,139,250,0.95)', fontSize: 11, fontWeight: '700', marginBottom: 3 },
-  prizeBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 11,
+  queueRotate: { color: 'rgba(167,139,250,0.95)', fontSize: 10, fontWeight: '700', marginBottom: 4 },
+  entryLine: { color: 'rgba(226,232,240,0.88)', fontSize: 13, fontWeight: '700' },
+  entryAmt: { color: '#fff', fontWeight: '900', fontVariant: ['tabular-nums'] },
+  joinBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.32)',
-    minWidth: 100,
+    borderColor: 'rgba(255,255,255,0.28)',
+    minWidth: 112,
     alignItems: 'center',
-    alignSelf: 'center',
   },
-  prizeBtnText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  hint: {
-    textAlign: 'center',
-    color: 'rgba(148,163,184,0.85)',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
-    marginBottom: 8,
+  joinBtnText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  dot: { height: 3, borderRadius: 2, backgroundColor: 'rgba(148,163,184,0.35)' },
+  dotIdle: { width: 14 },
+  dotActive: {
+    width: 28,
+    backgroundColor: 'rgba(34,211,238,0.85)',
+    shadowColor: runit.neonCyan,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
   },
 });

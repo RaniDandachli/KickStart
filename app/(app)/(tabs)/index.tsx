@@ -12,7 +12,7 @@ import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
 import { HeadToHeadPlayModal } from '@/components/arcade/HeadToHeadPlayModal';
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
-import { HomePlayHero } from '@/components/arcade/HomePlayHero';
+import { HomeArcadeTierPickRow, HomePlayHero } from '@/components/arcade/HomePlayHero';
 import {
     BallRunGameIcon,
     DashDuelGameIcon,
@@ -188,7 +188,10 @@ export default function HomeScreen() {
       <StatusBar style="light" />
       <HomeNeonBackground />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, webDesktopTabs && styles.scrollWebDesktop]}
+          showsVerticalScrollIndicator={false}
+        >
           <HomePlayHero
             liveLobby={liveLobby}
             walletDisplay={walletDisplay}
@@ -201,10 +204,13 @@ export default function HomeScreen() {
             }
             onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
             onHowItWorksPress={() => setHowItWorksOpen(true)}
+            webStacked={webDesktopTabs}
           />
 
           <View style={styles.sectionLabel}>
-            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
+              {webDesktopTabs ? 'LIVE MATCHES' : 'HEAD-TO-HEAD'}
+            </Text>
             <View style={styles.livePill} accessibilityRole="text" accessibilityLabel="Live skill contests">
               <View style={styles.liveDot} />
               <Text style={styles.livePillText}>LIVE</Text>
@@ -212,9 +218,18 @@ export default function HomeScreen() {
             <View style={styles.sectionLine} />
           </View>
           <Text style={styles.sectionSub}>
-            Live 1v1 queues per game — we show who’s waiting (rotates if several).{' '}
-            <Text style={styles.sectionEm}>Join</Text> = same tier as their search.{' '}
-            <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
+            {webDesktopTabs ? (
+              <>
+                Real-time 1v1 queues — <Text style={styles.sectionEm}>Join</Text> matches their tier.{' '}
+                <Text style={styles.sectionEm}>Find opponent</Text> picks your tier first.
+              </>
+            ) : (
+              <>
+                Live 1v1 queues per game — we show who’s waiting (rotates if several).{' '}
+                <Text style={styles.sectionEm}>Join</Text> = same tier as their search.{' '}
+                <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
+              </>
+            )}
           </Text>
 
           {Platform.OS === 'web' && webDesktopTabs ? (
@@ -325,7 +340,11 @@ export default function HomeScreen() {
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {ENABLE_DAILY_FREE_TOURNAMENT ? 'DAILY EVENT' : 'LIVE EVENT'}
+              {ENABLE_DAILY_FREE_TOURNAMENT && webDesktopTabs
+                ? 'DAILY TOURNAMENT'
+                : ENABLE_DAILY_FREE_TOURNAMENT
+                  ? 'DAILY EVENT'
+                  : 'LIVE EVENT'}
             </Text>
             {ENABLE_DAILY_FREE_TOURNAMENT ? (
               <View style={styles.homeTourneyFreePill}>
@@ -343,72 +362,115 @@ export default function HomeScreen() {
                 : pushCrossTab(router, '/(app)/(tabs)/tournaments')
             }
           >
-            <LinearGradient
-              colors={
-                ENABLE_DAILY_FREE_TOURNAMENT
-                  ? ['#064e3b', '#7c3aed', '#be185d']
-                  : [runit.neonPurple, runit.neonPink]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.gameBorder, ENABLE_DAILY_FREE_TOURNAMENT && styles.gameBorderDailyFree]}
-            >
-              <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
-                <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                  <SafeIonicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
-                </View>
-                <View style={styles.tourneyMid}>
-                  {ENABLE_DAILY_FREE_TOURNAMENT ? (
-                    <>
-                      <View style={styles.homeDailyTitleRow}>
-                        <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
-                      </View>
-                      <View style={styles.homeDailyChips}>
-                        <View style={styles.homeDailyChip}>
-                          <Text style={styles.homeDailyChipTxt}>Skill path</Text>
-                        </View>
-                        <View style={[styles.homeDailyChip, styles.homeDailyChipAccent]}>
-                          <Text style={styles.homeDailyChipTxtAccent}>{DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
-                        </View>
-                        <View style={styles.homeDailyChip}>
-                          <Text style={styles.homeDailyChipTxt}>No wallet</Text>
-                        </View>
-                      </View>
-                      <View style={styles.homeDailyPrizeRow}>
-                        <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
-                        <Text style={styles.homeDailyPrizeSub}>showcase prize · play free</Text>
-                      </View>
-                      <Text style={styles.tourneyMetaDaily}>
-                        Resets in {dailyResetCountdown} · New bracket at local midnight · Same skill games as Arcade
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
-                        {nextTournament?.name ?? 'Daily Tournament'}
-                      </Text>
-                      <Text style={styles.tourneyMeta}>
-                        {nextTournament
-                          ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
-                          : '18/20 players · open'}
-                      </Text>
-                    </>
-                  )}
-                </View>
+            {ENABLE_DAILY_FREE_TOURNAMENT && webDesktopTabs ? (
+              <View style={styles.dailyBannerOuter}>
                 <LinearGradient
-                  colors={ENABLE_DAILY_FREE_TOURNAMENT ? ['#34d399', '#059669'] : [runit.neonPink, runit.neonPurple]}
-                  style={[styles.joinBtn, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnDailyFree]}
+                  colors={['rgba(251,191,36,0)', 'rgba(245,158,11,0.35)', 'rgba(234,88,12,0.45)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.dailyBannerGlow}
+                  pointerEvents="none"
+                />
+                <LinearGradient
+                  colors={['#0f172a', '#0c0a12', '#0c0a12']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dailyBannerBorder}
                 >
-                  <Text style={[styles.joinBtnText, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnTextDailyFree]}>
-                    {ENABLE_DAILY_FREE_TOURNAMENT ? 'PLAY FREE' : 'JOIN'}
-                  </Text>
+                  <View style={styles.dailyBannerInner}>
+                    <View style={styles.dailyBannerTop}>
+                      <View style={styles.trophyIcon} accessibilityLabel="Tournament">
+                        <SafeIonicons name="trophy" size={48} color="#fbbf24" />
+                      </View>
+                      <View style={styles.dailyBannerCopy}>
+                        <Text style={[styles.dailyBannerHeadline, { fontFamily: runitFont.black }]}>
+                          ${DAILY_FREE_PRIZE_USD} DAILY FREE-TO-ENTER
+                        </Text>
+                        <Text style={styles.dailyBannerSub}>
+                          Skill path · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds · No wallet
+                        </Text>
+                      </View>
+                      <LinearGradient colors={['#34d399', '#14b8a6', '#0d9488']} style={styles.joinBtnDailyBanner}>
+                        <Text style={styles.joinBtnDailyBannerText}>PLAY FREE</Text>
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.dailyBannerRule} />
+                    <Text style={styles.dailyBannerFoot}>
+                      Resets in {dailyResetCountdown} · New bracket at local midnight · Same skill games as Arcade
+                    </Text>
+                  </View>
                 </LinearGradient>
               </View>
-            </LinearGradient>
+            ) : (
+              <LinearGradient
+                colors={
+                  ENABLE_DAILY_FREE_TOURNAMENT
+                    ? ['#064e3b', '#7c3aed', '#be185d']
+                    : [runit.neonPurple, runit.neonPink]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.gameBorder, ENABLE_DAILY_FREE_TOURNAMENT && styles.gameBorderDailyFree]}
+              >
+                <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
+                  <View style={styles.trophyIcon} accessibilityLabel="Tournament">
+                    <SafeIonicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
+                  </View>
+                  <View style={styles.tourneyMid}>
+                    {ENABLE_DAILY_FREE_TOURNAMENT ? (
+                      <>
+                        <View style={styles.homeDailyTitleRow}>
+                          <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
+                        </View>
+                        <View style={styles.homeDailyChips}>
+                          <View style={styles.homeDailyChip}>
+                            <Text style={styles.homeDailyChipTxt}>Skill path</Text>
+                          </View>
+                          <View style={[styles.homeDailyChip, styles.homeDailyChipAccent]}>
+                            <Text style={styles.homeDailyChipTxtAccent}>{DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
+                          </View>
+                          <View style={styles.homeDailyChip}>
+                            <Text style={styles.homeDailyChipTxt}>No wallet</Text>
+                          </View>
+                        </View>
+                        <View style={styles.homeDailyPrizeRow}>
+                          <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
+                          <Text style={styles.homeDailyPrizeSub}>showcase prize · play free</Text>
+                        </View>
+                        <Text style={styles.tourneyMetaDaily}>
+                          Resets in {dailyResetCountdown} · New bracket at local midnight · Same skill games as Arcade
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
+                          {nextTournament?.name ?? 'Daily Tournament'}
+                        </Text>
+                        <Text style={styles.tourneyMeta}>
+                          {nextTournament
+                            ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
+                            : '18/20 players · open'}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                  <LinearGradient
+                    colors={ENABLE_DAILY_FREE_TOURNAMENT ? ['#34d399', '#059669'] : [runit.neonPink, runit.neonPurple]}
+                    style={[styles.joinBtn, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnDailyFree]}
+                  >
+                    <Text style={[styles.joinBtnText, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnTextDailyFree]}>
+                      {ENABLE_DAILY_FREE_TOURNAMENT ? 'PLAY FREE' : 'JOIN'}
+                    </Text>
+                  </LinearGradient>
+                </View>
+              </LinearGradient>
+            )}
           </Pressable>
 
           <View style={[styles.sectionLabel, { marginTop: 8 }]}>
-            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
+              {webDesktopTabs ? 'ARCADE GAMES' : 'YOUR STATS'}
+            </Text>
             <View style={styles.sectionLine} />
           </View>
 
@@ -426,7 +488,22 @@ export default function HomeScreen() {
               ))
             )}
           </View>
-          <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
+          {webDesktopTabs ? (
+            <>
+              <HomeArcadeTierPickRow
+                onEntryTierPress={(entry, prize) =>
+                  pushCrossTab(
+                    router,
+                    `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
+                  )
+                }
+                webWideSnap
+              />
+              <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
+            </>
+          ) : (
+            <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
+          )}
 
           <View style={styles.seasonCard}>
             {seasonQ.isLoading ? (
@@ -492,6 +569,7 @@ const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 14, paddingBottom: 100, paddingTop: 6 },
+  scrollWebDesktop: { maxWidth: 1100, width: '100%', alignSelf: 'center' },
   sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   sectionTitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase', textShadowColor: runit.neonCyan, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
   livePill: {
@@ -656,4 +734,81 @@ const styles = StyleSheet.create({
   seasonCard: { marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(157,78,237,0.3)', backgroundColor: 'rgba(8,4,18,0.7)' },
   seasonName: { color: '#fff', fontWeight: '800', fontSize: 15 },
   muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13 },
+  dailyBannerOuter: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 10,
+    shadowColor: 'rgba(251,191,36,0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  dailyBannerGlow: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  dailyBannerBorder: {
+    borderRadius: 16,
+    padding: 2,
+    zIndex: 1,
+  },
+  dailyBannerInner: {
+    borderRadius: 14,
+    backgroundColor: 'rgba(8,4,18,0.92)',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+  },
+  dailyBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  dailyBannerCopy: { flex: 1, minWidth: 0 },
+  dailyBannerHeadline: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  dailyBannerSub: {
+    color: 'rgba(203,213,225,0.92)',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  joinBtnDailyBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignSelf: 'center',
+    shadowColor: '#34d399',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+  },
+  joinBtnDailyBannerText: {
+    color: '#042f2e',
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 0.6,
+  },
+  dailyBannerRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(148,163,184,0.35)',
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  dailyBannerFoot: {
+    color: 'rgba(204,251,241,0.88)',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 15,
+  },
 });

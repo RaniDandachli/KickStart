@@ -74,6 +74,11 @@ type Props = {
   onQuickMatch: () => void;
   /** Opens head-to-head explainer (Home). */
   onHowItWorksPress?: () => void;
+  /**
+   * Desktop web home stacks sections (live matches → daily → stats → tiers).
+   * When true, only the top hero (ticker, brand, quick match) is rendered here; tiers render separately.
+   */
+  webStacked?: boolean;
 };
 
 export function HomePlayHero({
@@ -87,6 +92,7 @@ export function HomePlayHero({
   onEntryTierPress,
   onQuickMatch,
   onHowItWorksPress,
+  webStacked = false,
 }: Props) {
   const [winnerIdx, setWinnerIdx] = useState(0);
   const tickOpacity = useRef(new Animated.Value(1)).current;
@@ -255,7 +261,7 @@ export function HomePlayHero({
           <Text style={styles.quickTitle}>QUICK MATCH</Text>
         </LinearGradient>
       </Pressable>
-      <Text style={styles.heroTag}>Find a match in seconds</Text>
+      <Text style={styles.heroTag}>{webStacked ? 'Find a real opponent in seconds.' : 'Find a match in seconds'}</Text>
       {onHowItWorksPress ? (
         <Pressable
           onPress={onHowItWorksPress}
@@ -268,45 +274,75 @@ export function HomePlayHero({
         </Pressable>
       ) : null}
 
-      <View style={styles.statsPanel}>
-        <View style={styles.statsRow2}>
-          <View style={styles.statCell}>
-            <View style={styles.statRowInline}>
-              <SafeIonicons name="people" size={13} color="#4ade80" />
-              <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{formatOnlineShort(displayOnline)}</Text> online
-              </Text>
+      {!webStacked ? (
+        <>
+          <View style={styles.statsPanel}>
+            <View style={styles.statsRow2}>
+              <View style={styles.statCell}>
+                <View style={styles.statRowInline}>
+                  <SafeIonicons name="people" size={13} color="#4ade80" />
+                  <Text style={styles.statTxtSm} numberOfLines={1}>
+                    <Text style={styles.statNum}>{formatOnlineShort(displayOnline)}</Text> online
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.statCell}>
+                <View style={styles.statRowInline}>
+                  <SafeIonicons name="cash-outline" size={13} color="#FDE047" />
+                  <Text style={styles.statTxtSm} numberOfLines={1}>
+                    <Text style={styles.statNum}>{displayRewardsLabel}</Text> rewards · {rewardsWindowLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.statsRow2}>
+              <View style={styles.statCell}>
+                <View style={styles.statRowInline}>
+                  <SafeIonicons name="flame" size={13} color="#fb923c" />
+                  <Text style={styles.statTxtSm} numberOfLines={1}>
+                    <Text style={styles.statNum}>{displayQueued}</Text> {queuedWord}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.statCell}>
+                <View style={styles.statRowInline}>
+                  <SafeIonicons name="flash" size={13} color={runit.neonCyan} />
+                  <Text style={styles.statTxtSm} numberOfLines={1}>
+                    <Text style={styles.statNum}>{displayLive}</Text> live
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
-          <View style={styles.statCell}>
-            <View style={styles.statRowInline}>
-              <SafeIonicons name="cash-outline" size={13} color="#FDE047" />
-              <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{displayRewardsLabel}</Text> rewards · {rewardsWindowLabel}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.statsRow2}>
-          <View style={styles.statCell}>
-            <View style={styles.statRowInline}>
-              <SafeIonicons name="flame" size={13} color="#fb923c" />
-              <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{displayQueued}</Text> {queuedWord}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.statCell}>
-            <View style={styles.statRowInline}>
-              <SafeIonicons name="flash" size={13} color={runit.neonCyan} />
-              <Text style={styles.statTxtSm} numberOfLines={1}>
-                <Text style={styles.statNum}>{displayLive}</Text> live
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
 
+          <HomeArcadeTierPickRow onEntryTierPress={onEntryTierPress} hideArcadeHeading />
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+export function HomeArcadeTierPickRow({
+  onEntryTierPress,
+  webWideSnap,
+  hideArcadeHeading = false,
+}: {
+  onEntryTierPress: (entry: number, prize: number) => void;
+  /** Wider tier cards + snap interval on desktop web home. */
+  webWideSnap?: boolean;
+  /** When true, omits the "ARCADE GAMES" row (e.g. hero still shows "Choose contest tier" only). */
+  hideArcadeHeading?: boolean;
+}) {
+  const snap = webWideSnap ? 170 : 158;
+  return (
+    <>
+      {!hideArcadeHeading ? (
+        <View style={styles.arcadeGamesSectionLabel}>
+          <SafeIonicons name="game-controller-outline" size={16} color="rgba(226,232,240,0.9)" />
+          <Text style={[styles.arcadeGamesSectionTitle, { fontFamily: runitFont.black }]}>ARCADE GAMES</Text>
+          <View style={styles.arcadeGamesSectionLine} />
+        </View>
+      ) : null}
       <Text style={styles.pickTier}>Choose contest tier</Text>
       <View style={styles.tiersWrap}>
         <ScrollView
@@ -314,9 +350,7 @@ export function HomePlayHero({
           showsHorizontalScrollIndicator={Platform.OS === 'web'}
           contentContainerStyle={styles.tiersScroll}
           style={styles.tiersScrollView}
-          {...(Platform.OS === 'web'
-            ? { snapToInterval: 158, decelerationRate: 'fast' as const }
-            : {})}
+          {...(Platform.OS === 'web' ? { snapToInterval: snap, decelerationRate: 'fast' as const } : {})}
         >
           {MATCH_ENTRY_TIERS.map((tier, i) => {
             const v = TIER_PANEL_STYLES[i] ?? TIER_PANEL_STYLES[0];
@@ -326,8 +360,9 @@ export function HomePlayHero({
                 onPress={() => onEntryTierPress(tier.entry, tier.prize)}
                 style={({ pressed }) => [
                   styles.tierOuter,
+                  webWideSnap && styles.tierOuterWeb,
                   {
-                    transform: [{ rotate: v.rotate }, ...(pressed ? [{ scale: 0.97 }] : [])],
+                    transform: [{ rotate: webWideSnap ? '0deg' : v.rotate }, ...(pressed ? [{ scale: 0.97 }] : [])],
                   },
                 ]}
               >
@@ -335,7 +370,7 @@ export function HomePlayHero({
                   colors={[...v.colors]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={[styles.tierInner, { shadowColor: v.shadow }]}
+                  style={[styles.tierInner, { shadowColor: v.shadow }, webWideSnap && styles.tierInnerWeb]}
                 >
                   <View style={styles.tierIconCircle}>
                     <SafeIonicons name={tier.icon} size={22} color={v.iconColor} />
@@ -364,7 +399,7 @@ export function HomePlayHero({
         Your entry covers access to a skill contest. Prizes are fixed by tier and awarded by Run It. Didn&apos;t win? You&apos;ll
         still earn Arcade Credits to keep playing. Not pooled with other players&apos; fees.
       </Text>
-    </View>
+    </>
   );
 }
 
@@ -571,6 +606,23 @@ const styles = StyleSheet.create({
   },
   statTxtSm: { color: 'rgba(241,245,249,0.92)', fontSize: 10, fontWeight: '600', lineHeight: 14 },
   statNum: { fontWeight: '900', color: arcade.white },
+  arcadeGamesSectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  arcadeGamesSectionTitle: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    textShadowColor: runit.neonCyan,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  arcadeGamesSectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
   pickTier: {
     color: arcade.textMuted,
     fontSize: 11,
@@ -595,6 +647,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'visible',
   },
+  tierOuterWeb: {
+    width: 160,
+  },
   tierInner: {
     paddingVertical: 10,
     paddingHorizontal: 8,
@@ -607,6 +662,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 10,
     elevation: 8,
+  },
+  tierInnerWeb: {
+    minHeight: 200,
+    paddingVertical: 12,
   },
   tierIconCircle: {
     width: 40,
