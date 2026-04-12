@@ -24,12 +24,14 @@ export function ArcadeEntryQuickPlay() {
       {MATCH_ENTRY_TIERS.map((tier) => (
         <Pressable
           key={tier.entry}
-          onPress={() =>
+          onPress={() => {
+            const ec = Math.round(tier.entry * 100);
+            const pc = Math.round(tier.prize * 100);
             pushCrossTab(
               router,
-              `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(tier.entry))}&prize=${encodeURIComponent(String(tier.prize))}`,
-            )
-          }
+              `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(tier.entry))}&prize=${encodeURIComponent(String(tier.prize))}`,
+            );
+          }}
           style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}
         >
           <LinearGradient

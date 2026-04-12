@@ -48,10 +48,14 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
   const prize = formatUsdFromCents(Math.round(prizeUsd * 100));
 
   function pick(gameKey: string) {
+    const ec = Math.round(entryUsd * 100);
+    const pc = Math.round(prizeUsd * 100);
     const e = encodeURIComponent(String(entryUsd));
     const p = encodeURIComponent(String(prizeUsd));
     const g = encodeURIComponent(gameKey);
-    router.replace(`/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${g}&intent=start` as never);
+    router.replace(
+      `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${g}&intent=start` as never,
+    );
   }
 
   return (

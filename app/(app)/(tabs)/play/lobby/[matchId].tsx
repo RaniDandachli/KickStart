@@ -112,6 +112,7 @@ export default function PreMatchLobbyScreen() {
         void qc.invalidateQueries({ queryKey: queryKeys.matchSession(matchId) });
         void qc.invalidateQueries({ queryKey: queryKeys.profile(selfId) });
         void qc.invalidateQueries({ queryKey: queryKeys.transactions(selfId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
       } catch (e) {
         Alert.alert('Could not leave', e instanceof Error ? e.message : 'Error');
         return;

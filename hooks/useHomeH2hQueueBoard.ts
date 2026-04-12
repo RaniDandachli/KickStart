@@ -13,7 +13,8 @@ export function useHomeH2hQueueBoard() {
     queryKey: queryKeys.homeH2hBoard(),
     queryFn: fetchHomeH2hQueueBoardWaiters,
     enabled: ENABLE_BACKEND,
-    staleTime: 4_000,
-    refetchInterval: ENABLE_BACKEND ? 5_000 : false,
+    staleTime: 2_500,
+    refetchInterval: ENABLE_BACKEND ? 4_000 : false,
+    refetchOnWindowFocus: true,
   });
 }

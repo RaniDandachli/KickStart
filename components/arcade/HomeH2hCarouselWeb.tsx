@@ -20,6 +20,8 @@ export type H2hCarouselRow = {
     prizeUsd: number;
     hostLabel: string;
     postedMinutesAgo: number;
+    entryFeeWalletCents?: number;
+    listedPrizeUsdCents?: number;
   };
   queueTotal: number;
   rotateIndex: number;

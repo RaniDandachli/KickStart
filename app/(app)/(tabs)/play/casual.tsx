@@ -25,12 +25,24 @@ function parseIntent(v: string | string[] | undefined): 'join' | 'start' | undef
   return undefined;
 }
 
+/** Integer cents from URL — matches `h2h_queue_entries` / RPC exactly (no float drift). */
+function parseCentsParam(v: string | string[] | undefined): number | undefined {
+  if (v == null) return undefined;
+  const s = Array.isArray(v) ? v[0] : v;
+  const n = Number.parseInt(String(s), 10);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 export default function CasualQueueScreen() {
   const params = useLocalSearchParams();
   const quickRaw = params.quick;
   const quickMatch = quickRaw === '1' || quickRaw === 'true';
-  const entry = parseUsd(params.entry);
-  const prize = parseUsd(params.prize) ?? parseUsd(params.win);
+  const entryCentsParam = parseCentsParam(params.entryCents);
+  const prizeCentsParam = parseCentsParam(params.prizeCents);
+  const hasExactCents = entryCentsParam != null && prizeCentsParam != null;
+  const queueTierCents = hasExactCents ? { entry: entryCentsParam, prize: prizeCentsParam } : undefined;
+  const entry = hasExactCents ? entryCentsParam / 100 : parseUsd(params.entry);
+  const prize = hasExactCents ? prizeCentsParam / 100 : parseUsd(params.prize) ?? parseUsd(params.win);
   const hasPair = entry != null && prize != null;
   const gameKey = parseGameKey(params.game);
   const queueIntent = parseIntent(params.intent);
@@ -45,6 +57,7 @@ export default function CasualQueueScreen() {
       mode="casual"
       entryFeeUsd={hasPair ? entry : undefined}
       listedPrizeUsd={hasPair ? prize : undefined}
+      queueTierCents={queueTierCents}
       gameTitle={gameKey ? titleForH2hGameKey(gameKey) : undefined}
       gameKey={gameKey}
       queueIntent={queueIntent}

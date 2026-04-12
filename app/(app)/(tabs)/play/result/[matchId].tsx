@@ -59,7 +59,7 @@ export default function MatchResultScreen() {
   const hasPaidRematch =
     Number.isFinite(entryUsd) && entryUsd > 0 && Number.isFinite(prizeUsd) && prizeUsd > 0;
   const rematchHref: Href = hasPaidRematch
-    ? (`/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}` as Href)
+    ? (`/(app)/(tabs)/play/casual?entryCents=${Math.round(entryUsd * 100)}&prizeCents=${Math.round(prizeUsd * 100)}&entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}` as Href)
     : '/(app)/(tabs)/play/casual';
 
   const { data: ms } = useQuery({

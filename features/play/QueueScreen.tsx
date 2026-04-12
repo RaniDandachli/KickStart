@@ -21,7 +21,7 @@ import { getSupabase } from '@/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { pushCrossTab } from '@/lib/appNavigation';
-import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
+import { titleForH2hGameKey, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
 import { SKILL_CONTEST_LAUNCH_BODY, SKILL_CONTEST_LAUNCH_TITLE } from '@/constants/skillContestLaunch';
@@ -39,6 +39,8 @@ type QuickMatchCtx = {
   entryUsd: number;
   prizeUsd: number;
   gameTitle: string;
+  /** Required for backend `h2h_enqueue_or_match` — Quick Match URL has no `game` query param. */
+  gameKey: H2hGameKey;
   waiterId: string;
   opponentName: string;
 };
@@ -51,6 +53,7 @@ export function QueueScreen({
   gameKey,
   queueIntent,
   quickMatch,
+  queueTierCents,
 }: {
   mode: QueueKind;
   /** When set with `listedPrizeUsd`, queue shows a paid 1v1 skill contest (fixed reward tier). */
@@ -64,6 +67,11 @@ export function QueueScreen({
   queueIntent?: 'join' | 'start';
   /** Home “Quick match” — pair across any open lobby / tier; wallet or free casual. */
   quickMatch?: boolean;
+  /**
+   * When present (from `?entryCents=&prizeCents=` on Home join/start), RPC uses these exact values
+   * so joiners match `h2h_queue_entries` byte-for-byte with the waiting host.
+   */
+  queueTierCents?: { entry: number; prize: number };
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -123,7 +131,7 @@ export function QueueScreen({
         );
         return;
       }
-      const needCents = Math.round(effectiveEntry * 100);
+      const needCents = queueTierCents?.entry ?? Math.round(effectiveEntry * 100);
       if (!ENABLE_BACKEND) {
         if (!trySpendWallet(needCents)) {
           Alert.alert(
@@ -150,13 +158,19 @@ export function QueueScreen({
 
     if (ENABLE_BACKEND && userId !== 'guest') {
       queuePollAlertShownRef.current = false;
+      const qctx = quickMatchCtxRef.current;
+      const resolvedGameKey = (qctx?.gameKey ?? gameKey) ?? '';
       backendQueueParamsRef.current = {
         mode,
-        gameKey: gameKey ?? '',
+        gameKey: resolvedGameKey,
         entryFeeWalletCents:
-          hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : 0,
+          hasPaidEntry && effectiveEntry != null
+            ? (queueTierCents?.entry ?? Math.round(effectiveEntry * 100))
+            : 0,
         listedPrizeUsdCents:
-          hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : 0,
+          hasPaidEntry && effectivePrize != null
+            ? (queueTierCents?.prize ?? Math.round(effectivePrize * 100))
+            : 0,
       };
       setSearchId('backend-h2h');
       return;
@@ -189,6 +203,7 @@ export function QueueScreen({
     setFound,
     trySpendWallet,
     walletCents,
+    queueTierCents,
   ]);
 
   useEffect(() => {
@@ -224,6 +239,7 @@ export function QueueScreen({
         }
         if (r.matched) {
           queuePollTransientFailRef.current = 0;
+          void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
           const supabase = getSupabase();
           const { data: prof } = await supabase
             .from('profiles')
@@ -263,12 +279,12 @@ export function QueueScreen({
     };
 
     void tick();
-    const iv = setInterval(() => void tick(), 2000);
+    const iv = setInterval(() => void tick(), 1300);
     return () => {
       cancelled = true;
       clearInterval(iv);
     };
-  }, [phase, userId]);
+  }, [phase, userId, qc]);
 
   const runQuickMatchResolve = useCallback(async () => {
     const w = pickAnyOpenWaiterForQuickMatch();
@@ -299,6 +315,7 @@ export function QueueScreen({
         entryUsd: tier.entry,
         prizeUsd: tier.prize,
         gameTitle: gTitle,
+        gameKey: w.gameKey,
         waiterId: w.id,
         opponentName: w.hostLabel,
       };
@@ -328,6 +345,7 @@ export function QueueScreen({
               entryUsd: 0,
               prizeUsd: 0,
               gameTitle: gTitle,
+              gameKey: w.gameKey,
               waiterId: w.id,
               opponentName: w.hostLabel,
             };
@@ -373,7 +391,14 @@ export function QueueScreen({
     if (!ENABLE_BACKEND) return;
     const uid = useAuthStore.getState().user?.id;
     if (uid && uid !== 'guest') {
-      void h2hCancelQueue().catch(() => {});
+      void (async () => {
+        try {
+          await h2hCancelQueue();
+        } catch {
+          /* network */
+        }
+        await qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
+      })();
     }
   }
 
@@ -396,12 +421,15 @@ export function QueueScreen({
     let resolvedMatchId = mid;
     let resolvedOpp = opp;
 
+    const resolvedGameKey = q?.gameKey ?? gameKey;
+
     if (ENABLE_BACKEND && userId !== 'guest') {
       if (serverSessionReady) {
         resolvedMatchId = mid;
         resolvedOpp = opp;
         void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
         void qc.invalidateQueries({ queryKey: queryKeys.transactions(userId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
       } else {
         const oppUuid = resolveDevOpponentUserId(opp.id);
         if (oppUuid && isUuid(oppUuid)) {
@@ -409,9 +437,15 @@ export function QueueScreen({
             const { match_session_id } = await createH2hMatchSessionViaEdge({
               mode,
               opponentUserId: oppUuid,
-              gameKey,
-              entryFeeWalletCents: hasPaidEntry && effectiveEntry != null ? Math.round(effectiveEntry * 100) : undefined,
-              listedPrizeUsdCents: hasPaidEntry && effectivePrize != null ? Math.round(effectivePrize * 100) : undefined,
+              gameKey: resolvedGameKey,
+              entryFeeWalletCents:
+                hasPaidEntry && effectiveEntry != null
+                  ? (queueTierCents?.entry ?? Math.round(effectiveEntry * 100))
+                  : undefined,
+              listedPrizeUsdCents:
+                hasPaidEntry && effectivePrize != null
+                  ? (queueTierCents?.prize ?? Math.round(effectivePrize * 100))
+                  : undefined,
             });
             resolvedMatchId = match_session_id;
             resolvedOpp = { ...opp, id: oppUuid };

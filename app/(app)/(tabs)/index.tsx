@@ -100,6 +100,9 @@ export default function HomeScreen() {
     gameKey: H2hGameKey;
     lobbyKind: H2hLobbyKind;
     waiterId?: string;
+    /** From live board row — join URL uses these for exact RPC tier match. */
+    entryFeeWalletCents?: number;
+    listedPrizeUsdCents?: number;
   } | null>(null);
 
   const [tierPick, setTierPick] = useState<{ title: string; gameKey: H2hGameKey; route: string } | null>(null);
@@ -160,6 +163,8 @@ export default function HomeScreen() {
           prizeUsd,
           hostLabel: w.hostLabel,
           postedMinutesAgo,
+          entryFeeWalletCents: w.entryFeeWalletCents,
+          listedPrizeUsdCents: w.listedPrizeUsdCents,
         },
         queueTotal,
         rotateIndex,
@@ -214,12 +219,14 @@ export default function HomeScreen() {
             liveLobby={liveLobby}
             walletDisplay={walletDisplay}
             onWalletPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
-            onEntryTierPress={(entry, prize) =>
+            onEntryTierPress={(entry, prize) => {
+              const ec = Math.round(entry * 100);
+              const pc = Math.round(prize * 100);
               pushCrossTab(
                 router,
-                `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
-              )
-            }
+                `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
+              );
+            }}
             onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
             onHowItWorksPress={() => setHowItWorksOpen(true)}
             webStacked={isWeb}
@@ -266,6 +273,8 @@ export default function HomeScreen() {
                     gameKey: row.gameKey,
                     lobbyKind: 'host_waiting',
                     waiterId: row.activeWaiter.id,
+                    entryFeeWalletCents: row.activeWaiter.entryFeeWalletCents,
+                    listedPrizeUsdCents: row.activeWaiter.listedPrizeUsdCents,
                   });
                 } else {
                   setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
@@ -296,6 +305,8 @@ export default function HomeScreen() {
                         gameKey: row.gameKey,
                         lobbyKind: 'host_waiting',
                         waiterId: row.activeWaiter.id,
+                        entryFeeWalletCents: row.activeWaiter.entryFeeWalletCents,
+                        listedPrizeUsdCents: row.activeWaiter.listedPrizeUsdCents,
                       });
                     } else {
                       setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
@@ -510,12 +521,14 @@ export default function HomeScreen() {
           {isWeb ? (
             <>
               <HomeArcadeTierPickRow
-                onEntryTierPress={(entry, prize) =>
+                onEntryTierPress={(entry, prize) => {
+                  const ec = Math.round(entry * 100);
+                  const pc = Math.round(prize * 100);
                   pushCrossTab(
                     router,
-                    `/(app)/(tabs)/play/casual?entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
-                  )
-                }
+                    `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
+                  );
+                }}
                 webWideSnap={webDesktopTabs}
               />
               <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
@@ -559,7 +572,14 @@ export default function HomeScreen() {
             const e = encodeURIComponent(String(h2hGate.entryUsd));
             const p = encodeURIComponent(String(h2hGate.prizeUsd));
             const gk = encodeURIComponent(h2hGate.gameKey);
-            pushCrossTab(router, `/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${gk}&intent=join` as never);
+            const centsPrefix =
+              h2hGate.entryFeeWalletCents != null && h2hGate.listedPrizeUsdCents != null
+                ? `entryCents=${h2hGate.entryFeeWalletCents}&prizeCents=${h2hGate.listedPrizeUsdCents}&`
+                : '';
+            pushCrossTab(
+              router,
+              `/(app)/(tabs)/play/casual?${centsPrefix}entry=${e}&prize=${p}&game=${gk}&intent=join` as never,
+            );
             setH2hGate(null);
           }}
         />
@@ -570,10 +590,15 @@ export default function HomeScreen() {
           onClose={() => setTierPick(null)}
           onSelectTier={(tier) => {
             if (!tierPick) return;
+            const ec = Math.round(tier.entry * 100);
+            const pc = Math.round(tier.prize * 100);
             const e = encodeURIComponent(String(tier.entry));
             const p = encodeURIComponent(String(tier.prize));
             const gk = encodeURIComponent(tierPick.gameKey);
-            pushCrossTab(router, `/(app)/(tabs)/play/casual?entry=${e}&prize=${p}&game=${gk}&intent=start` as never);
+            pushCrossTab(
+              router,
+              `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${gk}&intent=start` as never,
+            );
             setTierPick(null);
           }}
         />
