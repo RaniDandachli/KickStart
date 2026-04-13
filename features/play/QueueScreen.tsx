@@ -283,9 +283,9 @@ export function QueueScreen({
 
   useEffect(() => {
     if (!ENABLE_BACKEND || userId === 'guest' || phase !== 'searching') return;
-    const params = backendQueueParamsRef.current;
-    if (!params) return;
-
+    // Never bail when `backendQueueParamsRef` is null: ref is filled asynchronously (autostart awaits,
+    // rehydrate after remount). Returning here skips `setInterval` entirely, and ref updates do not
+    // re-run this effect — both players would spin forever on "Pairing…" with zero RPC polls.
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
@@ -364,7 +364,17 @@ export function QueueScreen({
       cancelled = true;
       clearInterval(iv);
     };
-  }, [phase, userId, qc]);
+  }, [
+    phase,
+    userId,
+    qc,
+    mode,
+    entryFeeUsd,
+    listedPrizeUsd,
+    gameKey,
+    queueTierCents,
+    quickMatch,
+  ]);
 
   const runQuickMatchResolve = useCallback(async () => {
     const bailToArcade = () => {

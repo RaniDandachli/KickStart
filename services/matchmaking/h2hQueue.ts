@@ -28,7 +28,10 @@ export async function h2hEnqueueOrMatch(params: {
       detail: typeof j?.detail === 'string' ? j.detail : undefined,
     };
   }
-  if (j.matched === true) {
+  const matchedRaw = j.matched;
+  const isMatched =
+    matchedRaw === true || matchedRaw === 'true' || matchedRaw === 1 || matchedRaw === '1';
+  if (isMatched) {
     return {
       ok: true,
       matched: true,
@@ -58,7 +61,13 @@ export async function h2hEnqueueQuickMatch(params: {
       detail: typeof j?.detail === 'string' ? j.detail : undefined,
     };
   }
-  if (j.matched === true) {
+  const matchedRawQm = j.matched;
+  const isMatchedQm =
+    matchedRawQm === true ||
+    matchedRawQm === 'true' ||
+    matchedRawQm === 1 ||
+    matchedRawQm === '1';
+  if (isMatchedQm) {
     return {
       ok: true,
       matched: true,
