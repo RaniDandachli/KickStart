@@ -301,19 +301,18 @@ export function QueueScreen({
             : await h2hEnqueueOrMatch(p);
         if (cancelled) return;
         if (!r.ok) {
-          if (
-            (r.error === 'insufficient_wallet' || r.error === 'match_create_failed') &&
-            !queuePollAlertShownRef.current
-          ) {
+          if (r.error === 'match_create_failed') {
+            queuePollTransientFailRef.current += 1;
+            return;
+          }
+          if (r.error === 'insufficient_wallet' && !queuePollAlertShownRef.current) {
             queuePollAlertShownRef.current = true;
             backendQueueParamsRef.current = null;
             void h2hCancelQueue().catch(() => {});
             useMatchmakingStore.getState().reset();
             Alert.alert(
               'Matchmaking issue',
-              r.error === 'insufficient_wallet'
-                ? 'Your wallet no longer covers contest access. Add funds or pick a different tier.'
-                : 'Could not create the match session. Please try again.',
+              'Your wallet no longer covers contest access. Add funds or pick a different tier.',
             );
           }
           return;
