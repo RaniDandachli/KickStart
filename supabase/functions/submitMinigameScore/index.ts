@@ -189,13 +189,25 @@ function validateTileClash(
   return null;
 }
 
+function toInt(n: unknown, fallback = 0): number {
+  if (typeof n === 'number' && Number.isFinite(n)) return Math.trunc(n);
+  if (typeof n === 'string' && n.trim() !== '' && Number.isFinite(Number(n))) return Math.trunc(Number(n));
+  return fallback;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!supabaseUrl?.trim() || !serviceKey?.trim() || !anonKey?.trim()) {
+      console.error('[submitMinigameScore] Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_ANON_KEY');
+      return errorResponse('Server configuration error', 500);
+    }
+
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
@@ -205,22 +217,34 @@ Deno.serve(async (req) => {
     const since = new Date(Date.now() - 60_000).toISOString();
     const { count, error: rateErr } = await admin
       .from('minigame_scores')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', userData.user.id)
       .gte('created_at', since);
-    if (rateErr) return errorResponse(rateErr.message, 500);
+    if (rateErr) {
+      console.error('[submitMinigameScore] rate query', rateErr.message, rateErr);
+      return errorResponse(rateErr.message, 500);
+    }
     if ((count ?? 0) > 45) {
       return errorResponse('Too many score submissions. Wait a minute and try again.', 429);
     }
 
-    const rawJson: unknown = await req.json();
+    let rawJson: unknown;
+    try {
+      rawJson = await req.json();
+    } catch (e) {
+      console.error('[submitMinigameScore] Invalid JSON body', e);
+      return errorResponse('Invalid JSON body', 400);
+    }
+
     const prizeRun = typeof rawJson === 'object' && rawJson !== null && (rawJson as { prize_run?: unknown }).prize_run === true;
 
     const parsed = Body.safeParse(rawJson);
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
     const data = parsed.data;
-    const { score, duration_ms, taps } = data;
+    const score = toInt(data.score);
+    const duration_ms = Math.max(0, toInt(data.duration_ms));
+    const taps = Math.max(0, toInt(data.taps));
 
     const maxTaps = Math.floor(duration_ms / 50) + 120;
     if (taps > maxTaps) return errorResponse('Invalid taps for duration', 422);
@@ -320,7 +344,10 @@ Deno.serve(async (req) => {
         p_entry_credits: entry,
         p_tickets_granted: ticketsGranted,
       });
-      if (rpcErr) return errorResponse(rpcErr.message, 500);
+      if (rpcErr) {
+        console.error('[submitMinigameScore] record_minigame_prize_run', rpcErr.message, rpcErr);
+        return errorResponse(rpcErr.message, 500);
+      }
       const row = rpcData as { ok?: boolean; error?: string; prize_credits?: number; redeem_tickets?: number; tickets_granted?: number };
       if (!row?.ok) {
         if (row?.error === 'insufficient_credits') {
@@ -348,14 +375,29 @@ Deno.serve(async (req) => {
 
     const { error } = await admin.from('minigame_scores').insert(insertRow);
     if (error) {
-      if (error.code === '23505') {
+      const code = (error as { code?: string }).code;
+      console.error('[submitMinigameScore] insert', code, error.message, insertRow);
+      if (code === '23505') {
         return errorResponse('You already submitted a score for this match', 409);
+      }
+      if (code === '23503') {
+        return errorResponse(
+          'This match is no longer valid for score upload. Re-enter the queue or apply DB migration 00024 (match_session_id on minigame_scores).',
+          400,
+        );
+      }
+      if (code === '42703') {
+        return errorResponse(
+          'Database is missing minigame score columns (run migration 00024_minigame_h2h_scores).',
+          503,
+        );
       }
       return errorResponse(error.message, 500);
     }
 
     return json({ ok: true });
   } catch (e) {
+    console.error('[submitMinigameScore] unhandled', e);
     return errorResponse(e instanceof Error ? e.message : 'error', 500);
   }
 });

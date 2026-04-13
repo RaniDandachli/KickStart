@@ -25,6 +25,8 @@ export function useH2hSkillContestSubmitAndPoll(
   const [h2hSubmitPhase, setH2hSubmitPhase] = useState<H2hSubmitPhase>('idle');
   const [h2hRetryKey, setH2hRetryKey] = useState(0);
   const h2hSubmitInFlight = useRef(false);
+  /** Avoids re-running the submit effect when `setH2hSubmitPhase('loading')` fires (that used to abort in-flight requests and double-POST the Edge function). */
+  const h2hSubmitSuccessRef = useRef(false);
   const h2hDoneRef = useRef(false);
   const buildBodyRef = useRef(buildBody);
   buildBodyRef.current = buildBody;
@@ -44,8 +46,13 @@ export function useH2hSkillContestSubmitAndPoll(
     setH2hSubmitPhase('idle');
     h2hDoneRef.current = false;
     h2hSubmitInFlight.current = false;
+    h2hSubmitSuccessRef.current = false;
     setH2hRetryKey(0);
   }, [h2hSkillContest?.matchSessionId]);
+
+  useEffect(() => {
+    h2hSubmitSuccessRef.current = false;
+  }, [h2hRetryKey]);
 
   useEffect(() => {
     if (!h2hSkillContest) return;
@@ -54,6 +61,7 @@ export function useH2hSkillContestSubmitAndPoll(
       setH2hSubmitPhase('idle');
       h2hDoneRef.current = false;
       h2hSubmitInFlight.current = false;
+      h2hSubmitSuccessRef.current = false;
     }
   }, [gamePhase, h2hSkillContest]);
 
@@ -75,7 +83,7 @@ export function useH2hSkillContestSubmitAndPoll(
     if (!shouldRunSubmitEffect || !h2hSkillContest) {
       return;
     }
-    if (h2hSubmitPhase === 'ok') return;
+    if (h2hSubmitSuccessRef.current) return;
     if (h2hSubmitInFlight.current) return;
 
     h2hSubmitInFlight.current = true;
@@ -102,7 +110,10 @@ export function useH2hSkillContestSubmitAndPoll(
           if (!cancelled) setH2hSubmitPhase('error');
           return;
         }
-        if (!cancelled) setH2hSubmitPhase('ok');
+        if (!cancelled) {
+          h2hSubmitSuccessRef.current = true;
+          setH2hSubmitPhase('ok');
+        }
       } catch {
         if (!cancelled) setH2hSubmitPhase('error');
       } finally {
@@ -113,7 +124,7 @@ export function useH2hSkillContestSubmitAndPoll(
     return () => {
       cancelled = true;
     };
-  }, [shouldRunSubmitEffect, h2hSkillContest, h2hRetryKey, h2hSubmitPhase]);
+  }, [shouldRunSubmitEffect, h2hSkillContest, h2hRetryKey]);
 
   return {
     h2hSubmitPhase,
