@@ -160,6 +160,8 @@ export function QueueScreen({
 
   const quickMatchCtxRef = useRef<QuickMatchCtx | null>(null);
   const quickAutoStartedRef = useRef(false);
+  /** Prevents double-tap / autostart + tap racing two `start()` calls (web + native). */
+  const queueStartInFlightRef = useRef(false);
   const [quickResolving, setQuickResolving] = useState(!!quickMatch);
 
   const start = useCallback(async () => {
@@ -170,7 +172,11 @@ export function QueueScreen({
       );
       return;
     }
-
+    if (queueStartInFlightRef.current) {
+      return;
+    }
+    queueStartInFlightRef.current = true;
+    try {
     const stDup = useMatchmakingStore.getState();
     if (stDup.phase === 'searching' && backendQueueParamsRef.current != null) {
       return;
@@ -188,6 +194,10 @@ export function QueueScreen({
       !Number.isNaN(effectivePrize);
 
     if (ENABLE_BACKEND && userId !== 'guest' && q?.isQuickMatchWildcard) {
+      if (profileQ.isError) {
+        Alert.alert('Could not load profile', 'Check your connection and try again.');
+        return;
+      }
       if (!profileQ.isFetched) {
         Alert.alert('One moment', 'Loading your wallet. Try again in a second.');
         return;
@@ -212,6 +222,10 @@ export function QueueScreen({
     }
 
     if (hasPaidEntry && effectiveEntry != null) {
+      if (profileQ.isError) {
+        Alert.alert('Could not load profile', 'Check your connection and try again.');
+        return;
+      }
       if (ENABLE_BACKEND && userId !== 'guest' && (await profileBlocksPaidSkillContest(userId))) {
         Alert.alert(
           'Not available in your region',
@@ -250,6 +264,9 @@ export function QueueScreen({
       gameKey,
       queueTierCents,
     });
+    } finally {
+      queueStartInFlightRef.current = false;
+    }
   }, [
     mode,
     userId,
@@ -260,6 +277,7 @@ export function QueueScreen({
     setPhase,
     queueTierCents,
     profileQ.isFetched,
+    profileQ.isError,
     profileQ.data?.wallet_cents,
   ]);
 
@@ -618,19 +636,23 @@ export function QueueScreen({
         ? 'Ranked queue'
         : 'Casual queue';
 
-  const idleCta =
-    !hasPaidEntry ? 'Find match' : queueIntent === 'join' ? 'Join match' : queueIntent === 'start' ? 'Find opponent' : 'Enter contest & find match';
+  /** Same action for host (`start`) and joiner (`join`) — both call the same pool RPC with this tier. */
+  const samePoolIntent = queueIntent === 'join' || queueIntent === 'start';
+
+  const idleCta = !hasPaidEntry
+    ? 'Find match'
+    : samePoolIntent
+      ? 'Enter match queue'
+      : 'Enter contest & find match';
 
   const searchingMsg =
-    queueIntent === 'join'
-      ? 'Joining their lobby…'
-      : queueIntent === 'start'
-        ? 'Looking for an opponent…'
-        : quickMatch
-          ? q?.isQuickMatchWildcard
-            ? 'Finding any opponent you can afford…'
-            : 'Pairing you with an open player…'
-          : 'Searching for a fair opponent…';
+    samePoolIntent && hasPaidEntry
+      ? 'Pairing with another player…'
+      : quickMatch
+        ? q?.isQuickMatchWildcard
+          ? 'Finding any opponent you can afford…'
+          : 'Pairing you with an open player…'
+        : 'Searching for a fair opponent…';
 
   const modalPrizeUsd = hasPaidEntry ? effectivePrize : undefined;
 
@@ -669,13 +691,11 @@ export function QueueScreen({
               </Text>
             </View>
           </View>
-          {queueIntent === 'join' ? (
+          {samePoolIntent ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
-              Someone is already in queue for this game at this reward tier — you&apos;re joining them.
-            </Text>
-          ) : queueIntent === 'start' ? (
-            <Text className="mb-4 text-center text-sm text-slate-400">
-              No one&apos;s in queue yet — we&apos;ll match you with the next player at this reward tier.
+              You and your opponent both use this same screen and the same button — you enter the{' '}
+              <Text className="font-semibold text-slate-200">identical contest queue</Text> for this game and tier. Whoever is waiting first
+              pairs with the next person who enters. (We also try to start the queue automatically when your profile is ready.)
             </Text>
           ) : (
             <>

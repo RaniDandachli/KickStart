@@ -40,10 +40,19 @@ export default function CasualQueueScreen() {
   const entryCentsParam = parseCentsParam(params.entryCents);
   const prizeCentsParam = parseCentsParam(params.prizeCents);
   const hasExactCents = entryCentsParam != null && prizeCentsParam != null;
-  const queueTierCents = hasExactCents ? { entry: entryCentsParam, prize: prizeCentsParam } : undefined;
   const entry = hasExactCents ? entryCentsParam / 100 : parseUsd(params.entry);
   const prize = hasExactCents ? prizeCentsParam / 100 : parseUsd(params.prize) ?? parseUsd(params.win);
   const hasPair = entry != null && prize != null;
+  /**
+   * Always send integer cents to `h2h_enqueue_or_match` (must match `h2h_queue_entries` exactly).
+   * When the URL only had `entry`/`prize` floats, derive cents from dollars so joiners match hosts byte-for-byte.
+   */
+  const queueTierCents =
+    hasExactCents && entryCentsParam != null && prizeCentsParam != null
+      ? { entry: entryCentsParam, prize: prizeCentsParam }
+      : hasPair
+        ? { entry: Math.round(entry * 100), prize: Math.round(prize * 100) }
+        : undefined;
   const gameKey = parseGameKey(params.game);
   const queueIntent = parseIntent(params.intent);
 

@@ -30,11 +30,9 @@ export function HeadToHeadPlayModal({
   onClose,
   onPractice,
   onHeadToHeadPrize,
-  lobbyKind = 'empty_pool',
 }: Props) {
   const entryLabel = formatUsdFromCents(Math.round(entryUsd * 100));
   const prizeLabel = formatUsdFromCents(Math.round(prizeUsd * 100));
-  const joining = lobbyKind === 'host_waiting';
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
@@ -66,7 +64,7 @@ export function HeadToHeadPlayModal({
           <View style={styles.explainBox}>
             <View style={styles.explainTitleRow}>
               <SafeIonicons name="git-merge-outline" size={18} color={runit.neonCyan} />
-              <Text style={styles.explainTitle}>{joining ? 'Joining this lobby' : 'Starting a match'}</Text>
+              <Text style={styles.explainTitle}>Same queue for both players</Text>
             </View>
             <Text style={styles.explainLine}>
               <Text style={styles.explainBullet}>1.</Text> Your entry covers <Text style={styles.explainEm}>access</Text> to a skill
@@ -74,18 +72,9 @@ export function HeadToHeadPlayModal({
               the match is created; both players must have sufficient balance).
             </Text>
             <Text style={styles.explainLine}>
-              <Text style={styles.explainBullet}>2.</Text>{' '}
-              {joining ? (
-                <>
-                  Someone is already in queue for <Text style={styles.explainEm}>{gameTitle}</Text> at this reward tier — you join their
-                  1v1.
-                </>
-              ) : (
-                <>
-                  No one&apos;s in queue yet for <Text style={styles.explainEm}>{gameTitle}</Text> at this reward tier — we search for the next
-                  player entering the same contest.
-                </>
-              )}
+              <Text style={styles.explainBullet}>2.</Text> Host and joiner both tap the same action for{' '}
+              <Text style={styles.explainEm}>{gameTitle}</Text> at this tier — you enter the same contest pool. The first person waiting pairs
+              with the next person who enters (whether they opened from Home as &quot;join&quot; or &quot;find&quot;).
             </Text>
             <Text style={styles.explainLine}>
               <Text style={styles.explainBullet}>3.</Text> When it&apos;s go time, you play — top score earns the listed prize of{' '}
@@ -102,21 +91,14 @@ export function HeadToHeadPlayModal({
             <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardBorder, runitGlowPinkSoft]}>
               <View style={styles.cardInner}>
                 <View style={styles.rowTop}>
-                  <SafeIonicons name={joining ? 'log-in-outline' : 'people-outline'} size={26} color="#FDE047" />
+                  <SafeIonicons name="git-merge-outline" size={26} color="#FDE047" />
                   <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>
-                    {joining ? 'Join match' : 'Find opponent'}
+                    Enter match queue
                   </Text>
                 </View>
                 <Text style={styles.cardBody}>
-                  {joining ? (
-                    <>
-                      Pay the contest fee and join their lobby — top score can win <Text style={styles.cardEm}>{prizeLabel}</Text>.
-                    </>
-                  ) : (
-                    <>
-                      Enter the queue — we’ll match you, then you compete for <Text style={styles.cardEm}>{prizeLabel}</Text>.
-                    </>
-                  )}
+                  Enter this tier&apos;s pool — when two players are ready, you compete for{' '}
+                  <Text style={styles.cardEm}>{prizeLabel}</Text> (same flow whether you were first or second).
                 </Text>
               </View>
             </LinearGradient>

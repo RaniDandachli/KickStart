@@ -559,10 +559,15 @@ export default function HomeScreen() {
             const e = encodeURIComponent(String(h2hGate.entryUsd));
             const p = encodeURIComponent(String(h2hGate.prizeUsd));
             const gk = encodeURIComponent(h2hGate.gameKey);
-            const centsPrefix =
-              h2hGate.entryFeeWalletCents != null && h2hGate.listedPrizeUsdCents != null
-                ? `entryCents=${h2hGate.entryFeeWalletCents}&prizeCents=${h2hGate.listedPrizeUsdCents}&`
-                : '';
+            const ec =
+              h2hGate.entryFeeWalletCents != null
+                ? h2hGate.entryFeeWalletCents
+                : Math.round(h2hGate.entryUsd * 100);
+            const pc =
+              h2hGate.listedPrizeUsdCents != null
+                ? h2hGate.listedPrizeUsdCents
+                : Math.round(h2hGate.prizeUsd * 100);
+            const centsPrefix = `entryCents=${ec}&prizeCents=${pc}&`;
             pushCrossTab(
               router,
               `/(app)/(tabs)/play/casual?${centsPrefix}entry=${e}&prize=${p}&game=${gk}&intent=join` as never,
