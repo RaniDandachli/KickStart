@@ -1,6 +1,20 @@
 import { getSupabase } from '@/supabase/client';
 import type { QueueKind } from '@/store/matchmakingStore';
 
+function asRpcRecord(data: unknown): Record<string, unknown> | null {
+  if (data == null || typeof data !== 'object') return null;
+  return data as Record<string, unknown>;
+}
+
+/** PostgREST / drivers occasionally stringify booleans — normalize. */
+function rpcOkField(v: unknown): boolean {
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
+function rpcMatchedField(v: unknown): boolean {
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
 export type H2hEnqueueOrMatchResult =
   | { ok: true; matched: true; match_session_id: string; opponent_user_id: string }
   | { ok: true; matched: false; queue_entry_id: string }
@@ -20,18 +34,15 @@ export async function h2hEnqueueOrMatch(params: {
     p_listed_prize_usd_cents: params.listedPrizeUsdCents,
   });
   if (error) throw new Error(error.message);
-  const j = data as Record<string, unknown>;
-  if (j?.ok !== true) {
+  const j = asRpcRecord(data);
+  if (j == null || !rpcOkField(j.ok)) {
     return {
       ok: false,
-      error: String(j?.error ?? 'queue_error'),
+      error: String(j?.error ?? (data == null ? 'empty_queue_response' : 'queue_error')),
       detail: typeof j?.detail === 'string' ? j.detail : undefined,
     };
   }
-  const matchedRaw = j.matched;
-  const isMatched =
-    matchedRaw === true || matchedRaw === 'true' || matchedRaw === 1 || matchedRaw === '1';
-  if (isMatched) {
+  if (rpcMatchedField(j.matched)) {
     return {
       ok: true,
       matched: true,
@@ -53,21 +64,15 @@ export async function h2hEnqueueQuickMatch(params: {
     p_max_affordable_entry_cents: Math.max(0, Math.floor(params.maxAffordableEntryCents)),
   });
   if (error) throw new Error(error.message);
-  const j = data as Record<string, unknown>;
-  if (j?.ok !== true) {
+  const j = asRpcRecord(data);
+  if (j == null || !rpcOkField(j.ok)) {
     return {
       ok: false,
-      error: String(j?.error ?? 'queue_error'),
+      error: String(j?.error ?? (data == null ? 'empty_queue_response' : 'queue_error')),
       detail: typeof j?.detail === 'string' ? j.detail : undefined,
     };
   }
-  const matchedRawQm = j.matched;
-  const isMatchedQm =
-    matchedRawQm === true ||
-    matchedRawQm === 'true' ||
-    matchedRawQm === 1 ||
-    matchedRawQm === '1';
-  if (isMatchedQm) {
+  if (rpcMatchedField(j.matched)) {
     return {
       ok: true,
       matched: true,
@@ -82,6 +87,6 @@ export async function h2hCancelQueue(): Promise<void> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('h2h_cancel_queue');
   if (error) throw new Error(error.message);
-  const j = data as { ok?: boolean };
-  if (j?.ok !== true) throw new Error('Could not leave queue');
+  const j = asRpcRecord(data);
+  if (j == null || !rpcOkField(j.ok)) throw new Error('Could not leave queue');
 }

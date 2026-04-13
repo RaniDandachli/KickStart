@@ -8,6 +8,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { OpponentFoundModal } from '@/features/play/OpponentFoundModal';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { isSupabaseLikelyConfigured } from '@/lib/env';
 import { isUuid } from '@/lib/isUuid';
 import {
   createH2hMatchSessionViaEdge,
@@ -303,6 +304,18 @@ export function QueueScreen({
         if (!r.ok) {
           if (r.error === 'match_create_failed') {
             queuePollTransientFailRef.current += 1;
+            if (queuePollTransientFailRef.current >= 12 && !queuePollAlertShownRef.current) {
+              queuePollAlertShownRef.current = true;
+              backendQueueParamsRef.current = null;
+              void h2hCancelQueue().catch(() => {});
+              useMatchmakingStore.getState().reset();
+              Alert.alert(
+                'Matchmaking issue',
+                r.detail
+                  ? `Could not create the match: ${r.detail}`
+                  : 'Could not create the match after several tries. Both players need enough wallet for this tier and must use two different accounts.',
+              );
+            }
             return;
           }
           if (r.error === 'insufficient_wallet' && !queuePollAlertShownRef.current) {
@@ -313,6 +326,20 @@ export function QueueScreen({
             Alert.alert(
               'Matchmaking issue',
               'Your wallet no longer covers contest access. Add funds or pick a different tier.',
+            );
+            return;
+          }
+          if (!queuePollAlertShownRef.current) {
+            queuePollAlertShownRef.current = true;
+            backendQueueParamsRef.current = null;
+            void h2hCancelQueue().catch(() => {});
+            useMatchmakingStore.getState().reset();
+            const body = [r.error, r.detail].filter((x) => typeof x === 'string' && x.length > 0).join('\n\n');
+            Alert.alert(
+              'Matchmaking issue',
+              body.length > 0
+                ? body
+                : 'The queue request failed. Check you are signed in and this build uses the real Supabase keys (same on laptop and phone).',
             );
           }
           return;
@@ -665,8 +692,15 @@ export function QueueScreen({
 
   const modalPrizeUsd = hasPaidEntry ? effectivePrize : undefined;
 
+  const supabaseConfigured = isSupabaseLikelyConfigured();
+
   return (
     <Screen scroll={false}>
+      {ENABLE_BACKEND && !supabaseConfigured ? (
+        <Text className="mb-3 rounded-lg bg-amber-500/20 px-3 py-2 text-center text-xs font-semibold text-amber-100">
+          Supabase URL/key look like placeholders — matchmaking only works with your real project env on every device (laptop and phone).
+        </Text>
+      ) : null}
       <Pressable
         onPress={leaveScreen}
         accessibilityRole="button"
@@ -734,6 +768,12 @@ export function QueueScreen({
         <View className="items-center py-10">
           <ActivityIndicator size="large" color="#10B981" />
           <Text className="mt-4 text-center text-slate-300">{searchingMsg}</Text>
+          {hasPaidEntry && samePoolIntent ? (
+            <Text className="mt-3 max-w-sm text-center text-xs leading-5 text-amber-100/90">
+              1v1 needs <Text className="font-semibold text-amber-50">two different sign-ins</Text> (same account on laptop + phone cannot
+              pair). Both builds must use the same Supabase project and this exact game + fee + prize.
+            </Text>
+          ) : null}
           {hasPaidEntry ? (
             <Text className="mt-2 text-center text-xs font-medium text-slate-400">
               Prizes are set by tier and awarded by Run It — not a player pool. Every play earns something: Arcade Credits if you don&apos;t
