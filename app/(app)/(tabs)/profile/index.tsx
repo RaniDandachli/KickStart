@@ -38,7 +38,9 @@ import {
   uploadProfileAvatarFromUri,
   validateUsername,
 } from '@/services/api/profiles';
+import { h2hCancelQueue } from '@/services/matchmaking/h2hQueue';
 import { useAuthStore } from '@/store/authStore';
+import { useMatchmakingStore } from '@/store/matchmakingStore';
 import { getSupabase } from '@/supabase/client';
 
 const LOCAL_PROFILE_KEY = '@kickclash/local_profile_v1';
@@ -236,12 +238,18 @@ export default function ProfileScreen() {
       if (uid && ENABLE_BACKEND) {
         await clearExpoPushTokenOnSupabase(uid);
         clearRemotePushLocalFlag();
+        try {
+          await h2hCancelQueue();
+        } catch {
+          /* offline or not in queue */
+        }
       }
       await getSupabase().auth.signOut();
     } catch {
       /* ignore */
     }
     useAuthStore.getState().signOutLocal();
+    useMatchmakingStore.getState().reset();
     if (ENABLE_BACKEND) {
       router.replace('/(auth)/sign-in');
     } else {

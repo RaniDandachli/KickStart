@@ -178,11 +178,6 @@ export function QueueScreen({
     }
     queueStartInFlightRef.current = true;
     try {
-    const stDup = useMatchmakingStore.getState();
-    if (stDup.phase === 'searching' && backendQueueParamsRef.current != null) {
-      return;
-    }
-
     const q = quickMatchCtxRef.current;
     const isFreeCasual = q?.isFreeCasual === true;
     const effectiveEntry = isFreeCasual ? undefined : q != null ? q.entryUsd : entryFeeUsd;
@@ -386,7 +381,7 @@ export function QueueScreen({
     };
 
     void tick();
-    const iv = setInterval(() => void tick(), 1300);
+    const iv = setInterval(() => void tick(), 900);
     return () => {
       cancelled = true;
       clearInterval(iv);
@@ -478,12 +473,11 @@ export function QueueScreen({
   ]);
 
   /**
-   * After remount (e.g. React Strict Mode), `backendQueueParamsRef` is cleared but global `phase` can still be `searching`.
-   * Without params, polling and Realtime never run — rehydrate from props or reset Quick Match (lost ctx).
+   * Keep `backendQueueParamsRef` aligned with current route props whenever we are searching.
+   * Do not skip when the ref is already set — stale tier/game after navigation was leaving RPC params wrong forever.
    */
   useEffect(() => {
     if (!ENABLE_BACKEND || userId === 'guest' || phase !== 'searching') return;
-    if (backendQueueParamsRef.current != null) return;
 
     if (quickMatch && quickMatchCtxRef.current == null) {
       cleanupBackendQueue();
@@ -768,10 +762,10 @@ export function QueueScreen({
         <View className="items-center py-10">
           <ActivityIndicator size="large" color="#10B981" />
           <Text className="mt-4 text-center text-slate-300">{searchingMsg}</Text>
-          {hasPaidEntry && samePoolIntent ? (
+          {hasPaidEntry ? (
             <Text className="mt-3 max-w-sm text-center text-xs leading-5 text-amber-100/90">
-              1v1 needs <Text className="font-semibold text-amber-50">two different sign-ins</Text> (same account on laptop + phone cannot
-              pair). Both builds must use the same Supabase project and this exact game + fee + prize.
+              1v1 needs <Text className="font-semibold text-amber-50">two different sign-ins</Text> (same account on two devices cannot
+              pair). Both apps must use the same Supabase project and this exact game + fee + prize tier.
             </Text>
           ) : null}
           {hasPaidEntry ? (
