@@ -143,6 +143,10 @@ export function QueueScreen({
   /** One-shot alert for fatal queue RPC errors while polling (wallet drift, session create failure). */
   const queuePollAlertShownRef = useRef(false);
   const queuePollTransientFailRef = useRef(0);
+  /** Consecutive `ok:false` RPC bodies that are not wallet/session-fatal — avoid kicking users on one-off glitches. */
+  const queuePollSoftRpcFailRef = useRef(0);
+  /** Consecutive thrown RPC/network errors (separate from `match_create_failed` streak). */
+  const queuePollNetworkFailRef = useRef(0);
   /** True after Home `intent=join|start` auto-fired `start()` once, or user cancelled — no repeat autostart until next navigation. */
   const h2hIntentAutostartDoneOrCancelledRef = useRef(false);
   const phase = useMatchmakingStore((s) => s.phase);
@@ -252,6 +256,9 @@ export function QueueScreen({
     setPhase('searching');
 
     queuePollAlertShownRef.current = false;
+    queuePollTransientFailRef.current = 0;
+    queuePollSoftRpcFailRef.current = 0;
+    queuePollNetworkFailRef.current = 0;
     backendQueueParamsRef.current = buildBackendQueueParams({
       mode,
       quickCtx: quickMatchCtxRef.current,
@@ -296,6 +303,7 @@ export function QueueScreen({
               })
             : await h2hEnqueueOrMatch(p);
         if (cancelled) return;
+        queuePollNetworkFailRef.current = 0;
         if (!r.ok) {
           if (r.error === 'match_create_failed') {
             queuePollTransientFailRef.current += 1;
@@ -324,7 +332,22 @@ export function QueueScreen({
             );
             return;
           }
-          if (!queuePollAlertShownRef.current) {
+          const authBroken =
+            r.error === 'not_authenticated' ||
+            (typeof r.detail === 'string' && /jwt|not authorized|invalid token/i.test(r.detail));
+          if (authBroken && !queuePollAlertShownRef.current) {
+            queuePollAlertShownRef.current = true;
+            backendQueueParamsRef.current = null;
+            void h2hCancelQueue().catch(() => {});
+            useMatchmakingStore.getState().reset();
+            Alert.alert(
+              'Sign in required',
+              'Your session may have expired. Sign in again and re-enter the queue.',
+            );
+            return;
+          }
+          queuePollSoftRpcFailRef.current += 1;
+          if (queuePollSoftRpcFailRef.current >= 28 && !queuePollAlertShownRef.current) {
             queuePollAlertShownRef.current = true;
             backendQueueParamsRef.current = null;
             void h2hCancelQueue().catch(() => {});
@@ -334,22 +357,29 @@ export function QueueScreen({
               'Matchmaking issue',
               body.length > 0
                 ? body
-                : 'The queue request failed. Check you are signed in and this build uses the real Supabase keys (same on laptop and phone).',
+                : 'The queue request failed repeatedly. Check you are signed in and this build uses the real Supabase project (same on both devices).',
             );
           }
           return;
         }
+        queuePollSoftRpcFailRef.current = 0;
         if (r.matched) {
           queuePollTransientFailRef.current = 0;
           void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
-          const supabase = getSupabase();
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('id,username,display_name,region')
-            .eq('id', r.opponent_user_id)
-            .maybeSingle();
-          const name = displayNameForProfile(prof?.username ?? null, prof?.display_name ?? null);
-          const reg = prof?.region?.trim();
+          let name = 'Opponent';
+          let reg: string | undefined;
+          try {
+            const supabase = getSupabase();
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id,username,display_name,region')
+              .eq('id', r.opponent_user_id)
+              .maybeSingle();
+            name = displayNameForProfile(prof?.username ?? null, prof?.display_name ?? null);
+            reg = prof?.region?.trim();
+          } catch {
+            /* RLS/network — still advance to found */
+          }
           useMatchmakingStore.getState().setFound(
             r.match_session_id,
             {
@@ -364,8 +394,8 @@ export function QueueScreen({
           queuePollTransientFailRef.current = 0;
         }
       } catch (e) {
-        queuePollTransientFailRef.current += 1;
-        if (queuePollTransientFailRef.current >= 6 && !queuePollAlertShownRef.current) {
+        queuePollNetworkFailRef.current += 1;
+        if (queuePollNetworkFailRef.current >= 24 && !queuePollAlertShownRef.current) {
           queuePollAlertShownRef.current = true;
           backendQueueParamsRef.current = null;
           void h2hCancelQueue().catch(() => {});
@@ -386,17 +416,7 @@ export function QueueScreen({
       cancelled = true;
       clearInterval(iv);
     };
-  }, [
-    phase,
-    userId,
-    qc,
-    mode,
-    entryFeeUsd,
-    listedPrizeUsd,
-    gameKey,
-    queueTierCents,
-    quickMatch,
-  ]);
+  }, [phase, userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, quickMatch]); // eslint-disable-line react-hooks/exhaustive-deps -- `qc` stable; omitting avoids restarting the poll interval
 
   const runQuickMatchResolve = useCallback(async () => {
     const bailToArcade = () => {
@@ -522,7 +542,6 @@ export function QueueScreen({
     listedPrizeUsd,
     gameKey,
     queueTierCents,
-    qc,
     profileQ.isFetched,
     profileQ.data?.wallet_cents,
   ]);

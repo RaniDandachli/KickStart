@@ -1,4 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
+import { useMemo } from 'react';
 
 import { PickGameForQueue } from '@/features/play/PickGameForQueue';
 import { QueueScreen } from '@/features/play/QueueScreen';
@@ -46,13 +47,17 @@ export default function CasualQueueScreen() {
   /**
    * Always send integer cents to `h2h_enqueue_or_match` (must match `h2h_queue_entries` exactly).
    * When the URL only had `entry`/`prize` floats, derive cents from dollars so joiners match hosts byte-for-byte.
+   * Memoize: a fresh object each render made `QueueScreen`'s polling `useEffect` restart every frame on web.
    */
-  const queueTierCents =
-    hasExactCents && entryCentsParam != null && prizeCentsParam != null
-      ? { entry: entryCentsParam, prize: prizeCentsParam }
-      : hasPair
-        ? { entry: Math.round(entry * 100), prize: Math.round(prize * 100) }
-        : undefined;
+  const queueTierCents = useMemo(() => {
+    if (hasExactCents && entryCentsParam != null && prizeCentsParam != null) {
+      return { entry: entryCentsParam, prize: prizeCentsParam };
+    }
+    if (hasPair) {
+      return { entry: Math.round(entry * 100), prize: Math.round(prize * 100) };
+    }
+    return undefined;
+  }, [hasExactCents, entryCentsParam, prizeCentsParam, hasPair, entry, prize]);
   const gameKey = parseGameKey(params.game);
   const queueIntent = parseIntent(params.intent);
 
