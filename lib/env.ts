@@ -26,12 +26,12 @@ const blockedSkillContestRegionsFromEnv = z.preprocess(
 const envSchema = z.object({
   EXPO_PUBLIC_SUPABASE_URL: z.string().url().optional().default('https://placeholder.supabase.co'),
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional().default('placeholder-anon-key'),
-  /** When true, use Supabase auth + API; when false, guest mode (see `constants/featureFlags.ts`). */
+  /** When true, use Supabase auth + API. Defaults to true so H2H and wallet are always live unless explicitly disabled. */
   EXPO_PUBLIC_ENABLE_BACKEND: z
     .string()
     .optional()
-    .default('false')
-    .transform((v) => v === 'true'),
+    .default('true')
+    .transform((v) => v !== 'false'),
   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   /** Enable wallet top-up UI when Stripe Checkout is wired server-side. */
   EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED: z

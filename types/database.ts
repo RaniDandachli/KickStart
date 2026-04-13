@@ -511,6 +511,13 @@ export interface Database {
         };
         Returns: Json;
       };
+      h2h_enqueue_quick_match: {
+        Args: {
+          p_mode: string;
+          p_max_affordable_entry_cents: number;
+        };
+        Returns: Json;
+      };
       h2h_cancel_queue: {
         Args: Record<string, never>;
         Returns: Json;

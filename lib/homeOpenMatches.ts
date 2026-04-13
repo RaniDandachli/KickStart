@@ -41,6 +41,9 @@ export const H2H_OPEN_GAMES = [
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES)[number]['gameKey'];
 
+/** Server sentinel for Quick Match wildcard rows in `h2h_queue_entries` / RPC (not a real minigame). */
+export const H2H_QUICK_MATCH_GAME_KEY = '__quick_match__' as const;
+
 export type H2hLobbyKind = 'host_waiting' | 'empty_pool';
 
 export function titleForH2hGameKey(gameKey: string): string {

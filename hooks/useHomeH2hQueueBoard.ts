@@ -6,7 +6,7 @@ import { queryKeys } from '@/lib/queryKeys';
 
 /**
  * Live H2H waiters for Home carousel/list (Supabase `h2h_queue_entries`).
- * When `ENABLE_BACKEND` is false, the query is disabled — use the demo zustand board instead.
+ * When `ENABLE_BACKEND` is false, the query is disabled (set `EXPO_PUBLIC_ENABLE_BACKEND=false` only for UI-only testing).
  */
 export function useHomeH2hQueueBoard() {
   return useQuery({

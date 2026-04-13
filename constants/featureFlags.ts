@@ -1,8 +1,8 @@
 import { env } from '@/lib/env';
 
 /**
- * Supabase + API usage. Prefer `EXPO_PUBLIC_ENABLE_BACKEND=true` in `.env` for real backend; defaults to false.
- * When false, guest mode (no required auth); local stores mirror balances on device only.
+ * Supabase + API usage. Defaults to **on** (`EXPO_PUBLIC_ENABLE_BACKEND` unset or not `false`).
+ * Set `EXPO_PUBLIC_ENABLE_BACKEND=false` only for local UI-only testing (guest mode, no live H2H).
  *
  * Security: balances (`wallet_cents`, `prize_credits`, `redeem_tickets`, `gems`), `role`, Stripe ids, and
  * moderation fields are enforced server-side (`protect_profile_sensitive_columns` + RLS). Redemptions and

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 
 import { getSupabase } from '@/supabase/client';
+import { H2H_QUICK_MATCH_GAME_KEY } from '@/lib/homeOpenMatches';
 import { displayNameForProfile } from '@/services/api/h2hMatchSession';
 import { useMatchmakingStore, type QueueKind } from '@/store/matchmakingStore';
 
@@ -19,11 +20,18 @@ function normGameKey(v: unknown): string | null {
 
 function rowMatchesQueueParams(row: Record<string, unknown>, p: NonNullable<H2hQueueParamsRef['current']>): boolean {
   if (row.mode !== p.mode) return false;
+  // Realtime payloads sometimes omit `status`; treat missing as lobby (same as new H2H sessions).
+  const st = row.status;
+  if (st != null && st !== '' && st !== 'lobby') return false;
+  // Quick Match wildcard: session row uses the real minigame/tier — accept any lobby match for this mode.
+  if (p.gameKey === H2H_QUICK_MATCH_GAME_KEY) {
+    return true;
+  }
   if (Number(row.entry_fee_wallet_cents ?? 0) !== p.entryFeeWalletCents) return false;
   const rowPrize = row.listed_prize_usd_cents == null ? 0 : Number(row.listed_prize_usd_cents);
   if (rowPrize !== p.listedPrizeUsdCents) return false;
   if (normGameKey(row.game_key) !== normGameKey(p.gameKey)) return false;
-  return row.status === 'lobby';
+  return true;
 }
 
 /**

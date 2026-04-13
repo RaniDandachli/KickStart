@@ -109,26 +109,13 @@ export default function HomeScreen() {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const waiters = useHomeH2hBoardStore((s) => s.waiters);
-  const ensureOpenMatchBoard = useHomeH2hBoardStore((s) => s.ensureOpenMatchBoard);
   const replaceWaitersFromServer = useHomeH2hBoardStore((s) => s.replaceWaitersFromServer);
   const removeWaiter = useHomeH2hBoardStore((s) => s.removeWaiter);
-  const tickSimulation = useHomeH2hBoardStore((s) => s.tickSimulation);
 
   useEffect(() => {
     if (!ENABLE_BACKEND) return;
     replaceWaitersFromServer(h2hBoardQuery.data ?? []);
   }, [ENABLE_BACKEND, h2hBoardQuery.data, replaceWaitersFromServer]);
-
-  useEffect(() => {
-    if (ENABLE_BACKEND) return;
-    ensureOpenMatchBoard();
-  }, [ENABLE_BACKEND, ensureOpenMatchBoard]);
-
-  useEffect(() => {
-    if (ENABLE_BACKEND) return;
-    const id = setInterval(() => tickSimulation(), 12_000);
-    return () => clearInterval(id);
-  }, [ENABLE_BACKEND, tickSimulation]);
 
   const [rotateTick, setRotateTick] = useState(0);
   useEffect(() => {

@@ -39,6 +39,36 @@ export async function h2hEnqueueOrMatch(params: {
   return { ok: true, matched: false, queue_entry_id: String(j.queue_entry_id) };
 }
 
+/** Quick Match: pair with any affordable specific waiter, or wait as wildcard (`__quick_match__`). */
+export async function h2hEnqueueQuickMatch(params: {
+  mode: QueueKind;
+  maxAffordableEntryCents: number;
+}): Promise<H2hEnqueueOrMatchResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('h2h_enqueue_quick_match', {
+    p_mode: params.mode,
+    p_max_affordable_entry_cents: Math.max(0, Math.floor(params.maxAffordableEntryCents)),
+  });
+  if (error) throw new Error(error.message);
+  const j = data as Record<string, unknown>;
+  if (j?.ok !== true) {
+    return {
+      ok: false,
+      error: String(j?.error ?? 'queue_error'),
+      detail: typeof j?.detail === 'string' ? j.detail : undefined,
+    };
+  }
+  if (j.matched === true) {
+    return {
+      ok: true,
+      matched: true,
+      match_session_id: String(j.match_session_id),
+      opponent_user_id: String(j.opponent_user_id),
+    };
+  }
+  return { ok: true, matched: false, queue_entry_id: String(j.queue_entry_id) };
+}
+
 export async function h2hCancelQueue(): Promise<void> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('h2h_cancel_queue');
