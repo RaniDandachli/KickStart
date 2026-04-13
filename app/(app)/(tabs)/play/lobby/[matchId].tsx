@@ -187,7 +187,12 @@ export default function PreMatchLobbyScreen() {
   return (
     <Screen scroll={false}>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1 LOBBY</Text>
-      <Text style={styles.sub}>Player vs player — you vs your opponent. Review names, then start.</Text>
+      <Text style={styles.sub}>Player vs player — you vs your opponent. Both of you can start when you are ready (no separate “ready” button — first tap begins).</Text>
+      {prizeBlock.kind === 'paid' ? (
+        <Text style={[styles.sub, styles.lockInNote]}>
+          Entry is already collected for this contest. After play starts, leaving or idling out counts as a forfeit — your opponent wins.
+        </Text>
+      ) : null}
 
       <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.vsBorder, runitGlowPinkSoft]}>
         <View style={styles.vsInner}>
@@ -287,6 +292,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sub: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginBottom: 16, lineHeight: 18 },
+  lockInNote: {
+    marginTop: -10,
+    marginBottom: 14,
+    color: 'rgba(251,191,36,0.92)',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
   vsBorder: { borderRadius: 16, padding: 2, marginBottom: 16 },
   vsInner: {
     backgroundColor: 'rgba(6,2,14,0.94)',

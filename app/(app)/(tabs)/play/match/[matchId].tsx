@@ -118,6 +118,7 @@ export default function MatchPlayScreen() {
       winner: session.opponentId,
       sa: '0',
       sb: '1',
+      forfeit: '1',
       opp: encodeURIComponent(session.opponentDisplayName ?? 'Opponent'),
     });
     if (session.opponentId && session.opponentId !== 'opponent' && isUuid(session.opponentId)) {

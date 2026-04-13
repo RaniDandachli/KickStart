@@ -34,6 +34,8 @@ export default function MatchResultScreen() {
     entry?: string;
     opp?: string;
     oppId?: string;
+    /** Set when you forfeited from the match screen — `recordMatchResult` skips minigame score verification. */
+    forfeit?: string;
   }>();
   const rawMid = params.matchId;
   const matchId = Array.isArray(rawMid) ? rawMid[0] : rawMid;
@@ -48,6 +50,8 @@ export default function MatchResultScreen() {
   const saRaw = Array.isArray(params.sa) ? params.sa[0] : params.sa;
   const sbRaw = Array.isArray(params.sb) ? params.sb[0] : params.sb;
   const draw = Array.isArray(params.draw) ? params.draw[0] : params.draw;
+  const forfeitRaw = Array.isArray(params.forfeit) ? params.forfeit[0] : params.forfeit;
+  const isForfeitFlow = forfeitRaw === '1' || forfeitRaw === 'true';
   const rawOpp = Array.isArray(params.opp) ? params.opp[0] : params.opp;
   const oppName = rawOpp ? decodeURIComponent(rawOpp) : 'Opponent';
   const rawPrize = Array.isArray(params.prize) ? params.prize[0] : params.prize;
@@ -141,6 +145,7 @@ export default function MatchResultScreen() {
         loserUserId,
         score: scorePayload,
         wasRanked: false,
+        forfeitDeclaredByUserId: isForfeitFlow && !isDraw ? uid : undefined,
       });
       recordedOkRef.current = true;
       if (res.loss_consolation_credits != null && res.loss_consolation_credits > 0) {
@@ -182,6 +187,7 @@ export default function MatchResultScreen() {
     isDraw,
     qc,
     entryFeeWalletCents,
+    isForfeitFlow,
   ]);
 
   useEffect(() => {

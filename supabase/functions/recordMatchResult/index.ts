@@ -41,6 +41,11 @@ const Body = z
     score: Score,
     was_ranked: z.boolean().default(false),
     ranked_rating_delta: z.record(z.unknown()).optional(),
+    /**
+     * Caller forfeits (left match / confirmed forfeit). Skips minigame_scores verification.
+     * Must equal authenticated user and match loser_user_id.
+     */
+    forfeit_declared_by: z.string().uuid().optional(),
   })
   .superRefine((b, ctx) => {
     const hasSession = !!b.match_session_id;
@@ -75,15 +80,29 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!supabaseUrl?.trim() || !serviceKey?.trim() || !anonKey?.trim()) {
+      console.error('[recordMatchResult] Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_ANON_KEY');
+      return errorResponse('Server configuration error', 500);
+    }
+
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return errorResponse('Unauthorized', 401);
 
-    const parsed = Body.safeParse(await req.json());
+    let rawJson: unknown;
+    try {
+      rawJson = await req.json();
+    } catch (e) {
+      console.error('[recordMatchResult] Invalid JSON', e);
+      return errorResponse('Invalid JSON body', 400);
+    }
+
+    const parsed = Body.safeParse(rawJson);
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
     const admin = createClient(supabaseUrl, serviceKey);
@@ -121,6 +140,16 @@ Deno.serve(async (req) => {
         }
       }
 
+      const forfeitBy = p.forfeit_declared_by;
+      if (forfeitBy) {
+        if (p.is_draw) return errorResponse('Forfeit cannot be a draw', 400);
+        if (forfeitBy !== uid) return errorResponse('Forfeit can only be declared by the forfeiting player', 403);
+        if (p.loser_user_id !== forfeitBy) return errorResponse('Forfeit payload mismatch', 400);
+        if (!p.winner_user_id || p.winner_user_id === forfeitBy) {
+          return errorResponse('Forfeit requires a distinct winner', 400);
+        }
+      }
+
       const scoreA = Math.trunc(p.score.a);
       const scoreB = Math.trunc(p.score.b);
 
@@ -133,7 +162,7 @@ Deno.serve(async (req) => {
         if (gk === 'turbo-arena') return 'turbo_arena';
         return null;
       })();
-      if (skillGameType) {
+      if (!forfeitBy && skillGameType) {
         const gt = skillGameType;
         const { data: rowA, error: eA } = await admin
           .from('minigame_scores')
@@ -153,7 +182,10 @@ Deno.serve(async (req) => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (eA || eB) return errorResponse('Could not verify minigame scores', 500);
+        if (eA || eB) {
+          console.error('[recordMatchResult] minigame_scores read', eA, eB);
+          return errorResponse('Could not verify minigame scores', 500);
+        }
         if (rowA == null || rowB == null) {
           return errorResponse(
             'Both players must submit validated skill-contest scores before this match can complete',
@@ -190,7 +222,10 @@ Deno.serve(async (req) => {
         .eq('id', p.match_session_id)
         .neq('status', 'completed');
 
-      if (upErr) return errorResponse(upErr.message, 500);
+      if (upErr) {
+        console.error('[recordMatchResult] match_sessions update', upErr.message, upErr);
+        return errorResponse(upErr.message, 500);
+      }
 
       const { error: insErr } = await admin.from('match_results').insert({
         match_session_id: p.match_session_id,
@@ -207,6 +242,7 @@ Deno.serve(async (req) => {
           const econ = await h2hEconomyForUser(admin, p.match_session_id, uid);
           return json({ ok: true, idempotent: true, ...econ });
         }
+        console.error('[recordMatchResult] match_results insert', insErr.message, insErr);
         return errorResponse(insErr.message, 500);
       }
 
@@ -227,10 +263,14 @@ Deno.serve(async (req) => {
       ranked_rating_delta: p.ranked_rating_delta ?? null,
       audit_ref: `auth:${uid}`,
     });
-    if (error) return errorResponse(error.message, 500);
+    if (error) {
+      console.error('[recordMatchResult] tournament insert', error.message, error);
+      return errorResponse(error.message, 500);
+    }
 
     return json({ ok: true });
   } catch (e) {
+    console.error('[recordMatchResult] unhandled', e);
     return errorResponse(e instanceof Error ? e.message : 'error', 500);
   }
 });

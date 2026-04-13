@@ -28,6 +28,7 @@ export function useH2hSkillContestSubmitAndPoll(
   /** Avoids re-running the submit effect when `setH2hSubmitPhase('loading')` fires (that used to abort in-flight requests and double-POST the Edge function). */
   const h2hSubmitSuccessRef = useRef(false);
   const h2hDoneRef = useRef(false);
+  const slowOpponentWarnedRef = useRef(false);
   const buildBodyRef = useRef(buildBody);
   buildBodyRef.current = buildBody;
 
@@ -47,6 +48,7 @@ export function useH2hSkillContestSubmitAndPoll(
     h2hDoneRef.current = false;
     h2hSubmitInFlight.current = false;
     h2hSubmitSuccessRef.current = false;
+    slowOpponentWarnedRef.current = false;
     setH2hRetryKey(0);
   }, [h2hSkillContest?.matchSessionId]);
 
@@ -62,8 +64,26 @@ export function useH2hSkillContestSubmitAndPoll(
       h2hDoneRef.current = false;
       h2hSubmitInFlight.current = false;
       h2hSubmitSuccessRef.current = false;
+      slowOpponentWarnedRef.current = false;
     }
   }, [gamePhase, h2hSkillContest]);
+
+  useEffect(() => {
+    if (h2hSubmitPhase !== 'ok' || h2hPoll?.both_submitted) {
+      slowOpponentWarnedRef.current = false;
+      return;
+    }
+    const id = setTimeout(() => {
+      if (slowOpponentWarnedRef.current) return;
+      slowOpponentWarnedRef.current = true;
+      Alert.alert(
+        'Waiting on your opponent',
+        'They still need to finish and submit their run. If you leave the match now, it counts as a forfeit and they win. You can also file a dispute from the match screen if something looks wrong.',
+        [{ text: 'OK' }],
+      );
+    }, 120_000);
+    return () => clearTimeout(id);
+  }, [h2hSubmitPhase, h2hPoll?.both_submitted, h2hSkillContest?.matchSessionId]);
 
   useEffect(() => {
     if (!h2hSkillContest || h2hSubmitPhase !== 'ok' || h2hDoneRef.current) return;

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -561,6 +561,24 @@ export function QueueScreen({
       })();
     }
   }
+
+  /** Leaving the queue route (back, another tab, refresh) while pairing — cancel server row and stop spinners. */
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (useMatchmakingStore.getState().phase !== 'searching') return;
+        backendQueueParamsRef.current = null;
+        if (ENABLE_BACKEND) {
+          const uid = useAuthStore.getState().user?.id;
+          if (uid && uid !== 'guest') {
+            void h2hCancelQueue().catch(() => {});
+          }
+          void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
+        }
+        useMatchmakingStore.getState().reset();
+      };
+    }, [qc]),
+  );
 
   async function accept() {
     backendQueueParamsRef.current = null;

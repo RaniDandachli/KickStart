@@ -151,6 +151,8 @@ export async function recordH2hMatchResultViaEdge(params: {
   isDraw: boolean;
   score: { a: number; b: number };
   wasRanked?: boolean;
+  /** You gave up or left mid-match — server skips minigame_scores cross-check. */
+  forfeitDeclaredByUserId?: string;
 }): Promise<RecordH2hMatchResultResponse> {
   const supabase = getSupabase();
   const { data: sessionData } = await supabase.auth.getSession();
@@ -165,6 +167,9 @@ export async function recordH2hMatchResultViaEdge(params: {
     was_ranked: params.wasRanked ?? false,
     is_draw: params.isDraw,
   };
+  if (params.forfeitDeclaredByUserId) {
+    body.forfeit_declared_by = params.forfeitDeclaredByUserId;
+  }
   if (params.isDraw) {
     body.winner_user_id = null;
     body.loser_user_id = null;
