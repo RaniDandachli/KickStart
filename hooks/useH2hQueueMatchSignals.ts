@@ -10,6 +10,8 @@ export type H2hQueueParamsRef = MutableRefObject<{
   gameKey: string;
   entryFeeWalletCents: number;
   listedPrizeUsdCents: number;
+  /** Quick Match wildcard: max entry fee (cents) user can pay — required to validate realtime rows. */
+  maxAffordableEntryCents?: number;
 } | null>;
 
 function normGameKey(v: unknown): string | null {
@@ -23,8 +25,13 @@ function rowMatchesQueueParams(row: Record<string, unknown>, p: NonNullable<H2hQ
   // Realtime payloads sometimes omit `status`; treat missing as lobby (same as new H2H sessions).
   const st = row.status;
   if (st != null && st !== '' && st !== 'lobby') return false;
-  // Quick Match wildcard: session row uses the real minigame/tier — accept any lobby match for this mode.
+  // Quick Match wildcard: only accept sessions whose contest access fee is affordable (same rule as RPC pairing).
   if (p.gameKey === H2H_QUICK_MATCH_GAME_KEY) {
+    const max = p.maxAffordableEntryCents ?? 0;
+    const rowEntry = Number(row.entry_fee_wallet_cents ?? 0);
+    if (rowEntry > max) return false;
+    const gk = normGameKey(row.game_key);
+    if (gk == null || gk === '' || gk === H2H_QUICK_MATCH_GAME_KEY) return false;
     return true;
   }
   if (Number(row.entry_fee_wallet_cents ?? 0) !== p.entryFeeWalletCents) return false;

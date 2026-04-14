@@ -64,6 +64,7 @@ function buildBackendQueueParams(args: {
   gameKey: string;
   entryFeeWalletCents: number;
   listedPrizeUsdCents: number;
+  maxAffordableEntryCents?: number;
 } {
   const q = args.quickCtx;
   if (q?.isQuickMatchWildcard) {
@@ -72,6 +73,7 @@ function buildBackendQueueParams(args: {
       gameKey: H2H_QUICK_MATCH_GAME_KEY,
       entryFeeWalletCents: 0,
       listedPrizeUsdCents: 0,
+      maxAffordableEntryCents: Math.max(0, Math.floor(q.maxAffordableEntryCents ?? 0)),
     };
   }
   const isFreeCasual = q?.isFreeCasual === true;
@@ -142,6 +144,7 @@ export function QueueScreen({
     gameKey: string;
     entryFeeWalletCents: number;
     listedPrizeUsdCents: number;
+    maxAffordableEntryCents?: number;
   } | null>(null);
   /** One-shot alert for fatal queue RPC errors while polling (wallet drift, session create failure). */
   const queuePollAlertShownRef = useRef(false);
@@ -468,34 +471,6 @@ export function QueueScreen({
     void runQuickMatchResolve();
   }, [quickMatch, runQuickMatchResolve]);
 
-  /** Home deep-links with `intent=join|start` — begin queue immediately so the host is actually in `h2h_queue_entries` when a joiner arrives. */
-  useEffect(() => {
-    if (!ENABLE_BACKEND || userId === 'guest') return;
-    if (!profileQ.isFetched) return;
-    if (quickMatch) return;
-    if (queueIntent !== 'join' && queueIntent !== 'start') return;
-    if (!gameKey || entryFeeUsd == null || listedPrizeUsd == null) return;
-    if (h2hIntentAutostartDoneOrCancelledRef.current) return;
-    if (useMatchmakingStore.getState().phase !== 'idle') return;
-
-    void (async () => {
-      await start();
-      if (useMatchmakingStore.getState().phase === 'searching') {
-        h2hIntentAutostartDoneOrCancelledRef.current = true;
-      }
-    })();
-  }, [
-    ENABLE_BACKEND,
-    userId,
-    profileQ.isFetched,
-    quickMatch,
-    queueIntent,
-    gameKey,
-    entryFeeUsd,
-    listedPrizeUsd,
-    start,
-  ]);
-
   /**
    * Keep `backendQueueParamsRef` aligned with current route props whenever we are searching.
    * Do not skip when the ref is already set — stale tier/game after navigation was leaving RPC params wrong forever.
@@ -511,7 +486,9 @@ export function QueueScreen({
 
     if (quickMatch && quickMatchCtxRef.current?.isQuickMatchWildcard) {
       const live = profileQ.data?.wallet_cents ?? 0;
-      quickMatchMaxAffordableEntryCentsRef.current = quickMatchCtxRef.current.maxAffordableEntryCents ?? live;
+      const syncCap = quickMatchCtxRef.current.maxAffordableEntryCents ?? live;
+      quickMatchMaxAffordableEntryCentsRef.current = syncCap;
+      quickMatchCtxRef.current = { ...quickMatchCtxRef.current, maxAffordableEntryCents: syncCap };
       backendQueueParamsRef.current = buildBackendQueueParams({
         mode,
         quickCtx: quickMatchCtxRef.current,
@@ -523,7 +500,20 @@ export function QueueScreen({
       void (async () => {
         if (!profileQ.isFetched) return;
         const blocked = await profileBlocksPaidSkillContest(userId);
-        quickMatchMaxAffordableEntryCentsRef.current = blocked ? 0 : live;
+        const cap = blocked ? 0 : live;
+        quickMatchMaxAffordableEntryCentsRef.current = cap;
+        const ctx = quickMatchCtxRef.current;
+        if (ctx?.isQuickMatchWildcard && useMatchmakingStore.getState().phase === 'searching') {
+          quickMatchCtxRef.current = { ...ctx, maxAffordableEntryCents: cap };
+          backendQueueParamsRef.current = buildBackendQueueParams({
+            mode,
+            quickCtx: quickMatchCtxRef.current,
+            entryFeeUsd,
+            listedPrizeUsd,
+            gameKey,
+            queueTierCents,
+          });
+        }
       })();
       return;
     }
@@ -772,9 +762,9 @@ export function QueueScreen({
           </View>
           {samePoolIntent ? (
             <Text className="mb-4 text-center text-sm text-slate-400">
-              You and your opponent both use this same screen and the same button — you enter the{' '}
-              <Text className="font-semibold text-slate-200">identical contest queue</Text> for this game and tier. Whoever is waiting first
-              pairs with the next person who enters. (We also try to start the queue automatically when your profile is ready.)
+              You and your opponent both tap the same button below — that enters the{' '}
+              <Text className="font-semibold text-slate-200">same contest queue</Text> for this game and tier. The first person waiting pairs
+              with the next person who enters with the exact same tier (or joins you from Live / Quick Match).
             </Text>
           ) : (
             <>
