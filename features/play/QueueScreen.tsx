@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
+import { QuickMatchTierChips } from '@/components/arcade/QuickMatchTierChips';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { OpponentFoundModal } from '@/features/play/OpponentFoundModal';
@@ -26,6 +27,10 @@ import { SKILL_CONTEST_LAUNCH_BODY, SKILL_CONTEST_LAUNCH_TITLE } from '@/constan
 import { SKILL_CONTEST_ENTRY_SHORT } from '@/lib/skillContestCopy';
 import { profileBlocksPaidSkillContest } from '@/lib/skillContestRegionGate';
 import { arcade } from '@/lib/arcadeTheme';
+import {
+  defaultQuickMatchAllowedSelection,
+  normalizeQuickMatchAllowedEntries,
+} from '@/lib/quickMatchTiers';
 import { useAuthStore } from '@/store/authStore';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
 import { QUICK_MATCH_PLACEHOLDER_WAITER_ID, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
@@ -40,10 +45,12 @@ type QuickMatchCtx = {
   gameKey: H2hGameKey | typeof H2H_QUICK_MATCH_GAME_KEY;
   waiterId: string;
   opponentName: string;
-  /** Backend Quick Match: `h2h_enqueue_quick_match` — any affordable specific waiter, wallet-capped. */
+  /** Backend Quick Match: `h2h_enqueue_quick_match` — tier allowlist + wallet cap. */
   isQuickMatchWildcard?: boolean;
   /** Snapshot for rehydrate after remount (matches server `wildcard_budget_cents`). */
   maxAffordableEntryCents?: number;
+  /** Tiers (entry wallet cents) this Quick Match search accepts — must stay in sync with server RPC. */
+  allowedEntryCents?: number[];
   /**
    * When Quick Match picked a row from `home_h2h_queue_board`, use these exact cents so we join the same
    * `h2h_queue_entries` bucket as “Find opponent” / Home join for that game+tier (single global pool per tier).
@@ -65,15 +72,19 @@ function buildBackendQueueParams(args: {
   entryFeeWalletCents: number;
   listedPrizeUsdCents: number;
   maxAffordableEntryCents?: number;
+  quickMatchAllowedEntryCents?: number[];
 } {
   const q = args.quickCtx;
   if (q?.isQuickMatchWildcard) {
+    const cap = Math.max(0, Math.floor(q.maxAffordableEntryCents ?? 0));
+    const allowed = normalizeQuickMatchAllowedEntries(q.allowedEntryCents ?? [0], cap);
     return {
       mode: args.mode,
       gameKey: H2H_QUICK_MATCH_GAME_KEY,
       entryFeeWalletCents: 0,
       listedPrizeUsdCents: 0,
-      maxAffordableEntryCents: Math.max(0, Math.floor(q.maxAffordableEntryCents ?? 0)),
+      maxAffordableEntryCents: cap,
+      quickMatchAllowedEntryCents: allowed.length > 0 ? allowed : [0],
     };
   }
   const isFreeCasual = q?.isFreeCasual === true;
@@ -139,12 +150,14 @@ export function QueueScreen({
   const entryChargedDemoRef = useRef(0);
   /** Max entry fee (cents) Quick Match can accept — server `h2h_enqueue_quick_match` / `wildcard_budget_cents`. */
   const quickMatchMaxAffordableEntryCentsRef = useRef(0);
+  const quickMatchAllowedEntryCentsRef = useRef<number[]>([0]);
   const backendQueueParamsRef = useRef<{
     mode: QueueKind;
     gameKey: string;
     entryFeeWalletCents: number;
     listedPrizeUsdCents: number;
     maxAffordableEntryCents?: number;
+    quickMatchAllowedEntryCents?: number[];
   } | null>(null);
   /** One-shot alert for fatal queue RPC errors while polling (wallet drift, session create failure). */
   const queuePollAlertShownRef = useRef(false);
@@ -170,11 +183,39 @@ export function QueueScreen({
   });
 
   const quickMatchCtxRef = useRef<QuickMatchCtx | null>(null);
-  const quickAutoStartedRef = useRef(false);
   /** Prevents double-tap / autostart + tap racing two `start()` calls (web + native). */
   const queueStartInFlightRef = useRef(false);
-  const [quickResolving, setQuickResolving] = useState(!!quickMatch);
+  const [quickResolving, setQuickResolving] = useState(false);
+  const [quickMatchTierPick, setQuickMatchTierPick] = useState<number[]>([]);
+  const [quickMatchDisplayCap, setQuickMatchDisplayCap] = useState(0);
+  const quickMatchTierDefaultsAppliedRef = useRef(false);
   const leaveTarget = returnToHref ?? '/(app)/(tabs)/play';
+
+  useEffect(() => {
+    if (!quickMatch) quickMatchTierDefaultsAppliedRef.current = false;
+  }, [quickMatch]);
+
+  useEffect(() => {
+    if (!quickMatch || !ENABLE_BACKEND || userId === 'guest') return;
+    if (!profileQ.isFetched || profileQ.isError) return;
+    let cancelled = false;
+    void (async () => {
+      const blocked = await profileBlocksPaidSkillContest(userId);
+      if (cancelled) return;
+      const live = profileQ.data?.wallet_cents ?? 0;
+      const cap = blocked ? 0 : live;
+      setQuickMatchDisplayCap(cap);
+      if (!quickMatchTierDefaultsAppliedRef.current) {
+        setQuickMatchTierPick(defaultQuickMatchAllowedSelection(cap));
+        quickMatchTierDefaultsAppliedRef.current = true;
+      } else {
+        setQuickMatchTierPick((prev) => normalizeQuickMatchAllowedEntries(prev, cap));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quickMatch, userId, profileQ.isFetched, profileQ.isError, profileQ.data?.wallet_cents]);
 
   const start = useCallback(async () => {
     if (!ENABLE_BACKEND || userId === 'guest') {
@@ -213,7 +254,13 @@ export function QueueScreen({
       const live = profileQ.data?.wallet_cents ?? 0;
       const max = blocked ? 0 : live;
       quickMatchMaxAffordableEntryCentsRef.current = max;
-      quickMatchCtxRef.current = { ...q, maxAffordableEntryCents: max };
+      const allowed = normalizeQuickMatchAllowedEntries(q.allowedEntryCents ?? quickMatchAllowedEntryCentsRef.current, max);
+      quickMatchAllowedEntryCentsRef.current = allowed.length > 0 ? allowed : [0];
+      quickMatchCtxRef.current = {
+        ...q,
+        maxAffordableEntryCents: max,
+        allowedEntryCents: quickMatchAllowedEntryCentsRef.current,
+      };
       setQueue(mode);
       setPhase('searching');
       queuePollAlertShownRef.current = false;
@@ -307,6 +354,7 @@ export function QueueScreen({
             ? await h2hEnqueueQuickMatch({
                 mode: p.mode,
                 maxAffordableEntryCents: quickMatchMaxAffordableEntryCentsRef.current,
+                allowedEntryCents: p.quickMatchAllowedEntryCents ?? quickMatchAllowedEntryCentsRef.current,
               })
             : await h2hEnqueueOrMatch(p);
         if (cancelled) return;
@@ -373,6 +421,31 @@ export function QueueScreen({
         if (r.matched) {
           queuePollTransientFailRef.current = 0;
           void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
+          const qWild = quickMatchCtxRef.current;
+          if (qWild?.isQuickMatchWildcard && ENABLE_BACKEND && userId !== 'guest') {
+            try {
+              const supabase = getSupabase();
+              const { data: ms } = await supabase
+                .from('match_sessions')
+                .select('entry_fee_wallet_cents, listed_prize_usd_cents, game_key')
+                .eq('id', r.match_session_id)
+                .maybeSingle();
+              const ec = Number(ms?.entry_fee_wallet_cents ?? 0);
+              const pc = Number(ms?.listed_prize_usd_cents ?? 0);
+              const gk = ms?.game_key?.trim();
+              quickMatchCtxRef.current = {
+                ...qWild,
+                entryUsd: ec / 100,
+                prizeUsd: pc / 100,
+                isFreeCasual: ec <= 0,
+                gameKey:
+                  gk && gk.length > 0 ? (gk as H2hGameKey) : qWild.gameKey,
+                exactTierCents: ec > 0 ? { entry: ec, prize: pc } : undefined,
+              };
+            } catch {
+              /* keep placeholder ctx */
+            }
+          }
           let name = 'Opponent';
           let reg: string | undefined;
           try {
@@ -426,20 +499,23 @@ export function QueueScreen({
   }, [phase, userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, quickMatch]); // eslint-disable-line react-hooks/exhaustive-deps -- `qc` stable; omitting avoids restarting the poll interval
 
   const runQuickMatchResolve = useCallback(async () => {
-    const bailToArcade = () => {
-      setQuickResolving(false);
-      useMatchmakingStore.getState().reset();
-      quickMatchCtxRef.current = null;
-      quickAutoStartedRef.current = false;
-      router.replace(leaveTarget as never);
-    };
-
     if (ENABLE_BACKEND && userId !== 'guest') {
       if (!profileQ.isFetched) {
         setQuickResolving(false);
         Alert.alert('One moment', 'Loading your profile…');
         return;
       }
+      const blocked = await profileBlocksPaidSkillContest(userId);
+      const live = profileQ.data?.wallet_cents ?? 0;
+      const max = blocked ? 0 : live;
+      const selected = normalizeQuickMatchAllowedEntries(quickMatchTierPick, max);
+      if (selected.length === 0) {
+        Alert.alert('Pick a tier', 'Choose at least one contest tier (or Free casual) you want to match on.');
+        return;
+      }
+      setQuickResolving(true);
+      quickMatchMaxAffordableEntryCentsRef.current = max;
+      quickMatchAllowedEntryCentsRef.current = selected;
       quickMatchCtxRef.current = {
         isQuickMatchWildcard: true,
         isFreeCasual: false,
@@ -449,6 +525,8 @@ export function QueueScreen({
         gameKey: H2H_QUICK_MATCH_GAME_KEY,
         waiterId: QUICK_MATCH_PLACEHOLDER_WAITER_ID,
         opponentName: 'Matching pool',
+        maxAffordableEntryCents: max,
+        allowedEntryCents: selected,
       };
       try {
         await start();
@@ -463,13 +541,7 @@ export function QueueScreen({
       'Sign in required',
       'Quick match uses your live account and wallet. Sign in to continue.',
     );
-  }, [router, start, userId, profileQ.isFetched, leaveTarget]);
-
-  useEffect(() => {
-    if (!quickMatch || quickAutoStartedRef.current) return;
-    quickAutoStartedRef.current = true;
-    void runQuickMatchResolve();
-  }, [quickMatch, runQuickMatchResolve]);
+  }, [start, userId, profileQ.isFetched, profileQ.data?.wallet_cents, quickMatchTierPick]);
 
   /**
    * Keep `backendQueueParamsRef` aligned with current route props whenever we are searching.
@@ -488,7 +560,14 @@ export function QueueScreen({
       const live = profileQ.data?.wallet_cents ?? 0;
       const syncCap = quickMatchCtxRef.current.maxAffordableEntryCents ?? live;
       quickMatchMaxAffordableEntryCentsRef.current = syncCap;
-      quickMatchCtxRef.current = { ...quickMatchCtxRef.current, maxAffordableEntryCents: syncCap };
+      const ctx0 = quickMatchCtxRef.current;
+      const allowed = normalizeQuickMatchAllowedEntries(ctx0.allowedEntryCents ?? quickMatchAllowedEntryCentsRef.current, syncCap);
+      quickMatchAllowedEntryCentsRef.current = allowed.length > 0 ? allowed : [0];
+      quickMatchCtxRef.current = {
+        ...ctx0,
+        maxAffordableEntryCents: syncCap,
+        allowedEntryCents: quickMatchAllowedEntryCentsRef.current,
+      };
       backendQueueParamsRef.current = buildBackendQueueParams({
         mode,
         quickCtx: quickMatchCtxRef.current,
@@ -504,7 +583,13 @@ export function QueueScreen({
         quickMatchMaxAffordableEntryCentsRef.current = cap;
         const ctx = quickMatchCtxRef.current;
         if (ctx?.isQuickMatchWildcard && useMatchmakingStore.getState().phase === 'searching') {
-          quickMatchCtxRef.current = { ...ctx, maxAffordableEntryCents: cap };
+          const nextAllowed = normalizeQuickMatchAllowedEntries(ctx.allowedEntryCents ?? quickMatchAllowedEntryCentsRef.current, cap);
+          quickMatchAllowedEntryCentsRef.current = nextAllowed.length > 0 ? nextAllowed : [0];
+          quickMatchCtxRef.current = {
+            ...ctx,
+            maxAffordableEntryCents: cap,
+            allowedEntryCents: quickMatchAllowedEntryCentsRef.current,
+          };
           backendQueueParamsRef.current = buildBackendQueueParams({
             mode,
             quickCtx: quickMatchCtxRef.current,
@@ -671,7 +756,6 @@ export function QueueScreen({
     cleanupBackendQueue();
     refundEntryIfQueuedDemo();
     quickMatchCtxRef.current = null;
-    quickAutoStartedRef.current = false;
     reset();
     router.replace(leaveTarget as never);
   }
@@ -712,7 +796,7 @@ export function QueueScreen({
       ? 'Pairing with another player…'
       : quickMatch
         ? q?.isQuickMatchWildcard
-          ? 'Finding any opponent you can afford…'
+          ? 'Looking for someone actively waiting in queue…'
           : 'Pairing you with an open player…'
         : 'Searching for a fair opponent…';
 
@@ -739,10 +823,20 @@ export function QueueScreen({
       </Pressable>
       <Text className="mb-2 text-2xl font-black text-white">{title}</Text>
       {quickMatch ? (
-        <Text className="mb-4 text-center text-sm text-slate-400">
-          We match you with any open player in queue — any game, any contest tier. If your cash wallet can&apos;t cover contest access, add
-          funds or play a free casual match (no access charge, no listed prize).
-        </Text>
+        <>
+          <Text className="mb-4 text-center text-sm text-slate-400">
+            Choose which contest access tiers you&apos;re OK with (free or paid). We only pair you on a tier you select — including with
+            another Quick Match search (same minigame rotation as before). You can still match someone waiting on a specific game at a tier you
+            allow. Accept or decline in the modal when a match is found.
+          </Text>
+          {ENABLE_BACKEND && userId !== 'guest' && profileQ.isFetched && !profileQ.isError ? (
+            <QuickMatchTierChips
+              maxAffordableEntryCents={quickMatchDisplayCap}
+              selected={quickMatchTierPick}
+              onChange={setQuickMatchTierPick}
+            />
+          ) : null}
+        </>
       ) : hasPaidEntry ? (
         <>
           <View style={styles.contestPricing}>
@@ -784,10 +878,12 @@ export function QueueScreen({
       {quickResolving && phase === 'idle' ? (
         <View className="items-center py-10">
           <ActivityIndicator size="large" color="#10B981" />
-          <Text className="mt-4 text-center text-slate-300">Finding an open match…</Text>
+          <Text className="mt-4 text-center text-slate-300">Preparing search…</Text>
         </View>
       ) : phase === 'idle' ? (
-        quickMatch ? null : (
+        quickMatch ? (
+          <AppButton title="Search for opponent" onPress={() => void runQuickMatchResolve()} />
+        ) : (
           <AppButton title={idleCta} onPress={() => void start()} />
         )
       ) : phase === 'searching' ? (

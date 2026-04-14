@@ -515,6 +515,7 @@ export interface Database {
         Args: {
           p_mode: string;
           p_max_affordable_entry_cents: number;
+          p_allowed_entry_cents: number[];
         };
         Returns: Json;
       };

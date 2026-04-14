@@ -12,6 +12,8 @@ export type H2hQueueParamsRef = MutableRefObject<{
   listedPrizeUsdCents: number;
   /** Quick Match wildcard: max entry fee (cents) user can pay — required to validate realtime rows. */
   maxAffordableEntryCents?: number;
+  /** Quick Match: session entry must be one of these tiers (cents). */
+  quickMatchAllowedEntryCents?: readonly number[];
 } | null>;
 
 function normGameKey(v: unknown): string | null {
@@ -30,6 +32,8 @@ function rowMatchesQueueParams(row: Record<string, unknown>, p: NonNullable<H2hQ
     const max = p.maxAffordableEntryCents ?? 0;
     const rowEntry = Number(row.entry_fee_wallet_cents ?? 0);
     if (rowEntry > max) return false;
+    const allowed = p.quickMatchAllowedEntryCents;
+    if (allowed != null && allowed.length > 0 && !allowed.includes(rowEntry)) return false;
     const gk = normGameKey(row.game_key);
     if (gk == null || gk === '' || gk === H2H_QUICK_MATCH_GAME_KEY) return false;
     return true;

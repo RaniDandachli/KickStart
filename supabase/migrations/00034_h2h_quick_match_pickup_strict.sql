@@ -15,6 +15,7 @@ declare
   v_partner_row_id uuid;
   v_partner_user uuid;
   v_game text;
+  v_pair_game text;
   v_entry bigint;
   v_prize bigint;
   v_sid uuid;
@@ -38,29 +39,6 @@ begin
   v_max_entry := greatest(coalesce(p_max_affordable_entry_cents, 0), 0);
   if v_max_entry > v_wallet then
     v_max_entry := v_wallet;
-  end if;
-
-  select ms.id,
-         case when ms.player_a_id = v_me then ms.player_b_id else ms.player_a_id end
-    into v_sid, v_partner_user
-  from public.match_sessions ms
-  where (ms.player_a_id = v_me or ms.player_b_id = v_me)
-    and ms.status in ('lobby', 'in_progress')
-    and ms.mode = p_mode
-    and coalesce(ms.entry_fee_wallet_cents, 0) <= v_max_entry
-    and v_wallet >= coalesce(ms.entry_fee_wallet_cents, 0)
-    and ms.updated_at > now() - interval '45 minutes'
-  order by coalesce(ms.started_at, ms.created_at) desc
-  limit 1;
-
-  if v_sid is not null and v_partner_user is not null then
-    delete from public.h2h_queue_entries where user_id = v_me and status = 'waiting';
-    return jsonb_build_object(
-      'ok', true,
-      'matched', true,
-      'match_session_id', v_sid,
-      'opponent_user_id', v_partner_user
-    );
   end if;
 
   select
@@ -106,6 +84,66 @@ begin
     );
   end if;
 
+  select q.id, q.user_id
+  into v_partner_row_id, v_partner_user
+  from public.h2h_queue_entries q
+  where q.status = 'waiting'
+    and q.user_id <> v_me
+    and q.mode = p_mode
+    and trim(coalesce(q.game_key, '')) = '__quick_match__'
+  order by q.created_at asc
+  limit 1
+  for update;
+
+  if v_partner_user is not null then
+    v_pair_game := (array['tap-dash', 'tile-clash', 'ball-run'])[
+      1 + (abs(hashtext(v_me::text || '|' || v_partner_user::text)) % 3)
+    ];
+    begin
+      v_sid := public.h2h_internal_apply_charged_match_session(
+        v_partner_user,
+        v_me,
+        p_mode,
+        v_pair_game,
+        0,
+        null
+      );
+      update public.h2h_queue_entries set status = 'cancelled' where id = v_partner_row_id;
+      delete from public.h2h_queue_entries where user_id = v_me and status = 'waiting';
+    exception
+      when others then
+        return jsonb_build_object('ok', false, 'error', 'match_create_failed', 'detail', sqlerrm);
+    end;
+
+    return jsonb_build_object(
+      'ok', true,
+      'matched', true,
+      'match_session_id', v_sid,
+      'opponent_user_id', v_partner_user
+    );
+  end if;
+
+  select ms.id,
+         case when ms.player_a_id = v_me then ms.player_b_id else ms.player_a_id end
+    into v_sid, v_partner_user
+  from public.match_sessions ms
+  where (ms.player_a_id = v_me or ms.player_b_id = v_me)
+    and ms.status in ('lobby', 'in_progress')
+    and ms.mode = p_mode
+    and ms.created_at > now() - interval '3 minutes'
+  order by ms.created_at desc
+  limit 1;
+
+  if v_sid is not null and v_partner_user is not null then
+    delete from public.h2h_queue_entries where user_id = v_me and status = 'waiting';
+    return jsonb_build_object(
+      'ok', true,
+      'matched', true,
+      'match_session_id', v_sid,
+      'opponent_user_id', v_partner_user
+    );
+  end if;
+
   delete from public.h2h_queue_entries where user_id = v_me and status = 'waiting';
 
   insert into public.h2h_queue_entries (
@@ -125,4 +163,4 @@ end;
 $$;
 
 comment on function public.h2h_enqueue_quick_match(text, bigint) is
-  'Quick Match: pair with affordable waiter; session pickup limited by wallet, tier, and recency.';
+  'Quick Match: specific waiters, wildcard vs wildcard (free casual), then fresh-session pickup, then wildcard wait.';

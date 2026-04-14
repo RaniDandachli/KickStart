@@ -57,11 +57,14 @@ export async function h2hEnqueueOrMatch(params: {
 export async function h2hEnqueueQuickMatch(params: {
   mode: QueueKind;
   maxAffordableEntryCents: number;
+  /** Contest access tiers (wallet cents) this search accepts; server intersects with wallet + opponent. */
+  allowedEntryCents: number[];
 }): Promise<H2hEnqueueOrMatchResult> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('h2h_enqueue_quick_match', {
     p_mode: params.mode,
     p_max_affordable_entry_cents: Math.max(0, Math.floor(params.maxAffordableEntryCents)),
+    p_allowed_entry_cents: params.allowedEntryCents.map((n) => Math.max(0, Math.floor(n))),
   });
   if (error) throw new Error(error.message);
   const j = asRpcRecord(data);
