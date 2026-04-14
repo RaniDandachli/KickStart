@@ -1,8 +1,9 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type ModalProps = {
   visible: boolean;
@@ -13,7 +14,6 @@ type ModalProps = {
   /** Defaults to standard arcade entry (10). Turbo Arena uses 20. */
   prizeEntryCredits?: number;
 };
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 export function ArcadePlayModeModal({
   visible,

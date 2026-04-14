@@ -18,9 +18,12 @@ import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
 export default function PreMatchLobbyScreen() {
-  const params = useLocalSearchParams<{ matchId: string | string[] }>();
+  const params = useLocalSearchParams<{ matchId: string | string[]; returnTo?: string | string[] }>();
   const rawMid = params.matchId;
   const matchId = Array.isArray(rawMid) ? rawMid[0] : rawMid;
+  const rawReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnTo = typeof rawReturnTo === 'string' && rawReturnTo.startsWith('/') ? rawReturnTo : undefined;
+  const leaveTarget = returnTo ?? '/(app)/(tabs)/play';
   const router = useRouter();
   const qc = useQueryClient();
   const [leaving, setLeaving] = useState(false);
@@ -122,7 +125,7 @@ export default function PreMatchLobbyScreen() {
     }
 
     useMatchmakingStore.getState().setActiveMatch(null);
-    router.replace('/(app)/(tabs)/play');
+    router.replace(leaveTarget as never);
   }
 
   if (
@@ -148,7 +151,7 @@ export default function PreMatchLobbyScreen() {
           variant="ghost"
           onPress={() => {
             useMatchmakingStore.getState().setActiveMatch(null);
-            router.replace('/(app)/(tabs)/play');
+            router.replace(leaveTarget as never);
           }}
         />
       </Screen>
@@ -177,7 +180,7 @@ export default function PreMatchLobbyScreen() {
           title="Back to Arcade"
           onPress={() => {
             useMatchmakingStore.getState().setActiveMatch(null);
-            router.replace('/(app)/(tabs)/play');
+            router.replace(leaveTarget as never);
           }}
         />
       </Screen>
@@ -245,7 +248,8 @@ export default function PreMatchLobbyScreen() {
           if (hasOpponent) {
             router.push(`/(app)/(tabs)/play/match/${matchId}`);
           } else {
-            router.replace('/(app)/(tabs)/play/casual');
+            const rt = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
+            router.replace(`/(app)/(tabs)/play/casual${rt}` as never);
           }
         }}
       />

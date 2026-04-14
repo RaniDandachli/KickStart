@@ -8,9 +8,10 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import {
-  DAILY_FREE_PRIZE_USD,
-  DAILY_FREE_TOURNAMENT_ROUNDS,
+  getDailyTournamentPrizeUsd,
+  getDailyTournamentRounds,
   getRoundLabel,
+  todayYmdLocal,
 } from '@/lib/dailyFreeTournament';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -25,6 +26,10 @@ export default function DailyFreeTournamentScreen() {
   const eliminated = useDailyFreeTournamentStore((s) => s.eliminated);
   const hydrate = useDailyFreeTournamentStore((s) => s.hydrate);
   const resetCountdown = useDailyFreeResetClock(uid, hydrate);
+  const dayKey = useDailyFreeTournamentStore((s) => s.dayKey);
+  const todaysKey = dayKey || todayYmdLocal();
+  const dailyRounds = getDailyTournamentRounds(todaysKey);
+  const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,14 +46,14 @@ export default function DailyFreeTournamentScreen() {
     );
   }
 
-  const clearedToday = !eliminated && nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
-  const canPlay = !eliminated && nextRound <= DAILY_FREE_TOURNAMENT_ROUNDS;
+  const clearedToday = !eliminated && nextRound > dailyRounds;
+  const canPlay = !eliminated && nextRound <= dailyRounds;
   const statusLine = eliminated
-    ? `Today’s run ended in ${getRoundLabel(Math.min(nextRound, DAILY_FREE_TOURNAMENT_ROUNDS))}. New bracket at midnight.`
+    ? `Today’s run ended in ${getRoundLabel(Math.min(nextRound, dailyRounds))}. New bracket at midnight.`
     : clearedToday
-      ? `You cleared today’s ${DAILY_FREE_TOURNAMENT_ROUNDS}-round path — showcase prize tier $${DAILY_FREE_PRIZE_USD}. New bracket in ${resetCountdown}.`
+      ? `You reached the end of today’s ${dailyRounds}-round path — showcase tier was $${dailyPrizeUsd}. New bracket in ${resetCountdown}.`
       : canPlay
-        ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${DAILY_FREE_TOURNAMENT_ROUNDS})`
+        ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${dailyRounds})`
         : 'Bracket complete';
 
   return (
@@ -64,11 +69,9 @@ export default function DailyFreeTournamentScreen() {
       </Pressable>
 
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>TOURNAMENT OF THE DAY</Text>
-      <Text style={styles.prizeLine}>
-        ${DAILY_FREE_PRIZE_USD} showcase prize · free entry · {DAILY_FREE_TOURNAMENT_ROUNDS} wins to crown
-      </Text>
+      <Text style={styles.prizeLine}>${dailyPrizeUsd} daily showcase · free entry · {dailyRounds} rounds today</Text>
       <Text style={styles.body}>
-        {`One entry per local day (resets at midnight). Ten skill rounds with rotating games — Tap Dash, Tile Clash, and Neon Ball Run — climb to the final for the $${DAILY_FREE_PRIZE_USD} showcase path or get knocked out along the way.`}
+        {`One entry per local day (resets at midnight). Rotating skill rounds — Tap Dash, Tile Clash, and Neon Ball Run — survive all ${dailyRounds} rounds to finish today’s path ($${dailyPrizeUsd} showcase).`}
       </Text>
       <Text style={styles.countdownLine}>New tournament in {resetCountdown}</Text>
       <Text style={styles.disclaimer}>

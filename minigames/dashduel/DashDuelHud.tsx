@@ -36,9 +36,9 @@ function SpeedPips({ frac }: { frac: number }) {
             pipStyles.pip,
             {
               backgroundColor: i < filled
-                ? i < 2 ? 'rgba(0,240,255,0.9)' : 'rgba(255,0,110,0.9)'
+                ? i < 2 ? 'rgba(167,139,250,0.9)' : 'rgba(255,0,110,0.9)'
                 : 'rgba(255,255,255,0.15)',
-              shadowColor: i < filled ? (i < 2 ? '#00f0ff' : '#ff006e') : 'transparent',
+              shadowColor: i < filled ? (i < 2 ? '#a78bfa' : '#ff006e') : 'transparent',
               shadowOpacity: i < filled ? 0.8 : 0,
               shadowRadius: 4,
             },
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 12,
   },
   scoreLine: { color: 'rgba(148,163,184,0.95)', fontSize: 12, fontWeight: '700' },
-  streak: { color: 'rgba(0,240,255,0.95)' },
+  streak: { color: 'rgba(167,139,250,0.95)' },
   rightCol: { alignItems: 'flex-end', minWidth: 88 },
   prizePill: {
     paddingHorizontal: 10,

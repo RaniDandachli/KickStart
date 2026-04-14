@@ -484,7 +484,7 @@ export default function ProfileScreen() {
                     borderColor: draw
                       ? 'rgba(148,163,184,0.45)'
                       : win
-                        ? 'rgba(0,240,255,0.4)'
+                        ? 'rgba(167,139,250,0.4)'
                         : 'rgba(255,0,110,0.35)',
                   },
                 ]}
@@ -507,7 +507,7 @@ export default function ProfileScreen() {
         )
       ) : (
         mockHistory.map((h) => (
-          <View key={h.id} style={[styles.historyRow, { borderColor: h.win ? 'rgba(0,240,255,0.4)' : 'rgba(255,0,110,0.35)' }]}>
+          <View key={h.id} style={[styles.historyRow, { borderColor: h.win ? 'rgba(167,139,250,0.4)' : 'rgba(255,0,110,0.35)' }]}>
             <View style={[styles.historyDot, { backgroundColor: h.win ? runit.neonCyan : runit.neonPink }]} />
             <Text style={styles.historyLabel}>{h.label}</Text>
             <Text style={styles.historyWhen}>{h.when}</Text>
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   pill: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0,240,255,0.25)',
+    borderColor: 'rgba(167,139,250,0.25)',
     backgroundColor: 'rgba(6,2,14,0.6)',
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -672,9 +672,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     marginBottom: 10,
-    backgroundColor: 'rgba(0,240,255,0.15)',
+    backgroundColor: 'rgba(167,139,250,0.15)',
     borderWidth: 2,
-    borderColor: 'rgba(0,240,255,0.55)',
+    borderColor: 'rgba(167,139,250,0.55)',
   },
   addFundsBtnText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   walletBtns: { flexDirection: 'row', gap: 10 },
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
   },
   wBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   wBtnPrimary: { backgroundColor: runit.neonPink, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
-  wBtnGhost: { borderWidth: 2, borderColor: 'rgba(0,240,255,0.55)', backgroundColor: 'rgba(0,240,255,0.06)' },
+  wBtnGhost: { borderWidth: 2, borderColor: 'rgba(167,139,250,0.55)', backgroundColor: 'rgba(167,139,250,0.06)' },
   wBtnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
   sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   sectionTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 2 },

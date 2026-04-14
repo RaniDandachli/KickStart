@@ -3,60 +3,55 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
-import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
-import { HeadToHeadPlayModal } from '@/components/arcade/HeadToHeadPlayModal';
-import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
-import { HomeArcadeTierPickRow, HomePlayHero } from '@/components/arcade/HomePlayHero';
+import { HomePlayHero } from '@/components/arcade/HomePlayHero';
+import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import {
-    BallRunGameIcon,
-    DashDuelGameIcon,
-    TapDashGameIcon,
-    TileClashGameIcon,
-    TurboArenaGameIcon,
+  BallRunGameIcon,
+  DashDuelGameIcon,
+  TapDashGameIcon,
+  TileClashGameIcon,
+  TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
+import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useActiveSeason } from '@/hooks/useActiveSeason';
+import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { buildTickerLinesFromLobby, useHomeLobbyStats } from '@/hooks/useHomeLobbyStats';
+import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
-import { pushCrossTab } from '@/lib/appNavigation';
-import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
-import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
-import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
-import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
-import { DAILY_FREE_PRIZE_USD, DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
+import { pushCrossTab } from '@/lib/appNavigation';
+import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { formatUsdFromCents } from '@/lib/money';
-import { queryKeys } from '@/lib/queryKeys';
-import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
-import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 export default function HomeScreen() {
-  const queryClient = useQueryClient();
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
   const dailyHydrate = useDailyFreeTournamentStore((s) => s.hydrate);
+  const dailyDayKey = useDailyFreeTournamentStore((s) => s.dayKey);
   const dailyResetCountdown = useDailyFreeResetClock(dailyUid, dailyHydrate);
+  const todaysKey = dailyDayKey || todayYmdLocal();
+  const dailyRounds = getDailyTournamentRounds(todaysKey);
+  const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
   const profileQ = useProfile(uid);
   const fightQ = useProfileFightStats(uid);
   const seasonQ = useActiveSeason();
   const tournamentsQ = useTournaments(true);
   const lobbyStatsQ = useHomeLobbyStats();
-  const h2hBoardQuery = useHomeH2hQueueBoard();
 
   const liveLobby = useMemo(() => {
     if (!ENABLE_BACKEND || lobbyStatsQ.data == null) return null;
@@ -77,87 +72,38 @@ export default function HomeScreen() {
   const homeYourStats = useMemo(() => {
     if (!ENABLE_BACKEND || !uid) {
       return [
-        ['2', 'WINS', runit.neonCyan],
-        ['1', 'LOSSES', runit.neonPink],
+        ['2', 'WINS', runit.neonPink],
+        ['1', 'LOSSES', '#94a3b8'],
         ['3', 'STREAK', runit.neonPurple],
       ] as const;
     }
     const f = fightQ.data;
     return [
-      [String(f?.wins ?? 0), 'WINS', runit.neonCyan],
-      [String(f?.losses ?? 0), 'LOSSES', runit.neonPink],
+      [String(f?.wins ?? 0), 'WINS', runit.neonPink],
+      [String(f?.losses ?? 0), 'LOSSES', '#94a3b8'],
       [String(f?.current_streak ?? 0), 'STREAK', runit.neonPurple],
     ] as const;
   }, [fightQ.data, uid]);
 
   const walletCents = useWalletDisplayCents();
   const walletDisplay = formatUsdFromCents(walletCents);
-  const [h2hGate, setH2hGate] = useState<{
-    path: string;
-    title: string;
-    entryUsd: number;
-    prizeUsd: number;
-    gameKey: H2hGameKey;
-    lobbyKind: H2hLobbyKind;
-    waiterId?: string;
-    /** From live board row — join URL uses these for exact RPC tier match. */
-    entryFeeWalletCents?: number;
-    listedPrizeUsdCents?: number;
-  } | null>(null);
-
-  const [tierPick, setTierPick] = useState<{ title: string; gameKey: H2hGameKey; route: string } | null>(null);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [playNowOpen, setPlayNowOpen] = useState(false);
 
-  const waiters = useHomeH2hBoardStore((s) => s.waiters);
-  const replaceWaitersFromServer = useHomeH2hBoardStore((s) => s.replaceWaitersFromServer);
-  const removeWaiter = useHomeH2hBoardStore((s) => s.removeWaiter);
+  function goQuickMatch() {
+    const rt = encodeURIComponent('/(app)/(tabs)');
+    pushCrossTab(router, `/(app)/(tabs)/play/casual?quick=1&returnTo=${rt}` as never);
+  }
 
-  useEffect(() => {
-    if (!ENABLE_BACKEND) return;
-    replaceWaitersFromServer(h2hBoardQuery.data ?? []);
-  }, [ENABLE_BACKEND, h2hBoardQuery.data, replaceWaitersFromServer]);
+  function goBrowseLive() {
+    const rt = encodeURIComponent('/(app)/(tabs)');
+    pushCrossTab(router, `/(app)/(tabs)/play/live-matches?returnTo=${rt}` as never);
+  }
 
-  const [rotateTick, setRotateTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setRotateTick((t) => t + 1), 4500);
-    return () => clearInterval(id);
-  }, []);
-
-  const h2hRows = useMemo(() => {
-    return H2H_OPEN_GAMES.map((g) => {
-      const forGame = sortWaitersForDisplay(waiters.filter((w) => w.gameKey === g.gameKey));
-      const w = forGame.length ? forGame[rotateTick % forGame.length]! : null;
-      const tier =
-        w != null
-          ? MATCH_ENTRY_TIERS[((w.tierIndex % MATCH_ENTRY_TIERS.length) + MATCH_ENTRY_TIERS.length) % MATCH_ENTRY_TIERS.length]
-          : null;
-      if (!w || !tier) {
-        return { ...g, activeWaiter: null, queueTotal: 0, rotateIndex: 0 };
-      }
-      const postedMinutesAgo = Math.max(1, Math.floor((Date.now() - w.postedAt) / 60_000));
-      const queueTotal = forGame.length;
-      const rotateIndex = queueTotal > 0 ? (rotateTick % queueTotal) + 1 : 0;
-      const entryUsd =
-        w.entryFeeWalletCents != null ? w.entryFeeWalletCents / 100 : tier.entry;
-      const prizeUsd =
-        w.listedPrizeUsdCents != null ? w.listedPrizeUsdCents / 100 : tier.prize;
-      return {
-        ...g,
-        activeWaiter: {
-          id: w.id,
-          tierShortLabel: tier.shortLabel,
-          entryUsd,
-          prizeUsd,
-          hostLabel: w.hostLabel,
-          postedMinutesAgo,
-          entryFeeWalletCents: w.entryFeeWalletCents,
-          listedPrizeUsdCents: w.listedPrizeUsdCents,
-        },
-        queueTotal,
-        rotateIndex,
-      };
-    });
-  }, [waiters, rotateTick]);
+  function goChooseContest() {
+    const rt = encodeURIComponent('/(app)/(tabs)');
+    pushCrossTab(router, `/(app)/(tabs)/play/choose-contest?returnTo=${rt}` as never);
+  }
 
   function h2hIconFor(gameKey: H2hGameKey, size: number) {
     switch (gameKey) {
@@ -177,24 +123,20 @@ export default function HomeScreen() {
   }
 
   function h2hGradients(gameKey: H2hGameKey): readonly [string, string] {
-    switch (gameKey) {
-      case 'tap-dash':
-        return ['#1e1b4b', '#4c1d95'];
-      case 'tile-clash':
-        return ['#0f172a', '#5b21b6'];
-      case 'dash-duel':
-        return ['#020617', '#0c4a6e'];
-      case 'ball-run':
-        return ['#1a0b2e', '#831843'];
-      case 'turbo-arena':
-        return ['#020617', '#7c2d12'];
-      default:
-        return ['#1e1b4b', '#4c1d95'];
-    }
+    const row = H2H_OPEN_GAMES.find((x) => x.gameKey === gameKey);
+    const bg = row?.bgColors;
+    if (bg && bg.length >= 2) return [bg[0], bg[bg.length - 1]];
+    return ['#141028', '#3b2b68'];
   }
 
   return (
-    <LinearGradient colors={['#06020e', '#12081f', '#0c0618', '#050208']} locations={[0, 0.35, 0.65, 1]} style={styles.screenRoot} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}>
+    <LinearGradient
+      colors={['#06020e', '#12081f', '#0c0618', '#050208']}
+      locations={[0, 0.35, 0.65, 1]}
+      style={styles.screenRoot}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+    >
       <StatusBar style="light" />
       <HomeNeonBackground />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -214,154 +156,41 @@ export default function HomeScreen() {
                 `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
               );
             }}
-            onQuickMatch={() => pushCrossTab(router, '/(app)/(tabs)/play/casual?quick=1')}
+            onQuickMatch={goQuickMatch}
             onHowItWorksPress={() => setHowItWorksOpen(true)}
             webStacked={isWeb}
-          />
+            compactHome
+          >
+            <Pressable
+              onPress={() => setPlayNowOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Play now"
+              style={({ pressed }) => [styles.playNowBtn, pressed && { opacity: 0.92 }]}
+            >
+              <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.playNowGrad}>
+                <SafeIonicons name="flash" size={18} color="#fff" />
+                <Text style={styles.playNowText}>PLAY NOW</Text>
+              </LinearGradient>
+            </Pressable>
 
-          <View style={styles.sectionLabel}>
-            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {Platform.OS === 'web' ? 'LIVE MATCHES' : 'HEAD-TO-HEAD'}
-            </Text>
-            <View style={styles.livePill} accessibilityRole="text" accessibilityLabel="Live skill contests">
-              <View style={styles.liveDot} />
-              <Text style={styles.livePillText}>LIVE</Text>
+            <View style={styles.liveCarouselHead}>
+              <Text style={[styles.liveCarouselTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
+              <Pressable onPress={goBrowseLive} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+                <Text style={styles.liveCarouselLink}>See all</Text>
+              </Pressable>
             </View>
-            <View style={styles.sectionLine} />
-          </View>
-          <Text style={styles.sectionSub}>
-            {Platform.OS === 'web' ? (
-              <>
-                Real-time 1v1 queues — <Text style={styles.sectionEm}>Join</Text> matches their tier.{' '}
-                <Text style={styles.sectionEm}>Find opponent</Text> picks your tier first.
-              </>
-            ) : (
-              <>
-                Live 1v1 queues per game — we show who’s waiting (rotates if several).{' '}
-                <Text style={styles.sectionEm}>Join</Text> = same tier as their search.{' '}
-                <Text style={styles.sectionEm}>Find opponent</Text> = pick a contest tier, then we match you.
-              </>
-            )}
-          </Text>
-
-          {Platform.OS === 'web' ? (
             <HomeH2hCarouselWeb
-              rows={h2hRows}
+              rows={H2H_OPEN_GAMES.map((g) => ({ ...g, activeWaiter: null, queueTotal: 0, rotateIndex: 0 }))}
               h2hIconFor={h2hIconFor}
               h2hGradients={h2hGradients}
               phoneWeb={!webDesktopTabs}
-              onRowPress={(row) => {
-                if (row.activeWaiter) {
-                  setH2hGate({
-                    path: row.route,
-                    title: row.title,
-                    entryUsd: row.activeWaiter.entryUsd,
-                    prizeUsd: row.activeWaiter.prizeUsd,
-                    gameKey: row.gameKey,
-                    lobbyKind: 'host_waiting',
-                    waiterId: row.activeWaiter.id,
-                    entryFeeWalletCents: row.activeWaiter.entryFeeWalletCents,
-                    listedPrizeUsdCents: row.activeWaiter.listedPrizeUsdCents,
-                  });
-                } else {
-                  setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
-                }
-              }}
+              onRowPress={() => goBrowseLive()}
             />
-          ) : (
-            h2hRows.map((row) => {
-              const [c1, c2] = h2hGradients(row.gameKey);
-              const hostWaiting = row.activeWaiter != null;
-              const entryLbl = row.activeWaiter
-                ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100))
-                : '—';
-              const prizeLbl = row.activeWaiter
-                ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100))
-                : '—';
-              return (
-                <Pressable
-                  key={row.gameKey}
-                  style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
-                  onPress={() => {
-                    if (row.activeWaiter) {
-                      setH2hGate({
-                        path: row.route,
-                        title: row.title,
-                        entryUsd: row.activeWaiter.entryUsd,
-                        prizeUsd: row.activeWaiter.prizeUsd,
-                        gameKey: row.gameKey,
-                        lobbyKind: 'host_waiting',
-                        waiterId: row.activeWaiter.id,
-                        entryFeeWalletCents: row.activeWaiter.entryFeeWalletCents,
-                        listedPrizeUsdCents: row.activeWaiter.listedPrizeUsdCents,
-                      });
-                    } else {
-                      setTierPick({ title: row.title, gameKey: row.gameKey, route: row.route });
-                    }
-                  }}
-                >
-                  <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
-                    <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
-                      <View style={styles.gameRow}>
-                        <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
-                        <View style={styles.gameTextCol}>
-                          <View style={styles.h2hTitleRow}>
-                            <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
-                              {row.title}
-                            </Text>
-                            <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
-                              <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
-                                {hostWaiting ? 'IN QUEUE' : 'OPEN'}
-                              </Text>
-                            </View>
-                          </View>
-                          {hostWaiting && row.activeWaiter ? (
-                            <>
-                              <Text style={styles.hostLine} numberOfLines={2}>
-                                <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
-                              </Text>
-                              {row.queueTotal > 1 ? (
-                                <Text style={styles.queueRotate}>
-                                  Showing {row.rotateIndex} of {row.queueTotal} in queue
-                                </Text>
-                              ) : null}
-                              <Text style={styles.tierTag} numberOfLines={1}>
-                                {row.activeWaiter.tierShortLabel} tier
-                              </Text>
-                              <Text style={styles.gameEntry}>
-                                Entry {entryLbl} · Listed reward {prizeLbl}
-                              </Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.hostLine} numberOfLines={2}>
-                                No open searches right now — tap to pick a contest tier and start matchmaking.
-                              </Text>
-                              <Text style={styles.tierTag} numberOfLines={1}>
-                                Choose tier on next step
-                              </Text>
-                              <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
-                            </>
-                          )}
-                        </View>
-                        <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
-                          <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
-                        </LinearGradient>
-                      </View>
-                    </LinearGradient>
-                  </LinearGradient>
-                </Pressable>
-              );
-            })
-          )}
+          </HomePlayHero>
 
-          <View style={[styles.sectionLabel, { marginTop: 8 }]}>
+          <View style={[styles.sectionLabel, { marginTop: 10 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {ENABLE_DAILY_FREE_TOURNAMENT && isWeb
-                ? 'DAILY TOURNAMENT'
-                : ENABLE_DAILY_FREE_TOURNAMENT
-                  ? 'DAILY EVENT'
-                  : 'LIVE EVENT'}
+              {ENABLE_DAILY_FREE_TOURNAMENT ? 'DAILY TOURNAMENT' : 'LIVE EVENT'}
             </Text>
             {ENABLE_DAILY_FREE_TOURNAMENT ? (
               <View style={styles.homeTourneyFreePill}>
@@ -372,7 +201,7 @@ export default function HomeScreen() {
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [styles.dailyPress, pressed && { opacity: 0.95 }]}
             onPress={() =>
               ENABLE_DAILY_FREE_TOURNAMENT
                 ? pushCrossTab(router, '/(app)/(tabs)/tournaments/daily-free')
@@ -382,7 +211,7 @@ export default function HomeScreen() {
             {ENABLE_DAILY_FREE_TOURNAMENT && isWeb ? (
               <View style={styles.dailyBannerOuter}>
                 <LinearGradient
-                  colors={['rgba(251,191,36,0)', 'rgba(245,158,11,0.35)', 'rgba(234,88,12,0.45)']}
+                  colors={['rgba(139,92,246,0)', 'rgba(139,92,246,0.2)', 'rgba(225,29,140,0.22)']}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.dailyBannerGlow}
@@ -397,17 +226,17 @@ export default function HomeScreen() {
                   <View style={styles.dailyBannerInner}>
                     <View style={styles.dailyBannerTop}>
                       <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                        <SafeIonicons name="trophy" size={48} color="#fbbf24" />
+                        <SafeIonicons name="trophy" size={40} color="#f9a8d4" />
                       </View>
                       <View style={styles.dailyBannerCopy}>
                         <Text style={[styles.dailyBannerHeadline, { fontFamily: runitFont.black }]}>
-                          ${DAILY_FREE_PRIZE_USD} DAILY FREE-TO-ENTER
+                          ${dailyPrizeUsd} DAILY FREE-TO-ENTER
                         </Text>
                         <Text style={styles.dailyBannerSub}>
-                          Skill path · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds · No wallet
+                          Skill path · {dailyRounds} rounds · No wallet
                         </Text>
                       </View>
-                      <LinearGradient colors={['#34d399', '#14b8a6', '#0d9488']} style={styles.joinBtnDailyBanner}>
+                      <LinearGradient colors={[runit.neonPink, runit.neonPurple]} style={styles.joinBtnDailyBanner}>
                         <Text style={styles.joinBtnDailyBannerText}>PLAY FREE</Text>
                       </LinearGradient>
                     </View>
@@ -421,9 +250,7 @@ export default function HomeScreen() {
             ) : (
               <LinearGradient
                 colors={
-                  ENABLE_DAILY_FREE_TOURNAMENT
-                    ? ['#064e3b', '#7c3aed', '#be185d']
-                    : [runit.neonPurple, runit.neonPink]
+                  ENABLE_DAILY_FREE_TOURNAMENT ? [runit.neonPurple, '#5b21b6', runit.neonPink] : [runit.neonPurple, runit.neonPink]
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -431,27 +258,25 @@ export default function HomeScreen() {
               >
                 <View style={ENABLE_DAILY_FREE_TOURNAMENT ? styles.tourneyCardDaily : styles.tourneyCard}>
                   <View style={styles.trophyIcon} accessibilityLabel="Tournament">
-                    <SafeIonicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 44 : 34} color="#fef08a" />
+                    <SafeIonicons name="trophy" size={ENABLE_DAILY_FREE_TOURNAMENT ? 38 : 32} color="#fbcfe8" />
                   </View>
                   <View style={styles.tourneyMid}>
                     {ENABLE_DAILY_FREE_TOURNAMENT ? (
                       <>
-                        <View style={styles.homeDailyTitleRow}>
-                          <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
-                        </View>
+                        <Text style={[styles.tourneyKicker, { fontFamily: runitFont.black }]}>TOURNAMENT OF THE DAY</Text>
                         <View style={styles.homeDailyChips}>
                           <View style={styles.homeDailyChip}>
                             <Text style={styles.homeDailyChipTxt}>Skill path</Text>
                           </View>
                           <View style={[styles.homeDailyChip, styles.homeDailyChipAccent]}>
-                            <Text style={styles.homeDailyChipTxtAccent}>{DAILY_FREE_TOURNAMENT_ROUNDS} rounds</Text>
+                            <Text style={styles.homeDailyChipTxtAccent}>{dailyRounds} rounds</Text>
                           </View>
                           <View style={styles.homeDailyChip}>
                             <Text style={styles.homeDailyChipTxt}>No wallet</Text>
                           </View>
                         </View>
                         <View style={styles.homeDailyPrizeRow}>
-                          <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
+                          <Text style={[styles.homeDailyPrizeUsd, { fontFamily: runitFont.black }]}>${dailyPrizeUsd}</Text>
                           <Text style={styles.homeDailyPrizeSub}>showcase prize · play free</Text>
                         </View>
                         <Text style={styles.tourneyMetaDaily}>
@@ -460,19 +285,19 @@ export default function HomeScreen() {
                       </>
                     ) : (
                       <>
-                        <Text style={[styles.tourneyTitle, runitTextGlowCyan]} numberOfLines={2}>
+                        <Text style={styles.tourneyTitle} numberOfLines={2}>
                           {nextTournament?.name ?? 'Daily Tournament'}
                         </Text>
                         <Text style={styles.tourneyMeta}>
                           {nextTournament
                             ? `${nextTournament.current_player_count}/${nextTournament.max_players} players · ${formatTournamentState(nextTournament.state)}`
-                            : '18/20 players · open'}
+                            : 'Open bracket'}
                         </Text>
                       </>
                     )}
                   </View>
                   <LinearGradient
-                    colors={ENABLE_DAILY_FREE_TOURNAMENT ? ['#34d399', '#059669'] : [runit.neonPink, runit.neonPurple]}
+                    colors={[runit.neonPink, runit.neonPurple]}
                     style={[styles.joinBtn, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnDailyFree]}
                   >
                     <Text style={[styles.joinBtnText, ENABLE_DAILY_FREE_TOURNAMENT && styles.joinBtnTextDailyFree]}>
@@ -484,10 +309,8 @@ export default function HomeScreen() {
             )}
           </Pressable>
 
-          <View style={[styles.sectionLabel, { marginTop: 8 }]}>
-            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
-              {isWeb ? 'ARCADE GAMES' : 'YOUR STATS'}
-            </Text>
+          <View style={[styles.sectionLabel, { marginTop: 18 }]}>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
             <View style={styles.sectionLine} />
           </View>
 
@@ -505,24 +328,8 @@ export default function HomeScreen() {
               ))
             )}
           </View>
-          {isWeb ? (
-            <>
-              <HomeArcadeTierPickRow
-                onEntryTierPress={(entry, prize) => {
-                  const ec = Math.round(entry * 100);
-                  const pc = Math.round(prize * 100);
-                  pushCrossTab(
-                    router,
-                    `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
-                  );
-                }}
-                webWideSnap={webDesktopTabs}
-              />
-              <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
-            </>
-          ) : (
-            <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
-          )}
+
+          <Text style={styles.statsFoot}>Hey {displayName} — climb the board this season.</Text>
 
           <View style={styles.seasonCard}>
             {seasonQ.isLoading ? (
@@ -537,206 +344,162 @@ export default function HomeScreen() {
             )}
           </View>
 
-          <View style={{ height: 32 }} />
+          {isWeb && webDesktopTabs ? (
+            <Text style={styles.webHint}>Arcade games & prize runs live under the Arcade tab.</Text>
+          ) : null}
+
+          <View style={{ height: 36 }} />
         </ScrollView>
 
-        <HeadToHeadPlayModal
-          visible={!!h2hGate}
-          gameTitle={h2hGate?.title ?? ''}
-          entryUsd={h2hGate?.entryUsd ?? 0}
-          prizeUsd={h2hGate?.prizeUsd ?? 0}
-          lobbyKind={h2hGate?.lobbyKind ?? 'host_waiting'}
-          onClose={() => setH2hGate(null)}
-          onPractice={() => {
-            if (!h2hGate) return;
-            pushCrossTab(router, `${h2hGate.path}?mode=practice` as never);
-            setH2hGate(null);
-          }}
-          onHeadToHeadPrize={() => {
-            if (!h2hGate) return;
-            if (h2hGate.waiterId) removeWaiter(h2hGate.waiterId);
-            if (ENABLE_BACKEND) void queryClient.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
-            const e = encodeURIComponent(String(h2hGate.entryUsd));
-            const p = encodeURIComponent(String(h2hGate.prizeUsd));
-            const gk = encodeURIComponent(h2hGate.gameKey);
-            const ec =
-              h2hGate.entryFeeWalletCents != null
-                ? h2hGate.entryFeeWalletCents
-                : Math.round(h2hGate.entryUsd * 100);
-            const pc =
-              h2hGate.listedPrizeUsdCents != null
-                ? h2hGate.listedPrizeUsdCents
-                : Math.round(h2hGate.prizeUsd * 100);
-            const centsPrefix = `entryCents=${ec}&prizeCents=${pc}&`;
-            pushCrossTab(
-              router,
-              `/(app)/(tabs)/play/casual?${centsPrefix}entry=${e}&prize=${p}&game=${gk}&intent=join` as never,
-            );
-            setH2hGate(null);
-          }}
-        />
-
-        <H2hTierPickModal
-          visible={!!tierPick}
-          gameTitle={tierPick?.title ?? ''}
-          onClose={() => setTierPick(null)}
-          onSelectTier={(tier) => {
-            if (!tierPick) return;
-            const ec = Math.round(tier.entry * 100);
-            const pc = Math.round(tier.prize * 100);
-            const e = encodeURIComponent(String(tier.entry));
-            const p = encodeURIComponent(String(tier.prize));
-            const gk = encodeURIComponent(tierPick.gameKey);
-            pushCrossTab(
-              router,
-              `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${gk}&intent=start` as never,
-            );
-            setTierPick(null);
-          }}
-        />
-
         <HowItWorksModal visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)} />
+
+        <Modal visible={playNowOpen} transparent animationType="fade" onRequestClose={() => setPlayNowOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setPlayNowOpen(false)} />
+            <View style={styles.modalCard}>
+              <Text style={[styles.modalTitle, { fontFamily: runitFont.black }]}>Choose how you want to play</Text>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  goQuickMatch();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="flash" size={18} color={runit.neonCyan} />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Quick Play</Text>
+                </View>
+                <Text style={styles.modalActionSub}>Fastest queue. We find the first available match for you.</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  goChooseContest();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="options-outline" size={18} color={runit.neonPink} />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Start Your Own Match</Text>
+                </View>
+                <Text style={styles.modalActionSub}>Pick your game + contest tier, then queue for an opponent.</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-
 const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: 14, paddingBottom: 100, paddingTop: 6 },
-  scrollWebDesktop: { maxWidth: 1100, width: '100%', alignSelf: 'center' },
-  sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  sectionTitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase', textShadowColor: runit.neonCyan, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
-  livePill: {
+  scroll: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
+  scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
+  playNowBtn: { marginBottom: 12 },
+  playNowGrad: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.45)',
+    justifyContent: 'center',
+    gap: 8,
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 4,
-    elevation: 2,
+  playNowText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.7 },
+  liveCarouselHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 10,
   },
-  livePillText: {
-    color: '#86efac',
-    fontSize: 9,
+  liveCarouselTitle: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1.4,
   },
-  sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
-  sectionSub: { color: 'rgba(148,163,184,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 12, lineHeight: 17 },
-  sectionEm: { color: '#fde68a', fontWeight: '800' },
-  gameWrap: { marginBottom: 10 },
-  gameBorder: { borderRadius: 16, padding: 2, shadowColor: 'rgba(255,0,110,0.4)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 12, elevation: 8 },
-  gameCard: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, minHeight: 80 },
-  gameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  gameIconCol: { width: 52, alignItems: 'center', justifyContent: 'center' },
-  gameTextCol: { flex: 1 },
-  h2hTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' },
-  gameTitle: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.4, flexShrink: 1 },
-  waitingPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  pillQueued: {
-    backgroundColor: 'rgba(0,240,255,0.12)',
-    borderColor: 'rgba(0,240,255,0.35)',
-  },
-  pillOpenSlot: {
-    backgroundColor: 'rgba(250,204,21,0.1)',
-    borderColor: 'rgba(250,204,21,0.4)',
-  },
-  waitingPillTxt: { fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  pillTagQueued: { color: runit.neonCyan },
-  pillTagOpen: { color: '#fbbf24' },
-  hostLine: { color: 'rgba(203,213,225,0.88)', fontSize: 11, fontWeight: '600', marginBottom: 3 },
-  hostName: { color: '#fde68a', fontWeight: '800' },
-  tierTag: {
-    color: 'rgba(167,139,250,0.95)',
-    fontSize: 10,
+  liveCarouselLink: {
+    color: runit.neonCyan,
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.6,
-    marginBottom: 2,
+    textDecorationLine: 'underline',
+  },
+  sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  sectionTitle: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 2,
     textTransform: 'uppercase',
-  },
-  gameEntry: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700' },
-  gameEntryMuted: { color: 'rgba(148,163,184,0.85)', fontSize: 11, fontWeight: '600' },
-  queueRotate: { color: 'rgba(167,139,250,0.95)', fontSize: 10, fontWeight: '700', marginBottom: 2 },
-  prizeBtn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', minWidth: 90, alignItems: 'center' },
-  prizeBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
-  tourneyCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: 'rgba(8,4,18,0.88)' },
-  tourneyCardDaily: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: 'rgba(8,4,18,0.88)',
-  },
-  trophyIcon: { justifyContent: 'center' },
-  tourneyMid: { flex: 1 },
-  tourneyKicker: {
-    color: 'rgba(167,139,250,0.95)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  homeDailyPrizeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
-  homeDailyPrizeUsd: {
-    color: '#fef08a',
-    fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(250,204,21,0.5)',
+    textShadowColor: 'rgba(139,92,246,0.5)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    textShadowRadius: 8,
   },
-  homeDailyPrizeSub: { color: 'rgba(254,243,199,0.95)', fontSize: 13, fontWeight: '800' },
-  tourneyTitle: { color: runit.neonCyan, fontSize: 16, fontWeight: '900', marginBottom: 4 },
-  tourneyMeta: { color: 'rgba(203,213,225,0.85)', fontSize: 12, fontWeight: '600' },
+  sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
   homeTourneyFreePill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
-    backgroundColor: 'rgba(52,211,153,0.2)',
+    backgroundColor: 'rgba(139,92,246,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.55)',
+    borderColor: 'rgba(167,139,250,0.45)',
   },
   homeTourneyFreePillTxt: {
-    color: '#6ee7b7',
+    color: '#e9d5ff',
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
-  gameBorderDailyFree: {
-    borderWidth: 2,
-    borderColor: 'rgba(52,211,153,0.45)',
-    shadowColor: 'rgba(52,211,153,0.35)',
+  dailyPress: {
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  gameBorder: {
+    borderRadius: 18,
+    padding: 2,
+    width: '94%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: 'rgba(225,29,140,0.35)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 14,
     elevation: 10,
   },
-  homeDailyTitleRow: { marginBottom: 6 },
-  homeDailyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  gameBorderDailyFree: {
+    borderWidth: 2,
+    borderColor: 'rgba(167,139,250,0.4)',
+    shadowColor: 'rgba(139,92,246,0.35)',
+  },
+  tourneyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16, backgroundColor: 'rgba(8,4,18,0.88)' },
+  tourneyCardDaily: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(8,4,18,0.88)',
+  },
+  trophyIcon: { justifyContent: 'center' },
+  tourneyMid: { flex: 1, minWidth: 0 },
+  tourneyKicker: {
+    color: 'rgba(167,139,250,0.95)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  homeDailyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
   homeDailyChip: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -746,92 +509,87 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.35)',
   },
   homeDailyChipAccent: {
-    backgroundColor: 'rgba(52,211,153,0.12)',
-    borderColor: 'rgba(52,211,153,0.4)',
+    backgroundColor: 'rgba(225,29,140,0.1)',
+    borderColor: 'rgba(225,29,140,0.3)',
   },
   homeDailyChipTxt: { color: 'rgba(226,232,240,0.9)', fontSize: 10, fontWeight: '800' },
-  homeDailyChipTxtAccent: { color: '#a7f3d0', fontSize: 10, fontWeight: '900' },
+  homeDailyChipTxtAccent: { color: '#fbcfe8', fontSize: 10, fontWeight: '900' },
+  homeDailyPrizeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
+  homeDailyPrizeUsd: {
+    color: '#fce7f3',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(225,29,140,0.35)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  homeDailyPrizeSub: { color: 'rgba(233,213,255,0.95)', fontSize: 12, fontWeight: '800' },
+  tourneyTitle: { color: '#c4b5fd', fontSize: 17, fontWeight: '900', marginBottom: 4 },
+  tourneyMeta: { color: 'rgba(203,213,225,0.85)', fontSize: 12, fontWeight: '600' },
   tourneyMetaDaily: {
-    color: 'rgba(204,251,241,0.88)',
+    color: 'rgba(203,213,225,0.9)',
     fontSize: 11,
     fontWeight: '600',
     lineHeight: 15,
   },
-  joinBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
+  joinBtn: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12 },
   joinBtnDailyFree: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
-  joinBtnText: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  joinBtnTextDailyFree: { color: '#042f2e', fontSize: 10, letterSpacing: 0.5 },
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  homeStatsLoading: { flex: 1, color: 'rgba(148,163,184,0.9)', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
-  statGrad: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
-  statVal: { fontSize: 22, fontWeight: '900' },
-  statLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
-  statsFoot: { color: 'rgba(148,163,184,0.85)', fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  seasonCard: { marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(157,78,237,0.3)', backgroundColor: 'rgba(8,4,18,0.7)' },
-  seasonName: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13 },
+  joinBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  joinBtnTextDailyFree: { color: '#fff', fontSize: 11, letterSpacing: 0.5 },
   dailyBannerOuter: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 10,
-    shadowColor: 'rgba(251,191,36,0.25)',
+    marginBottom: 4,
+    width: '94%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: 'rgba(139,92,246,0.3)',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowOpacity: 0.85,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  dailyBannerGlow: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  dailyBannerBorder: {
-    borderRadius: 16,
-    padding: 2,
-    zIndex: 1,
-  },
+  dailyBannerGlow: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+  dailyBannerBorder: { borderRadius: 18, padding: 2, zIndex: 1 },
   dailyBannerInner: {
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: 'rgba(8,4,18,0.92)',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     overflow: 'hidden',
   },
-  dailyBannerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
+  dailyBannerTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   dailyBannerCopy: { flex: 1, minWidth: 0 },
   dailyBannerHeadline: {
     color: '#f8fafc',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.8,
-    marginBottom: 6,
-    lineHeight: 22,
+    marginBottom: 4,
+    lineHeight: 20,
   },
   dailyBannerSub: {
     color: 'rgba(203,213,225,0.92)',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   joinBtnDailyBanner: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
     alignSelf: 'center',
-    shadowColor: '#34d399',
+    shadowColor: 'rgba(225,29,140,0.4)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.45,
     shadowRadius: 10,
   },
   joinBtnDailyBannerText: {
-    color: '#042f2e',
+    color: '#fff',
     fontWeight: '900',
     fontSize: 11,
     letterSpacing: 0.6,
@@ -839,13 +597,87 @@ const styles = StyleSheet.create({
   dailyBannerRule: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(148,163,184,0.35)',
-    marginTop: 14,
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 8,
   },
   dailyBannerFoot: {
-    color: 'rgba(204,251,241,0.88)',
-    fontSize: 11,
+    color: 'rgba(203,213,225,0.88)',
+    fontSize: 10,
     fontWeight: '600',
-    lineHeight: 15,
+    lineHeight: 13,
   },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  homeStatsLoading: { flex: 1, color: 'rgba(148,163,184,0.9)', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
+  statGrad: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+  statVal: { fontSize: 22, fontWeight: '900' },
+  statLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
+  statsFoot: { color: 'rgba(148,163,184,0.85)', fontSize: 12, marginBottom: 14, textAlign: 'center' },
+  seasonCard: {
+    marginTop: 4,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(157,78,237,0.3)',
+    backgroundColor: 'rgba(8,4,18,0.7)',
+  },
+  seasonName: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13 },
+  webHint: {
+    textAlign: 'center',
+    color: 'rgba(148,163,184,0.85)',
+    fontSize: 12,
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2,6,23,0.72)',
+  },
+  modalCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.35)',
+    backgroundColor: 'rgba(10,8,20,0.96)',
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    padding: 14,
+    gap: 10,
+  },
+  modalTitle: {
+    color: '#f8fafc',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  modalAction: {
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    minHeight: 64,
+  },
+  modalActionMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalActionIcon: {
+    width: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  modalActionTitle: { color: '#fff', fontSize: 15, fontWeight: '900', lineHeight: 19 },
+  modalActionSub: { color: 'rgba(203,213,225,0.95)', fontSize: 11, marginLeft: 32, lineHeight: 15 },
 });

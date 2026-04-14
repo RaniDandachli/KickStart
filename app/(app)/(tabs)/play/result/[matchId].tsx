@@ -1,26 +1,26 @@
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { getH2hLossArcadeCreditsForEntryFeeWalletCents } from '@/constants/h2hLossArcadeCredits';
-import { isUuid } from '@/lib/isUuid';
 import { trackProductEvent } from '@/lib/analytics/productAnalytics';
+import { isUuid } from '@/lib/isUuid';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import {
-  fetchMatchSessionWithPlayers,
-  recordH2hMatchResultViaEdge,
+    fetchMatchSessionWithPlayers,
+    recordH2hMatchResultViaEdge,
 } from '@/services/api/h2hMatchSession';
-import { useDemoWalletStore } from '@/store/demoWalletStore';
-import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 import { useAuthStore } from '@/store/authStore';
+import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
+import { useDemoWalletStore } from '@/store/demoWalletStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
 export default function MatchResultScreen() {

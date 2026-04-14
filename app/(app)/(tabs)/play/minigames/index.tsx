@@ -100,7 +100,7 @@ export default function MinigamesHubScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    color: '#00f0ff',
+    color: '#a78bfa',
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: 3,

@@ -1,14 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
+import { cupBracketStorageKey } from '@/lib/cupBracketStorage';
 import { computeCupLoseAtRound } from '@/lib/cupTournaments';
 import { todayYmdLocal } from '@/lib/dailyFreeTournament';
-
-const STORAGE_PREFIX = '@kickclash/cup_bracket_v1';
-
-function storageKeyFor(userId: string, cupId: string): string {
-  return `${STORAGE_PREFIX}/${encodeURIComponent(userId)}/${encodeURIComponent(cupId)}`;
-}
 
 export type CupBracketPersist = {
   cupId: string;
@@ -29,7 +24,7 @@ type State = CupBracketPersist & {
 
 async function persistSlice(userId: string, cupId: string, s: CupBracketPersist): Promise<void> {
   if (!userId || !cupId) return;
-  await AsyncStorage.setItem(storageKeyFor(userId, cupId), JSON.stringify(s));
+  await AsyncStorage.setItem(cupBracketStorageKey(userId, cupId), JSON.stringify(s));
 }
 
 export const useCupBracketStore = create<State>((set, get) => ({
@@ -60,7 +55,7 @@ export const useCupBracketStore = create<State>((set, get) => ({
     }
 
     try {
-      const raw = await AsyncStorage.getItem(storageKeyFor(userKey, cupId));
+      const raw = await AsyncStorage.getItem(cupBracketStorageKey(userKey, cupId));
       if (raw) {
         const parsed = JSON.parse(raw) as CupBracketPersist;
         if (

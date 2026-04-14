@@ -22,6 +22,7 @@ import TileClashGame from '@/minigames/tileclash/TileClashGame';
 import { grantArcadePrizeCredits } from '@/services/economy/grantArcadePrizeCredits';
 import { useAuthStore } from '@/store/authStore';
 import { useCupBracketStore } from '@/store/cupBracketStore';
+import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { MatchFinishPayload } from '@/types/match';
 
@@ -40,21 +41,52 @@ export default function CreditCupPlayScreen() {
   const recordMatchFinished = useCupBracketStore((s) => s.recordMatchFinished);
   const forcedOutcome = useCupBracketStore((s) => s.forcedOutcomeForCurrentMatch());
 
+  const cupDailyHydrate = useCupDailyRunStore((s) => s.hydrate);
   const hydrateCup = useCallback(
     async (k: string) => {
       if (cup?.id) await hydrate(k, cup.id);
     },
     [cup?.id, hydrate],
   );
-  useDailyFreeResetClock(uid, hydrateCup);
+  useDailyFreeResetClock(uid, async (k) => {
+    await hydrateCup(k);
+    await cupDailyHydrate(k);
+  });
 
   const [done, setDone] = useState(false);
+  const [dailyCommitOk, setDailyCommitOk] = useState(false);
   const finishOnce = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
       if (cup?.id) void hydrate(uid, cup.id);
-    }, [uid, cup?.id, hydrate]),
+      void cupDailyHydrate(uid);
+    }, [uid, cup?.id, hydrate, cupDailyHydrate]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!cup?.id || !hydrated) return;
+      let cancelled = false;
+      setDailyCommitOk(false);
+      void (async () => {
+        const r = await useCupDailyRunStore.getState().tryCommitCup(uid, cup.id);
+        if (cancelled) return;
+        if (!r.ok) {
+          const other = getCreditCupById(r.committedTo);
+          router.replace('/(app)/(tabs)/tournaments');
+          Alert.alert(
+            'Daily cup run',
+            `You already used your Run It cup run today on ${other?.name ?? 'another cup'}.`,
+          );
+          return;
+        }
+        setDailyCommitOk(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [cup?.id, uid, hydrated, router]),
   );
 
   useFocusEffect(
@@ -144,7 +176,7 @@ export default function CreditCupPlayScreen() {
     );
   }
 
-  if (!hydrated) {
+  if (!hydrated || !dailyCommitOk) {
     return (
       <Screen scroll={false}>
         <Text className="text-slate-400">Loading…</Text>

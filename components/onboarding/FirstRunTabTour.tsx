@@ -18,7 +18,7 @@ import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const STEPS: { href: string; title: string; body: string }[] = [
-  { href: '/(app)/(tabs)', title: 'Home', body: 'Your hub — news, streaks, and shortcuts.' },
+  { href: '/(app)/(tabs)', title: 'Home', body: 'Choose Quick Match, Live matches, or your contest — plus daily events and stats.' },
   { href: '/(app)/(tabs)/tournaments', title: 'Events', body: 'Tournaments, brackets, and scheduled play.' },
   { href: '/(app)/(tabs)/play', title: 'Arcade', body: 'Minigames, ranked, and casual queues.' },
   { href: '/(app)/(tabs)/prizes', title: 'Prizes', body: 'Spend tickets and prize credits.' },

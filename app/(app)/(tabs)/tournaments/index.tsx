@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
@@ -10,10 +11,12 @@ import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/fe
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useTournaments } from '@/hooks/useTournaments';
-import { CREDIT_CUPS } from '@/lib/cupTournaments';
-import { DAILY_FREE_PRIZE_USD, DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
+import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
+import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
+import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
+import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 
 export default function TournamentsListScreen() {
@@ -22,7 +25,47 @@ export default function TournamentsListScreen() {
   const { data, isLoading, isError } = useTournaments(false);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
   const dailyHydrate = useDailyFreeTournamentStore((s) => s.hydrate);
-  const dailyResetCountdown = useDailyFreeResetClock(dailyUid, dailyHydrate);
+  const cupDailyHydrate = useCupDailyRunStore((s) => s.hydrate);
+  const dailyDayKey = useDailyFreeTournamentStore((s) => s.dayKey);
+  const dailyResetCountdown = useDailyFreeResetClock(dailyUid, async (k) => {
+    await dailyHydrate(k);
+    await cupDailyHydrate(k);
+  });
+  const todaysKey = dailyDayKey || todayYmdLocal();
+  const dailyRounds = getDailyTournamentRounds(todaysKey);
+  const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
+
+  const [cupBoard, setCupBoard] = useState<{
+    commitId: string | null;
+    byId: Record<string, { won: boolean; lost: boolean }>;
+  } | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void (async () => {
+        await useCupDailyRunStore.getState().hydrate(dailyUid);
+        if (cancelled) return;
+        const commit = useCupDailyRunStore.getState().committedCupId;
+        const today = todayYmdLocal();
+        const byId: Record<string, { won: boolean; lost: boolean }> = {};
+        for (const c of CREDIT_CUPS) {
+          const p = await loadCupBracketPersist(dailyUid, c.id);
+          if (!p || p.dayKey !== today) {
+            byId[c.id] = { won: false, lost: false };
+            continue;
+          }
+          const won = !p.eliminated && p.nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
+          const lost = p.eliminated;
+          byId[c.id] = { won, lost };
+        }
+        if (!cancelled) setCupBoard({ commitId: commit, byId });
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [dailyUid]),
+  );
 
   return (
     <Screen>
@@ -50,11 +93,11 @@ export default function TournamentsListScreen() {
                 </View>
               </View>
               <View style={styles.dailyPrizeRow}>
-                <Text style={[styles.dailyPrizeDollar, { fontFamily: runitFont.black }]}>${DAILY_FREE_PRIZE_USD}</Text>
+                <Text style={[styles.dailyPrizeDollar, { fontFamily: runitFont.black }]}>${dailyPrizeUsd}</Text>
                 <Text style={styles.dailyPrizeSub}>showcase prize</Text>
               </View>
               <Text style={styles.cardMetaTxt}>
-                {DAILY_FREE_TOURNAMENT_ROUNDS} rounds · ${DAILY_FREE_PRIZE_USD} showcase · no entry fee
+                {dailyRounds} rounds · ${dailyPrizeUsd} showcase · no entry fee
               </Text>
               <Text style={styles.dailyResetTiny}>Resets in {dailyResetCountdown}</Text>
               <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
@@ -72,40 +115,74 @@ export default function TournamentsListScreen() {
       {ENABLE_CREDIT_CUPS ? (
         <>
           <Text style={styles.sectionKicker}>CREDIT CUPS</Text>
-          <Text style={styles.cupSectionSub}>Single elimination · same games as Tournament of the Day · win prize credits to your account</Text>
-          {CREDIT_CUPS.map((cup) => (
-            <Pressable
-              key={cup.id}
-              onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
-              style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
-            >
-              <LinearGradient
-                colors={cupAccentGradient(cup.accent)}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.cardBorder}
+          <Text style={styles.cupSectionSub}>
+            One Run It cup run per day (pick a tier) · single elimination · prize credits — most players still top up for Arcade
+          </Text>
+          {CREDIT_CUPS.map((cup) => {
+            const snap = cupBoard?.byId[cup.id];
+            const wonToday = snap?.won ?? false;
+            const lockedOther =
+              !!(cupBoard?.commitId && cupBoard.commitId !== cup.id && !wonToday);
+            const otherName = cupBoard?.commitId ? getCreditCupById(cupBoard.commitId)?.name : undefined;
+            const dim = wonToday || lockedOther;
+            return (
+              <Pressable
+                key={cup.id}
+                onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
+                style={({ pressed }) => [styles.cardWrap, dim && { opacity: 0.55 }, pressed && !dim && { opacity: 0.92 }]}
               >
-                <View style={styles.cardInner}>
-                  <View style={styles.cardTop}>
-                    <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                      {cup.name}
+                <LinearGradient
+                  colors={cupAccentGradient(cup.accent)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cardBorder}
+                >
+                  <View style={styles.cardInner}>
+                    <View style={styles.cardTop}>
+                      <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                        {cup.name}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statePill,
+                          {
+                            borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statePillText,
+                            {
+                              color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
+                            },
+                          ]}
+                        >
+                          {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cupCreditsLine}>
+                      {cup.prizeCredits.toLocaleString()} prize credits · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds
                     </Text>
-                    <View style={[styles.statePill, { borderColor: '#39ff14' }]}>
-                      <Text style={[styles.statePillText, { color: '#39ff14' }]}>PRIZE</Text>
+                    <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
+                      {wonToday
+                        ? 'Cleared today — back after midnight'
+                        : lockedOther
+                          ? `Daily run on ${otherName ?? 'another cup'}`
+                          : cup.subtitle}
+                    </Text>
+                    <View style={styles.cardFooter}>
+                      <Text style={[styles.viewLink, dim && { color: 'rgba(203,213,225,0.75)' }]}>
+                        {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter cup'}
+                      </Text>
+                      <SafeIonicons name="chevron-forward" size={14} color={dim ? 'rgba(203,213,225,0.6)' : runit.neonPink} />
                     </View>
                   </View>
-                  <Text style={styles.cupCreditsLine}>
-                    {cup.prizeCredits.toLocaleString()} prize credits · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds
-                  </Text>
-                  <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>{cup.subtitle}</Text>
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.viewLink}>Enter cup</Text>
-                    <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          ))}
+                </LinearGradient>
+              </Pressable>
+            );
+          })}
         </>
       ) : null}
 
@@ -176,7 +253,7 @@ function cupAccentGradient(accent: (typeof CREDIT_CUPS)[number]['accent']): read
 
 function stateColor(state: string) {
   if (state === 'open') return '#39ff14';
-  if (state === 'active') return '#00f0ff';
+  if (state === 'active') return '#a78bfa';
   if (state === 'full') return '#ffbe0b';
   return 'rgba(148,163,184,0.8)';
 }

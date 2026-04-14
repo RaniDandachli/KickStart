@@ -12,6 +12,7 @@ import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useCupBracketStore } from '@/store/cupBracketStore';
+import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 
 export default function CreditCupHubScreen() {
   const router = useRouter();
@@ -23,6 +24,8 @@ export default function CreditCupHubScreen() {
   const nextRound = useCupBracketStore((s) => s.nextRound);
   const eliminated = useCupBracketStore((s) => s.eliminated);
   const hydrate = useCupBracketStore((s) => s.hydrate);
+  const cupDailyHydrate = useCupDailyRunStore((s) => s.hydrate);
+  const committedCupId = useCupDailyRunStore((s) => s.committedCupId);
 
   const hydrateCup = useCallback(
     async (k: string) => {
@@ -30,12 +33,16 @@ export default function CreditCupHubScreen() {
     },
     [cup?.id, hydrate],
   );
-  useDailyFreeResetClock(uid, hydrateCup);
+  useDailyFreeResetClock(uid, async (k) => {
+    await hydrateCup(k);
+    await cupDailyHydrate(k);
+  });
 
   useFocusEffect(
     useCallback(() => {
       if (cup?.id) void hydrate(uid, cup.id);
-    }, [uid, cup?.id, hydrate]),
+      void cupDailyHydrate(uid);
+    }, [uid, cup?.id, hydrate, cupDailyHydrate]),
   );
 
   if (!cup) {
@@ -48,14 +55,19 @@ export default function CreditCupHubScreen() {
   }
 
   const clearedToday = !eliminated && nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
-  const canPlay = !eliminated && nextRound <= DAILY_FREE_TOURNAMENT_ROUNDS;
-  const statusLine = eliminated
-    ? `Run ended in ${getRoundLabel(Math.min(nextRound, DAILY_FREE_TOURNAMENT_ROUNDS))}. New bracket at midnight.`
-    : clearedToday
-      ? `You cleared this cup — ${cup.prizeCredits.toLocaleString()} prize credits are yours (see play summary). New run at midnight.`
-      : canPlay
-        ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${DAILY_FREE_TOURNAMENT_ROUNDS})`
-        : 'Bracket complete';
+  const blockedByOtherCup = !!(committedCupId && committedCupId !== cup.id);
+  const canPlay =
+    !blockedByOtherCup && !eliminated && nextRound <= DAILY_FREE_TOURNAMENT_ROUNDS;
+  const otherCupName = blockedByOtherCup ? getCreditCupById(committedCupId!)?.name : undefined;
+  const statusLine = blockedByOtherCup
+    ? `Your Run It cup run today is on ${otherCupName ?? 'another cup'}. One cup run per day — back at midnight.`
+    : eliminated
+      ? `Run ended in ${getRoundLabel(Math.min(nextRound, DAILY_FREE_TOURNAMENT_ROUNDS))}. New bracket at midnight.`
+      : clearedToday
+        ? `You cleared this cup — ${cup.prizeCredits.toLocaleString()} prize credits are yours. This cup is done until tomorrow.`
+        : canPlay
+          ? `Next: ${getRoundLabel(nextRound)} (match ${nextRound} of ${DAILY_FREE_TOURNAMENT_ROUNDS})`
+          : 'Bracket complete';
 
   return (
     <Screen>
@@ -72,8 +84,8 @@ export default function CreditCupHubScreen() {
         </Text>
       </LinearGradient>
       <Text style={styles.body}>
-        Same single-elimination flow as Tournament of the Day: rotating skill games, fixed outcomes per round, one run per cup per day.
-        Clear the bracket to credit prize credits (server-side when signed in).
+        One Run It cup run per day across all tiers — pick the cup you want first. Same single-elimination flow as Tournament of the Day:
+        rotating skill games, fixed outcomes per round. Clear the bracket to credit prize credits (server-side when signed in).
       </Text>
 
       <LinearGradient colors={[runit.neonCyan, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statusBorder}>
@@ -87,11 +99,13 @@ export default function CreditCupHubScreen() {
         title={
           !hydrated
             ? 'Loading…'
-            : canPlay
-              ? 'Play next match'
-              : clearedToday || eliminated
-                ? 'Come back tomorrow'
-                : 'Bracket complete'
+            : blockedByOtherCup
+              ? 'Cup run on another tier'
+              : canPlay
+                ? 'Play next match'
+                : clearedToday || eliminated
+                  ? 'Come back tomorrow'
+                  : 'Bracket complete'
         }
         disabled={!hydrated || !canPlay}
         onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}/play`)}

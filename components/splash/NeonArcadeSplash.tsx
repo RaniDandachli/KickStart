@@ -1,16 +1,16 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import { Dimensions, Image, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
-  Easing,
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  withTiming,
+    Easing,
+    Extrapolation,
+    interpolate,
+    runOnJS,
+    useAnimatedStyle,
+    useDerivedValue,
+    useSharedValue,
+    withTiming,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const TOTAL_MS = 2000;
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -106,7 +106,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
       <View style={styles.center}>
         <Animated.View style={[styles.borderGlow, borderStyle]}>
           <LinearGradient
-            colors={['#ff006e', '#00f0ff', '#ff006e']}
+            colors={['#ff006e', '#a78bfa', '#ff006e']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.borderGrad}
@@ -211,8 +211,8 @@ const styles = StyleSheet.create({
   cyanGlowFill: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,240,255,0.22)',
-    shadowColor: '#00f0ff',
+    backgroundColor: 'rgba(167,139,250,0.22)',
+    shadowColor: '#a78bfa',
     shadowOpacity: 1,
     shadowRadius: 40,
   },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#e0f7ff',
-    shadowColor: '#00f0ff',
+    shadowColor: '#a78bfa',
     shadowOpacity: 0.9,
     shadowRadius: 6,
   },

@@ -60,6 +60,8 @@ export default function CasualQueueScreen() {
   }, [hasExactCents, entryCentsParam, prizeCentsParam, hasPair, entry, prize]);
   const gameKey = parseGameKey(params.game);
   const queueIntent = parseIntent(params.intent);
+  const rawReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnToHref = typeof rawReturnTo === 'string' && rawReturnTo.startsWith('/') ? rawReturnTo : undefined;
 
   /** Contest tier chosen (e.g. from Home) but no game yet — pick minigame first. */
   if (hasPair && entry != null && prize != null && !gameKey) {
@@ -76,6 +78,7 @@ export default function CasualQueueScreen() {
       gameKey={gameKey}
       queueIntent={queueIntent}
       quickMatch={quickMatch && !hasPair}
+      returnToHref={returnToHref}
     />
   );
 }

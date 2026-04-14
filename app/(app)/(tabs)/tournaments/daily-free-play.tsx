@@ -5,11 +5,12 @@ import { Alert, Text, View } from 'react-native';
 import { Screen } from '@/components/ui/Screen';
 import {
   computeOpponentRoundScore,
-  DAILY_FREE_PRIZE_USD,
-  DAILY_FREE_TOURNAMENT_ROUNDS,
+  getDailyTournamentPrizeUsd,
+  getDailyTournamentRounds,
   getRoundLabel,
   pickDailyGameKey,
   randomOpponentName,
+  todayYmdLocal,
   titleForDailyGame,
 } from '@/lib/dailyFreeTournament';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
@@ -31,6 +32,9 @@ export default function DailyFreeTournamentPlayScreen() {
   const hydrate = useDailyFreeTournamentStore((s) => s.hydrate);
   const recordMatchFinished = useDailyFreeTournamentStore((s) => s.recordMatchFinished);
   const forcedOutcome = useDailyFreeTournamentStore((s) => s.forcedOutcomeForCurrentMatch());
+  const todaysKey = dayKey || todayYmdLocal();
+  const dailyRounds = getDailyTournamentRounds(todaysKey);
+  const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
   useDailyFreeResetClock(uid, hydrate);
 
   const [done, setDone] = useState(false);
@@ -45,10 +49,10 @@ export default function DailyFreeTournamentPlayScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!hydrated) return;
-      if (eliminated || nextRound > DAILY_FREE_TOURNAMENT_ROUNDS) {
+      if (eliminated || nextRound > dailyRounds) {
         router.replace('/(app)/(tabs)/tournaments/daily-free');
       }
-    }, [hydrated, eliminated, nextRound, router]),
+    }, [hydrated, eliminated, nextRound, dailyRounds, router]),
   );
 
   const oppName = useMemo(() => randomOpponentName(uid, nextRound), [uid, nextRound]);
@@ -68,7 +72,7 @@ export default function DailyFreeTournamentPlayScreen() {
       recordMatchFinished();
       const st = useDailyFreeTournamentStore.getState();
       const nowElim = st.eliminated;
-      const crowned = !st.eliminated && st.nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
+      const crowned = !st.eliminated && st.nextRound > dailyRounds;
       const goEvents = () => router.replace('/(app)/(tabs)/tournaments/daily-free');
       if (nowElim) {
         Alert.alert(
@@ -78,15 +82,15 @@ export default function DailyFreeTournamentPlayScreen() {
         );
       } else if (crowned) {
         Alert.alert(
-          'Bracket cleared',
-          `You ran all ${DAILY_FREE_TOURNAMENT_ROUNDS} rounds today — you’re on the $${DAILY_FREE_PRIZE_USD} showcase path. Come back after midnight for a new draw.`,
+          'Path cleared',
+          `You ran all ${dailyRounds} rounds today — showcase tier was $${dailyPrizeUsd}. Come back after midnight for a new draw.`,
           [{ text: 'OK', onPress: goEvents }],
         );
       } else {
         Alert.alert('Victory', `You advance past ${roundName}.`, [{ text: 'OK', onPress: goEvents }]);
       }
     },
-    [done, nextRound, recordMatchFinished, router],
+    [dailyPrizeUsd, dailyRounds, done, nextRound, recordMatchFinished, router],
   );
 
   const bundle: DailyTournamentBundle = useMemo(
@@ -124,13 +128,13 @@ export default function DailyFreeTournamentPlayScreen() {
         }}
       >
         <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(148,163,184,0.9)', letterSpacing: 1 }}>
-          LIVE EVENT · MATCH {nextRound}/{DAILY_FREE_TOURNAMENT_ROUNDS}
+          LIVE EVENT · MATCH {nextRound}/{dailyRounds}
         </Text>
         <Text style={{ fontSize: 13, fontWeight: '800', color: '#e2e8f0', marginTop: 4 }} numberOfLines={1}>
           {roundTitle} · {getRoundLabel(nextRound)}
         </Text>
         <Text style={{ fontSize: 11, color: 'rgba(148,163,184,0.85)', marginTop: 2 }} numberOfLines={2}>
-          Head-to-head vs {oppName}. High score takes the match — {DAILY_FREE_TOURNAMENT_ROUNDS} wins to clear today’s path.
+          Head-to-head vs {oppName}. High score takes the match — {dailyRounds} wins to clear today’s path.
         </Text>
       </View>
       <View style={{ flex: 1 }}>

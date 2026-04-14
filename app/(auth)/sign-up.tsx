@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 16,
     borderWidth: 2,
-    borderColor: 'rgba(0,240,255,0.25)',
+    borderColor: 'rgba(167,139,250,0.25)',
   },
   kicker: {
     textAlign: 'center',
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: 'rgba(0,240,255,0.55)',
+    borderColor: 'rgba(167,139,250,0.55)',
     backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   checkboxOn: {
     borderColor: runit.neonCyan,
-    backgroundColor: 'rgba(0,240,255,0.15)',
+    backgroundColor: 'rgba(167,139,250,0.15)',
   },
   checkMark: { color: runit.neonCyan, fontSize: 14, fontWeight: '900' },
   agreeText: {

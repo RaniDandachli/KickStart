@@ -1,6 +1,6 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
@@ -79,7 +79,16 @@ type Props = {
    * When true, only the top hero (ticker, brand, quick match) is rendered here; tiers render separately.
    */
   webStacked?: boolean;
+  /**
+   * Home landing: keep ticker + RUN IT / ARCADE / HOME + stats + how-it-works, but replace the blue
+   * QUICK MATCH strip with custom content (e.g. three mode cards).
+   */
+  compactHome?: boolean;
+  children?: ReactNode;
 };
+
+/** Reference UI: electric cyan for ARCADE + “How it works” link */
+const REF_CYAN = '#22d3ee';
 
 export function HomePlayHero({
   matchesLive = 43,
@@ -93,6 +102,8 @@ export function HomePlayHero({
   onQuickMatch,
   onHowItWorksPress,
   webStacked = false,
+  compactHome = false,
+  children,
 }: Props) {
   const [winnerIdx, setWinnerIdx] = useState(0);
   const tickOpacity = useRef(new Animated.Value(1)).current;
@@ -245,23 +256,37 @@ export function HomePlayHero({
         />
         <View style={styles.logoInner}>
           <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RUN IT</Text>
-          <Text style={[styles.brandArcade, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ARCADE</Text>
-          <View style={styles.logoRule} />
+          <Text
+            style={[
+              styles.brandArcade,
+              { fontFamily: runitFont.black },
+              compactHome ? styles.brandArcadeCyanRef : runitTextGlowCyan,
+            ]}
+          >
+            ARCADE
+          </Text>
+          <View style={[styles.logoRule, compactHome && styles.logoRuleCyan]} />
           <Text style={styles.brandHome}>HOME</Text>
-          <Text style={styles.brandTag}>1v1 skill contests · prizes set by tier · same games as Arcade</Text>
+          <Text style={[styles.brandTag, compactHome && styles.brandTagCyan]}>1v1 skill contests · prizes set by tier · same games as Arcade</Text>
         </View>
       </View>
 
-      <Pressable
-        onPress={onQuickMatch}
-        style={({ pressed }) => [styles.quickOuter, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
-      >
-        <LinearGradient colors={['#0369a1', '#0ea5e9', '#38bdf8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
-          <SafeIonicons name="flash" size={26} color="#FFFBEB" />
-          <Text style={styles.quickTitle}>QUICK MATCH</Text>
-        </LinearGradient>
-      </Pressable>
-      <Text style={styles.heroTag}>{webStacked ? 'Find a real opponent in seconds.' : 'Find a match in seconds'}</Text>
+      {compactHome ? (
+        children
+      ) : (
+        <>
+          <Pressable
+            onPress={onQuickMatch}
+            style={({ pressed }) => [styles.quickOuter, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
+          >
+            <LinearGradient colors={['#0369a1', '#0ea5e9', '#38bdf8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
+              <SafeIonicons name="flash" size={26} color="#FFFBEB" />
+              <Text style={styles.quickTitle}>QUICK MATCH</Text>
+            </LinearGradient>
+          </Pressable>
+          <Text style={styles.heroTag}>{webStacked ? 'Find a real opponent in seconds.' : 'Find a match in seconds'}</Text>
+        </>
+      )}
       {onHowItWorksPress ? (
         <Pressable
           onPress={onHowItWorksPress}
@@ -269,12 +294,12 @@ export function HomePlayHero({
           accessibilityLabel="How head-to-head works"
           style={({ pressed }) => [styles.howItWorksRow, pressed && { opacity: 0.88 }]}
         >
-          <SafeIonicons name="information-circle-outline" size={18} color="rgba(0,240,255,0.95)" />
-          <Text style={styles.howItWorksText}>How head-to-head works</Text>
+          <SafeIonicons name="information-circle-outline" size={18} color={compactHome ? REF_CYAN : 'rgba(167,139,250,0.95)'} />
+          <Text style={[styles.howItWorksText, compactHome && styles.howItWorksTextCyan]}>How head-to-head works</Text>
         </Pressable>
       ) : null}
 
-      {!webStacked ? (
+      {!webStacked || compactHome ? (
         <>
           <View style={styles.statsPanel}>
             <View style={styles.statsRow2}>
@@ -315,7 +340,7 @@ export function HomePlayHero({
             </View>
           </View>
 
-          <HomeArcadeTierPickRow onEntryTierPress={onEntryTierPress} hideArcadeHeading />
+          {!compactHome ? <HomeArcadeTierPickRow onEntryTierPress={onEntryTierPress} hideArcadeHeading /> : null}
         </>
       ) : null}
     </View>
@@ -508,6 +533,13 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     marginTop: -3,
   },
+  /** Neon cyan “ARCADE” + glow (reference screenshot) */
+  brandArcadeCyanRef: {
+    color: REF_CYAN,
+    textShadowColor: 'rgba(34, 211, 238, 0.85)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
+  },
   brandHome: {
     marginTop: 5,
     color: arcade.white,
@@ -523,6 +555,13 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: 'rgba(34,211,238,0.45)',
   },
+  logoRuleCyan: {
+    backgroundColor: 'rgba(34,211,238,0.75)',
+    shadowColor: REF_CYAN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
   brandTag: {
     marginTop: 6,
     color: 'rgba(203,213,225,0.9)',
@@ -530,6 +569,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 14,
+  },
+  brandTagCyan: {
+    color: 'rgba(125, 211, 252, 0.95)',
   },
   quickOuter: {
     borderRadius: 18,
@@ -579,11 +621,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   howItWorksText: {
-    color: 'rgba(0,240,255,0.95)',
+    color: 'rgba(167,139,250,0.95)',
     fontSize: 14,
     fontWeight: '800',
     textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(0,240,255,0.45)',
+    textDecorationColor: 'rgba(167,139,250,0.45)',
+  },
+  howItWorksTextCyan: {
+    color: REF_CYAN,
+    textDecorationColor: 'rgba(34,211,238,0.55)',
   },
   statsPanel: {
     borderRadius: 12,

@@ -61,7 +61,7 @@ export function AppButton({
         className={className ?? ''}
         {...rest}
       >
-        {loading ? <ActivityIndicator color="#00f0ff" /> : title ? <Text style={styles.textSecondary}>{title}</Text> : children}
+        {loading ? <ActivityIndicator color="#a78bfa" /> : title ? <Text style={styles.textSecondary}>{title}</Text> : children}
       </Pressable>
     );
   }
@@ -120,9 +120,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
   },
   secondary: {
-    backgroundColor: 'rgba(0,240,255,0.08)',
+    backgroundColor: 'rgba(167,139,250,0.08)',
     borderWidth: 2,
-    borderColor: 'rgba(0,240,255,0.55)',
+    borderColor: 'rgba(167,139,250,0.55)',
     paddingHorizontal: 24,
     paddingVertical: 14,
   },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   textPrimary: { color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: 0.5, textAlign: 'center' },
-  textSecondary: { color: '#00f0ff', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
+  textSecondary: { color: '#a78bfa', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
   textGhost: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 15 },
   textDanger: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

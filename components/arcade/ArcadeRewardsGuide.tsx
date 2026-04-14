@@ -5,18 +5,18 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
-  PRIZE_RUN_ENTRY_CREDITS,
-  STACKER_PRIZE_RUN_ENTRY_CREDITS,
-  TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
-  DAILY_FREE_PRIZE_CREDITS,
-  WELCOME_PRIZE_CREDITS,
+    DAILY_FREE_PRIZE_CREDITS,
+    PRIZE_RUN_ENTRY_CREDITS,
+    STACKER_PRIZE_RUN_ENTRY_CREDITS,
+    TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
+    WELCOME_PRIZE_CREDITS,
 } from '@/lib/arcadeEconomy';
-import {
-  ARCADE_TICKET_SCORE_RULES,
-  STACKER_JACKPOT_TICKETS,
-  TURBO_ARENA_WIN_BONUS_TICKETS,
-} from '@/lib/ticketPayouts';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import {
+    ARCADE_TICKET_SCORE_RULES,
+    STACKER_JACKPOT_TICKETS,
+    TURBO_ARENA_WIN_BONUS_TICKETS,
+} from '@/lib/ticketPayouts';
 
 function teaserLine(): string {
   if (ENABLE_BACKEND) {

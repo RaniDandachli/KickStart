@@ -39,8 +39,24 @@ function hash32(s: string): number {
  * Same shape as daily free; salted per cup so each cup feels distinct.
  */
 export function computeCupLoseAtRound(dayKey: string, userKey: string, cupId: string): number {
-  const h = hash32(`cup_bracket_v1|${cupId}|${dayKey}|${userKey}`);
-  return 2 + (h % 10);
+  const h = hash32(`cup_bracket_v3|${cupId}|${dayKey}|${userKey}`);
+  const roll = h % 100;
+  switch (cupId) {
+    case 'cup-1000': // Bronze: easiest tier, but wins are still uncommon so credits stay valuable.
+      if (roll < 18) return 11;
+      return 5 + (h % 6); // lose 5..10
+    case 'cup-2000': // Silver: a bit harder than Bronze.
+      if (roll < 10) return 11;
+      return 5 + (h % 6); // lose 5..10
+    case 'cup-3000': // Gold: no free crowns — grind or shop credits.
+      return 4 + (h % 7); // lose 4..10
+    case 'cup-4000': // Platinum: very hard.
+      return 3 + (h % 7); // lose 3..9
+    case 'cup-5000': // Champion: never cleared (showcase / aspiration tier).
+      return 2 + (h % 7); // lose 2..8
+    default:
+      return 2 + (h % 9); // lose 2..10
+  }
 }
 
 export function pickCupGameKey(dayKey: string, roundIndex1Based: number, userKey: string, cupId: string): H2hGameKey {

@@ -3,8 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatUsdFromCents } from '@/lib/money';
-import { SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 
 type Props = {
   visible: boolean;

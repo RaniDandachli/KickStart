@@ -77,7 +77,7 @@ export default function PlayHubScreen() {
           accessibilityLabel="How Arcade works"
           style={({ pressed }) => [styles.howItWorksRow, pressed && { opacity: 0.88 }]}
         >
-          <SafeIonicons name="information-circle-outline" size={18} color="rgba(0,240,255,0.95)" />
+          <SafeIonicons name="information-circle-outline" size={18} color="rgba(167,139,250,0.95)" />
           <Text style={styles.howItWorksText}>How Arcade works</Text>
         </Pressable>
 
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   brandArcadeOnly: {
-    color: '#00f0ff',
+    color: '#a78bfa',
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: 4,
@@ -235,11 +235,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   howItWorksText: {
-    color: 'rgba(0,240,255,0.95)',
+    color: 'rgba(167,139,250,0.95)',
     fontSize: 14,
     fontWeight: '800',
     textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(0,240,255,0.45)',
+    textDecorationColor: 'rgba(167,139,250,0.45)',
   },
   gamesSectionRow: {
     flexDirection: 'row',

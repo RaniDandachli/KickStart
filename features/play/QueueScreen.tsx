@@ -107,6 +107,7 @@ export function QueueScreen({
   queueIntent,
   quickMatch,
   queueTierCents,
+  returnToHref,
 }: {
   mode: QueueKind;
   /** When set with `listedPrizeUsd`, queue shows a paid 1v1 skill contest (fixed reward tier). */
@@ -125,6 +126,8 @@ export function QueueScreen({
    * so joiners match `h2h_queue_entries` byte-for-byte with the waiting host.
    */
   queueTierCents?: { entry: number; prize: number };
+  /** Preferred route when user leaves this flow. */
+  returnToHref?: string;
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -168,6 +171,7 @@ export function QueueScreen({
   /** Prevents double-tap / autostart + tap racing two `start()` calls (web + native). */
   const queueStartInFlightRef = useRef(false);
   const [quickResolving, setQuickResolving] = useState(!!quickMatch);
+  const leaveTarget = returnToHref ?? '/(app)/(tabs)/play';
 
   const start = useCallback(async () => {
     if (!ENABLE_BACKEND || userId === 'guest') {
@@ -424,7 +428,7 @@ export function QueueScreen({
       useMatchmakingStore.getState().reset();
       quickMatchCtxRef.current = null;
       quickAutoStartedRef.current = false;
-      router.replace('/(app)/(tabs)/play');
+      router.replace(leaveTarget as never);
     };
 
     if (ENABLE_BACKEND && userId !== 'guest') {
@@ -456,7 +460,7 @@ export function QueueScreen({
       'Sign in required',
       'Quick match uses your live account and wallet. Sign in to continue.',
     );
-  }, [router, start, userId, profileQ.isFetched]);
+  }, [router, start, userId, profileQ.isFetched, leaveTarget]);
 
   useEffect(() => {
     if (!quickMatch || quickAutoStartedRef.current) return;
@@ -651,7 +655,8 @@ export function QueueScreen({
       casualFree: isFreeCasual ? true : undefined,
     });
     setPhase('lobby');
-    router.push(`/(app)/(tabs)/play/lobby/${resolvedMatchId}`);
+    const rt = returnToHref ? `?returnTo=${encodeURIComponent(returnToHref)}` : '';
+    router.push(`/(app)/(tabs)/play/lobby/${resolvedMatchId}${rt}`);
   }
 
   function refundEntryIfQueuedDemo() {
@@ -670,7 +675,7 @@ export function QueueScreen({
     reset();
   }
 
-  /** Leave queue: always land on Arcade hub. `router.back()` after a cross-tab push from Home pops Home, not play/index. */
+  /** Leave queue: return to initiating tab route when available. */
   function leaveScreen() {
     h2hIntentAutostartDoneOrCancelledRef.current = true;
     cleanupBackendQueue();
@@ -678,7 +683,7 @@ export function QueueScreen({
     quickMatchCtxRef.current = null;
     quickAutoStartedRef.current = false;
     reset();
-    router.replace('/(app)/(tabs)/play');
+    router.replace(leaveTarget as never);
   }
 
   const q = quickMatchCtxRef.current;

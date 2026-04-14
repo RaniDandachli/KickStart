@@ -4,6 +4,7 @@ import type { H2hGameKey } from '@/lib/homeOpenMatches';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import type { MatchFinishPayload } from '@/types/match';
 
+/** Legacy max/defaults kept for callers that still read constants directly. */
 export const DAILY_FREE_TOURNAMENT_ROUNDS = 10;
 export const DAILY_FREE_PRIZE_USD = 250;
 
@@ -53,13 +54,39 @@ function hash32(s: string): number {
   return h >>> 0;
 }
 
+export type DailyTournamentSpec = {
+  rounds: number;
+  prizeUsd: number;
+};
+
+/**
+ * Stable "random" daily setup: same for everyone that day, changes at local midnight.
+ * Prize rotates from $50..$500 (steps of $10), rounds from 6..10.
+ */
+export function getDailyTournamentSpec(dayKey: string): DailyTournamentSpec {
+  const h = hash32(`daily_spec_v1|${dayKey}`);
+  const rounds = 6 + (h % 5); // 6..10
+  const prizeUsd = 50 + ((h >>> 3) % 46) * 10; // 50..500
+  return { rounds, prizeUsd };
+}
+
+export function getDailyTournamentRounds(dayKey: string): number {
+  return getDailyTournamentSpec(dayKey).rounds;
+}
+
+export function getDailyTournamentPrizeUsd(dayKey: string): number {
+  return getDailyTournamentSpec(dayKey).prizeUsd;
+}
+
 /**
  * Which bracket round the player loses on (2–10), or 11 = win out the full bracket today (“crown” path).
  * Round 1 is always a win. Stable for a given calendar day + user key.
  */
-export function computeLoseAtRound(dayKey: string, userKey: string): number {
-  const h = hash32(`daily_free_v2_10r|${dayKey}|${userKey}`);
-  return 2 + (h % 10);
+export function computeLoseAtRound(dayKey: string, userKey: string, rounds: number = DAILY_FREE_TOURNAMENT_ROUNDS): number {
+  const totalRounds = Math.max(2, Math.floor(rounds));
+  const h = hash32(`daily_free_v3|${totalRounds}|${dayKey}|${userKey}`);
+  // Daily event: always eventual elimination (no crowned winner).
+  return 2 + (h % Math.max(1, totalRounds - 1));
 }
 
 export function getRoundLabel(roundIndex1Based: number): string {

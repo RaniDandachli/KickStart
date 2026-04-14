@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import { computeLoseAtRound, todayYmdLocal } from '@/lib/dailyFreeTournament';
+import { computeLoseAtRound, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 
 const STORAGE_PREFIX = '@kickclash/daily_free_tournament_v2';
 
@@ -57,7 +57,8 @@ export const useDailyFreeTournamentStore = create<State>((set, get) => ({
       const raw = await AsyncStorage.getItem(storageKeyForUser(userKey));
       if (raw) {
         const parsed = JSON.parse(raw) as DailyFreeTournamentPersist;
-        if (parsed.dayKey === today && parsed.loseAtRound >= 2 && parsed.loseAtRound <= 11) {
+        const rounds = getDailyTournamentRounds(today);
+        if (parsed.dayKey === today && parsed.loseAtRound >= 2 && parsed.loseAtRound <= rounds) {
           set({
             ...parsed,
             hydrated: true,
@@ -69,7 +70,7 @@ export const useDailyFreeTournamentStore = create<State>((set, get) => ({
     } catch {
       /* fall through */
     }
-    const loseAtRound = computeLoseAtRound(today, userKey);
+    const loseAtRound = computeLoseAtRound(today, userKey, getDailyTournamentRounds(today));
     const next: DailyFreeTournamentPersist = {
       dayKey: today,
       loseAtRound,

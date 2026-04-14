@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   hero: { alignItems: 'center', marginTop: 8, marginBottom: 20 },
   kicker: {
-    color: 'rgba(0,240,255,0.85)',
+    color: 'rgba(167,139,250,0.85)',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 4,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     textAlign: 'center',
-    color: 'rgba(0,240,255,0.75)',
+    color: 'rgba(167,139,250,0.75)',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
