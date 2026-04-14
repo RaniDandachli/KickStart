@@ -1,8 +1,10 @@
+import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
 import { Screen } from '@/components/ui/Screen';
 import {
   getCreditCupById,
@@ -35,7 +37,6 @@ export default function CreditCupPlayScreen() {
   const uid = useAuthStore((s) => s.user?.id ?? 'guest');
   const hydrated = useCupBracketStore((s) => s.hydrated);
   const nextRound = useCupBracketStore((s) => s.nextRound);
-  const eliminated = useCupBracketStore((s) => s.eliminated);
   const dayKey = useCupBracketStore((s) => s.dayKey);
   const hydrate = useCupBracketStore((s) => s.hydrate);
   const recordMatchFinished = useCupBracketStore((s) => s.recordMatchFinished);
@@ -53,8 +54,9 @@ export default function CreditCupPlayScreen() {
     await cupDailyHydrate(k);
   });
 
-  const [done, setDone] = useState(false);
   const [dailyCommitOk, setDailyCommitOk] = useState(false);
+  const [roundPlayKey, setRoundPlayKey] = useState(0);
+  const [roundSplash, setRoundSplash] = useState(false);
   const finishOnce = useRef(false);
 
   useFocusEffect(
@@ -89,13 +91,15 @@ export default function CreditCupPlayScreen() {
     }, [cup?.id, uid, hydrated, router]),
   );
 
+  /** Only when focusing the screen — avoids kicking mid-run when `nextRound` advances. */
   useFocusEffect(
     useCallback(() => {
       if (!cup || !hydrated) return;
-      if (eliminated || nextRound > DAILY_FREE_TOURNAMENT_ROUNDS) {
+      const s = useCupBracketStore.getState();
+      if (s.eliminated || s.nextRound > DAILY_FREE_TOURNAMENT_ROUNDS) {
         router.replace(`/(app)/(tabs)/tournaments/cup/${cup.id}`);
       }
-    }, [cup, hydrated, eliminated, nextRound, router]),
+    }, [cup, hydrated, router]),
   );
 
   const oppName = useMemo(
@@ -115,8 +119,6 @@ export default function CreditCupPlayScreen() {
     async (_payload: MatchFinishPayload) => {
       if (finishOnce.current || !cup) return;
       finishOnce.current = true;
-      if (done) return;
-      setDone(true);
       const roundName = getRoundLabel(nextRound);
       recordMatchFinished();
       const st = useCupBracketStore.getState();
@@ -150,9 +152,15 @@ export default function CreditCupPlayScreen() {
         return;
       }
 
-      Alert.alert('Victory', `You advance past ${roundName}.`, [{ text: 'OK', onPress: goHub }]);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setRoundSplash(true);
+      setTimeout(() => {
+        setRoundSplash(false);
+        finishOnce.current = false;
+        setRoundPlayKey((k) => k + 1);
+      }, 480);
     },
-    [done, nextRound, recordMatchFinished, router, cup, uid, queryClient],
+    [nextRound, recordMatchFinished, router, cup, uid, queryClient],
   );
 
   const bundle: DailyTournamentBundle = useMemo(
@@ -208,10 +216,21 @@ export default function CreditCupPlayScreen() {
         </Text>
       </View>
       <View style={{ flex: 1 }}>
-        {gameKey === 'tap-dash' ? <TapDashGame dailyTournament={bundle} /> : null}
-        {gameKey === 'tile-clash' ? <TileClashGame dailyTournament={bundle} /> : null}
-        {gameKey === 'ball-run' ? <NeonBallRunGame dailyTournament={bundle} /> : null}
+        {gameKey === 'tap-dash' ? (
+          <TapDashGame key={`tap-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
+        {gameKey === 'tile-clash' ? (
+          <TileClashGame key={`tile-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
+        {gameKey === 'ball-run' ? (
+          <NeonBallRunGame key={`ball-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
       </View>
+      <RoundAdvanceOverlay
+        visible={roundSplash}
+        title="Next round"
+        subtitle={`${roundTitle} · ${getRoundLabel(nextRound)}`}
+      />
     </View>
   );
 }

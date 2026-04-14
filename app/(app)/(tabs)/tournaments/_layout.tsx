@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { stackAnimationDefaults } from '@/lib/navigationAnimations';
 import { theme } from '@/lib/theme';
 
 export const unstable_settings = {
@@ -12,6 +13,7 @@ export default function TournamentsStackLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background },
+        ...stackAnimationDefaults,
       }}
     />
   );

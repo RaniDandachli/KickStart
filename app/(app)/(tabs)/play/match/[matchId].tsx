@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePreventRemove } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, InteractionManager, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -111,6 +111,17 @@ export default function MatchPlayScreen() {
 
   const [done, setDone] = useState(false);
 
+  const replaceWithResult = useCallback(
+    (qp: URLSearchParams) => {
+      if (!matchId || !isUuid(matchId)) return;
+      const path = `/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`;
+      InteractionManager.runAfterInteractions(() => {
+        router.replace(path);
+      });
+    },
+    [matchId, router],
+  );
+
   const navigateToForfeitResult = useCallback(() => {
     if (!matchId || !isUuid(matchId)) return;
     setDone(true);
@@ -126,10 +137,9 @@ export default function MatchPlayScreen() {
     }
     if (session.listedPrizeUsd != null) qp.set('prize', String(session.listedPrizeUsd));
     if (session.entryFeeUsd != null) qp.set('entry', String(session.entryFeeUsd));
-    router.replace(`/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`);
+    replaceWithResult(qp);
   }, [
-    matchId,
-    router,
+    replaceWithResult,
     session.entryFeeUsd,
     session.listedPrizeUsd,
     session.opponentDisplayName,
@@ -176,7 +186,7 @@ export default function MatchPlayScreen() {
     }
     if (session.listedPrizeUsd != null) qp.set('prize', String(session.listedPrizeUsd));
     if (session.entryFeeUsd != null) qp.set('entry', String(session.entryFeeUsd));
-    router.replace(`/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`);
+    replaceWithResult(qp);
   }
 
   function confirmForfeit() {
@@ -313,7 +323,7 @@ export default function MatchPlayScreen() {
       if (m.entry_fee_wallet_cents != null && m.entry_fee_wallet_cents > 0) {
         qp.set('entry', String(m.entry_fee_wallet_cents / 100));
       }
-      router.replace(`/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`);
+      replaceWithResult(qp);
     };
 
     return (

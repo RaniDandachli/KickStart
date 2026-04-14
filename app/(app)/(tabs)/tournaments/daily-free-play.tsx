@@ -1,7 +1,9 @@
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
 import { Screen } from '@/components/ui/Screen';
 import {
   computeOpponentRoundScore,
@@ -27,7 +29,6 @@ export default function DailyFreeTournamentPlayScreen() {
   const uid = useAuthStore((s) => s.user?.id ?? 'guest');
   const hydrated = useDailyFreeTournamentStore((s) => s.hydrated);
   const nextRound = useDailyFreeTournamentStore((s) => s.nextRound);
-  const eliminated = useDailyFreeTournamentStore((s) => s.eliminated);
   const dayKey = useDailyFreeTournamentStore((s) => s.dayKey);
   const hydrate = useDailyFreeTournamentStore((s) => s.hydrate);
   const recordMatchFinished = useDailyFreeTournamentStore((s) => s.recordMatchFinished);
@@ -37,7 +38,8 @@ export default function DailyFreeTournamentPlayScreen() {
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
   useDailyFreeResetClock(uid, hydrate);
 
-  const [done, setDone] = useState(false);
+  const [roundPlayKey, setRoundPlayKey] = useState(0);
+  const [roundSplash, setRoundSplash] = useState(false);
   const finishOnce = useRef(false);
 
   useFocusEffect(
@@ -46,13 +48,16 @@ export default function DailyFreeTournamentPlayScreen() {
     }, [uid, hydrate]),
   );
 
+  /** Bounce stale bracket state only when the screen gains focus — not on every round advance mid-run. */
   useFocusEffect(
     useCallback(() => {
       if (!hydrated) return;
-      if (eliminated || nextRound > dailyRounds) {
+      const s = useDailyFreeTournamentStore.getState();
+      const rounds = getDailyTournamentRounds(s.dayKey || todayYmdLocal());
+      if (s.eliminated || s.nextRound > rounds) {
         router.replace('/(app)/(tabs)/tournaments/daily-free');
       }
-    }, [hydrated, eliminated, nextRound, dailyRounds, router]),
+    }, [hydrated, router]),
   );
 
   const oppName = useMemo(() => randomOpponentName(uid, nextRound), [uid, nextRound]);
@@ -66,13 +71,12 @@ export default function DailyFreeTournamentPlayScreen() {
     (_payload: MatchFinishPayload) => {
       if (finishOnce.current) return;
       finishOnce.current = true;
-      if (done) return;
-      setDone(true);
       const roundName = getRoundLabel(nextRound);
       recordMatchFinished();
       const st = useDailyFreeTournamentStore.getState();
+      const rounds = getDailyTournamentRounds(st.dayKey || todayYmdLocal());
       const nowElim = st.eliminated;
-      const crowned = !st.eliminated && st.nextRound > dailyRounds;
+      const crowned = !st.eliminated && st.nextRound > rounds;
       const goEvents = () => router.replace('/(app)/(tabs)/tournaments/daily-free');
       if (nowElim) {
         Alert.alert(
@@ -80,17 +84,26 @@ export default function DailyFreeTournamentPlayScreen() {
           `You were eliminated in ${roundName}. A fresh bracket unlocks at local midnight.`,
           [{ text: 'OK', onPress: goEvents }],
         );
-      } else if (crowned) {
+        return;
+      }
+      if (crowned) {
         Alert.alert(
           'Path cleared',
-          `You ran all ${dailyRounds} rounds today — showcase tier was $${dailyPrizeUsd}. Come back after midnight for a new draw.`,
+          `You ran all ${rounds} rounds today — showcase tier was $${dailyPrizeUsd}. Come back after midnight for a new draw.`,
           [{ text: 'OK', onPress: goEvents }],
         );
-      } else {
-        Alert.alert('Victory', `You advance past ${roundName}.`, [{ text: 'OK', onPress: goEvents }]);
+        return;
       }
+
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setRoundSplash(true);
+      setTimeout(() => {
+        setRoundSplash(false);
+        finishOnce.current = false;
+        setRoundPlayKey((k) => k + 1);
+      }, 480);
     },
-    [dailyPrizeUsd, dailyRounds, done, nextRound, recordMatchFinished, router],
+    [dailyPrizeUsd, nextRound, recordMatchFinished, router],
   );
 
   const bundle: DailyTournamentBundle = useMemo(
@@ -138,10 +151,21 @@ export default function DailyFreeTournamentPlayScreen() {
         </Text>
       </View>
       <View style={{ flex: 1 }}>
-        {gameKey === 'tap-dash' ? <TapDashGame dailyTournament={bundle} /> : null}
-        {gameKey === 'tile-clash' ? <TileClashGame dailyTournament={bundle} /> : null}
-        {gameKey === 'ball-run' ? <NeonBallRunGame dailyTournament={bundle} /> : null}
+        {gameKey === 'tap-dash' ? (
+          <TapDashGame key={`tap-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
+        {gameKey === 'tile-clash' ? (
+          <TileClashGame key={`tile-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
+        {gameKey === 'ball-run' ? (
+          <NeonBallRunGame key={`ball-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
       </View>
+      <RoundAdvanceOverlay
+        visible={roundSplash}
+        title="Next round"
+        subtitle={`${roundTitle} · ${getRoundLabel(nextRound)}`}
+      />
     </View>
   );
 }
