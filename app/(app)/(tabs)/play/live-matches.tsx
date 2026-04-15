@@ -1,4 +1,4 @@
-import { HomeH2hCarouselWeb } from '@/components/arcade/HomeH2hCarouselWeb';
+import { HomeH2hCarouselWeb, type H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,8 @@ import {
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { IllustratedEmptyState } from '@/components/ui/IllustratedEmptyState';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
@@ -119,6 +121,10 @@ export default function LiveMatchesScreen() {
     });
   }, [waiters]);
 
+  const totalWaiters = waiters.length;
+  const boardLoading = ENABLE_BACKEND && h2hBoardQuery.isLoading;
+  const boardEmpty = ENABLE_BACKEND && !boardLoading && totalWaiters === 0;
+
   function h2hIconFor(gameKey: H2hGameKey, size: number) {
     switch (gameKey) {
       case 'tap-dash':
@@ -143,7 +149,7 @@ export default function LiveMatchesScreen() {
     return ['#141028', '#3b2b68'];
   }
 
-  function openRow(row: (typeof h2hRows)[number]) {
+  function openRow(row: H2hCarouselRow) {
     if (row.activeWaiter) {
       setH2hGate({
         path: row.route,
@@ -179,7 +185,7 @@ export default function LiveMatchesScreen() {
             hitSlop={12}
             style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.8 }]}
           >
-            <SafeIonicons name="chevron-back" size={24} color={runit.chrome} />
+            <SafeIonicons name="chevron-back" size={24} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <Text style={[styles.topTitle, { fontFamily: runitFont.black }]}>Live matches</Text>
           <View style={{ width: 40 }} />
@@ -189,6 +195,24 @@ export default function LiveMatchesScreen() {
             Real-time 1v1 queues — <Text style={styles.introEm}>Join</Text> matches their tier.{' '}
             <Text style={styles.introEm}>Find opponent</Text> picks your tier first.
           </Text>
+
+          {boardLoading ? <LoadingState message="Loading live queues…" /> : null}
+          {boardEmpty ? (
+            <View style={{ marginBottom: 16 }}>
+              <IllustratedEmptyState
+                icon="people-outline"
+                title="No one in queue yet"
+                description="When players search for a match, they appear here by game and tier. You can still pick a game below and start matchmaking — or use Quick Match from the Arcade tab."
+                primaryLabel="Go to Arcade"
+                onPrimary={() => router.push('/(app)/(tabs)/play')}
+                secondaryLabel="Quick Match"
+                onSecondary={() => {
+                  const rt = encodeURIComponent(returnTo ?? '/(app)/(tabs)/play/live-matches');
+                  pushCrossTab(router, `/(app)/(tabs)/play/casual?quick=1&returnTo=${rt}` as never);
+                }}
+              />
+            </View>
+          ) : null}
 
           {isWeb ? (
             <HomeH2hCarouselWeb

@@ -1,6 +1,8 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import type { ComponentProps } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,11 +21,24 @@ import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
 import { getAppTabBarStyle } from '@/lib/tabBarStyle';
+import { webTabBarLabelRenderer } from '@/lib/webTabBarLabel';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
 
-const ICON = 20;
+type IonName = ComponentProps<typeof Ionicons>['name'];
+
+const NATIVE_TAB_ICON = 20;
+const WEB_TAB_ICON = 23;
+
+function tabBarIcon(name: IonName) {
+  return ({ color }: { color: string }) =>
+    Platform.OS === 'web' ? (
+      <Ionicons name={name} color={color} size={WEB_TAB_ICON} />
+    ) : (
+      <SafeIonicons name={name} color={color} size={NATIVE_TAB_ICON} />
+    );
+}
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -103,8 +118,17 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        /** Icon on top, title under (Home, Events, Arcade, …) — all platforms / web widths */
-        tabBarLabelPosition: 'below-icon',
+        /**
+         * Web desktop: label beside icon (readable strip). Narrow web: label under icon.
+         * Native: label under icon. Per-screen `tabBarLabel` strings override a custom renderer — omit on web.
+         */
+        tabBarLabelPosition:
+          Platform.OS === 'web' && webUsesTopTabBar ? 'beside-icon' : 'below-icon',
+        ...(Platform.OS === 'web'
+          ? {
+              tabBarLabel: webTabBarLabelRenderer,
+            }
+          : {}),
         ...(Platform.OS === 'web' && webUsesTopTabBar
           ? {
               tabBarPosition: 'top' as const,
@@ -132,40 +156,29 @@ export default function TabsLayout() {
           ...(webBrowseAuth && webUsesTopTabBar ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
         },
         tabBarActiveTintColor: '#ff006e',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarInactiveTintColor: '#CBD5E1',
         tabBarShowLabel: true,
+        /** RN `Label` only (native); web uses {@link webTabBarLabelRenderer}. */
         tabBarLabelStyle:
-          Platform.OS === 'web' && webUsesTopTabBar
-            ? {
-                fontWeight: '700',
-                fontSize: 11,
-                marginTop: 2,
+          Platform.OS === 'web'
+            ? undefined
+            : {
+                fontWeight: '800',
+                fontSize: 10,
+                marginTop: 4,
                 marginBottom: 0,
-              }
-            : Platform.OS === 'web'
-              ? {
-                  fontWeight: '700',
-                  fontSize: 11,
-                  letterSpacing: 0.1,
-                  marginTop: 3,
-                  marginBottom: 0,
-                }
-              : {
-                  fontWeight: '800',
-                  fontSize: 10,
-                  marginTop: 4,
-                  marginBottom: 0,
-                },
+              },
         tabBarIconStyle:
           Platform.OS === 'web' && webUsesTopTabBar
-            ? { marginTop: 4, marginBottom: 0, marginRight: 0 }
+            ? { marginTop: 2, marginBottom: 0, marginRight: 0 }
             : Platform.OS === 'web'
-              ? { marginTop: 0, marginBottom: 0 }
+              ? { marginTop: 0, marginBottom: 2 }
               : { marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
           paddingVertical:
-            Platform.OS === 'web' && webUsesTopTabBar ? 10 : Platform.OS === 'web' ? 6 : 5,
+            Platform.OS === 'web' && webUsesTopTabBar ? 10 : Platform.OS === 'web' ? 8 : 5,
           justifyContent: 'center',
+          ...(Platform.OS === 'web' && webUsesTopTabBar ? { paddingHorizontal: 6 } : {}),
           ...(Platform.OS === 'web' && !webUsesTopTabBar
             ? { alignItems: 'center' as const, flex: 1, minWidth: 0 }
             : {}),
@@ -176,40 +189,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color }) => <SafeIonicons name="home" color={color} size={ICON} />,
+          tabBarIcon: tabBarIcon('home'),
         }}
       />
       <Tabs.Screen
         name="tournaments"
         options={{
           title: 'Events',
-          tabBarLabel: 'Events',
-          tabBarIcon: ({ color }) => <SafeIonicons name="trophy" color={color} size={ICON} />,
+          tabBarIcon: tabBarIcon('trophy'),
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
           title: 'Arcade',
-          tabBarLabel: 'Arcade',
-          tabBarIcon: ({ color }) => <SafeIonicons name="game-controller" color={color} size={ICON} />,
+          tabBarIcon: tabBarIcon('game-controller'),
         }}
       />
       <Tabs.Screen
         name="prizes"
         options={{
           title: 'Prizes',
-          tabBarLabel: 'Prizes',
-          tabBarIcon: ({ color }) => <SafeIonicons name="gift" color={color} size={ICON} />,
+          tabBarIcon: tabBarIcon('gift'),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'You',
-          tabBarLabel: 'You',
-          tabBarIcon: ({ color }) => <SafeIonicons name="person" color={color} size={ICON} />,
+          tabBarIcon: tabBarIcon('person'),
         }}
       />
     </Tabs>

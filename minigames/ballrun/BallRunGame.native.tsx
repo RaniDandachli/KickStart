@@ -760,7 +760,8 @@ export default function NeonBallRunGame({
 
   const s = stateRef.current;
   const swipe = useSwipe(stateRef);
-  const canvasH = sh * 0.68;
+  /** Was 0.68 — taller GL view so the run fills the screen under the HUD (still leaves room for speed bar). */
+  const canvasH = Math.round(Math.min(Math.max(sh * 0.78, 280), sh * 0.88));
 
   useWebGameKeyboard(phase === 'playing', {
     ArrowLeft: (down) => {

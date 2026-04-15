@@ -86,6 +86,50 @@ export default function PlayHubScreen() {
           onAddPress={() => Alert.alert('RunitArcade', topUpComingSoonMessage())}
         />
 
+        {ENABLE_BACKEND && uid && profileQ.isError ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading profile"
+            onPress={() => void profileQ.refetch()}
+            style={({ pressed }) => [styles.profileErrBanner, pressed && { opacity: 0.88 }]}
+          >
+            <SafeIonicons name="cloud-offline-outline" size={18} color="#fecaca" />
+            <Text style={styles.profileErrTxt}>
+              Could not refresh your balance. Tap to retry.
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {ENABLE_BACKEND &&
+        uid &&
+        profileQ.isSuccess &&
+        (profileQ.data?.prize_credits ?? 0) === 0 ? (
+          <View style={styles.prizeZeroBox}>
+            <SafeIonicons name="sparkles-outline" size={18} color="#c4b5fd" />
+            <Text style={styles.prizeZeroTxt}>
+              You have 0 prize credits — earn them from prize runs and events, or play practice for free (no credits).
+            </Text>
+            <View style={styles.prizeZeroRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Play practice"
+                onPress={() => router.push('/(app)/(tabs)/play/minigames/tap-dash?mode=practice')}
+                style={({ pressed }) => [styles.prizeZeroChip, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={styles.prizeZeroChipTxt}>Practice free</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add funds"
+                onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
+                style={({ pressed }) => [styles.prizeZeroChip, styles.prizeZeroChipGhost, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={[styles.prizeZeroChipTxt, { color: '#5eead4' }]}>Add funds</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <ArcadeGrantBanner />
 
         <View style={styles.gamesSectionRow}>
@@ -273,4 +317,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.9,
   },
+  profileErrBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(127,29,29,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  profileErrTxt: {
+    flex: 1,
+    color: 'rgba(254,226,226,0.98)',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  prizeZeroBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(76,29,149,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.4)',
+  },
+  prizeZeroTxt: {
+    flex: 1,
+    minWidth: 200,
+    color: 'rgba(237,233,254,0.98)',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  prizeZeroRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginTop: 4 },
+  prizeZeroChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'rgba(167,139,250,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.55)',
+  },
+  prizeZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(45,212,191,0.45)' },
+  prizeZeroChipTxt: { color: '#fff', fontWeight: '800', fontSize: 12 },
 });

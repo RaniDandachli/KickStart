@@ -21,8 +21,8 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
     const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
     const padTop = Math.max(insets.top, 10) + 4;
     const padBottom = 14;
-    /** RN `getTabBarHeight` only reads `height`, not `minHeight` — without this (~49px) clips icon+label. */
-    const contentIconAndLabel = 50;
+    /** RN `getTabBarHeight` only reads `height` — tall enough for icon + label beside (web). */
+    const contentIconAndLabel = 52;
     return {
       backgroundColor: runit.bgDeep,
       borderTopWidth: 0,
@@ -32,6 +32,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       paddingBottom: padBottom,
       paddingHorizontal: padH,
       height: padTop + contentIconAndLabel + padBottom,
+      minHeight: padTop + contentIconAndLabel + padBottom,
       overflow: 'visible' as const,
     };
   }
@@ -45,7 +46,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
      */
     const padTop = 10;
     const padBottom = 12 + safeBottom;
-    const contentForIconAndLabel = 56;
+    const contentForIconAndLabel = 62;
     return {
       backgroundColor: 'rgba(5, 2, 14, 0.76)',
       borderTopWidth: 0,
@@ -59,6 +60,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       paddingBottom: padBottom,
       paddingHorizontal: 2,
       height: padTop + contentForIconAndLabel + padBottom,
+      minHeight: padTop + contentForIconAndLabel + padBottom,
       overflow: 'visible',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },

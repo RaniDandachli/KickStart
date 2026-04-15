@@ -13,6 +13,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { H2hLobbyStatusLine } from '@/features/play/H2hFlowStatusLine';
 import { displayNameForProfile, h2hAbandonMatchSessionRpc } from '@/services/api/h2hMatchSession';
 import { useAuthStore } from '@/store/authStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
@@ -190,6 +191,11 @@ export default function PreMatchLobbyScreen() {
   return (
     <Screen scroll={false}>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1 LOBBY</Text>
+      <H2hLobbyStatusLine
+        loading={msQ.isLoading}
+        bothPlayersJoined={hasOpponent}
+        status={msQ.data?.status}
+      />
       <Text style={styles.sub}>Player vs player — you vs your opponent. Both of you can start when you are ready (no separate “ready” button — first tap begins).</Text>
       {prizeBlock.kind === 'paid' ? (
         <Text style={[styles.sub, styles.lockInNote]}>

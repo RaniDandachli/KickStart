@@ -482,7 +482,13 @@ export default function TileClashGame({
             ))}
           </View>
 
-          <View style={[styles.hitZone, { top: hitTopPx, height: hitH }]} pointerEvents="none" />
+          <View style={[styles.hitZone, { top: hitTopPx, height: hitH }]} pointerEvents="none">
+            {phase === 'ready' ? (
+              <Text style={styles.hitZoneReadyHint} numberOfLines={2}>
+                Tap when the pale tile sits in this band — not above or below it.
+              </Text>
+            ) : null}
+          </View>
 
           {m.tiles.map((t) => {
             const x = t.col * colW;
@@ -526,9 +532,19 @@ export default function TileClashGame({
             />
           ) : null}
 
-          {/* Tap anywhere to start — does not hide the gold band */}
+          {/* Tap anywhere to start — overlay is transparent above the hint so the amber band stays visible */}
           {phase === 'ready' ? (
             <Pressable style={[styles.tapToStartLayer, WEB_BOARD_TOUCH]} onPressIn={startGame}>
+              <View style={styles.rulesBlock} pointerEvents="none">
+                <Text style={styles.rulesTitle}>How to play</Text>
+                <Text style={styles.rulesBody}>
+                  • Each row has one pale / cyan-edged tile — that&apos;s the only safe tap. Gray tiles end your run.{'\n'}
+                  • Tap that tile&apos;s column when it overlaps the horizontal amber band (middle of the board).{'\n'}
+                  • Too early? Nothing happens — wait until the pale tile lines up with the band; don&apos;t spam the blue
+                  lanes randomly.{'\n'}
+                  {Platform.OS === 'web' ? '• Web: number keys 1–4 = columns left to right.\n' : ''}
+                </Text>
+              </View>
               <View style={styles.tapToStartHint} pointerEvents="none">
                 <Text style={styles.tapMode}>
                   {h2hSkillContest
@@ -539,10 +555,9 @@ export default function TileClashGame({
                         ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · 1 ticket / ${TILE_CLASH_POINTS_PER_TICKET} score`
                         : 'Practice · free'}
                 </Text>
-                <Text style={styles.tapToStartTitle}>TAP TO START</Text>
+                <Text style={styles.tapToStartTitle}>TAP ANYWHERE TO START</Text>
                 <Text style={styles.tapToStartSub}>
-                  Hit the glowing tile in the gold zone
-                  {Platform.OS === 'web' ? '\nWeb: keys 1–4 = lanes' : ''}
+                  Then tap the column (not the sky above the band) when the good tile crosses the amber band.
                 </Text>
               </View>
             </Pressable>
@@ -550,8 +565,8 @@ export default function TileClashGame({
         </View>
 
         <Text style={[styles.footerHint, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-          Wrong tile or miss ends the run · Speed up every 5 hits
-          {Platform.OS === 'web' ? ' · Web: 1–4' : ''}
+          Wrong column or bad tile in the band ends the run · Speed increases every 5 good hits
+          {Platform.OS === 'web' ? ' · Web: 1–4 = columns' : ''}
         </Text>
 
         {phase === 'over' && dailyTournament && dailyPayload ? (
@@ -766,7 +781,7 @@ const styles = StyleSheet.create({
   },
   boardOuter: {
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     minHeight: 200,
     width: '100%',
     alignSelf: 'center',
@@ -791,6 +806,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(251, 191, 36, 0.95)',
     backgroundColor: 'rgba(251, 191, 36, 0.14)',
     zIndex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  hitZoneReadyHint: {
+    color: 'rgba(254, 243, 199, 0.98)',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 15,
   },
   tile: {
     position: 'absolute',
@@ -809,7 +834,32 @@ const styles = StyleSheet.create({
   tapToStartLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 15,
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  rulesBlock: {
+    marginHorizontal: 6,
+    maxHeight: '52%',
+    borderRadius: 12,
+    backgroundColor: 'rgba(6, 13, 24, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  rulesTitle: {
+    color: '#FDE68A',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  rulesBody: {
+    color: 'rgba(226, 232, 240, 0.95)',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   tapToStartHint: {
     paddingVertical: 18,

@@ -36,7 +36,7 @@ import {
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
-import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -63,7 +63,7 @@ function ticketsFromTurboScore(score: number) {
 // ── Scale ─────────────────────────────────────
 
 function useArenaScale(sw: number) {
-  const cap = minigameStageMaxWidth(680);
+  const cap = minigameResponsiveStageWidth(sw);
   const maxW = Math.min(sw - 16, cap);
   const scale = maxW / TURBO.worldW;
   return { scale, arenaW: TURBO.worldW * scale, arenaH: TURBO.worldH * scale };

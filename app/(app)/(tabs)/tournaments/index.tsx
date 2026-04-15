@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
@@ -186,12 +187,13 @@ export default function TournamentsListScreen() {
         </>
       ) : null}
 
-      {isLoading && (
+      {isLoading ? (
         <>
+          <LoadingState message="Loading events and tournaments…" />
           <SkeletonBlock className="mb-3 h-24" />
           <SkeletonBlock className="mb-3 h-24" />
         </>
-      )}
+      ) : null}
       {isError && <EmptyState title="Could not load events" description="Check .env and RLS policies." />}
 
       {data?.map((t) => {

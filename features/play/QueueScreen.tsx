@@ -1,12 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { QueryClient } from '@tanstack/react-query';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { QuickMatchTierChips } from '@/components/arcade/QuickMatchTierChips';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
+import { H2hQueueStatusLine } from '@/features/play/H2hFlowStatusLine';
 import { OpponentFoundModal } from '@/features/play/OpponentFoundModal';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { isSupabaseLikelyConfigured } from '@/lib/env';
@@ -14,6 +16,7 @@ import { isUuid } from '@/lib/isUuid';
 import {
   createH2hMatchSessionViaEdge,
   displayNameForProfile,
+  h2hAbandonMatchSessionRpc,
   resolveDevOpponentUserId,
 } from '@/services/api/h2hMatchSession';
 import { useH2hQueueMatchSignals } from '@/hooks/useH2hQueueMatchSignals';
@@ -111,6 +114,41 @@ function buildBackendQueueParams(args: {
   };
 }
 
+/** Snapshot taken before `reset()` — used to abandon a lobby when user leaves during “match found”. */
+type MatchmakingExitSnapshot = {
+  phase: 'searching' | 'found';
+  mockMatchId: string | null;
+  serverSessionReady: boolean;
+};
+
+/**
+ * Remove `h2h_queue_entries` waiter row; if the user had already been paired into a real `match_sessions` row
+ * but did not accept, cancel that lobby so the other player is not stuck and the board stays accurate.
+ */
+async function syncExitMatchmakingToServer(qc: QueryClient, snapshot: MatchmakingExitSnapshot) {
+  if (!ENABLE_BACKEND) return;
+  const uid = useAuthStore.getState().user?.id;
+  if (!uid || uid === 'guest') return;
+  try {
+    await h2hCancelQueue();
+  } catch {
+    /* still try abandon */
+  }
+  if (
+    snapshot.phase === 'found' &&
+    snapshot.serverSessionReady &&
+    snapshot.mockMatchId &&
+    isUuid(snapshot.mockMatchId)
+  ) {
+    try {
+      await h2hAbandonMatchSessionRpc(snapshot.mockMatchId);
+    } catch {
+      /* network */
+    }
+  }
+  await qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
+}
+
 export function QueueScreen({
   mode,
   entryFeeUsd,
@@ -175,6 +213,31 @@ export function QueueScreen({
   const setActiveMatch = useMatchmakingStore((s) => s.setActiveMatch);
   const setQueue = useMatchmakingStore((s) => s.setQueue);
   const reset = useMatchmakingStore((s) => s.reset);
+  const queueKind = useMatchmakingStore((s) => s.queue);
+
+  function refundEntryIfQueuedDemo() {
+    const n = entryChargedDemoRef.current;
+    if (n > 0) {
+      addWalletCents(n);
+      entryChargedDemoRef.current = 0;
+    }
+  }
+
+  const dismissMatchmakingToIdle = useCallback(() => {
+    const st = useMatchmakingStore.getState();
+    if (st.phase !== 'searching' && st.phase !== 'found') return;
+    const snapshot: MatchmakingExitSnapshot = {
+      phase: st.phase,
+      mockMatchId: st.mockMatchId,
+      serverSessionReady: st.serverSessionReady,
+    };
+    h2hIntentAutostartDoneOrCancelledRef.current = true;
+    backendQueueParamsRef.current = null;
+    quickMatchCtxRef.current = null;
+    refundEntryIfQueuedDemo();
+    reset();
+    void syncExitMatchmakingToServer(qc, snapshot);
+  }, [qc, reset]);
 
   useH2hQueueMatchSignals({
     enabled: ENABLE_BACKEND && userId !== 'guest' && phase === 'searching',
@@ -551,8 +614,7 @@ export function QueueScreen({
     if (!ENABLE_BACKEND || userId === 'guest' || phase !== 'searching') return;
 
     if (quickMatch && quickMatchCtxRef.current == null) {
-      cleanupBackendQueue();
-      useMatchmakingStore.getState().reset();
+      dismissMatchmakingToIdle();
       return;
     }
 
@@ -623,40 +685,16 @@ export function QueueScreen({
     queueTierCents,
     profileQ.isFetched,
     profileQ.data?.wallet_cents,
+    dismissMatchmakingToIdle,
   ]);
 
-  function cleanupBackendQueue() {
-    backendQueueParamsRef.current = null;
-    if (!ENABLE_BACKEND) return;
-    const uid = useAuthStore.getState().user?.id;
-    if (uid && uid !== 'guest') {
-      void (async () => {
-        try {
-          await h2hCancelQueue();
-        } catch {
-          /* network */
-        }
-        await qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
-      })();
-    }
-  }
-
-  /** Leaving the queue route (back, another tab, refresh) while pairing — cancel server row and stop spinners. */
+  /** Leaving the queue route (back, another tab, refresh) while searching or on “match found” — full server + local cleanup. */
   useFocusEffect(
     useCallback(() => {
       return () => {
-        if (useMatchmakingStore.getState().phase !== 'searching') return;
-        backendQueueParamsRef.current = null;
-        if (ENABLE_BACKEND) {
-          const uid = useAuthStore.getState().user?.id;
-          if (uid && uid !== 'guest') {
-            void h2hCancelQueue().catch(() => {});
-          }
-          void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
-        }
-        useMatchmakingStore.getState().reset();
+        dismissMatchmakingToIdle();
       };
-    }, [qc]),
+    }, [dismissMatchmakingToIdle]),
   );
 
   async function accept() {
@@ -734,29 +772,13 @@ export function QueueScreen({
     router.push(`/(app)/(tabs)/play/lobby/${resolvedMatchId}${rt}`);
   }
 
-  function refundEntryIfQueuedDemo() {
-    const n = entryChargedDemoRef.current;
-    if (n > 0) {
-      addWalletCents(n);
-      entryChargedDemoRef.current = 0;
-    }
-  }
-
   function decline() {
-    h2hIntentAutostartDoneOrCancelledRef.current = true;
-    cleanupBackendQueue();
-    refundEntryIfQueuedDemo();
-    quickMatchCtxRef.current = null;
-    reset();
+    dismissMatchmakingToIdle();
   }
 
   /** Leave queue: return to initiating tab route when available. */
   function leaveScreen() {
-    h2hIntentAutostartDoneOrCancelledRef.current = true;
-    cleanupBackendQueue();
-    refundEntryIfQueuedDemo();
-    quickMatchCtxRef.current = null;
-    reset();
+    dismissMatchmakingToIdle();
     router.replace(leaveTarget as never);
   }
 
@@ -811,6 +833,16 @@ export function QueueScreen({
           Supabase URL/key look like placeholders — matchmaking only works with your real project env on every device (laptop and phone).
         </Text>
       ) : null}
+      {ENABLE_BACKEND && userId !== 'guest' && profileQ.isError ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading wallet"
+          onPress={() => void profileQ.refetch()}
+          style={({ pressed }) => [styles.profileErrBanner, pressed && { opacity: 0.88 }]}
+        >
+          <Text style={styles.profileErrTxt}>Could not load your wallet. Tap to retry.</Text>
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={leaveScreen}
         accessibilityRole="button"
@@ -822,6 +854,7 @@ export function QueueScreen({
         <Text style={styles.backText}>Arcade</Text>
       </Pressable>
       <Text className="mb-2 text-2xl font-black text-white">{title}</Text>
+      <H2hQueueStatusLine phase={phase} mode={queueKind ?? mode} />
       {quickMatch ? (
         <>
           <Text className="mb-4 text-center text-sm text-slate-400">
@@ -988,5 +1021,21 @@ const styles = StyleSheet.create({
     color: arcade.gold,
     fontSize: 17,
     fontWeight: '800',
+  },
+  profileErrBanner: {
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(127,29,29,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  profileErrTxt: {
+    color: 'rgba(254,226,226,0.98)',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 17,
   },
 });

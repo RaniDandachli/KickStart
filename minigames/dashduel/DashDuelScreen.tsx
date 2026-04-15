@@ -10,7 +10,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
-import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
 import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
 import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';
@@ -281,7 +281,7 @@ export default function DashDuelScreen({
                 style={{
                   flex: isLandscapeLayout ? 0.9 : undefined,
                   width: '100%',
-                  maxWidth: minigameStageMaxWidth(360),
+                  maxWidth: minigameStageMaxWidth(400),
                 }}
               >
                 <AppButton title="Practice run (free)" onPress={goPractice} />

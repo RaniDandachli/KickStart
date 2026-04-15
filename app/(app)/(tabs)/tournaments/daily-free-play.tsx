@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
 import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
@@ -16,6 +16,7 @@ import {
   titleForDailyGame,
 } from '@/lib/dailyFreeTournament';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
+import { pushProfilePollingPause } from '@/lib/profilePollingPause';
 import NeonBallRunGame from '@/minigames/ballrun/BallRunGame';
 import TapDashGame from '@/minigames/tapdash/TapDashGame';
 import TileClashGame from '@/minigames/tileclash/TileClashGame';
@@ -36,7 +37,9 @@ export default function DailyFreeTournamentPlayScreen() {
   const todaysKey = dayKey || todayYmdLocal();
   const dailyRounds = getDailyTournamentRounds(todaysKey);
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
-  useDailyFreeResetClock(uid, hydrate);
+  useDailyFreeResetClock(uid, hydrate, { withCountdown: false });
+
+  useEffect(() => pushProfilePollingPause(), []);
 
   const [roundPlayKey, setRoundPlayKey] = useState(0);
   const [roundSplash, setRoundSplash] = useState(false);

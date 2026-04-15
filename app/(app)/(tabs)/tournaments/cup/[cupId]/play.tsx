@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
 import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
@@ -18,6 +18,7 @@ import {
   titleForDailyGame,
 } from '@/lib/dailyFreeTournament';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
+import { pushProfilePollingPause } from '@/lib/profilePollingPause';
 import NeonBallRunGame from '@/minigames/ballrun/BallRunGame';
 import TapDashGame from '@/minigames/tapdash/TapDashGame';
 import TileClashGame from '@/minigames/tileclash/TileClashGame';
@@ -49,10 +50,16 @@ export default function CreditCupPlayScreen() {
     },
     [cup?.id, hydrate],
   );
-  useDailyFreeResetClock(uid, async (k) => {
-    await hydrateCup(k);
-    await cupDailyHydrate(k);
-  });
+  useDailyFreeResetClock(
+    uid,
+    async (k) => {
+      await hydrateCup(k);
+      await cupDailyHydrate(k);
+    },
+    { withCountdown: false },
+  );
+
+  useEffect(() => pushProfilePollingPause(), []);
 
   const [dailyCommitOk, setDailyCommitOk] = useState(false);
   const [roundPlayKey, setRoundPlayKey] = useState(0);

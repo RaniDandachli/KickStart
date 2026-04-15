@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
@@ -369,8 +370,19 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {profileQ.isError && useServer ? (
+        <View style={styles.errBanner}>
+          <Text style={styles.errTxt}>Could not load your profile or wallet. Check your connection.</Text>
+          <AppButton
+            title="Retry"
+            variant="secondary"
+            onPress={() => void qc.invalidateQueries({ queryKey: queryKeys.profile(uid!) })}
+          />
+        </View>
+      ) : null}
+
       {loadingProfile ? (
-        <SkeletonBlock className="mb-4 h-36 w-full rounded-2xl" />
+        <LoadingState message="Loading your profile and wallet…" />
       ) : (
         <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.walletOuter, runitGlowPinkSoft]}>
           <View style={styles.walletInner}>
@@ -382,6 +394,28 @@ export default function ProfileScreen() {
             <Text style={styles.walletSub}>
               {ENABLE_BACKEND ? 'Entry fees, tournaments and withdrawals' : 'Guest wallet on this device — sign in for cloud balance'}
             </Text>
+            {ENABLE_BACKEND && (profile?.wallet_cents ?? 0) === 0 ? (
+              <View style={styles.walletZeroBox}>
+                <SafeIonicons name="wallet-outline" size={18} color="#fbbf24" />
+                <Text style={styles.walletZeroTxt}>
+                  Cash wallet is $0.00 — add funds for paid contests, or play free Arcade practice and daily events.
+                </Text>
+                <View style={styles.walletZeroRow}>
+                  <Pressable
+                    style={({ pressed }) => [styles.walletZeroChip, pressed && { opacity: 0.88 }]}
+                    onPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
+                  >
+                    <Text style={styles.walletZeroChipTxt}>Add funds</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.walletZeroChip, styles.walletZeroChipGhost, pressed && { opacity: 0.88 }]}
+                    onPress={() => pushCrossTab(router, '/(app)/(tabs)/play')}
+                  >
+                    <Text style={[styles.walletZeroChipTxt, { color: runit.neonCyan }]}>Free Arcade</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
             <View style={styles.pillRow}>
               <View style={styles.pill}>
                 <Text style={styles.pillLbl}>WALLET</Text>
@@ -651,6 +685,30 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   walletSub: { color: 'rgba(148,163,184,0.85)', fontSize: 12, marginTop: 4, marginBottom: 14 },
+  walletZeroBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(251,191,36,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.35)',
+  },
+  walletZeroTxt: { flex: 1, minWidth: 200, color: 'rgba(254,243,199,0.95)', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  walletZeroRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginTop: 4 },
+  walletZeroChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'rgba(167,139,250,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.5)',
+  },
+  walletZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(34,211,238,0.45)' },
+  walletZeroChipTxt: { color: '#fff', fontWeight: '800', fontSize: 12 },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   pill: {
     borderRadius: 10,
@@ -714,5 +772,15 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   badge: { borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
   badgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  errBanner: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.45)',
+    backgroundColor: 'rgba(127,29,29,0.25)',
+    gap: 10,
+  },
+  errTxt: { color: 'rgba(254,226,226,0.95)', fontSize: 13, fontWeight: '600', lineHeight: 18 },
   muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13, marginBottom: 8 },
 });

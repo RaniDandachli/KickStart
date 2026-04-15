@@ -22,3 +22,12 @@ export function minigameStageMaxWidth(phoneMax: number): number {
   if (Platform.OS !== 'web') return phoneMax;
   return webViewportUsesDesktopLayout() ? WEB_MINIGAME_STAGE_MAX_WIDTH : phoneMax;
 }
+
+/**
+ * 2D lanes/boards: use almost the full device width (minus gutter), up to 620px on large phones / small tablets.
+ * Wider desktop web still uses {@link WEB_MINIGAME_STAGE_MAX_WIDTH} via {@link minigameStageMaxWidth}.
+ */
+export function minigameResponsiveStageWidth(sw: number): number {
+  const target = Math.max(300, Math.min(sw - 24, 620));
+  return minigameStageMaxWidth(target);
+}

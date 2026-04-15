@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,13 +28,19 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
-import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import {
+  clearLastMinigameAttempt,
+  loadLastMinigameAttempt,
+  saveLastMinigameAttempt,
+  type LastMinigameAttempt,
+} from '@/lib/lastMinigameScoreAttempt';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
@@ -418,11 +424,11 @@ export default function TapDashGame({
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
-  const laneCap = useMemo(() => minigameStageMaxWidth(440), [sw]);
+  const laneCap = useMemo(() => minigameResponsiveStageWidth(sw), [sw]);
   const dialogCap = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const [laneSize, setLaneSize] = useState(() => ({
-    w: Math.min(Math.max(200, sw - 16), minigameStageMaxWidth(440)),
-    h: Math.max(320, Math.min(sh * 0.72, 620)),
+    w: Math.min(Math.max(200, sw - 16), minigameResponsiveStageWidth(sw)),
+    h: Math.max(300, Math.min(sh * 0.82, 840)),
   }));
 
   const laneW = laneSize.w;
@@ -444,6 +450,13 @@ export default function TapDashGame({
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const dailyCompleteRef = useRef(false);
+  const [lastLocalAttempt, setLastLocalAttempt] = useState<LastMinigameAttempt | null>(null);
+
+  useEffect(() => {
+    void loadLastMinigameAttempt().then((r) => {
+      if (r?.game_type === 'tap_dash') setLastLocalAttempt(r);
+    });
+  }, []);
 
   const buildH2hBody = useCallback(() => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -646,10 +659,20 @@ export default function TapDashGame({
         },
       });
       if (error) {
-        Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
+        await saveLastMinigameAttempt({
+          game_type: 'tap_dash',
+          score,
+          duration_ms: durationMs,
+          taps,
+          errorMessage: error.message ?? 'submit_failed',
+        });
+        setLastLocalAttempt(await loadLastMinigameAttempt());
+        Alert.alert('Submit failed', error.message ?? 'Could not reach server. Your score is saved on this device — tap Retry.');
         setSubmitErr(true);
         return;
       }
+      await clearLastMinigameAttempt();
+      setLastLocalAttempt(null);
       invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
     } finally {
@@ -913,6 +936,11 @@ export default function TapDashGame({
                   {submitErr && !submitting ? (
                     <>
                       <Text style={styles.practiceNote}>Could not save score. Check your connection.</Text>
+                      {lastLocalAttempt?.game_type === 'tap_dash' ? (
+                        <Text style={styles.practiceNote}>
+                          On-device backup: score {lastLocalAttempt.score} — Retry resubmits this run.
+                        </Text>
+                      ) : null}
                       <AppButton
                         title="Retry"
                         variant="secondary"
@@ -939,6 +967,11 @@ export default function TapDashGame({
                   {submitErr && !submitting ? (
                     <>
                       <Text style={styles.practiceNote}>Could not save run.</Text>
+                      {lastLocalAttempt?.game_type === 'tap_dash' ? (
+                        <Text style={styles.practiceNote}>
+                          On-device backup: score {lastLocalAttempt.score} — Retry resubmits this run.
+                        </Text>
+                      ) : null}
                       <AppButton
                         title="Retry"
                         variant="secondary"

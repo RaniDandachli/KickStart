@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { useEffect } from 'react';
+import { StyleSheet, Text } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 type Props = {
   visible: boolean;
@@ -9,14 +10,23 @@ type Props = {
 
 /**
  * Brief full-screen beat between tournament rounds (same route, remounted minigame).
+ * Fades in/out via shared opacity so hiding is smooth (keep mounted; parent passes `visible`).
  */
 export function RoundAdvanceOverlay({ visible, title, subtitle }: Props) {
-  if (!visible) return null;
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, { duration: visible ? 220 : 280 });
+  }, [visible, opacity]);
+
+  const aStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   return (
     <Animated.View
-      entering={FadeIn.duration(200)}
-      style={[StyleSheet.absoluteFillObject, styles.wrap]}
-      pointerEvents="none"
+      style={[StyleSheet.absoluteFillObject, styles.wrap, aStyle]}
+      pointerEvents={visible ? 'auto' : 'none'}
     >
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
