@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 /**
  * React Navigation's default `Label` can render poorly on react-native-web (missing/clipped text).
@@ -12,22 +12,34 @@ export function webTabBarLabelRenderer(props: {
 }) {
   const { color, position, children } = props;
   const beside = position === 'beside-icon';
+  const label = typeof children === 'string' && children.length > 0 ? children : '·';
+  /** Narrow web bottom tabs: fill the column — fixed maxWidth was clipping titles on mobile Safari. */
+  const narrowWebStacked = Platform.OS === 'web' && !beside;
   return (
     <Text
-      numberOfLines={1}
+      numberOfLines={narrowWebStacked ? 2 : 1}
       ellipsizeMode="tail"
-      style={{
-        color,
-        fontSize: beside ? 14 : 12,
-        fontWeight: '700',
-        letterSpacing: beside ? 0.15 : 0.2,
-        marginTop: beside ? 0 : 5,
-        marginLeft: beside ? 8 : 0,
-        maxWidth: beside ? 140 : 76,
-        textAlign: beside ? 'left' : 'center',
-      }}
+      style={[
+        {
+          color,
+          fontSize: beside ? 14 : 10,
+          lineHeight: beside ? 18 : 13,
+          fontWeight: '700',
+          letterSpacing: 0.15,
+          marginTop: beside ? 0 : 4,
+          marginLeft: beside ? 8 : 0,
+          maxWidth: beside ? 140 : undefined,
+          width: narrowWebStacked ? ('100%' as const) : undefined,
+          alignSelf: narrowWebStacked ? 'stretch' : undefined,
+          flexShrink: 0,
+          textAlign: beside ? 'left' : 'center',
+        },
+        Platform.OS === 'web' && !beside
+          ? { minHeight: 26, overflow: 'visible' as const }
+          : null,
+      ]}
     >
-      {children}
+      {label}
     </Text>
   );
 }

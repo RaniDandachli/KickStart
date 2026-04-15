@@ -46,7 +46,8 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
      */
     const padTop = 10;
     const padBottom = 12 + safeBottom;
-    const contentForIconAndLabel = 62;
+    /** Icon + 1–2 lines of label on narrow mobile web (Safari). */
+    const contentForIconAndLabel = 72;
     return {
       backgroundColor: 'rgba(5, 2, 14, 0.76)',
       borderTopWidth: 0,

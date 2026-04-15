@@ -1,5 +1,4 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import type { ComponentProps } from 'react';
@@ -26,18 +25,15 @@ import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
 
-type IonName = ComponentProps<typeof Ionicons>['name'];
+type IonName = ComponentProps<typeof SafeIonicons>['name'];
 
 const NATIVE_TAB_ICON = 20;
-const WEB_TAB_ICON = 23;
+/** Web: use SafeIonicons (SVG glyphs) — Ionicon font often paints as empty squares in the tab bar. */
+const WEB_TAB_ICON = 22;
 
 function tabBarIcon(name: IonName) {
-  return ({ color }: { color: string }) =>
-    Platform.OS === 'web' ? (
-      <Ionicons name={name} color={color} size={WEB_TAB_ICON} />
-    ) : (
-      <SafeIonicons name={name} color={color} size={NATIVE_TAB_ICON} />
-    );
+  const size = Platform.OS === 'web' ? WEB_TAB_ICON : NATIVE_TAB_ICON;
+  return ({ color }: { color: string }) => <SafeIonicons name={name} color={color} size={size} />;
 }
 
 export default function TabsLayout() {
@@ -180,7 +176,12 @@ export default function TabsLayout() {
           justifyContent: 'center',
           ...(Platform.OS === 'web' && webUsesTopTabBar ? { paddingHorizontal: 6 } : {}),
           ...(Platform.OS === 'web' && !webUsesTopTabBar
-            ? { alignItems: 'center' as const, flex: 1, minWidth: 0 }
+            ? {
+                alignItems: 'center' as const,
+                flex: 1,
+                minWidth: 0,
+                overflow: 'visible' as const,
+              }
             : {}),
         },
       }}
