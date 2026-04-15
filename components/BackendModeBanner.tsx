@@ -10,10 +10,10 @@ export function BackendModeBanner() {
   if (!ENABLE_BACKEND) {
     return (
       <View style={[styles.box, styles.demo]}>
-        <Text style={styles.title}>Offline demo mode</Text>
+        <Text style={styles.title}>Practice mode</Text>
         <Text style={styles.body}>
-          Guest access, local wallet, and mock matchmaking — nothing is saved to Supabase. Set EXPO_PUBLIC_ENABLE_BACKEND=true and real
-          Supabase keys in .env for live H2H, wallet debits, and prizes.
+          You&apos;re playing on this device only — guest wallet and casual match previews don&apos;t sync to the cloud. Sign in for live
+          contests, wallet, and matchmaking when available.
         </Text>
       </View>
     );
@@ -22,10 +22,9 @@ export function BackendModeBanner() {
   if (!isSupabaseLikelyConfigured()) {
     return (
       <View style={[styles.box, styles.warn]}>
-        <Text style={styles.title}>Supabase not configured</Text>
+        <Text style={styles.title}>Can&apos;t reach game services</Text>
         <Text style={styles.body}>
-          Backend is enabled but URL/key still look like placeholders. Update EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-          in .env, then restart Expo.
+          This build isn&apos;t connected correctly. Check your internet connection, update the app, or try again later.
         </Text>
       </View>
     );

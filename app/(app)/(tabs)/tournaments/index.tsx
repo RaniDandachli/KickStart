@@ -194,7 +194,7 @@ export default function TournamentsListScreen() {
           <SkeletonBlock className="mb-3 h-24" />
         </>
       ) : null}
-      {isError && <EmptyState title="Could not load events" description="Check .env and RLS policies." />}
+      {isError && <EmptyState title="Could not load events" description="Check your connection and try again." />}
 
       {data?.map((t) => {
         const isHi = !!(highlight && t.id === highlight);

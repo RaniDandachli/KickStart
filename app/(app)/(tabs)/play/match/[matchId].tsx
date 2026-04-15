@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePreventRemove } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,6 +13,7 @@ import { H2hDashDuelMatch } from '@/features/play/H2hDashDuelMatch';
 import { H2hTapDashMatch } from '@/features/play/H2hTapDashMatch';
 import { H2hTileClashMatch } from '@/features/play/H2hTileClashMatch';
 import { H2hTurboArenaMatch } from '@/features/play/H2hTurboArenaMatch';
+import { H2hNeonDanceMatch } from '@/features/play/H2hNeonDanceMatch';
 import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
@@ -116,7 +117,7 @@ export default function MatchPlayScreen() {
       if (!matchId || !isUuid(matchId)) return;
       const path = `/(app)/(tabs)/play/result/${matchId}?${qp.toString()}`;
       InteractionManager.runAfterInteractions(() => {
-        router.replace(path);
+        router.replace(path as Href);
       });
     },
     [matchId, router],
@@ -224,6 +225,16 @@ export default function MatchPlayScreen() {
     (msQ.data.status === 'lobby' || msQ.data.status === 'in_progress') &&
     !done &&
     serverGameKey === 'kick-clash';
+  const neonHopRetired =
+    ENABLE_BACKEND &&
+    userId !== 'guest' &&
+    !!matchId &&
+    isUuid(matchId) &&
+    isParticipant &&
+    !!msQ.data &&
+    (msQ.data.status === 'lobby' || msQ.data.status === 'in_progress') &&
+    !done &&
+    serverGameKey === 'neon-hop';
   const useSkillContestH2h =
     ENABLE_BACKEND &&
     userId !== 'guest' &&
@@ -238,7 +249,8 @@ export default function MatchPlayScreen() {
       serverGameKey === 'tile-clash' ||
       serverGameKey === 'ball-run' ||
       serverGameKey === 'dash-duel' ||
-      serverGameKey === 'turbo-arena');
+      serverGameKey === 'turbo-arena' ||
+      serverGameKey === 'neon-dance');
 
   if (msQ.isError) {
     return (
@@ -344,7 +356,7 @@ export default function MatchPlayScreen() {
     );
   }
 
-  if (kickClashRetired) {
+  if (kickClashRetired || neonHopRetired) {
     return (
       <Screen scroll={false}>
         <Text className="text-lg font-black text-white">Minigame unavailable</Text>
@@ -381,6 +393,8 @@ export default function MatchPlayScreen() {
         <H2hDashDuelMatch {...h2hProps} />
       ) : serverGameKey === 'turbo-arena' ? (
         <H2hTurboArenaMatch {...h2hProps} />
+      ) : serverGameKey === 'neon-dance' ? (
+        <H2hNeonDanceMatch {...h2hProps} />
       ) : (
         <H2hTapDashMatch {...h2hProps} />
       );

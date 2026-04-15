@@ -6,6 +6,7 @@ import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonDanceGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -33,6 +34,8 @@ function gameIcon(gameKey: (typeof H2H_OPEN_GAMES)[number]['gameKey'], size: num
       return <BallRunGameIcon size={size} />;
     case 'turbo-arena':
       return <TurboArenaGameIcon size={size} />;
+    case 'neon-dance':
+      return <NeonDanceGameIcon size={size} />;
     default:
       return <TapDashGameIcon size={size} />;
   }

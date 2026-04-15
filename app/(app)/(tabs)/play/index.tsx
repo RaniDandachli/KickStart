@@ -3,20 +3,21 @@ import { useNavigation, useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
-import { ArcadeCabinetIntro } from '@/components/arcade/ArcadeCabinetIntro';
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
+import { ArcadeCabinetIntro } from '@/components/arcade/ArcadeCabinetIntro';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
 import { ArcadeGrantBanner } from '@/components/arcade/ArcadeGrantBanner';
-import { ArcadeRewardsGuide } from '@/components/arcade/ArcadeRewardsGuide';
+import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
 import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import { ArcadePlayModeModal } from '@/components/arcade/ArcadePlayModeModal';
 import { ArcadePromoBanner } from '@/components/arcade/ArcadePromoBanner';
 import { ArcadeQuickMatch } from '@/components/arcade/ArcadeQuickMatch';
+import { ArcadeRewardsGuide } from '@/components/arcade/ArcadeRewardsGuide';
 import { ArcadeStatsRow } from '@/components/arcade/ArcadeStatsRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonDanceGameIcon,
   StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
@@ -24,9 +25,9 @@ import {
 } from '@/components/arcade/MinigameIcons';
 import { BackendModeBanner } from '@/components/BackendModeBanner';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import { pushCrossTab } from '@/lib/appNavigation';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { topUpComingSoonMessage } from '@/lib/purchaseEconomy';
 import { runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
@@ -186,6 +187,18 @@ export default function PlayHubScreen() {
           borderAccent="pink"
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<BallRunGameIcon size={36} />}
+        />
+        <ArcadeMinigameRow
+          emphasized
+          compact
+          gameRoute="neon-dance"
+          title="Neon Dance"
+          entryLabel="Practice or prize run"
+          winLabel="PLAY"
+          bgColors={['#050508', '#1e1b4b', '#312e81']}
+          borderAccent="pink"
+          entryColor="rgba(248,250,252,0.9)"
+          iconSlot={<NeonDanceGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized

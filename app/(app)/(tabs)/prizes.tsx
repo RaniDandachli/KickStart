@@ -209,7 +209,7 @@ export default function PrizesScreen() {
       Alert.alert('Not enough tickets', 'Win arcade prize runs to earn redeem tickets.');
       return;
     }
-    Alert.alert('Redeemed (preview)', 'Guest mode — this device only. Sign in with Supabase for real redemptions.');
+    Alert.alert('Redeemed (preview)', 'Guest mode — this device only. Sign in to redeem for real when available.');
   }, [shippingComplete, trySpendDemoTickets]);
 
   return (
@@ -287,18 +287,17 @@ export default function PrizesScreen() {
             <Text style={styles.infoTitle}>CATALOG</Text>
           </View>
           <Text style={styles.infoBody}>
-            Add rows in Supabase → Table Editor → prize_catalog. Set requires_shipping for items that ship. Paste the public
-            Storage URL into image_url.
+            Preview catalog for guest mode — sign in for the full prize shop when it&apos;s live.
           </Text>
         </View>
       ) : null}
 
       {catalogQ.error && (
-        <EmptyState title="Could not load prizes" description={(catalogQ.error as Error).message} />
+        <EmptyState title="Could not load prizes" description="Check your connection and try again." />
       )}
 
       {ENABLE_BACKEND && !catalogQ.isLoading && !catalogQ.data?.length ? (
-        <EmptyState title="No prizes yet" description="Add items in Supabase → prize_catalog." />
+        <EmptyState title="No prizes yet" description="Check back soon — new rewards are added regularly." />
       ) : null}
 
       {!catalogQ.error &&

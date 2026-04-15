@@ -319,7 +319,7 @@ export default function AddFundsScreen() {
               <Text style={styles.balanceMeta}>
                 {ENABLE_BACKEND
                   ? 'Cash is for contest access & tournaments. Arcade Credits are for arcade runs.'
-                  : 'Guest mode: balances stay on this device. Sign in with Supabase + Stripe for cloud wallet & card top-ups.'}
+                  : 'Guest mode: balances stay on this device. Sign in to sync your wallet and use card top-ups when available.'}
               </Text>
             )}
           </View>
@@ -329,9 +329,8 @@ export default function AddFundsScreen() {
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#FDE047" />
             <Text style={styles.bannerTxt}>
-              Stripe on the server is separate from this app build: add EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED=true to your project
-              root .env (exactly true, no spaces), then stop Expo and run npx expo start --clear. Supabase secrets alone do not enable
-              payments in the app.
+              In-app card top-ups aren&apos;t enabled in this build yet. You can still browse pricing; check back after an app update or
+              contact support if you need to add cash.
             </Text>
           </View>
         ) : null}
@@ -340,8 +339,8 @@ export default function AddFundsScreen() {
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
             <Text style={styles.bannerTxt}>
-              Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY (pk_test_… or pk_live_…) to .env for in-app card entry. Without it, this screen uses
-              Stripe in the browser instead.
+              Card entry inside the app isn&apos;t configured in this build. Use any on-screen web checkout option, or update the app when
+              a new version is available.
             </Text>
           </View>
         ) : null}

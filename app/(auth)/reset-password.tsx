@@ -109,7 +109,7 @@ export default function ResetPasswordScreen() {
     return (
       <Screen>
         <Text style={styles.body}>
-          Password reset requires Supabase. Use a build with the backend enabled, or contact support if you need access.
+          Password reset needs an online account. Connect to the internet and try again from the sign-in screen, or contact support.
         </Text>
         <AppButton title="Back to sign in" variant="secondary" className="mt-4" onPress={() => router.replace('/(auth)/sign-in')} />
       </Screen>

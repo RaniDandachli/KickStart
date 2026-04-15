@@ -13,6 +13,7 @@ import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonDanceGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -117,6 +118,8 @@ export default function HomeScreen() {
         return <BallRunGameIcon size={size} />;
       case 'turbo-arena':
         return <TurboArenaGameIcon size={size} />;
+      case 'neon-dance':
+        return <NeonDanceGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }

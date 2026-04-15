@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
@@ -182,7 +182,7 @@ export default function ProfileScreen() {
       } catch (e) {
         Alert.alert(
           'Upload failed',
-          e instanceof Error ? e.message : 'Could not upload. Create the `avatars` storage bucket (see supabase/migrations/00004_storage_avatars.sql) or try again.',
+          e instanceof Error ? e.message : 'Could not upload your photo. Check your connection and try again.',
         );
       }
     } else {
@@ -268,7 +268,7 @@ export default function ProfileScreen() {
     if (avatarUri.startsWith('file') || avatarUri.startsWith('content')) return avatarUri;
     if (avatarUri.startsWith('http')) {
       const base = avatarUri.split('?')[0];
-      return `${base}?cb=${avatarRenderNonce}`;
+      return `${base}?v=${avatarRenderNonce}`;
     }
     return avatarUri;
   }, [avatarUri, avatarRenderNonce]);
@@ -300,24 +300,29 @@ export default function ProfileScreen() {
       {ALLOW_GUEST_MODE && uid && user?.email ? (
         <Text style={styles.signedInNote}>Signed in as {user.email}</Text>
       ) : null}
+
+      <Text style={styles.screenKicker}>Your profile</Text>
+
       <View style={styles.header}>
         <Pressable onPress={() => void pickAvatar()} accessibilityRole="button" accessibilityLabel="Change profile photo">
           <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatarRing}>
             <View style={styles.avatarInner}>
               {showAvatar && avatarDisplayUri ? (
                 <Image
-                  key={`${avatarDisplayUri}-${profile?.updated_at ?? ''}-${avatarRenderNonce}`}
+                  recyclingKey={`${uid ?? 'guest'}-${avatarRenderNonce}`}
                   source={{ uri: avatarDisplayUri }}
                   style={styles.avatarImg}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  cachePolicy="none"
+                  transition={200}
                 />
               ) : (
-                <SafeIonicons name="person" size={32} color="rgba(255,255,255,0.85)" />
+                <SafeIonicons name="person" size={40} color="rgba(255,255,255,0.85)" />
               )}
             </View>
           </LinearGradient>
           <View style={styles.cameraBadge}>
-            <SafeIonicons name="camera" size={14} color="#050208" />
+            <SafeIonicons name="camera" size={16} color="#050208" />
           </View>
         </Pressable>
 
@@ -363,7 +368,7 @@ export default function ProfileScreen() {
                 ) : null}
               </View>
               {!useServer ? (
-                <Text style={styles.hint}>Guest: saved on this device. Sign in with Supabase to sync.</Text>
+                <Text style={styles.hint}>Guest: saved on this device only. Sign in to sync your profile.</Text>
               ) : null}
             </>
           )}
@@ -567,11 +572,44 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      <AppButton title="Settings" variant="secondary" onPress={() => router.push('/(app)/(tabs)/profile/settings')} />
-      <AppButton className="mt-2" title="Transactions" variant="ghost" onPress={() => router.push('/(app)/(tabs)/profile/transactions')} />
-      {uid ? (
-        <AppButton className="mt-2" title="Sign out" variant="danger" onPress={() => void signOut()} />
-      ) : null}
+      <View style={styles.accountActions}>
+        <Text style={styles.accountActionsTitle}>Account</Text>
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.actionRowCard, pressed && styles.actionRowCardPressed]}
+          onPress={() => router.push('/(app)/(tabs)/profile/settings')}
+        >
+          <View style={styles.actionRowLeft}>
+            <SafeIonicons name="settings-outline" size={24} color={runit.neonCyan} />
+            <Text style={styles.actionRowLabel}>Settings</Text>
+          </View>
+          <SafeIonicons name="chevron-forward" size={22} color="rgba(226,232,240,0.65)" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.actionRowCard, pressed && styles.actionRowCardPressed]}
+          onPress={() => router.push('/(app)/(tabs)/profile/transactions')}
+        >
+          <View style={styles.actionRowLeft}>
+            <SafeIonicons name="receipt-outline" size={24} color={runit.neonCyan} />
+            <Text style={styles.actionRowLabel}>Transactions</Text>
+          </View>
+          <SafeIonicons name="chevron-forward" size={22} color="rgba(226,232,240,0.65)" />
+        </Pressable>
+        {uid ? (
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.actionRowCard, styles.actionRowCardDanger, pressed && styles.actionRowCardDangerPressed]}
+            onPress={() => void signOut()}
+          >
+            <View style={styles.actionRowLeft}>
+              <SafeIonicons name="log-out-outline" size={24} color="#fca5a5" />
+              <Text style={[styles.actionRowLabel, styles.actionRowLabelDanger]}>Sign out</Text>
+            </View>
+            <SafeIonicons name="chevron-forward" size={22} color="rgba(248,113,113,0.55)" />
+          </Pressable>
+        ) : null}
+      </View>
     </Screen>
   );
 }
@@ -618,59 +656,67 @@ const styles = StyleSheet.create({
   accountCalloutBtnSecondaryText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14 },
   signedInNote: {
     color: 'rgba(0, 240, 255, 0.9)',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 20 },
-  avatarRing: { width: 72, height: 72, borderRadius: 36, padding: 2 },
+  screenKicker: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
+  avatarRing: { width: 96, height: 96, borderRadius: 48, padding: 3 },
   avatarInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: 'rgba(6,2,14,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  avatarImg: { width: 68, height: 68, borderRadius: 34 },
+  avatarImg: { width: 90, height: 90, borderRadius: 45 },
   cameraBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
     backgroundColor: runit.neonCyan,
     borderRadius: 999,
-    padding: 5,
+    padding: 6,
     borderWidth: 2,
     borderColor: 'rgba(6,2,14,0.95)',
   },
-  headerText: { flex: 1 },
-  fieldLbl: { color: 'rgba(148,163,184,0.9)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
+  headerText: { flex: 1, paddingTop: 2 },
+  fieldLbl: { color: 'rgba(203,213,225,0.95)', fontSize: 12, fontWeight: '800', letterSpacing: 0.4, marginBottom: 6 },
   input: {
     borderWidth: 1,
     borderColor: 'rgba(157,78,237,0.45)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     backgroundColor: 'rgba(8,4,18,0.75)',
   },
-  saveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' },
+  saveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' },
   saveBtn: {
     backgroundColor: runit.neonPink,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.25)',
-    minWidth: 100,
+    minWidth: 120,
     alignItems: 'center',
   },
-  saveBtnText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  clearPhoto: { paddingVertical: 6 },
-  clearPhotoText: { color: runit.neonCyan, fontSize: 12, fontWeight: '700' },
+  saveBtnText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  clearPhoto: { paddingVertical: 10, paddingHorizontal: 4 },
+  clearPhotoText: { color: runit.neonCyan, fontSize: 14, fontWeight: '800' },
   hint: { color: 'rgba(148,163,184,0.75)', fontSize: 11, marginTop: 8, lineHeight: 15 },
   walletOuter: { borderRadius: 18, padding: 2, marginBottom: 20 },
   walletInner: { borderRadius: 16, backgroundColor: 'rgba(6,2,14,0.72)', paddingVertical: 16, paddingHorizontal: 16 },
@@ -783,4 +829,41 @@ const styles = StyleSheet.create({
   },
   errTxt: { color: 'rgba(254,226,226,0.95)', fontSize: 13, fontWeight: '600', lineHeight: 18 },
   muted: { color: 'rgba(148,163,184,0.85)', fontSize: 13, marginBottom: 8 },
+  accountActions: {
+    marginTop: 8,
+    marginBottom: 24,
+    gap: 10,
+  },
+  accountActionsTitle: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  actionRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 56,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(167, 139, 250, 0.55)',
+    backgroundColor: 'rgba(12, 6, 22, 0.92)',
+  },
+  actionRowCardDanger: {
+    borderColor: 'rgba(248, 113, 113, 0.5)',
+    backgroundColor: 'rgba(127, 29, 29, 0.18)',
+  },
+  actionRowCardPressed: {
+    backgroundColor: 'rgba(167,139,250,0.12)',
+  },
+  actionRowCardDangerPressed: {
+    backgroundColor: 'rgba(185, 28, 28, 0.28)',
+  },
+  actionRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  actionRowLabel: { color: '#f1f5f9', fontSize: 17, fontWeight: '800' },
+  actionRowLabelDanger: { color: '#fecaca' },
 });

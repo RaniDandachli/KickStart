@@ -1,3 +1,4 @@
+import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -184,7 +185,7 @@ export default function TabsLayout() {
               }
             : {}),
         },
-      }}
+      } as BottomTabNavigationOptions}
     >
       <Tabs.Screen
         name="index"

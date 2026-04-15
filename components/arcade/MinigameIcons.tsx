@@ -255,6 +255,38 @@ export function StackerGameIcon({ size = 40 }: IconProps) {
   );
 }
 
+/** Neon Dance — split ring + orb. */
+export function NeonDanceGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  const uid = useUniqueSvgIds('nd');
+  const idP = `${uid}_p`;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id={idP} x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#e879f9" />
+            <Stop offset="100%" stopColor="#7c3aed" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#050508" />
+        <Path
+          d="M 24 10 A 14 14 0 0 1 38 24 L 24 24 Z"
+          fill="#22c55e"
+          opacity={0.95}
+        />
+        <Path
+          d="M 24 10 A 14 14 0 0 0 10 24 L 24 24 Z"
+          fill="#a855f7"
+          opacity={0.95}
+        />
+        <Circle cx="24" cy="24" r="5" fill="#f8fafc" opacity={0.95} />
+        <Circle cx="24" cy="38" r="4" fill={`url(#${idP})`} />
+      </Svg>
+    </View>
+  );
+}
+
 export function DashDuelGameIcon({ size = 40 }: IconProps) {
   const s = size;
   const uid = useUniqueSvgIds('dd');

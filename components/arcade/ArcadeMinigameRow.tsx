@@ -13,7 +13,8 @@ type Props = {
     | 'ball-run'
     | 'turbo-arena'
     | 'neon-pool'
-    | 'stacker';
+    | 'stacker'
+    | 'neon-dance';
   title: string;
   entryLabel: string;
   winLabel: string;

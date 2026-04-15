@@ -160,6 +160,7 @@ Deno.serve(async (req) => {
         if (gk === 'ball-run') return 'ball_run';
         if (gk === 'dash-duel') return 'dash_duel';
         if (gk === 'turbo-arena') return 'turbo_arena';
+        if (gk === 'neon-dance') return 'neon_dance';
         return null;
       })();
       if (!forfeitBy && skillGameType) {

@@ -97,8 +97,8 @@ export default function StripeConnectScreen() {
   const onStart = useCallback(async () => {
     if (!ENABLE_BACKEND || !WALLET_TOPUP_STRIPE_ENABLED) {
       Alert.alert(
-        'Not configured',
-        'Enable Stripe in your project (EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED) and deploy createStripeConnectLink + getStripeConnectAccount.',
+        'Not available',
+        'Payout setup isn’t available in this build yet. Update the app or contact support if you need withdrawals.',
       );
       return;
     }

@@ -14,6 +14,8 @@ export const DASH_DUEL_POINTS_PER_TICKET = 120;
 export const BALL_RUN_POINTS_PER_TICKET = 25;
 /** Neon Pocket (pool) — table score; 200 → 1 ticket. */
 export const NEON_POOL_POINTS_PER_TICKET = 200;
+/** Neon Dance — successful color gates; 8 → 1 ticket. */
+export const NEON_DANCE_POINTS_PER_TICKET = 8;
 /** Stacker — redeem tickets only on full jackpot stack (see `ticketsFromStackerPrizeRun`). */
 export const STACKER_JACKPOT_TICKETS = 10_000;
 
@@ -38,6 +40,7 @@ export const ARCADE_TICKET_SCORE_RULES: readonly {
   { game: 'Tile Clash', scoreLabel: 'Round score', pointsPerTicket: TILE_CLASH_POINTS_PER_TICKET },
   { game: 'Dash Duel', scoreLabel: 'Displayed points', pointsPerTicket: DASH_DUEL_POINTS_PER_TICKET },
   { game: 'Neon Ball Run', scoreLabel: 'Distance score', pointsPerTicket: BALL_RUN_POINTS_PER_TICKET },
+  { game: 'Neon Dance', scoreLabel: 'Clean passes', pointsPerTicket: NEON_DANCE_POINTS_PER_TICKET },
 ];
 
 export function ticketsFromTapDashScore(score: number): number {
@@ -58,6 +61,10 @@ export function ticketsFromBallRunScore(score: number): number {
 
 export function ticketsFromNeonPoolScore(score: number): number {
   return Math.max(0, Math.floor(score / NEON_POOL_POINTS_PER_TICKET));
+}
+
+export function ticketsFromNeonDanceScore(score: number): number {
+  return Math.max(0, Math.floor(score / NEON_DANCE_POINTS_PER_TICKET));
 }
 
 /** Prize run: tickets only if the player clears every row to the top (jackpot). */

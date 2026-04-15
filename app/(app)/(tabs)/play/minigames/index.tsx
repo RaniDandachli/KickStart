@@ -7,6 +7,7 @@ import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonDanceGameIcon,
   StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
@@ -69,6 +70,16 @@ export default function MinigamesHubScreen() {
         borderAccent="pink"
         entryColor="rgba(248,250,252,0.9)"
         iconSlot={<BallRunGameIcon size={36} />}
+      />
+      <ArcadeMinigameRow
+        gameRoute="neon-dance"
+        title="Neon Dance"
+        entryLabel="Practice or prize run"
+        winLabel="PLAY"
+        bgColors={['#050508', '#1e1b4b', '#312e81']}
+        borderAccent="pink"
+        entryColor="rgba(248,250,252,0.9)"
+        iconSlot={<NeonDanceGameIcon size={36} />}
       />
       <ArcadeMinigameRow
         gameRoute="turbo-arena"

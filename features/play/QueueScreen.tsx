@@ -284,7 +284,7 @@ export function QueueScreen({
     if (!ENABLE_BACKEND || userId === 'guest') {
       Alert.alert(
         'Sign in required',
-        'Head-to-head matchmaking uses your live account and Supabase. Sign in and keep EXPO_PUBLIC_ENABLE_BACKEND enabled.',
+        'Head-to-head matchmaking needs a signed-in account and online play. Sign in and try again.',
       );
       return;
     }
@@ -475,7 +475,7 @@ export function QueueScreen({
               'Matchmaking issue',
               body.length > 0
                 ? body
-                : 'The queue request failed repeatedly. Check you are signed in and this build uses the real Supabase project (same on both devices).',
+                : 'The queue request failed repeatedly. Both players should be signed in, online, and on the same contest tier — then try again.',
             );
           }
           return;
@@ -830,7 +830,7 @@ export function QueueScreen({
     <Screen scroll={false}>
       {ENABLE_BACKEND && !supabaseConfigured ? (
         <Text className="mb-3 rounded-lg bg-amber-500/20 px-3 py-2 text-center text-xs font-semibold text-amber-100">
-          Supabase URL/key look like placeholders — matchmaking only works with your real project env on every device (laptop and phone).
+          Matchmaking can&apos;t connect right now. Check your internet connection, update the app, or try again in a moment.
         </Text>
       ) : null}
       {ENABLE_BACKEND && userId !== 'guest' && profileQ.isError ? (
@@ -925,8 +925,8 @@ export function QueueScreen({
           <Text className="mt-4 text-center text-slate-300">{searchingMsg}</Text>
           {hasPaidEntry ? (
             <Text className="mt-3 max-w-sm text-center text-xs leading-5 text-amber-100/90">
-              1v1 needs <Text className="font-semibold text-amber-50">two different sign-ins</Text> (same account on two devices cannot
-              pair). Both apps must use the same Supabase project and this exact game + fee + prize tier.
+              1v1 needs <Text className="font-semibold text-amber-50">two different accounts</Text> (one player can&apos;t match themselves).
+              Both players should pick the same game, fee, and prize tier.
             </Text>
           ) : null}
           {hasPaidEntry ? (

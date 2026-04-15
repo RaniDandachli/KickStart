@@ -4,56 +4,56 @@
 //  Mirrors TapDashGame.tsx conventions exactly
 // ─────────────────────────────────────────────────────────────
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type GestureResponderEvent,
-} from 'react-native';
-import { Canvas, invalidate, useFrame, useThree } from '@react-three/fiber/native';
-import * as THREE from 'three';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { Canvas, invalidate, useFrame, useThree } from '@react-three/fiber/native';
+import { useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
+    type GestureResponderEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as THREE from 'three';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
-import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
-import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
+import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
+import { useProfile } from '@/hooks/useProfile';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { arcade } from '@/lib/arcadeTheme';
-import { getSupabase } from '@/supabase/client';
+import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
-import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
-import { useProfile } from '@/hooks/useProfile';
-import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
+import { getSupabase } from '@/supabase/client';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { H2hSkillContestBundle } from '@/types/match';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
-  createNeonBallRunState,
-  getBallX,
-  mergedGapBlockedLanes,
-  queueJump,
-  queueShift,
-  stepNeonBallRun,
-  surfaceY,
-  type NeonBallRunState,
-  type RampSegment,
+    createNeonBallRunState,
+    getBallX,
+    mergedGapBlockedLanes,
+    queueJump,
+    queueShift,
+    stepNeonBallRun,
+    surfaceY,
+    type NeonBallRunState,
+    type RampSegment,
 } from './BallRunEngine';
 
 // ── Prize scoring ─────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import {
   BallRunGameIcon,
   DashDuelGameIcon,
+  NeonDanceGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -137,6 +138,8 @@ export default function LiveMatchesScreen() {
         return <BallRunGameIcon size={size} />;
       case 'turbo-arena':
         return <TurboArenaGameIcon size={size} />;
+      case 'neon-dance':
+        return <NeonDanceGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }

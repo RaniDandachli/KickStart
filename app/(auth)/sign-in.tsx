@@ -26,7 +26,7 @@ export default function SignInScreen() {
       await setHasSeenWelcome();
       router.replace('/(app)/(tabs)');
     } catch (e: unknown) {
-      Alert.alert('RunitArcade', formatAuthError(e));
+      Alert.alert("Can't sign in", formatAuthError(e));
     } finally {
       setLoading(false);
     }

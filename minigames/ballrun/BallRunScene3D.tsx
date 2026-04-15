@@ -4,47 +4,47 @@
 //  Mirrors TapDashScreen.tsx conventions exactly
 // ─────────────────────────────────────────────────────────────
 
-import { useCallback, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type GestureResponderEvent,
-} from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber/native';
-import * as THREE from 'three';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import {
+    Pressable,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
+    type GestureResponderEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as THREE from 'three';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { Countdown } from '@/minigames/ui/Countdown';
-import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
-import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
-import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
-import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import {
-  MINIGAME_HUD_MS_MOTION,
-  resetMinigameHudClock,
-  shouldEmitMinigameHudFrame,
+    MINIGAME_HUD_MS_MOTION,
+    resetMinigameHudClock,
+    shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { Countdown } from '@/minigames/ui/Countdown';
+import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { MiniGameHUD } from '@/minigames/ui/MiniGameHUD';
+import { MiniResultsModal } from '@/minigames/ui/MiniResultsModal';
+import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
-  AiDifficulty,
-  createNeonBallRunState,
-  getBallX,
-  mergedGapBlockedLanes,
-  queueJump,
-  queueShift,
-  runBallRunAi,
-  stepNeonBallRun,
-  surfaceY,
-  type NeonBallRunState,
-  type RampSegment,
+    AiDifficulty,
+    createNeonBallRunState,
+    getBallX,
+    mergedGapBlockedLanes,
+    queueJump,
+    queueShift,
+    runBallRunAi,
+    stepNeonBallRun,
+    surfaceY,
+    type NeonBallRunState,
+    type RampSegment,
 } from './BallRunEngine';
 
 const MATCH_MS = 30_000;

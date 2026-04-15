@@ -43,18 +43,17 @@ export default function SignUpScreen() {
       });
       if (error) throw error;
       await setHasSeenWelcome();
-      // If email confirmation is off in Supabase, you get a session immediately.
       if (data.session) {
         router.replace('/(app)/(tabs)');
         return;
       }
       Alert.alert(
-        'Confirm your email',
-        'Your Supabase project requires confirming email before sign-in.\n\nTurn off “Confirm email” under Authentication → Providers → Email for instant sign-up while testing, then sign up again (or use the link in your email).',
+        'Check your email',
+        'We sent you a link to verify your address. Open it, then sign in with your email and password.',
         [{ text: 'OK', onPress: () => router.replace('/(auth)/sign-in') }]
       );
     } catch (e: unknown) {
-      Alert.alert('RunitArcade', formatAuthError(e));
+      Alert.alert('Create account', formatAuthError(e));
     } finally {
       setLoading(false);
     }
@@ -65,7 +64,7 @@ export default function SignUpScreen() {
       <LinearGradient colors={[runit.neonPurple, '#5a189a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <Text style={styles.kicker}>JOIN THE FLOOR</Text>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowCyan]}>CREATE ACCOUNT</Text>
-        <Text style={styles.sub}>Pick a unique username for leaderboards. With email confirmation off in Supabase, you will jump straight in.</Text>
+        <Text style={styles.sub}>Pick a unique username for leaderboards. You may need to confirm your email before your first sign-in.</Text>
       </LinearGradient>
       <KCTextInput label="Username" autoCapitalize="none" value={username} onChangeText={setUsername} />
       <KCTextInput label="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />

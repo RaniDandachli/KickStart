@@ -37,6 +37,13 @@ export const H2H_OPEN_GAMES = [
     bgColors: ['#020617', '#0c4a6e', '#7c2d12'] as const,
     borderAccent: 'cyan' as const satisfies RunitBorderAccent,
   },
+  {
+    gameKey: 'neon-dance' as const,
+    title: 'Neon Dance',
+    route: '/(app)/(tabs)/play/minigames/neon-dance',
+    bgColors: ['#050508', '#1e1b4b', '#312e81'] as const,
+    borderAccent: 'pink' as const satisfies RunitBorderAccent,
+  },
 ] as const;
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES)[number]['gameKey'];

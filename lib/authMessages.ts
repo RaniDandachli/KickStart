@@ -8,6 +8,20 @@ export function formatAuthError(err: unknown): string {
   const msg = raw.toLowerCase();
   const code = (e?.code ?? '').toLowerCase();
 
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    // Never show raw codes/status in Alert copy; log for debugging only.
+    console.warn('[auth]', { message: raw, code: e?.code, status: e?.status });
+  }
+
+  const looksLikeWrongPassword =
+    code === 'invalid_credentials' ||
+    msg.includes('invalid login credentials') ||
+    msg.includes('invalid credentials');
+
+  if (looksLikeWrongPassword) {
+    return "That email or password doesn't match. Try again, or tap Forgot password.";
+  }
+
   const looksLikeEmailNotConfirmed =
     code === 'email_not_confirmed' ||
     msg.includes('email not confirmed') ||
@@ -16,20 +30,13 @@ export function formatAuthError(err: unknown): string {
     (msg.includes('not confirmed') && msg.includes('email'));
 
   if (looksLikeEmailNotConfirmed) {
-    return [
-      'Supabase still has this user as “unconfirmed”. Turning the switch off only affects new sign-ups.',
-      '',
-      'Fix (pick one):',
-      '• Dashboard → Authentication → Users → your user → Confirm user (or “Confirm email” in the row menu),',
-      '• Or delete that user and create the account again.',
-      '',
-      'Then confirm: Authentication → Providers → Email → “Confirm email” is off and you saved.',
-    ].join('\n');
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.warn(
+        '[auth] email_not_confirmed — user must verify inbox; in dev you can confirm the user in your auth provider dashboard.',
+      );
+    }
+    return 'Confirm your email using the link we sent you, then try signing in again.';
   }
 
-  const base = raw || 'Something went wrong';
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    return `${base}\n\n[debug] code=${e?.code ?? 'n/a'} status=${e?.status ?? 'n/a'}`;
-  }
-  return base;
+  return raw || 'Something went wrong. Please try again.';
 }

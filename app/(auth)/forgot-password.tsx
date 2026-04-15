@@ -25,13 +25,13 @@ export default function ForgotPasswordScreen() {
   async function onSubmit() {
     const trimmed = email.trim();
     if (!trimmed) {
-      Alert.alert('RunitArcade', 'Enter your email address.');
+      Alert.alert('Reset password', 'Enter your email address.');
       return;
     }
     if (!ENABLE_BACKEND) {
       Alert.alert(
-        'RunitArcade',
-        'Password reset requires an account on the server. Enable the backend in your build or use Sign in when online.',
+        'Reset password',
+        'Password reset needs an online account. Connect to the internet and try again, or contact support.',
       );
       return;
     }
@@ -46,7 +46,7 @@ export default function ForgotPasswordScreen() {
       if (error) throw error;
       setSent(true);
     } catch (e: unknown) {
-      Alert.alert('RunitArcade', formatAuthError(e));
+      Alert.alert('Reset password', formatAuthError(e));
     } finally {
       setLoading(false);
     }

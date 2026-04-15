@@ -446,6 +446,17 @@ export interface Database {
         Args: Record<string, never>;
         Returns: Json;
       };
+      home_h2h_queue_board: {
+        Args: Record<string, never>;
+        Returns: {
+          queue_entry_id: string;
+          game_key: string;
+          entry_fee_wallet_cents: number;
+          listed_prize_usd_cents: number;
+          host_display_name: string;
+          created_at: string;
+        }[];
+      };
       profile_fight_stats: {
         Args: { p_user_id: string };
         Returns: {
