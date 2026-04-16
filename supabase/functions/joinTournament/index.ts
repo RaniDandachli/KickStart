@@ -12,8 +12,8 @@ Deno.serve(async (req) => {
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
@@ -21,29 +21,27 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
-    const admin = createClient(supabaseUrl, serviceKey);
-    const tId = parsed.data.tournament_id;
+    const { data, error } = await userClient.rpc('join_tournament', {
+      p_tournament_id: parsed.data.tournament_id,
+    });
+    if (error) return errorResponse(error.message, 400);
 
-    const { data: t } = await admin.from('tournaments').select('*').eq('id', tId).single();
-    if (!t) return errorResponse('Tournament not found', 404);
-    if (t.state !== 'open' && t.state !== 'full') return errorResponse('Tournament locked', 409);
-
-    if (t.entry_type === 'credits' && t.entry_fee_wallet_cents > 0) {
-      const { data: prof } = await admin.from('profiles').select('wallet_cents').eq('id', userData.user.id).single();
-      if (!prof || prof.wallet_cents < t.entry_fee_wallet_cents) return errorResponse('Insufficient wallet balance', 402);
-      // TODO: debit credits in transaction row via RPC for atomicity.
+    const row = data as { ok?: boolean; error?: string; current_player_count?: number; state?: string };
+    if (row?.ok === false) {
+      const code =
+        row.error === 'insufficient_wallet'
+          ? 402
+          : row.error === 'tournament_full' || row.error === 'tournament_not_joinable'
+            ? 409
+            : 400;
+      return errorResponse(row.error ?? 'Could not join tournament', code);
     }
 
-    const { error: insErr } = await admin.from('tournament_entries').insert({
-      tournament_id: tId,
-      user_id: userData.user.id,
-      status: 'registered',
+    return json({
+      ok: true,
+      current_player_count: row?.current_player_count,
+      state: row?.state,
     });
-    if (insErr) return errorResponse(insErr.message, 409);
-
-    // TODO: transactional RPC: increment `current_player_count`, auto `open`→`full`, ledger credit spend.
-
-    return json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     return errorResponse(msg, 500);

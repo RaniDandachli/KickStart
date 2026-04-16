@@ -1,6 +1,6 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +22,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { CREDIT_PACKAGES } from '@/lib/creditPackages';
-import { CASH_TOPUP_REQUIRES_CONNECT } from '@/lib/payoutCopy';
+import { WALLET_DEPOSIT_WITHDRAW_POLICY } from '@/lib/payoutCopy';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { env } from '@/lib/env';
 import { queryKeys } from '@/lib/queryKeys';
@@ -39,10 +39,6 @@ import {
   completeCreditsPackagePurchase,
   completeWalletTopUp,
 } from '@/services/wallet/completeTopUp';
-import {
-  fetchStripeConnectStatus,
-  type StripeConnectStatus,
-} from '@/services/wallet/stripeConnectOnboarding';
 import { useAuthStore } from '@/store/authStore';
 
 function goBackFromAddFunds(router: ReturnType<typeof useRouter>) {
@@ -152,22 +148,6 @@ export default function AddFundsScreen() {
   const [selectedCents, setSelectedCents] = useState<number>(1000);
   const [customDollars, setCustomDollars] = useState('');
   const [selectedPackId, setSelectedPackId] = useState<string>(CREDIT_PACKAGES[1]?.id ?? CREDIT_PACKAGES[0]?.id ?? '');
-  const [connectStatus, setConnectStatus] = useState<StripeConnectStatus | null>(null);
-  const [connectLoading, setConnectLoading] = useState(false);
-
-  const loadConnectStatus = useCallback(async () => {
-    if (!ENABLE_BACKEND || !uid) {
-      setConnectStatus(null);
-      return;
-    }
-    setConnectLoading(true);
-    try {
-      const s = await fetchStripeConnectStatus();
-      setConnectStatus(s);
-    } finally {
-      setConnectLoading(false);
-    }
-  }, [uid]);
 
   useEffect(() => {
     if (tabFromRoute === 'credits') {
@@ -178,12 +158,6 @@ export default function AddFundsScreen() {
       setStep('amount');
     }
   }, [tabFromRoute]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadConnectStatus();
-    }, [loadConnectStatus]),
-  );
 
   const amountCents = useMemo(() => {
     if (customDollars.trim() !== '') {
@@ -212,12 +186,6 @@ export default function AddFundsScreen() {
   const backendPending = ENABLE_BACKEND && !WALLET_TOPUP_STRIPE_ENABLED;
   const stripePk = env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
   const useEmbeddedSheet = stripeReady && Platform.OS !== 'web' && !!stripePk;
-
-  /** Cash wallet top-up requires the same Stripe Connect payout profile as withdrawals. */
-  const walletTopUpBlocked =
-    stripeReady &&
-    !!uid &&
-    (connectLoading || connectStatus === null || connectStatus.payouts_enabled !== true);
 
   const handleWalletPaid = useCallback(
     (completed: boolean) => {
@@ -270,13 +238,6 @@ export default function AddFundsScreen() {
   });
 
   const onContinueToPayment = useCallback(() => {
-    if (walletTopUpBlocked) {
-      Alert.alert('Connect payouts first', CASH_TOPUP_REQUIRES_CONNECT, [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Set up bank', onPress: () => router.push('/(app)/(tabs)/profile/stripe-connect') },
-      ]);
-      return;
-    }
     try {
       assertValidTopUpAmountCents(amountCents);
     } catch (e) {
@@ -284,7 +245,7 @@ export default function AddFundsScreen() {
       return;
     }
     setStep('payment');
-  }, [amountCents, router, walletTopUpBlocked]);
+  }, [amountCents]);
 
   const onPayWallet = useCallback(() => {
     topUpWallet.mutate();
@@ -374,33 +335,14 @@ export default function AddFundsScreen() {
           </View>
         ) : null}
 
+        {shopTab === 'wallet' && stripeReady && uid ? (
+          <View style={styles.policyBanner}>
+            <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
+            <Text style={styles.bannerTxt}>{WALLET_DEPOSIT_WITHDRAW_POLICY}</Text>
+          </View>
+        ) : null}
+
         {shopTab === 'wallet' ? (
-          stripeReady && uid && walletTopUpBlocked ? (
-            <View style={styles.payoutGate}>
-              {connectLoading ? (
-                <View style={styles.payoutGateLoading}>
-                  <ActivityIndicator color={runit.neonCyan} size="small" />
-                  <Text style={styles.payoutGateLoadingTxt}>Checking payout setup…</Text>
-                </View>
-              ) : null}
-              <Text style={styles.payoutGateTitle}>Connect your bank to add cash</Text>
-              <Text style={styles.payoutGateBody}>{CASH_TOPUP_REQUIRES_CONNECT}</Text>
-              <Pressable
-                onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')}
-                style={({ pressed }) => [styles.payoutGateCta, pressed && { opacity: 0.9 }]}
-              >
-                <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.payoutGateCtaGrad}>
-                  <SafeIonicons name="wallet-outline" size={20} color="#fff" />
-                  <Text style={styles.payoutGateCtaTxt}>Set up payouts</Text>
-                </LinearGradient>
-              </Pressable>
-              {!connectLoading && connectStatus === null ? (
-                <Pressable onPress={() => void loadConnectStatus()} style={styles.retryLink}>
-                  <Text style={styles.retryLinkTxt}>Tap to retry connection check</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (
           <>
             {step === 'amount' ? (
               <>
@@ -521,7 +463,6 @@ export default function AddFundsScreen() {
               </>
             )}
           </>
-          )
         ) : (
           <>
             <Text style={styles.sectionLbl}>Credit packs</Text>
@@ -727,6 +668,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   bannerTxt: { flex: 1, color: 'rgba(254,243,199,0.95)', fontSize: 12, lineHeight: 17 },
+  policyBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(59,130,246,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.35)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
   stripeNote: { color: 'rgba(148,163,184,0.85)', fontSize: 12, lineHeight: 17, marginBottom: 16 },
   packGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   pack: {
@@ -801,27 +753,4 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(148,163,184,0.2)',
   },
   linkTxt: { flex: 1, color: runit.neonCyan, fontWeight: '700', fontSize: 14 },
-  payoutGate: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.4)',
-    backgroundColor: 'rgba(120,53,15,0.2)',
-    padding: 16,
-    marginBottom: 8,
-  },
-  payoutGateLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  payoutGateLoadingTxt: { color: 'rgba(226,232,240,0.9)', fontSize: 13, fontWeight: '600' },
-  payoutGateTitle: { color: '#fff', fontSize: 17, fontWeight: '900', marginBottom: 8 },
-  payoutGateBody: { color: 'rgba(226,232,240,0.92)', fontSize: 13, lineHeight: 20, marginBottom: 14 },
-  payoutGateCta: { borderRadius: 14, overflow: 'hidden' },
-  payoutGateCtaGrad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-  },
-  payoutGateCtaTxt: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  retryLink: { marginTop: 12, alignItems: 'center' },
-  retryLinkTxt: { color: runit.neonCyan, fontSize: 13, fontWeight: '700' },
 });

@@ -46,10 +46,25 @@ const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
 /** Advance units / sec — lower = more time between hoops. */
 const FORWARD_BASE = 0.1;
 const FORWARD_TIME_SCALE = 0.009;
-const FORWARD_STREAK_SCALE = 0.009;
+const FORWARD_STREAK_SCALE = 0.008;
 const FORWARD_SCORE_CAP = 0.1;
-/** Minimum gap along advance axis between queued hoops (more space = easier). */
-const HOOP_QUEUE_GAP = 0.52;
+/** Hard cap so difficulty doesn’t run away; queue gap also scales up with speed. */
+const FORWARD_MAX = 2.35;
+/** Minimum / maximum spacing in advance space when queueing the next hoop. */
+const HOOP_QUEUE_GAP_MIN = 0.45;
+const HOOP_QUEUE_GAP_MAX = 2.45;
+/**
+ * Target minimum real time (seconds) for a hoop to travel from spawn to the player plane.
+ * When `forward` rises, gap grows so rings don’t stack on top of each other.
+ */
+const HOOP_ARRIVAL_MIN_SEC = 0.52;
+
+/** Hoop spawns at advance = -gap and crosses the player at advance = 1 → travel distance (1+gap) in advance units. */
+function queueGapForForward(forward: number): number {
+  const f = Math.max(1e-4, forward);
+  const g = f * HOOP_ARRIVAL_MIN_SEC - 1;
+  return Math.min(HOOP_QUEUE_GAP_MAX, Math.max(HOOP_QUEUE_GAP_MIN, g));
+}
 const SWIPE_BAR_HEIGHT = 84;
 
 /** Cap FX so long runs stay smooth */
@@ -238,6 +253,8 @@ export default function NeonDanceGame({
   const sectorsRef = useRef(2);
   const ballIdxRef = useRef(0);
   const progressionRef = useRef(0);
+  /** Last approach speed — used when queueing hoops so spacing scales as the game speeds up. */
+  const forwardQueueRef = useRef(0.12);
   const bgPulseRef = useRef(0);
   const passBurstRef = useRef(0);
   const lastRunRef = useRef({
@@ -301,7 +318,8 @@ export default function NeonDanceGame({
     const minAdv = Math.min(...list.map((h) => h.advance));
     let guard = 0;
     while (minAdv < -0.08 && guard++ < 10) {
-      pushHoop(minAdv - HOOP_QUEUE_GAP);
+      const gap = queueGapForForward(forwardQueueRef.current);
+      pushHoop(minAdv - gap);
     }
   }, [pushHoop]);
 
@@ -319,6 +337,7 @@ export default function NeonDanceGame({
     streakRef.current = 0;
     bestStreakRef.current = 0;
     progressionRef.current = 0;
+    forwardQueueRef.current = 0.12;
     ballAngleRef.current = Math.PI / 2;
     targetAngleRef.current = Math.PI / 2;
     trailRef.current = [];
@@ -594,11 +613,13 @@ export default function NeonDanceGame({
         const sc = scoreRef.current;
         const timeSec = t / 1000;
 
-        const forward =
+        let forward =
           FORWARD_BASE +
           timeSec * FORWARD_TIME_SCALE +
           rp * FORWARD_STREAK_SCALE +
           Math.min(FORWARD_SCORE_CAP, sc * 0.00008);
+        forward = Math.min(FORWARD_MAX, forward);
+        forwardQueueRef.current = forward;
         progressionRef.current += forward * 180 * dt;
 
         const turn = Math.min(1, 18 * dt);
@@ -651,7 +672,7 @@ export default function NeonDanceGame({
               }
 
               hoopsRef.current = hoops.filter((x) => x.id !== hoop.id);
-              pushHoop(-HOOP_QUEUE_GAP);
+              pushHoop(-queueGapForForward(forward));
               ensureHoops();
 
               passBurstRef.current = 1;

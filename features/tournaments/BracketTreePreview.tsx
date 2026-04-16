@@ -11,9 +11,11 @@ export interface BracketMatchPreview {
   winner?: string;
 }
 
-/** Polished read-only bracket preview for MVP; data from Edge `generateBracket` later. */
+/** Read-only bracket — columns from match `roundIndex` so late rounds render when DB has full tree. */
 export function BracketTreePreview({ players, matches }: { players: BracketPlayer[]; matches: BracketMatchPreview[] }) {
-  const rounds = singleEliminationRoundCount(players.length) || 1;
+  const fromPlayers = singleEliminationRoundCount(players.length) || 1;
+  const maxFromMatches = matches.length ? Math.max(...matches.map((m) => m.roundIndex)) + 1 : 1;
+  const rounds = Math.max(fromPlayers, maxFromMatches);
   const byRound: BracketMatchPreview[][] = Array.from({ length: rounds }, () => []);
   matches.forEach((m) => {
     byRound[m.roundIndex]?.push(m);

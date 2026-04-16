@@ -246,8 +246,9 @@ export default function StripeConnectScreen() {
         <LinearGradient colors={[runit.neonPurple, '#1e1b4b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
           <Text style={styles.head}>Bank payouts (Stripe)</Text>
           <Text style={styles.body}>
-            Connect a bank account through Stripe so we can send your winnings and withdrawals. RunitArcade sends your profile
-            details and contest category to Stripe so you mostly add bank info — we don't run a separate ID check in this app.
+            Connect a bank account through Stripe so we can send your winnings and withdrawals. Adding money to your cash wallet with
+            a card does not require this — only bank withdrawals do. RunitArcade sends your profile details and contest category to
+            Stripe so you mostly add bank info — we don&apos;t run a separate ID check in this app.
           </Text>
 
           <Text style={styles.prefillHead}>Prefilled from RunitArcade</Text>

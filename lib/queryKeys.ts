@@ -6,6 +6,8 @@ export const queryKeys = {
   tournaments: (filters?: Record<string, string>) => ['tournaments', filters ?? {}] as const,
   tournament: (id: string) => ['tournament', id] as const,
   tournamentRules: (id: string) => ['tournamentRules', id] as const,
+  tournamentBracket: (id: string) => ['tournamentBracket', id] as const,
+  userAchievements: (userId: string) => ['userAchievements', userId] as const,
   leaderboard: (scope: string, seasonId: string | null, region: string) =>
     ['leaderboard', scope, seasonId, region] as const,
   transactions: (userId: string) => ['transactions', userId] as const,

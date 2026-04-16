@@ -80,7 +80,7 @@ Implemented as HTTP handlers with shared `supabase/functions/_shared/http.ts`. D
 | Function | Role |
 |----------|------|
 | `createTournament` | Admin creates tournaments + audit log |
-| `joinTournament` | Join flow scaffold (TODO: atomic credit debit) |
+| `joinTournament` | Thin HTTP wrapper around `join_tournament` RPC (atomic fee + entry + count) |
 | `lockTournament` | Admin locks bracket intake |
 | `generateBracket` | Stub response — port `utils/bracket` to Deno |
 | `recordMatchResult` | Insert `match_results` with audit ref |

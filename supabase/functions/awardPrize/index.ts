@@ -32,7 +32,19 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
-    // TODO: transactional grant + ledger rows + optional cosmetic assignment — no cash payouts.
+    const { data, error } = await userClient.rpc('admin_award_tournament_prize', {
+      p_tournament_id: parsed.data.tournament_id,
+      p_target_user_id: parsed.data.user_id,
+      p_wallet_cents: parsed.data.wallet_cents,
+      p_prize_credits: parsed.data.prize_credits,
+      p_gems: parsed.data.gems,
+      p_description: parsed.data.description,
+    });
+    if (error) return errorResponse(error.message, 400);
+
+    const row = data as { ok?: boolean; error?: string };
+    if (row?.ok === false) return errorResponse(row.error ?? 'Award failed', 400);
+
     await admin.from('admin_audit_logs').insert({
       actor_id: userData.user.id,
       action: 'award_prize',

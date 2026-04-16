@@ -23,12 +23,26 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
-    // TODO: validate min entrants, freeze joins, emit notifications.
-    const { error } = await admin
+    const { data: t, error: tErr } = await admin
+      .from('tournaments')
+      .select('id, state, current_player_count')
+      .eq('id', parsed.data.tournament_id)
+      .maybeSingle();
+    if (tErr || !t) return errorResponse('Tournament not found', 404);
+
+    if (t.state !== 'open' && t.state !== 'full') {
+      return errorResponse('Tournament is not accepting a lock from this state', 409);
+    }
+    if ((t.current_player_count ?? 0) < 2) {
+      return errorResponse('Need at least 2 registered players to lock', 422);
+    }
+
+    const { error: upErr } = await admin
       .from('tournaments')
       .update({ state: 'locked', updated_at: new Date().toISOString() })
       .eq('id', parsed.data.tournament_id);
-    if (error) return errorResponse(error.message, 500);
+    if (upErr) return errorResponse(upErr.message, 500);
+
     return json({ ok: true });
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : 'error', 500);

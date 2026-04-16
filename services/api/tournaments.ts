@@ -1,4 +1,4 @@
-import type { TournamentRow, TournamentRuleRow } from '@/types/database';
+import type { TournamentRoundRow, TournamentRow, TournamentRuleRow } from '@/types/database';
 import { getSupabase } from '@/supabase/client';
 
 export async function fetchTournaments(openOnly = false): Promise<TournamentRow[]> {
@@ -28,15 +28,100 @@ export async function fetchTournamentRules(tournamentId: string): Promise<Tourna
   return (data ?? []) as TournamentRuleRow[];
 }
 
-export async function joinTournamentOptimistic(
-  tournamentId: string,
-  userId: string
-): Promise<void> {
+export type JoinTournamentResult = {
+  ok: boolean;
+  error?: string;
+  current_player_count?: number;
+  state?: string;
+};
+
+/**
+ * Atomic join: wallet fee (if any), ledger row, entry, count + open→full — via `join_tournament` RPC.
+ */
+export async function joinTournament(tournamentId: string): Promise<JoinTournamentResult> {
   const supabase = getSupabase();
-  const { error } = await supabase.from('tournament_entries').insert({
-    tournament_id: tournamentId,
-    user_id: userId,
-    status: 'registered',
+  const { data, error } = await supabase.rpc('join_tournament', { p_tournament_id: tournamentId });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  const row = data as { ok?: boolean; error?: string; current_player_count?: number; state?: string };
+  if (row?.ok === false) {
+    return { ok: false, error: row.error ?? 'Could not join tournament' };
+  }
+  return {
+    ok: true,
+    current_player_count: row.current_player_count,
+    state: row.state,
+  };
+}
+
+export type TournamentBracketMatch = {
+  id: string;
+  tournament_id: string;
+  round_id: string;
+  match_index: number;
+  player_a_id: string | null;
+  player_b_id: string | null;
+  winner_id: string | null;
+  status: string;
+  round_index: number;
+  round_label: string;
+};
+
+/**
+ * Loads rounds + matches for bracket UI (single-elimination data from `generateBracket`).
+ */
+export async function fetchTournamentBracket(tournamentId: string): Promise<{
+  rounds: TournamentRoundRow[];
+  matches: TournamentBracketMatch[];
+}> {
+  const supabase = getSupabase();
+  const [{ data: rounds, error: e1 }, { data: rawMatches, error: e2 }] = await Promise.all([
+    supabase.from('tournament_rounds').select('*').eq('tournament_id', tournamentId).order('round_index', { ascending: true }),
+    supabase
+      .from('tournament_matches')
+      .select('id, tournament_id, round_id, match_index, player_a_id, player_b_id, winner_id, status')
+      .eq('tournament_id', tournamentId)
+      .order('match_index', { ascending: true }),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  const rlist = (rounds ?? []) as TournamentRoundRow[];
+  const roundMeta = new Map(rlist.map((r) => [r.id, r]));
+  const matches: TournamentBracketMatch[] = (rawMatches ?? []).map((m) => {
+    const tr = roundMeta.get(m.round_id as string);
+    return {
+      id: m.id as string,
+      tournament_id: m.tournament_id as string,
+      round_id: m.round_id as string,
+      match_index: m.match_index as number,
+      player_a_id: m.player_a_id as string | null,
+      player_b_id: m.player_b_id as string | null,
+      winner_id: m.winner_id as string | null,
+      status: m.status as string,
+      round_index: tr?.round_index ?? 0,
+      round_label: tr?.label ?? '',
+    };
   });
+  matches.sort((a, b) => a.round_index - b.round_index || a.match_index - b.match_index);
+  return { rounds: rlist, matches };
+}
+
+/** Display names for bracket lines (batch). */
+export async function fetchProfileDisplayByIds(ids: string[]): Promise<Map<string, string>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  const out = new Map<string, string>();
+  if (uniq.length === 0) return out;
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, display_name')
+    .in('id', uniq);
   if (error) throw error;
+  for (const p of data ?? []) {
+    const row = p as { id: string; username: string; display_name: string | null };
+    const label = (row.display_name && row.display_name.trim()) || row.username || row.id.slice(0, 8);
+    out.set(row.id, label);
+  }
+  return out;
 }

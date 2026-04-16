@@ -24,6 +24,7 @@ import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { useRecentMatches } from '@/hooks/useRecentMatches';
+import { useUserAchievements } from '@/hooks/useUserAchievements';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useRedeemTicketsDisplay } from '@/hooks/useRedeemTicketsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
@@ -52,16 +53,6 @@ type LocalProfile = {
   avatarUri: string | null;
 };
 
-const mockBadges = [
-  { id: '1', name: 'Streak Starter', earned: true },
-  { id: '2', name: 'Bracket Ready', earned: false },
-];
-
-const mockHistory = [
-  { id: 'h1', label: 'Win vs NeoStriker', when: 'Yesterday', win: true },
-  { id: 'h2', label: 'Loss vs GoalRush', when: '2d ago', win: false },
-];
-
 export default function ProfileScreen() {
   const router = useRouter();
   const qc = useQueryClient();
@@ -70,6 +61,7 @@ export default function ProfileScreen() {
   const profileQ = useProfile(uid);
   const fightQ = useProfileFightStats(uid);
   const recentQ = useRecentMatches(uid);
+  const achievementsQ = useUserAchievements(uid);
   const profile = profileQ.data;
   const loadingProfile = ENABLE_BACKEND && !!uid && profileQ.isLoading;
   const walletCentsDisplay = useWalletDisplayCents();
@@ -545,32 +537,36 @@ export default function ProfileScreen() {
           <Text style={styles.muted}>No recent matches yet.</Text>
         )
       ) : (
-        mockHistory.map((h) => (
-          <View key={h.id} style={[styles.historyRow, { borderColor: h.win ? 'rgba(167,139,250,0.4)' : 'rgba(255,0,110,0.35)' }]}>
-            <View style={[styles.historyDot, { backgroundColor: h.win ? runit.neonCyan : runit.neonPink }]} />
-            <Text style={styles.historyLabel}>{h.label}</Text>
-            <Text style={styles.historyWhen}>{h.when}</Text>
-          </View>
-        ))
+        <Text style={styles.muted}>Sign in with an online account to sync match history.</Text>
       )}
 
       <View style={[styles.sectionLabel, { marginTop: 16 }]}>
         <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }, runitTextGlowCyan]}>ACHIEVEMENTS</Text>
         <View style={styles.sectionLine} />
       </View>
-      <View style={styles.badgeRow}>
-        {mockBadges.map((b) => (
-          <LinearGradient
-            key={b.id}
-            colors={b.earned ? [runit.neonCyan, runit.neonPurple] : ['rgba(50,50,60,0.9)', 'rgba(30,30,40,0.9)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.badge}
-          >
-            <Text style={[styles.badgeText, { color: b.earned ? '#fff' : 'rgba(148,163,184,0.7)' }]}>{b.name}</Text>
-          </LinearGradient>
-        ))}
-      </View>
+      {useServer ? (
+        achievementsQ.isLoading ? (
+          <Text style={styles.muted}>Loading achievements…</Text>
+        ) : achievementsQ.data?.length ? (
+          <View style={styles.badgeRow}>
+            {achievementsQ.data.map((b) => (
+              <LinearGradient
+                key={b.id}
+                colors={[runit.neonCyan, runit.neonPurple]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.badge}
+              >
+                <Text style={[styles.badgeText, { color: '#fff' }]}>{b.name}</Text>
+              </LinearGradient>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.muted}>No achievements yet — keep playing to earn badges.</Text>
+        )
+      ) : (
+        <Text style={styles.muted}>Sign in to track achievements.</Text>
+      )}
 
       <View style={styles.accountActions}>
         <Text style={styles.accountActionsTitle}>Account</Text>

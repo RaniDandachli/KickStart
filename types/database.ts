@@ -20,7 +20,9 @@ export type TransactionKind =
   /** Cash wallet debit for H2H contest access (collected by operator; not peer-to-peer). */
   | 'h2h_contest_entry'
   /** Wallet credit when both players leave paid H2H before play (lobby abandon). */
-  | 'h2h_contest_entry_refund';
+  | 'h2h_contest_entry_refund'
+  | 'tournament_entry'
+  | 'tournament_prize_grant';
 
 type PublicTable<
   Row extends Record<string, unknown>,
@@ -253,7 +255,7 @@ type TournamentEntryRow = {
   joined_at: string;
 };
 
-type TournamentRoundRow = {
+export type TournamentRoundRow = {
   id: string;
   tournament_id: string;
   round_index: number;
@@ -261,7 +263,7 @@ type TournamentRoundRow = {
   created_at: string;
 };
 
-type TournamentMatchRow = {
+export type TournamentMatchRow = {
   id: string;
   tournament_id: string;
   round_id: string;
@@ -496,6 +498,21 @@ export interface Database {
           p_prize_credits_add: number;
           p_description: string;
           p_stripe_event_id: string;
+        };
+        Returns: Json;
+      };
+      join_tournament: {
+        Args: { p_tournament_id: string };
+        Returns: Json;
+      };
+      admin_award_tournament_prize: {
+        Args: {
+          p_tournament_id: string;
+          p_target_user_id: string;
+          p_wallet_cents: number;
+          p_prize_credits: number;
+          p_gems: number;
+          p_description: string;
         };
         Returns: Json;
       };

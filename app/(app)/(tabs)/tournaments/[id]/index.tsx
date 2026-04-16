@@ -27,8 +27,8 @@ export default function TournamentDetailScreen() {
 
   function onJoin() {
     if (!t || !userId) return;
-    if (t.state !== 'open' && t.state !== 'full') {
-      Alert.alert('RunitArcade', 'Tournament is not accepting joins right now.');
+    if (t.state !== 'open' || t.current_player_count >= t.max_players) {
+      Alert.alert('RunitArcade', 'This tournament is full or not open for registration.');
       return;
     }
     join.mutate(t.id, {
