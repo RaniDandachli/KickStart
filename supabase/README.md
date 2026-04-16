@@ -33,18 +33,58 @@ Supabase injects `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE
 
 | Secret | Used by |
 |--------|---------|
-| `STRIPE_SECRET_KEY` | `syncSubscriptionStatus` (test `sk_test_…`, then live `sk_live_…`) |
+| `STRIPE_SECRET_KEY` | Stripe-powered functions: `stripeWebhook`, `createWalletCheckoutSession`, `createWalletPaymentIntent`, `createStripeConnectLink`, `getStripeConnectAccount`, `withdrawWalletToConnect`, and `syncSubscriptionStatus` (test `sk_test_…`, then live `sk_live_…`) |
 
 Local testing with secrets file (do not commit):
 
 ```bash
-# supabase/.env.functions (gitignored — create locally)
-STRIPE_SECRET_KEY=sk_test_...
+cp supabase/.env.functions.example supabase/.env.functions
+# Edit supabase/.env.functions — set STRIPE_SECRET_KEY at minimum
 ```
 
 ```bash
 npx supabase secrets set --env-file supabase/.env.functions
 ```
+
+### Stripe Connect (bank onboarding + payouts)
+
+These Edge Functions must be **deployed** and `STRIPE_SECRET_KEY` must be set as a **hosted secret** (see above):
+
+- `createStripeConnectLink` — creates Stripe Express account + Account Link URL (onboarding)
+- `getStripeConnectAccount` — reads payouts enabled / dashboard link
+- `withdrawWalletToConnect` — sends wallet balance to the user’s connected account
+
+**1. Deploy (from repo root, linked project):**
+
+```bash
+npm run functions:deploy:stripe
+```
+
+Or only Connect-related functions:
+
+```bash
+npx supabase functions deploy createStripeConnectLink getStripeConnectAccount withdrawWalletToConnect
+```
+
+**2. Stripe Dashboard — allow return / refresh URLs**
+
+The app sends `refresh_url` and `return_url` built from Expo Linking, e.g.:
+
+- **Custom scheme (production builds):** `runit://profile/stripe-connect?connect=refresh` and `runit://profile/stripe-connect?connect=return` (see `app.json` → `scheme`: `runit`)
+- **Expo Go / dev:** URLs look like `exp://<your-lan-ip>:8081/--/profile/stripe-connect?connect=return` — the host/port change when Metro changes
+
+In **Stripe Dashboard → Connect → Settings** (wording can vary slightly), open **Redirect URIs**, **Return URLs**, or **Onboarding** / **Integration** settings for Connect and add:
+
+- Your **`runit://`** URLs for the path `profile/stripe-connect` (with query `connect=refresh` and `connect=return` if the dashboard requires exact URLs; otherwise add the base path your Stripe project allows).
+- For local testing, add the **exact** `exp://…` or `https://…` URLs Metro prints when you open the Connect screen once, or use a stable tunnel URL if you use one.
+
+If Account Link creation fails with an invalid URL error, copy the `refreshUrl` / `returnUrl` from the function logs or temporarily log them in `createStripeConnectLink`, then whitelist those strings in Stripe.
+
+**3. Connect platform:** Ensure **Connect** is enabled for your Stripe platform account (Standard/Express as you prefer; this codebase uses **Express** accounts in `createStripeConnectLink`).
+
+If `createStripeConnectLink` returns *“You can only create new accounts if you've signed up for Connect”*, the **platform** has not finished **Connect** onboarding in Stripe: open **[dashboard.stripe.com/connect](https://dashboard.stripe.com/connect)** (use **Test mode** while developing), complete agreements and any required business profile steps, then retry. Your **Supabase secret** must use a key from the **same** Stripe mode (e.g. `sk_test_…` with Test mode Connect, `sk_live_…` with Live mode Connect).
+
+The `Deno.core.runMicrotasks() is not supported` log line can appear after errors in Edge Functions; it is usually harmless. If it persists on every invoke, update the Supabase CLI or check Supabase status.
 
 ## Deploy all functions
 

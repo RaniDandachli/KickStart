@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -46,6 +47,10 @@ export default function RootLayout() {
       void SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  useEffect(() => {
+    WebBrowser.maybeCompleteAuthSession();
+  }, []);
 
   if (!loaded) return null;
 

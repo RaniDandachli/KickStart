@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
+import { Platform } from 'react-native';
 
 import { getSupabase } from '@/supabase/client';
 
@@ -55,7 +56,16 @@ export async function openStripeConnectOnboarding(): Promise<void> {
   const url = payload?.url;
   if (!url) throw new Error('No onboarding URL returned');
 
-  await WebBrowser.openAuthSessionAsync(url, base);
+  // Must match Stripe `return_url` so the in-app browser can dismiss when onboarding finishes.
+  if (Platform.OS === 'web') {
+    await WebBrowser.openBrowserAsync(url);
+    return;
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(url, returnUrl);
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    // User closed the sheet — status refresh happens when they return to the screen.
+  }
 }
 
 /** Loads Connect account flags from Edge (payouts enabled, Stripe Express dashboard link). */

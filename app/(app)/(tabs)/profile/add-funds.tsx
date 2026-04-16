@@ -146,7 +146,7 @@ export default function AddFundsScreen() {
   const [connectLoading, setConnectLoading] = useState(false);
 
   const loadConnectStatus = useCallback(async () => {
-    if (!ENABLE_BACKEND || !WALLET_TOPUP_STRIPE_ENABLED || !uid) {
+    if (!ENABLE_BACKEND || !uid) {
       setConnectStatus(null);
       return;
     }

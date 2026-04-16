@@ -17,7 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Screen } from '@/components/ui/Screen';
-import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
@@ -65,7 +65,7 @@ export default function StripeConnectScreen() {
   const [withdrawUsd, setWithdrawUsd] = useState('');
 
   const loadStatus = useCallback(async () => {
-    if (!ENABLE_BACKEND || !WALLET_TOPUP_STRIPE_ENABLED || !uid) {
+    if (!ENABLE_BACKEND || !uid) {
       setStatusLoading(false);
       setStatusStale(false);
       return;
@@ -95,11 +95,8 @@ export default function StripeConnectScreen() {
   }, [loadStatus]);
 
   const onStart = useCallback(async () => {
-    if (!ENABLE_BACKEND || !WALLET_TOPUP_STRIPE_ENABLED) {
-      Alert.alert(
-        'Not available',
-        'Payout setup isn’t available in this build yet. Update the app or contact support if you need withdrawals.',
-      );
+    if (!ENABLE_BACKEND) {
+      Alert.alert('Not available', 'Sign in with an online account to set up bank payouts.');
       return;
     }
     setBusy(true);
@@ -157,7 +154,7 @@ export default function StripeConnectScreen() {
   }, [hasAccount, onStart, status, statusStale]);
 
   const onWithdraw = useCallback(async () => {
-    if (!uid || !ENABLE_BACKEND || !WALLET_TOPUP_STRIPE_ENABLED) return;
+    if (!uid || !ENABLE_BACKEND) return;
     if (statusLoading) {
       Alert.alert('One moment', 'Still checking your payout setup with Stripe.');
       return;
@@ -301,7 +298,7 @@ export default function StripeConnectScreen() {
           </Text>
         </LinearGradient>
 
-        {ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED && uid ? (
+        {ENABLE_BACKEND && uid ? (
           <LinearGradient colors={['#0f172a', '#1e1b4b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
             <Text style={styles.head}>Withdraw cash</Text>
             <Text style={styles.body}>

@@ -2,6 +2,9 @@
  * Stripe Connect Express — bank payouts for players.
  * Prefills business category + profile info from RunitArcade so Stripe asks for less on the hosted page.
  * (Stripe may still require ID/bank steps for compliance — we don’t add extra verification in our app.)
+ *
+ * Deploy: `npx supabase functions deploy createStripeConnectLink` (secret `STRIPE_SECRET_KEY` on the project).
+ * Ops checklist: `supabase/README.md` → “Stripe Connect (bank onboarding + payouts)”.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
@@ -206,6 +209,12 @@ Deno.serve(async (req) => {
     return json({ ok: true, url: link.url });
   } catch (e) {
     console.error('[createStripeConnectLink]', e);
-    return errorResponse(e instanceof Error ? e.message : 'error', 500);
+    const msg = e instanceof Error ? e.message : 'error';
+    /** Stripe returns this until the platform completes Connect onboarding in the Dashboard. */
+    const connectNotActivated = /signed up for Connect/i.test(msg);
+    const friendly = connectNotActivated
+      ? 'Stripe Connect is not activated for this Stripe account. In the Stripe Dashboard open Connect and finish platform setup (agreements / profile), then try again. Use Test mode with sk_test_ until you are ready for live.'
+      : msg;
+    return errorResponse(friendly, connectNotActivated ? 503 : 500);
   }
 });
