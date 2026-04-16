@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/functions-js';
 
 import { env } from '@/lib/env';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { getSupabase } from '@/supabase/client';
 import type { MatchSessionRow } from '@/types/database';
 
@@ -118,14 +119,7 @@ export async function createH2hMatchSessionViaEdge(params: {
   entryFeeWalletCents?: number;
   listedPrizeUsdCents?: number;
 }): Promise<{ match_session_id: string }> {
-  const supabase = getSupabase();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) {
-    throw new Error('Sign in to start a ranked match.');
-  }
-  await supabase.auth.refreshSession();
-
-  const { data, error } = await supabase.functions.invoke('createH2hMatchSession', {
+  const { data, error } = await invokeEdgeFunction('createH2hMatchSession', {
     body: {
       mode: params.mode,
       opponent_user_id: params.opponentUserId,
@@ -135,7 +129,12 @@ export async function createH2hMatchSessionViaEdge(params: {
     },
   });
 
-  if (error) throw new Error(await parseFunctionError(error));
+  if (error) {
+    if (error instanceof Error && error.message === 'Sign in to continue.') {
+      throw new Error('Sign in to start a ranked match.');
+    }
+    throw new Error(await parseFunctionError(error));
+  }
 
   const payload = data as { ok?: boolean; match_session_id?: string; error?: string };
   if (payload?.error) throw new Error(payload.error);
@@ -154,13 +153,6 @@ export async function recordH2hMatchResultViaEdge(params: {
   /** You gave up or left mid-match — server skips minigame_scores cross-check. */
   forfeitDeclaredByUserId?: string;
 }): Promise<RecordH2hMatchResultResponse> {
-  const supabase = getSupabase();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) {
-    throw new Error('Not signed in');
-  }
-  await supabase.auth.refreshSession();
-
   const body: Record<string, unknown> = {
     match_session_id: params.matchSessionId,
     score: params.score,
@@ -178,9 +170,14 @@ export async function recordH2hMatchResultViaEdge(params: {
     body.loser_user_id = params.loserUserId;
   }
 
-  const { data, error } = await supabase.functions.invoke('recordMatchResult', { body });
+  const { data, error } = await invokeEdgeFunction('recordMatchResult', { body });
 
-  if (error) throw new Error(await parseFunctionError(error));
+  if (error) {
+    if (error instanceof Error && error.message === 'Sign in to continue.') {
+      throw new Error('Not signed in');
+    }
+    throw new Error(await parseFunctionError(error));
+  }
 
   const payload = data as RecordH2hMatchResultResponse;
   if (payload?.error) throw new Error(payload.error);

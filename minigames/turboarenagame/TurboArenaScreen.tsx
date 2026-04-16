@@ -24,6 +24,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppButton } from '@/components/ui/AppButton';
 import { useProfile } from '@/hooks/useProfile';
 import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { theme } from '@/lib/theme';
 import { awardRedeemTicketsForPrizeRun, ticketsFromTurboArenaPrizeRun } from '@/lib/ticketPayouts';
 import { useAuthStore } from '@/store/authStore';
@@ -654,8 +655,8 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
         TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
       );
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits (HARD AI). Practice is free.`,
         );
         return;
@@ -666,7 +667,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
     resetMinigameHudClock(lastHudEmitRef);
     setPhase('countdown');
     bump();
-  }, [bump, playMode, profileQ.data?.prize_credits]);
+  }, [bump, playMode, profileQ.data?.prize_credits, router]);
 
   const onCountdownDone = useCallback(() => {
     resetMinigameHudClock(lastHudEmitRef);

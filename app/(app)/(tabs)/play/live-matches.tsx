@@ -196,7 +196,8 @@ export default function LiveMatchesScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Text style={styles.intro}>
             Real-time 1v1 queues — <Text style={styles.introEm}>Join</Text> matches their tier.{' '}
-            <Text style={styles.introEm}>Find opponent</Text> picks your tier first.
+            <Text style={styles.introEm}>Find opponent</Text> picks your tier first. While you&apos;re searching, use{' '}
+            <Text style={styles.introEm}>Keep my spot in queue</Text> on the matchmaking screen to leave and get a ping when someone pairs.
           </Text>
 
           {boardLoading ? <LoadingState message="Loading live queues…" /> : null}

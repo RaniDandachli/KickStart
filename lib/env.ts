@@ -51,6 +51,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: blockedSkillContestRegionsFromEnv,
   /** Expo project UUID for `getExpoPushTokenAsync` (Dashboard → Project settings, or app.json `extra.eas.projectId`). */
   EXPO_PUBLIC_EXPO_PROJECT_ID: z.string().optional().default(''),
+  /** Override public origin for Stripe Connect redirects (see `lib/stripeConnectUrls.ts`). Defaults to https://runitarcade.app */
+  EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: optionalUrlFromEnv,
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -68,6 +70,7 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_SUPPORT_CONTACT: process.env.EXPO_PUBLIC_SUPPORT_CONTACT,
   EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: process.env.EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES,
   EXPO_PUBLIC_EXPO_PROJECT_ID: process.env.EXPO_PUBLIC_EXPO_PROJECT_ID,
+  EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: process.env.EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL,
 });
 
 /**

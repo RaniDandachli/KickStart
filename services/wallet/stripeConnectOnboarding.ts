@@ -1,9 +1,10 @@
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
 import { Platform } from 'react-native';
 
-import { getSupabase } from '@/supabase/client';
+import { getStripeConnectDeviceCountry } from '@/lib/stripeConnectCountryHint';
+import { buildStripeConnectRedirectUrls } from '@/lib/stripeConnectUrls';
+import { getValidAccessToken, invokeEdgeFunction, invokeEdgeFunctionWithToken } from '@/lib/supabaseEdgeInvoke';
 
 export type StripeConnectStatus = {
   ok?: boolean;
@@ -30,21 +31,15 @@ async function parseFunctionError(error: unknown): Promise<string> {
 
 /** Opens Stripe Connect Express onboarding in the browser. */
 export async function openStripeConnectOnboarding(): Promise<void> {
-  const supabase = getSupabase();
+  const { refreshUrl, returnUrl } = buildStripeConnectRedirectUrls();
+  const deviceCountry = getStripeConnectDeviceCountry();
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) {
-    throw new Error('Sign in to continue.');
-  }
-
-  await supabase.auth.refreshSession();
-
-  const base = Linking.createURL('profile/stripe-connect');
-  const refreshUrl = `${base}${base.includes('?') ? '&' : '?'}connect=refresh`;
-  const returnUrl = `${base}${base.includes('?') ? '&' : '?'}connect=return`;
-
-  const { data, error } = await supabase.functions.invoke('createStripeConnectLink', {
-    body: { refreshUrl, returnUrl },
+  const { data, error } = await invokeEdgeFunction('createStripeConnectLink', {
+    body: {
+      refreshUrl,
+      returnUrl,
+      ...(deviceCountry ? { deviceCountry } : {}),
+    },
   });
 
   if (error) {
@@ -70,13 +65,10 @@ export async function openStripeConnectOnboarding(): Promise<void> {
 
 /** Loads Connect account flags from Edge (payouts enabled, Stripe Express dashboard link). */
 export async function fetchStripeConnectStatus(): Promise<StripeConnectStatus | null> {
-  const supabase = getSupabase();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) return null;
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return null;
 
-  await supabase.auth.refreshSession();
-
-  const { data, error } = await supabase.functions.invoke('getStripeConnectAccount', {
+  const { data, error } = await invokeEdgeFunctionWithToken('getStripeConnectAccount', accessToken, {
     body: {},
   });
 

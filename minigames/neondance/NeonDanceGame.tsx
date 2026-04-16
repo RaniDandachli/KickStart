@@ -25,7 +25,9 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { awardRedeemTicketsForPrizeRun, ticketsFromNeonDanceScore } from '@/lib/ticketPayouts';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
@@ -399,8 +401,8 @@ export default function NeonDanceGame({
       appliedRoute.current = true;
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
         );
         router.back();
@@ -436,7 +438,7 @@ export default function NeonDanceGame({
             if (!sess.session) {
               Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
             } else {
-              const { data, error } = await supabase.functions.invoke('submitMinigameScore', {
+              const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
                 body: {
                   prize_run: true,
                   game_type: 'neon_dance' as const,
@@ -886,9 +888,9 @@ export default function NeonDanceGame({
               onPress={() => {
                 const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
                 if (!ok) {
-                  Alert.alert(
-                    'Not enough prize credits',
-                    `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits.`,
+                  alertInsufficientPrizeCredits(
+                    router,
+                    `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
                   );
                   return;
                 }

@@ -1,4 +1,4 @@
-import { getSupabase } from '@/supabase/client';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 export type RedeemGiftCardResult = {
   ok: boolean;
@@ -17,33 +17,18 @@ export async function redeemGiftCard(params: {
   rewardKey: string;
   idempotencyKey?: string;
 }): Promise<RedeemGiftCardResult> {
-  const supabase = getSupabase();
-  const {
-    data: { session: initial },
-  } = await supabase.auth.getSession();
-  if (!initial?.access_token) {
-    throw new Error('Sign in to redeem gift cards.');
-  }
-
-  // Fresh access token — stale JWT is the most common cause of 401 on Edge Functions with verify_jwt.
-  const { data: refreshed } = await supabase.auth.refreshSession();
-  const session = refreshed.session ?? initial;
-  if (!session.access_token) {
-    throw new Error('Could not refresh your session. Sign in again, then retry.');
-  }
-
-  const { data, error } = await supabase.functions.invoke<RedeemGiftCardResult>('redeem-gift-card', {
+  const { data, error } = await invokeEdgeFunction<RedeemGiftCardResult>('redeem-gift-card', {
     body: {
       rewardKey: params.rewardKey,
       idempotencyKey: params.idempotencyKey,
     },
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
   });
 
   if (error) {
-    const msg = error.message || 'Network error';
+    const msg = error instanceof Error ? error.message : 'Network error';
+    if (msg === 'Sign in to continue.') {
+      throw new Error('Sign in to redeem gift cards.');
+    }
     if (/401|Unauthorized|JWT/i.test(msg)) {
       throw new Error('Session expired or not signed in. Sign in again, then retry.');
     }

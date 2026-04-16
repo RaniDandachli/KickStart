@@ -33,6 +33,11 @@ async function ensureAndroidChannel(): Promise<void> {
   });
 }
 
+/** Same channel as tournament / daily locals — use before immediate match-found notifications on Android. */
+export async function ensureArcadeAndroidNotificationChannel(): Promise<void> {
+  await ensureAndroidChannel();
+}
+
 function androidChannelExtras(): { channelId: string } | Record<string, never> {
   return Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : {};
 }

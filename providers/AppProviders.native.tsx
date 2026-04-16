@@ -2,6 +2,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { type PropsWithChildren, useEffect, useState } from 'react';
 
+import { MatchmakingQueueRunner } from '@/features/play/MatchmakingQueueRunner';
 import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
 import { configureArcadeNotificationBehavior } from '@/lib/arcadeLocalNotifications';
 import { createAppQueryClient } from '@/lib/queryClient';
@@ -21,7 +22,10 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   const tree = (
     <QueryClientProvider client={client}>
-      <AuthBootstrapper>{children}</AuthBootstrapper>
+      <AuthBootstrapper>
+        <MatchmakingQueueRunner />
+        {children}
+      </AuthBootstrapper>
     </QueryClientProvider>
   );
 

@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
@@ -35,6 +36,7 @@ import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import {
   clearLastMinigameAttempt,
   loadLastMinigameAttempt,
@@ -603,8 +605,8 @@ export default function TapDashGame({
       if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
         const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
         if (!ok) {
-          Alert.alert(
-            'Not enough prize credits',
+          alertInsufficientPrizeCredits(
+            router,
             `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free. Earn credits by winning prize runs.`,
           );
           return;
@@ -624,7 +626,7 @@ export default function TapDashGame({
     if (phase === 'playing') {
       queueFlap();
     }
-  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament, h2hSkillContest]);
+  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament, h2hSkillContest, router]);
 
   /** Same controls as in-play (Space / ↑): start from ready, flap while playing — web only. */
   useWebGameKeyboard(phase === 'playing' || phase === 'ready', {
@@ -649,7 +651,7 @@ export default function TapDashGame({
         return;
       }
       const prizeRun = playMode === 'prize' && !dailyTournament && !h2hSkillContest;
-      const { error } = await supabase.functions.invoke('submitMinigameScore', {
+      const { error } = await invokeEdgeFunction('submitMinigameScore', {
         body: {
           ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'tap_dash' as const,
@@ -740,12 +742,17 @@ export default function TapDashGame({
           {dailyTournament || h2hSkillContest ? (
             <View style={styles.topBarRightSpacer} />
           ) : (
-            <View style={styles.creditsPill}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Buy arcade credits"
+              onPress={() => pushArcadeCreditsShop(router)}
+              style={({ pressed }) => [styles.creditsPill, pressed && { opacity: 0.88 }]}
+            >
               <View style={{ marginRight: 4 }}>
                 <SafeIonicons name="gift-outline" size={16} color="#5EEAD4" />
               </View>
               <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
-            </View>
+            </Pressable>
           )}
         </View>
 

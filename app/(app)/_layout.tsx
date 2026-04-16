@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { ALLOW_GUEST_MODE } from '@/constants/featureFlags';
 import { useRealtimeScaffold } from '@/hooks/useRealtimeScaffold';
+import { useSyncSignupCountry } from '@/hooks/useSyncSignupCountry';
 import { useSupabaseCacheSync } from '@/hooks/useSupabaseCacheSync';
 import { useAuthStore } from '@/store/authStore';
 
@@ -18,11 +19,13 @@ function navigateFromNotificationData(router: ReturnType<typeof useRouter>, data
 export default function AuthenticatedLayout() {
   const status = useAuthStore((s) => s.status);
   const userId = useAuthStore((s) => s.user?.id);
+  const user = useAuthStore((s) => s.user);
   const router = useRouter();
   const handledColdStartNotification = useRef(false);
 
   useRealtimeScaffold(userId);
   useSupabaseCacheSync(userId);
+  useSyncSignupCountry(user);
 
   useEffect(() => {
     if (ALLOW_GUEST_MODE) return;

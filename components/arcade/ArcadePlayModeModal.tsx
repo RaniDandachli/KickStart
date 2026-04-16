@@ -11,6 +11,8 @@ type ModalProps = {
   onClose: () => void;
   onPractice: () => void;
   onPrizeRun: () => void;
+  /** Opens Shop → Arcade credits (packs). */
+  onBuyCredits?: () => void;
   /** Defaults to standard arcade entry (10). Turbo Arena uses 20. */
   prizeEntryCredits?: number;
 };
@@ -21,6 +23,7 @@ export function ArcadePlayModeModal({
   onClose,
   onPractice,
   onPrizeRun,
+  onBuyCredits,
   prizeEntryCredits = PRIZE_RUN_ENTRY_CREDITS,
 }: ModalProps) {
   return (
@@ -59,6 +62,18 @@ export function ArcadePlayModeModal({
               </View>
             </LinearGradient>
           </Pressable>
+
+          {onBuyCredits ? (
+            <Pressable
+              onPress={onBuyCredits}
+              style={({ pressed }) => [styles.buyRow, pressed && { opacity: 0.88 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Buy arcade credits"
+            >
+              <SafeIonicons name="cart-outline" size={18} color={runit.neonPink} />
+              <Text style={styles.buyRowText}>Buy arcade credits</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable onPress={onClose} style={styles.cancelBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
@@ -114,6 +129,15 @@ const styles = StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   cardTitle: { fontSize: 17, color: '#fff', flex: 1 },
   cardBody: { color: 'rgba(226,232,240,0.92)', fontSize: 13, lineHeight: 18, paddingLeft: 36 },
+  buyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
+    paddingVertical: 10,
+  },
+  buyRowText: { color: runit.neonPink, fontSize: 14, fontWeight: '800' },
   cancelBtn: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 16 },
   cancelText: { color: 'rgba(148,163,184,0.95)', fontSize: 15, fontWeight: '700' },
 });

@@ -11,7 +11,10 @@ export async function fetchProfileById(userId: string): Promise<ProfileRow | nul
 }
 
 export type ProfileUpdatePatch = Partial<
-  Pick<ProfileRow, 'username' | 'display_name' | 'region' | 'avatar_url' | 'shipping_address'>
+  Pick<
+    ProfileRow,
+    'username' | 'display_name' | 'region' | 'avatar_url' | 'shipping_address' | 'country_code'
+  >
 >;
 
 export async function updateProfileFields(userId: string, patch: ProfileUpdatePatch): Promise<void> {

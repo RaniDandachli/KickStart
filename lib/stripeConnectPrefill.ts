@@ -7,5 +7,6 @@ export const STRIPE_CONNECT_PREFILL_SUMMARY = [
   'Industry category (MCC): amusement / skill contests (7994)',
   'Product: mobile skill contests and tournament prizes',
   'Your email & display name come from your RunitArcade profile',
-  'If you saved a shipping address, we send city/ZIP to speed up bank setup',
+  'Country: profile shipping first, then your device region (US vs CA etc.), then server STRIPE_CONNECT_DEFAULT_COUNTRY, else US',
+  'If you saved a shipping address, we send city/ZIP/postal code to speed up bank setup',
 ] as const;

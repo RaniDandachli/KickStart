@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/functions-js';
 
-import { getSupabase } from '@/supabase/client';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 async function parseFunctionError(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError && error.context instanceof Response) {
@@ -28,14 +28,7 @@ export async function withdrawWalletToConnect(params: {
   amountCents: number;
   idempotencyKey: string;
 }): Promise<WithdrawWalletResult> {
-  const supabase = getSupabase();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) {
-    throw new Error('Sign in to withdraw.');
-  }
-  await supabase.auth.refreshSession();
-
-  const { data, error } = await supabase.functions.invoke('withdrawWalletToConnect', {
+  const { data, error } = await invokeEdgeFunction('withdrawWalletToConnect', {
     body: {
       amount_cents: params.amountCents,
       idempotency_key: params.idempotencyKey,
@@ -43,6 +36,9 @@ export async function withdrawWalletToConnect(params: {
   });
 
   if (error) {
+    if (error instanceof Error && error.message === 'Sign in to continue.') {
+      throw new Error('Sign in to withdraw.');
+    }
     throw new Error(await parseFunctionError(error));
   }
 

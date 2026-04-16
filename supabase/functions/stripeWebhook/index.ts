@@ -17,6 +17,11 @@ const PACK_PRICES: Record<number, number> = {
   8000: 4999,
 };
 
+/** Must match createWalletPaymentIntent / createWalletCheckoutSession wallet fee. */
+function walletExpectedChargeCents(walletCents: number): number {
+  return walletCents + Math.round(walletCents * 0.029) + 30;
+}
+
 /** Returns null if valid, else a skip reason string. */
 function validatePurchaseMetadata(
   meta: Stripe.Metadata,
@@ -41,8 +46,9 @@ function validatePurchaseMetadata(
     }
   } else if (meta.kind === 'wallet') {
     if (walletCents <= 0 || prizeCredits !== 0) return 'invalid_wallet_metadata';
-    if (walletCents !== amountTotalCents) {
-      console.error('[stripeWebhook] wallet amount mismatch', { walletCents, amountTotalCents });
+    const expectedCharge = walletExpectedChargeCents(walletCents);
+    if (expectedCharge !== amountTotalCents) {
+      console.error('[stripeWebhook] wallet charge mismatch', { walletCents, expectedCharge, amountTotalCents });
       return 'amount_mismatch';
     }
   } else {

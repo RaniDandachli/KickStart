@@ -23,8 +23,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { arcade } from '@/lib/arcadeTheme';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { getSupabase } from '@/supabase/client';
@@ -397,8 +399,8 @@ export default function TurboArenaGame({
     if (!h2hSkillContest && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
         );
         return;
@@ -411,7 +413,7 @@ export default function TurboArenaGame({
     setSubmitErr(false);
     setPhase('playing');
     bump();
-  }, [playMode, profileQ.data?.prize_credits, bump, h2hSkillContest]);
+  }, [playMode, profileQ.data?.prize_credits, bump, h2hSkillContest, router]);
 
   const submitScore = useCallback(async () => {
     const { scoreP1, durationMs } = endStatsRef.current;
@@ -426,7 +428,7 @@ export default function TurboArenaGame({
         return;
       }
       const prizeRun = playMode === 'prize' && !h2hSkillContest;
-      const { error } = await supabase.functions.invoke('submitMinigameScore', {
+      const { error } = await invokeEdgeFunction('submitMinigameScore', {
         body: {
           ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'turbo_arena' as const,
@@ -507,12 +509,17 @@ export default function TurboArenaGame({
           {h2hSkillContest ? (
             <View style={{ width: 72 }} />
           ) : (
-            <View style={styles.creditsPill}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Buy arcade credits"
+              onPress={() => pushArcadeCreditsShop(router)}
+              style={({ pressed }) => [styles.creditsPill, pressed && { opacity: 0.88 }]}
+            >
               <View style={{ marginRight: 4 }}>
                 <SafeIonicons name="gift-outline" size={16} color="#5EEAD4" />
               </View>
               <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
-            </View>
+            </Pressable>
           )}
         </View>
 

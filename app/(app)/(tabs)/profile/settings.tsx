@@ -18,6 +18,7 @@ export default function SettingsScreen() {
   const [pushMatch, setPushMatch] = useState(true);
   const [pushTournament, setPushTournament] = useState(true);
   const [pushDailyCredits, setPushDailyCredits] = useState(true);
+  const [pushOpenMatches, setPushOpenMatches] = useState(false);
   const [prefsReady, setPrefsReady] = useState(false);
   const skipNextSave = useRef(true);
 
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
       setPushMatch(p.matchInvites);
       setPushTournament(p.tournamentUpdates);
       setPushDailyCredits(p.dailyCredits);
+      setPushOpenMatches(p.openMatchAlerts);
       setPrefsReady(true);
     });
     return () => {
@@ -45,13 +47,14 @@ export default function SettingsScreen() {
       matchInvites: pushMatch,
       tournamentUpdates: pushTournament,
       dailyCredits: pushDailyCredits,
+      openMatchAlerts: pushOpenMatches,
     }).then(async () => {
       if (uid && ENABLE_BACKEND) {
         await registerExpoPushWithSupabase(uid);
       }
       void refreshArcadeScheduledNotifications();
     });
-  }, [prefsReady, pushMatch, pushTournament, pushDailyCredits, uid]);
+  }, [prefsReady, pushMatch, pushTournament, pushDailyCredits, pushOpenMatches, uid]);
 
   return (
     <Screen>
@@ -76,10 +79,18 @@ export default function SettingsScreen() {
           disabled={!prefsReady}
           onValueChange={setPushDailyCredits}
         />
+        <RowToggle
+          label="Open match alerts"
+          value={pushOpenMatches}
+          disabled={!prefsReady}
+          onValueChange={setPushOpenMatches}
+        />
         <Text style={styles.helpText}>
           Preferences are saved on this device and on your account when you&apos;re signed in. Tournament reminders follow the schedule the
-          operator sets; daily credit reminders fire after you claim for the day. If push isn&apos;t available, the app may use a local
-          reminder around 10:00. You can change alerts anytime in system notification settings.
+          operator sets; daily credit reminders fire after you claim for the day. Open match alerts notify you when someone is waiting in
+          queue for a contest that matches your filters (default: any tier and game). Allow notifications so these and &quot;match
+          found&quot; pings (from Keep my spot in queue on the match screen) can reach you. If push isn&apos;t available, the app may use a
+          local reminder around 10:00. You can change alerts anytime in system notification settings.
         </Text>
       </View>
 

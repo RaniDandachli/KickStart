@@ -232,11 +232,21 @@ Deno.serve(async (req) => {
       return errorResponse('Server configuration error', 500);
     }
 
+    const authHeader =
+      req.headers.get('Authorization')?.trim() ||
+      req.headers.get('authorization')?.trim() ||
+      '';
+    if (!authHeader || !/^Bearer\s+\S+/.test(authHeader)) {
+      return errorResponse('Unauthorized: missing Authorization bearer token', 401);
+    }
     const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      global: { headers: { Authorization: authHeader } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) return errorResponse('Unauthorized', 401);
+    if (userErr || !userData.user) {
+      if (userErr) console.warn('[submitMinigameScore] getUser', userErr.message);
+      return errorResponse('Unauthorized', 401);
+    }
 
     const admin = createClient(supabaseUrl, serviceKey);
     const since = new Date(Date.now() - 60_000).toISOString();

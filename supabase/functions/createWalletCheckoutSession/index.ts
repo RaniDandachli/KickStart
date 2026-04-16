@@ -11,6 +11,10 @@ import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 const MIN_WALLET_CENTS = 100;
 const MAX_WALLET_CENTS = 50_000; // $500.00 — keep aligned with `completeTopUp` client limits
 
+function walletProcessingFeeCents(walletCents: number): number {
+  return Math.round(walletCents * 0.029) + 30;
+}
+
 /** Must match `lib/creditPackages.ts` ids and amounts. */
 const CREDIT_PACKAGES: Record<string, { priceCents: number; prizeCredits: number; name: string }> = {
   credits_500: { priceCents: 499, prizeCredits: 500, name: '500 Arcade Credits' },
@@ -61,9 +65,10 @@ Deno.serve(async (req) => {
       if (ac < MIN_WALLET_CENTS || ac > MAX_WALLET_CENTS) {
         return errorResponse(`Amount must be between $${(MIN_WALLET_CENTS / 100).toFixed(2)} and $${(MAX_WALLET_CENTS / 100).toFixed(2)}`, 422);
       }
-      lineAmountCents = ac;
       walletCents = ac;
-      productName = `Wallet top-up ($${(ac / 100).toFixed(2)})`;
+      const feeCents = walletProcessingFeeCents(ac);
+      lineAmountCents = ac + feeCents;
+      productName = `Wallet deposit $${(ac / 100).toFixed(2)} + card processing`;
     } else {
       const pid = parsed.data.packageId;
       if (!pid) return errorResponse('packageId required for credit packs', 422);
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         kind,
         wallet_cents: String(walletCents),
+        processing_fee_cents: kind === 'wallet' ? String(walletProcessingFeeCents(walletCents)) : '0',
         prize_credits: String(prizeCredits),
         package_id: parsed.data.packageId ?? '',
       },

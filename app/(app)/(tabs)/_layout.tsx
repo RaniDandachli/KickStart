@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { WebBrowseAuthBar } from '@/components/WebBrowseAuthBar';
+import { WebAppBrandLogo, WEB_TOP_LOGO_SLOT_PX } from '@/components/web/WebAppBrandLogo';
 import { FirstRunTabTour } from '@/components/onboarding/FirstRunTabTour';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
@@ -24,7 +25,7 @@ import { getAppTabBarStyle } from '@/lib/tabBarStyle';
 import { webTabBarLabelRenderer } from '@/lib/webTabBarLabel';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
 import { useAuthStore } from '@/store/authStore';
-import { getSupabase } from '@/supabase/client';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 type IonName = ComponentProps<typeof SafeIonicons>['name'];
 
@@ -63,7 +64,7 @@ export default function TabsLayout() {
       }
       if (daily > 0 && ENABLE_BACKEND && Platform.OS !== 'web') {
         await registerExpoPushWithSupabase(uid);
-        const { error } = await getSupabase().functions.invoke('notifyDailyCreditsPush', { body: {} });
+        const { error } = await invokeEdgeFunction('notifyDailyCreditsPush', { body: {} });
         if (error) console.warn('[notifyDailyCreditsPush]', error.message);
       }
       if (daily > 0) {
@@ -112,6 +113,7 @@ export default function TabsLayout() {
   return (
     <>
     <WebBrowseAuthBar />
+    <WebAppBrandLogo />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -151,6 +153,9 @@ export default function TabsLayout() {
               : undefined,
           ),
           ...(webBrowseAuth && webUsesTopTabBar ? { paddingRight: Math.max(insets.right, 16) + 168 } : {}),
+          ...(Platform.OS === 'web' && webUsesTopTabBar
+            ? { paddingLeft: Math.max(insets.left, 16) + WEB_TOP_LOGO_SLOT_PX }
+            : {}),
         },
         tabBarActiveTintColor: '#ff006e',
         tabBarInactiveTintColor: '#CBD5E1',

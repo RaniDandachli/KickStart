@@ -53,10 +53,15 @@ export type ProfileRow = {
   push_notify_match_invites: boolean;
   push_notify_tournament_of_day: boolean;
   push_notify_daily_credits: boolean;
+  push_notify_h2h_open_slots: boolean;
+  /** `{ enabled, entryCents[], gameKeys: string[] | null }` — see `h2hOpenMatchWatchScan`. */
+  h2h_open_slot_watch: Json | null;
   last_daily_credits_push_sent_ymd: string | null;
   last_tournament_of_day_push_sent_ymd: string | null;
   /** Prize catalog progress currency (`user_wallet.ticket_balance` equivalent); separate from Arcade Credits. */
   redeem_tickets: number;
+  /** ISO 3166-1 alpha-2 residence for payouts (Stripe Connect); distinct from `region` (matchmaking). */
+  country_code: string | null;
   /** JSON object — see `ShippingAddress` in app code. */
   shipping_address: Json | null;
   gems: number;

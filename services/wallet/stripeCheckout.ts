@@ -2,7 +2,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
 
-import { getSupabase } from '@/supabase/client';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 type WalletOpts = { kind: 'wallet'; amountCents: number };
 type CreditsOpts = { kind: 'credits'; packageId: string };
@@ -24,15 +24,6 @@ async function parseFunctionError(error: unknown): Promise<string> {
  * Balance updates only after the Stripe webhook runs — caller should invalidate profile on success.
  */
 export async function openStripeCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
-  const supabase = getSupabase();
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) {
-    throw new Error('Sign in to purchase.');
-  }
-
-  await supabase.auth.refreshSession();
-
   const base = Linking.createURL('profile/add-funds');
   const successUrl = `${base}${base.includes('?') ? '&' : '?'}status=success&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${base}${base.includes('?') ? '&' : '?'}status=cancel`;
@@ -52,11 +43,14 @@ export async function openStripeCheckoutSession(opts: WalletOpts | CreditsOpts):
           cancelUrl,
         };
 
-  const { data, error } = await supabase.functions.invoke('createWalletCheckoutSession', {
+  const { data, error } = await invokeEdgeFunction('createWalletCheckoutSession', {
     body,
   });
 
   if (error) {
+    if (error instanceof Error && error.message === 'Sign in to continue.') {
+      throw new Error('Sign in to purchase.');
+    }
     throw new Error(await parseFunctionError(error));
   }
 

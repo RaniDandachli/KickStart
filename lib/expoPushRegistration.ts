@@ -40,10 +40,16 @@ export async function registerExpoPushWithSupabase(uid: string): Promise<void> {
   if (!ENABLE_BACKEND || Platform.OS === 'web') return;
 
   const prefs = await loadNotificationPrefs();
+  const openWatch = prefs.openMatchAlerts
+    ? { enabled: true, entryCents: [] as number[], gameKeys: null as string[] | null }
+    : { enabled: false, entryCents: [] as number[], gameKeys: null as string[] | null };
+
   const prefsPatch = {
     push_notify_match_invites: prefs.matchInvites,
     push_notify_tournament_of_day: prefs.tournamentUpdates,
     push_notify_daily_credits: prefs.dailyCredits,
+    push_notify_h2h_open_slots: prefs.openMatchAlerts,
+    h2h_open_slot_watch: openWatch,
   };
 
   const supabase = getSupabase();

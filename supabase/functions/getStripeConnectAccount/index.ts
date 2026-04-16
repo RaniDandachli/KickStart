@@ -1,10 +1,13 @@
 /**
  * Returns Stripe Connect account status for the signed-in user (payouts enabled, requirements).
+ *
+ * Uses Stripe HTTP API via fetch (not stripe-node) so Deno Edge avoids Node polyfill microtask errors
+ * on isolate shutdown: `Deno.core.runMicrotasks() is not supported in this environment`.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
+import { stripeCreateExpressLoginLink, stripeRetrieveAccount } from '../_shared/stripeRest.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -16,11 +19,21 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader =
+      req.headers.get('Authorization')?.trim() ||
+      req.headers.get('authorization')?.trim() ||
+      '';
+    if (!authHeader || !/^Bearer\s+\S+/.test(authHeader)) {
+      return errorResponse('Unauthorized: missing Authorization bearer token', 401);
+    }
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      global: { headers: { Authorization: authHeader } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) return errorResponse('Unauthorized', 401);
+    if (userErr || !userData.user) {
+      if (userErr) console.warn('[getStripeConnectAccount] getUser', userErr.message);
+      return errorResponse('Unauthorized', 401);
+    }
 
     const userId = userData.user.id;
 
@@ -44,16 +57,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16', httpClient: Stripe.createFetchHttpClient() });
-    const acct = await stripe.accounts.retrieve(accountId);
+    const acct = await stripeRetrieveAccount(stripeSecret, accountId);
 
-    let dashboardUrl: string | null = null;
-    try {
-      const login = await stripe.accounts.createLoginLink(accountId);
-      dashboardUrl = login.url;
-    } catch {
-      /* Express account may not have dashboard yet */
-    }
+    const dashboardUrl = await stripeCreateExpressLoginLink(stripeSecret, accountId);
 
     return json({
       ok: true,

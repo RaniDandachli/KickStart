@@ -21,7 +21,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { arcade } from '@/lib/arcadeTheme';
 import { awardRedeemTicketsForPrizeRun, NEON_POOL_POINTS_PER_TICKET, ticketsFromNeonPoolScore } from '@/lib/ticketPayouts';
@@ -155,12 +157,15 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
     if (playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert('Not enough prize credits', `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits.`);
+        alertInsufficientPrizeCredits(
+          router,
+          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+        );
         return;
       }
     }
     resetMatch();
-  }, [playMode, profileQ.data?.prize_credits, resetMatch]);
+  }, [playMode, profileQ.data?.prize_credits, resetMatch, router]);
 
   const loop = useCallback(
     (totalDtMs: number) => {
@@ -299,7 +304,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
         return;
       }
       const prizeRun = playMode === 'prize';
-      const { error } = await supabase.functions.invoke('submitMinigameScore', {
+      const { error } = await invokeEdgeFunction('submitMinigameScore', {
         body: {
           ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'neon_pool',
@@ -337,12 +342,17 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
             <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <Text style={styles.title}>Neon Pocket</Text>
-          <View style={styles.creditsPill}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Buy arcade credits"
+            onPress={() => pushArcadeCreditsShop(router)}
+            style={({ pressed }) => [styles.creditsPill, pressed && { opacity: 0.88 }]}
+          >
             <View style={{ marginRight: 4 }}>
               <SafeIonicons name="gift-outline" size={16} color="#5EEAD4" />
             </View>
             <Text style={styles.creditsText}>{prizeCredits.toLocaleString()}</Text>
-          </View>
+          </Pressable>
         </View>
 
         <Text style={styles.tagline}>

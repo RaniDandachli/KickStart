@@ -15,7 +15,7 @@
     "functions:deploy": "supabase functions deploy",
     "functions:deploy:submit": "supabase functions deploy submitMinigameScore",
     "functions:deploy:stripe": "supabase functions deploy stripeWebhook && supabase functions deploy createWalletCheckoutSession && supabase functions deploy createWalletPaymentIntent && supabase functions deploy createStripeConnectLink && supabase functions deploy getStripeConnectAccount && supabase functions deploy withdrawWalletToConnect",
-    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult && supabase functions deploy h2hMaintenance",
+    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult && supabase functions deploy h2hMaintenance && supabase functions deploy h2hOpenMatchWatchScan",
     "functions:deploy:welcome": "supabase functions deploy sendWelcomeEmail",
     "functions:deploy:push": "supabase functions deploy notifyDailyCreditsPush && supabase functions deploy broadcastTournamentOfDayPush"
   },
@@ -40,6 +40,7 @@
     "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
+    "expo-localization": "~17.0.8",
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.23",
     "expo-screen-orientation": "~9.0.8",

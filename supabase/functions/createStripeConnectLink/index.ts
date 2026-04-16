@@ -1,20 +1,32 @@
 /**
  * Stripe Connect Express — bank payouts for players.
  * Prefills business category + profile info from RunitArcade so Stripe asks for less on the hosted page.
- * (Stripe may still require ID/bank steps for compliance — we don’t add extra verification in our app.)
+ *
+ * Uses Stripe HTTP API via fetch (not stripe-node) to avoid Deno Edge microtask / runMicrotasks errors.
  *
  * Deploy: `npx supabase functions deploy createStripeConnectLink` (secret `STRIPE_SECRET_KEY` on the project).
  * Ops checklist: `supabase/README.md` → “Stripe Connect (bank onboarding + payouts)”.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
+import {
+  stripeAccountLinksCreate,
+  stripeAccountsCreate,
+  stripeAccountsUpdate,
+} from '../_shared/stripeRest.ts';
 
 const Body = z.object({
   refreshUrl: z.string().min(8),
   returnUrl: z.string().min(8),
+  /** ISO 3166-1 alpha-2 from app (expo-localization region); used when profile has no shipping country */
+  deviceCountry: z
+    .string()
+    .length(2)
+    .regex(/^[a-zA-Z]{2}$/)
+    .optional()
+    .transform((s) => s.toUpperCase()),
 });
 
 type Ship = {
@@ -50,6 +62,20 @@ function countryToStripeCode(raw: string | undefined, fallback: string): string 
   return map[u] ?? fallback;
 }
 
+/**
+ * US Express accounts: Stripe requires `card_payments` when requesting `transfers`
+ * (see invalid_request_error on requested_capabilities).
+ */
+function capabilitiesForCountry(country: string): Record<string, { requested: boolean }> {
+  if (country === 'US') {
+    return {
+      card_payments: { requested: true },
+      transfers: { requested: true },
+    };
+  }
+  return { transfers: { requested: true } };
+}
+
 function buildConnectPrefill(params: {
   email: string | undefined;
   displayName: string | null;
@@ -60,12 +86,12 @@ function buildConnectPrefill(params: {
   businessName: string;
   mcc: string;
   productDescription: string;
-}): Parameters<Stripe['accounts']['create']>[0] {
+}): Record<string, unknown> {
   const { first, last } = splitName(params.displayName, params.username);
   const ship = params.shipping;
   const country = countryToStripeCode(ship?.country, params.defaultCountry);
 
-  const individual: NonNullable<Parameters<Stripe['accounts']['create']>[0]['individual']> = {
+  const individual: Record<string, unknown> = {
     email: params.email,
     first_name: first.slice(0, 100),
     last_name: last.slice(0, 100),
@@ -91,9 +117,7 @@ function buildConnectPrefill(params: {
     country,
     email: params.email,
     business_type: 'individual',
-    capabilities: {
-      transfers: { requested: true },
-    },
+    capabilities: capabilitiesForCountry(country),
     business_profile: {
       name: params.businessName,
       url: params.businessUrl,
@@ -106,19 +130,20 @@ function buildConnectPrefill(params: {
 }
 
 async function applyPrefillToExistingAccount(
-  stripe: Stripe,
+  secret: string,
   accountId: string,
-  prefill: Parameters<Stripe['accounts']['create']>[0],
+  prefill: Record<string, unknown>,
 ): Promise<void> {
   try {
-    await stripe.accounts.update(accountId, {
+    const ind = prefill.individual as Record<string, unknown> | undefined;
+    await stripeAccountsUpdate(secret, accountId, {
       business_profile: prefill.business_profile,
       email: prefill.email,
       individual: {
-        email: prefill.individual?.email,
-        first_name: prefill.individual?.first_name,
-        last_name: prefill.individual?.last_name,
-        address: prefill.individual?.address,
+        email: ind?.email,
+        first_name: ind?.first_name,
+        last_name: ind?.last_name,
+        address: ind?.address,
       },
     });
   } catch (e) {
@@ -136,11 +161,21 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader =
+      req.headers.get('Authorization')?.trim() ||
+      req.headers.get('authorization')?.trim() ||
+      '';
+    if (!authHeader || !/^Bearer\s+\S+/.test(authHeader)) {
+      return errorResponse('Unauthorized: missing Authorization bearer token', 401);
+    }
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      global: { headers: { Authorization: authHeader } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) return errorResponse('Unauthorized', 401);
+    if (userErr || !userData.user) {
+      if (userErr) console.warn('[createStripeConnectLink] getUser', userErr.message);
+      return errorResponse('Unauthorized', 401);
+    }
 
     const userId = userData.user.id;
     const email = userData.user.email ?? undefined;
@@ -148,26 +183,47 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
 
-    const { refreshUrl, returnUrl } = parsed.data;
-
-    const defaultCountry = (Deno.env.get('STRIPE_CONNECT_DEFAULT_COUNTRY') ?? 'US').toUpperCase();
-    const businessUrl = Deno.env.get('STRIPE_CONNECT_BUSINESS_URL') ?? 'https://runitarcade.app';
-    const businessName = Deno.env.get('STRIPE_CONNECT_BUSINESS_NAME') ?? 'RunitArcade';
-    const mcc = Deno.env.get('STRIPE_CONNECT_MCC') ?? '7994';
-    const productDescription =
-      Deno.env.get('STRIPE_CONNECT_PRODUCT_DESCRIPTION') ??
-      'Mobile skill contests and tournament prizes — player payouts';
+    const { refreshUrl, returnUrl, deviceCountry: deviceCountryRaw } = parsed.data;
 
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: profile, error: profErr } = await admin
       .from('profiles')
-      .select('stripe_connect_account_id, display_name, username, shipping_address')
+      .select('stripe_connect_account_id, display_name, username, shipping_address, country_code')
       .eq('id', userId)
       .maybeSingle();
 
     if (profErr || !profile) return errorResponse('Profile not found', 404);
 
     const shipping = profile.shipping_address as Ship | null;
+
+    const metaRaw = (userData.user.user_metadata as { country_code?: unknown } | null)?.country_code;
+    const fromMeta =
+      typeof metaRaw === 'string' && metaRaw.trim().length > 0
+        ? countryToStripeCode(metaRaw, '')
+        : '';
+    const fromProfile =
+      typeof profile.country_code === 'string' && profile.country_code.trim().length > 0
+        ? countryToStripeCode(profile.country_code, '')
+        : '';
+    const fromShipping = shipping?.country ? countryToStripeCode(shipping.country, '') : '';
+    const fromDevice = deviceCountryRaw ? countryToStripeCode(deviceCountryRaw, '') : '';
+    const fromEnv = (Deno.env.get('STRIPE_CONNECT_DEFAULT_COUNTRY') ?? '').trim().toUpperCase();
+
+    /** Signup/profile country, then metadata (email-verify flow), then shipping, device, env, US. */
+    const defaultCountry =
+      (fromProfile.length === 2 ? fromProfile : null) ??
+      (fromMeta.length === 2 ? fromMeta : null) ??
+      (fromShipping.length === 2 ? fromShipping : null) ??
+      (fromDevice.length === 2 ? fromDevice : null) ??
+      (fromEnv.length === 2 ? fromEnv : null) ??
+      'US';
+
+    const businessUrl = Deno.env.get('STRIPE_CONNECT_BUSINESS_URL') ?? 'https://runitarcade.app';
+    const businessName = Deno.env.get('STRIPE_CONNECT_BUSINESS_NAME') ?? 'RunitArcade';
+    const mcc = Deno.env.get('STRIPE_CONNECT_MCC') ?? '7994';
+    const productDescription =
+      Deno.env.get('STRIPE_CONNECT_PRODUCT_DESCRIPTION') ??
+      'Mobile skill contests and tournament prizes — player payouts';
 
     const prefill = buildConnectPrefill({
       email,
@@ -181,11 +237,9 @@ Deno.serve(async (req) => {
       productDescription,
     });
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16', httpClient: Stripe.createFetchHttpClient() });
-
     let accountId = profile.stripe_connect_account_id as string | null;
     if (!accountId) {
-      const account = await stripe.accounts.create(prefill);
+      const account = await stripeAccountsCreate(stripeSecret, prefill);
       accountId = account.id;
       const { error: upErr } = await admin
         .from('profiles')
@@ -193,10 +247,20 @@ Deno.serve(async (req) => {
         .eq('id', userId);
       if (upErr) console.error('[createStripeConnectLink] failed to save connect account id', upErr);
     } else {
-      await applyPrefillToExistingAccount(stripe, accountId, prefill);
+      await applyPrefillToExistingAccount(stripeSecret, accountId, prefill);
+      const country = countryToStripeCode(shipping?.country, defaultCountry);
+      if (country === 'US') {
+        try {
+          await stripeAccountsUpdate(stripeSecret, accountId, {
+            capabilities: capabilitiesForCountry('US'),
+          });
+        } catch (e) {
+          console.warn('[createStripeConnectLink] US capabilities repair skipped:', e);
+        }
+      }
     }
 
-    const link = await stripe.accountLinks.create({
+    const link = await stripeAccountLinksCreate(stripeSecret, {
       account: accountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,

@@ -10,13 +10,23 @@ import { formatAuthError } from '@/lib/authMessages';
 import { TERMS_PRIVACY_DOC_VERSION, openPrivacyPolicy, openTermsOfService } from '@/lib/legalLinks';
 import { setHasSeenWelcome } from '@/lib/onboardingStorage';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { getStripeConnectDeviceCountry } from '@/lib/stripeConnectCountryHint';
+import { updateProfileFields } from '@/services/api/profiles';
 import { getSupabase } from '@/supabase/client';
+
+type PayoutCountry = 'US' | 'CA';
+
+function defaultPayoutCountry(): PayoutCountry {
+  const d = getStripeConnectDeviceCountry();
+  return d === 'CA' ? 'CA' : 'US';
+}
 
 export default function SignUpScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [countryCode, setCountryCode] = useState<PayoutCountry>(() => defaultPayoutCountry());
   const [agreedToLegal, setAgreedToLegal] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -38,12 +48,18 @@ export default function SignUpScreen() {
             display_name: username.trim(),
             terms_accepted_at: acceptedAt,
             terms_docs_version: TERMS_PRIVACY_DOC_VERSION,
+            country_code: countryCode,
           },
         },
       });
       if (error) throw error;
       await setHasSeenWelcome();
-      if (data.session) {
+      if (data.session && data.user?.id) {
+        try {
+          await updateProfileFields(data.user.id, { country_code: countryCode });
+        } catch {
+          /* profile row / RLS edge — metadata + useSyncSignupCountry still carry country */
+        }
         router.replace('/(app)/(tabs)');
         return;
       }
@@ -67,6 +83,25 @@ export default function SignUpScreen() {
         <Text style={styles.sub}>Pick a unique username for leaderboards. You may need to confirm your email before your first sign-in.</Text>
       </LinearGradient>
       <KCTextInput label="Username" autoCapitalize="none" value={username} onChangeText={setUsername} />
+      <Text style={styles.countryLabel}>Country (for payouts)</Text>
+      <View style={styles.countryRow}>
+        {(
+          [
+            { code: 'US' as const, label: 'United States' },
+            { code: 'CA' as const, label: 'Canada' },
+          ] as const
+        ).map(({ code, label }) => (
+          <Pressable
+            key={code}
+            accessibilityRole="button"
+            accessibilityState={{ selected: countryCode === code }}
+            onPress={() => setCountryCode(code)}
+            style={[styles.countryChip, countryCode === code && styles.countryChipOn]}
+          >
+            <Text style={[styles.countryChipText, countryCode === code && styles.countryChipTextOn]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
       <KCTextInput label="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <KCTextInput label="Password" secureTextEntry value={password} onChangeText={setPassword} />
       <View style={styles.agreeRow}>
@@ -135,6 +170,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  countryLabel: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  countryRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  countryChip: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(167,139,250,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+  },
+  countryChipOn: {
+    borderColor: runit.neonCyan,
+    backgroundColor: 'rgba(167,139,250,0.12)',
+  },
+  countryChipText: { color: 'rgba(226,232,240,0.85)', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  countryChipTextOn: { color: '#fff' },
   link: { textAlign: 'center', fontSize: 15, fontWeight: '800', color: runit.neonPink },
   agreeRow: {
     flexDirection: 'row',

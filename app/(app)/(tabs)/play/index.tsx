@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useNavigation, useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
 import { ArcadeCabinetIntro } from '@/components/arcade/ArcadeCabinetIntro';
@@ -28,7 +28,7 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { pushCrossTab } from '@/lib/appNavigation';
-import { topUpComingSoonMessage } from '@/lib/purchaseEconomy';
+import { presentAddMoneyChooser } from '@/lib/shopNavigation';
 import { runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
@@ -84,7 +84,7 @@ export default function PlayHubScreen() {
 
         <ArcadeBalanceBar
           balanceLabel={prizeBalanceLabel}
-          onAddPress={() => Alert.alert('RunitArcade', topUpComingSoonMessage())}
+          onAddPress={() => presentAddMoneyChooser(router)}
         />
 
         {ENABLE_BACKEND && uid && profileQ.isError ? (
@@ -122,7 +122,7 @@ export default function PlayHubScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Add funds"
-                onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
+                onPress={() => presentAddMoneyChooser(router)}
                 style={({ pressed }) => [styles.prizeZeroChip, styles.prizeZeroChipGhost, pressed && { opacity: 0.88 }]}
               >
                 <Text style={[styles.prizeZeroChipTxt, { color: '#5eead4' }]}>Add funds</Text>

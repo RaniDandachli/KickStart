@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 
 import { env } from '@/lib/env';
-import { getSupabase } from '@/supabase/client';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 async function parseFunctionError(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError && error.context instanceof Response) {
@@ -35,10 +35,7 @@ export function useWalletPaymentSheet() {
         throw new Error('Set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in .env (Stripe Dashboard → Developers → API keys).');
       }
 
-      const supabase = getSupabase();
-      await supabase.auth.refreshSession();
-
-      const { data, error } = await supabase.functions.invoke('createWalletPaymentIntent', {
+      const { data, error } = await invokeEdgeFunction('createWalletPaymentIntent', {
         body: { kind: 'wallet', amountCents },
       });
 
@@ -84,10 +81,7 @@ export function useWalletPaymentSheet() {
         throw new Error('Set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in .env.');
       }
 
-      const supabase = getSupabase();
-      await supabase.auth.refreshSession();
-
-      const { data, error } = await supabase.functions.invoke('createWalletPaymentIntent', {
+      const { data, error } = await invokeEdgeFunction('createWalletPaymentIntent', {
         body: { kind: 'credits', packageId },
       });
 

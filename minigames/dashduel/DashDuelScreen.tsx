@@ -17,11 +17,13 @@ import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';
 import { useDashDuelNeonVelocityMusic } from '@/minigames/dashduel/useDashDuelNeonVelocityMusic';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import {
   awardRedeemTicketsForPrizeRun,
   ticketsFromDashDuelDisplayedScore,
 } from '@/lib/ticketPayouts';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
@@ -90,8 +92,8 @@ export default function DashDuelScreen({
   const goVs = useCallback(() => {
     const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
     if (!ok) {
-      Alert.alert(
-        'Not enough prize credits',
+      alertInsufficientPrizeCredits(
+        router,
         `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
       );
       return;
@@ -99,7 +101,7 @@ export default function DashDuelScreen({
     setMode('vs');
     setSeed(nextSeed());
     setPhase('lobby');
-  }, [profileQ.data?.prize_credits]);
+  }, [profileQ.data?.prize_credits, router]);
 
   useEffect(() => {
     if (h2hSkillContest) return;
@@ -112,8 +114,8 @@ export default function DashDuelScreen({
       appliedRouteMode.current = true;
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
         );
         router.back();
@@ -162,7 +164,7 @@ export default function DashDuelScreen({
               if (!sess.session) {
                 Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
               } else {
-                const { data, error } = await supabase.functions.invoke('submitMinigameScore', {
+                const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
                   body: {
                     prize_run: true,
                     game_type: 'dash_duel' as const,

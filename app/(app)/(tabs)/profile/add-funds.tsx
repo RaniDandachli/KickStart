@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,12 @@ import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { env } from '@/lib/env';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
+import {
+  WALLET_DEPOSIT_FEE_PERCENT,
+  WALLET_DEPOSIT_FIXED_FEE_CENTS,
+  walletDepositProcessingFeeCents,
+  walletDepositTotalChargeCents,
+} from '@/lib/walletDepositFee';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import {
   assertValidTopUpAmountCents,
@@ -46,9 +52,12 @@ function goBackFromAddFunds(router: ReturnType<typeof useRouter>) {
 /** Embedded Stripe Payment Sheet — only mount when `StripeProvider` is present (publishable key in .env). */
 function WalletPaySheetButton({
   amountCents,
+  payLabel,
   onComplete,
 }: {
   amountCents: number;
+  /** e.g. "Pay $10.59" — includes processing fee line */
+  payLabel: string;
   onComplete: (completed: boolean) => void;
 }) {
   const { payWallet } = useWalletPaymentSheet();
@@ -75,7 +84,7 @@ function WalletPaySheetButton({
         {pending ? <ActivityIndicator color="#fff" /> : (
           <>
             <SafeIonicons name="card-outline" size={22} color="#fff" />
-            <Text style={styles.ctaTxt}>Pay in app</Text>
+            <Text style={styles.ctaTxt}>{payLabel}</Text>
           </>
         )}
       </LinearGradient>
@@ -131,6 +140,7 @@ type ShopTab = 'wallet' | 'credits';
 
 export default function AddFundsScreen() {
   const router = useRouter();
+  const { tab: tabFromRoute } = useLocalSearchParams<{ tab?: string }>();
   const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
@@ -159,6 +169,16 @@ export default function AddFundsScreen() {
     }
   }, [uid]);
 
+  useEffect(() => {
+    if (tabFromRoute === 'credits') {
+      setShopTab('credits');
+      setStep('amount');
+    } else if (tabFromRoute === 'wallet') {
+      setShopTab('wallet');
+      setStep('amount');
+    }
+  }, [tabFromRoute]);
+
   useFocusEffect(
     useCallback(() => {
       void loadConnectStatus();
@@ -173,6 +193,15 @@ export default function AddFundsScreen() {
     }
     return selectedCents;
   }, [customDollars, selectedCents]);
+
+  const walletFeeCents =
+    shopTab === 'wallet' && ENABLE_BACKEND ? walletDepositProcessingFeeCents(amountCents) : 0;
+  const walletTotalChargeCents =
+    shopTab === 'wallet'
+      ? ENABLE_BACKEND
+        ? walletDepositTotalChargeCents(amountCents)
+        : amountCents
+      : amountCents;
 
   const selectedPack = useMemo(
     () => CREDIT_PACKAGES.find((p) => p.id === selectedPackId) ?? CREDIT_PACKAGES[0],
@@ -402,6 +431,35 @@ export default function AddFundsScreen() {
                   value={customDollars}
                   onChangeText={setCustomDollars}
                 />
+                {ENABLE_BACKEND ? (
+                  <View style={styles.walletFeeCard}>
+                    <Text style={styles.walletFeeTitle}>Why your total is a little higher than the deposit</Text>
+                    <Text style={styles.walletFeeBody}>
+                      The amount you pick is the cash that lands in your wallet for entry fees — dollar for dollar. Card networks charge
+                      a small fee to run secure payments, so we add {(WALLET_DEPOSIT_FEE_PERCENT * 100).toFixed(1)}% +{' '}
+                      {formatUsdFromCents(WALLET_DEPOSIT_FIXED_FEE_CENTS)} on top. That way your playable balance matches what you chose,
+                      and the processing cost is covered transparently.
+                    </Text>
+                    <View style={styles.walletFeeRows}>
+                      <View style={styles.walletFeeRow}>
+                        <Text style={styles.walletFeeRowLbl}>Added to your cash wallet</Text>
+                        <Text style={styles.walletFeeRowVal}>{formatUsdFromCents(amountCents)}</Text>
+                      </View>
+                      <View style={styles.walletFeeRow}>
+                        <Text style={styles.walletFeeRowLbl}>Card processing</Text>
+                        <Text style={styles.walletFeeRowVal}>{formatUsdFromCents(walletFeeCents)}</Text>
+                      </View>
+                      <View style={[styles.walletFeeRow, styles.walletFeeRowTotal]}>
+                        <Text style={styles.walletFeeRowLblStrong}>You pay (total)</Text>
+                        <Text style={styles.walletFeeRowValStrong}>{formatUsdFromCents(walletTotalChargeCents)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.hint}>
+                    Guest mode: we credit the full amount you choose on this device — no card processing in offline demo.
+                  </Text>
+                )}
                 <Text style={styles.hint}>
                   {useEmbeddedSheet
                     ? 'You will pay with Stripe’s in-app sheet (Apple Pay / Google Pay / card).'
@@ -417,7 +475,10 @@ export default function AddFundsScreen() {
             ) : (
               <>
                 <Text style={styles.payHead}>Payment</Text>
-                <Text style={styles.paySub}>Adding {formatUsdFromCents(amountCents)} to your cash wallet</Text>
+                <Text style={styles.paySub}>
+                  {formatUsdFromCents(amountCents)} to your wallet · {formatUsdFromCents(walletFeeCents)} processing ·{' '}
+                  <Text style={styles.paySubStrong}>{formatUsdFromCents(walletTotalChargeCents)} charged</Text>
+                </Text>
                 {stripeReady ? (
                   <Text style={styles.stripeNote}>
                     {useEmbeddedSheet
@@ -432,7 +493,11 @@ export default function AddFundsScreen() {
                   </Text>
                 )}
                 {useEmbeddedSheet ? (
-                  <WalletPaySheetButton amountCents={amountCents} onComplete={handleWalletPaid} />
+                  <WalletPaySheetButton
+                    amountCents={amountCents}
+                    payLabel={stripeReady ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                    onComplete={handleWalletPaid}
+                  />
                 ) : (
                   <Pressable
                     onPress={onPayWallet}
@@ -445,7 +510,9 @@ export default function AddFundsScreen() {
                       ) : (
                         <>
                           <SafeIonicons name="card-outline" size={22} color="#fff" />
-                          <Text style={styles.ctaTxt}>{stripeReady ? 'Pay with Stripe' : 'Add cash (device)'}</Text>
+                          <Text style={styles.ctaTxt}>
+                            {stripeReady ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                          </Text>
                         </>
                       )}
                     </LinearGradient>
@@ -581,6 +648,34 @@ const styles = StyleSheet.create({
   balanceVal: { color: runit.neonCyan, fontSize: 26, fontWeight: '900', marginTop: 2 },
   balanceCredits: { color: '#f472b6', marginBottom: 4 },
   balanceMeta: { color: 'rgba(148,163,184,0.8)', fontSize: 12, marginTop: 6 },
+  walletFeeCard: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.35)',
+    backgroundColor: 'rgba(8,47,73,0.35)',
+  },
+  walletFeeTitle: {
+    color: '#e0f2fe',
+    fontSize: 13,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  walletFeeBody: { color: 'rgba(226,232,240,0.92)', fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  walletFeeRows: { gap: 6 },
+  walletFeeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  walletFeeRowTotal: {
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148,163,184,0.25)',
+  },
+  walletFeeRowLbl: { color: 'rgba(148,163,184,0.95)', fontSize: 12 },
+  walletFeeRowVal: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
+  walletFeeRowLblStrong: { color: '#f0f9ff', fontSize: 13, fontWeight: '900' },
+  walletFeeRowValStrong: { color: runit.neonCyan, fontSize: 15, fontWeight: '900' },
   sectionLbl: { color: 'rgba(226,232,240,0.95)', fontWeight: '800', fontSize: 13, marginBottom: 10 },
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   preset: {
@@ -618,6 +713,7 @@ const styles = StyleSheet.create({
   },
   ctaTxt: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
   payHead: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4 },
+  paySubStrong: { color: '#fff', fontWeight: '900' },
   paySub: { color: 'rgba(148,163,184,0.9)', fontSize: 14, marginBottom: 14 },
   banner: {
     flexDirection: 'row',

@@ -365,13 +365,23 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Gateway JWT check is redundant and often surfaces as generic "JWT required" errors when the
+# client sends a valid user token (clock skew, RN fetch quirks). Auth is enforced in-function via getUser().
 [functions.redeem-gift-card]
-verify_jwt = true
+verify_jwt = false
 
 [functions.stripeWebhook]
 verify_jwt = false
 
-# JWT verification at the gateway is optional: functions still call `auth.getUser()` with the Bearer token.
+# User-invoked: validate JWT inside the function (Bearer + getUser). Explicit entries avoid hosted-default verify_jwt=true.
+[functions.submitMinigameScore]
+verify_jwt = false
+
+# Stripe & wallet (user access tokens): use verify_jwt=false on purpose.
+# When verify_jwt=true, Supabase's *gateway* validates the Bearer JWT before your Edge code runs. That check is
+# separate from auth.getUser() inside the function. The gateway can fail on valid sessions (mobile header quirks,
+# JWT signing key / ES256 vs what the edge expects, clock skew) while the same token still works with getUser().
+# Security is unchanged: handlers still require a real user JWT via createClient + getUser() — anonymous traffic gets 401.
 [functions.createWalletCheckoutSession]
 verify_jwt = false
 
@@ -401,10 +411,35 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.notifyDailyCreditsPush]
-verify_jwt = true
+verify_jwt = false
 
 # Cron / operator-only: Authorization: Bearer <PUSH_CRON_SECRET>
 [functions.broadcastTournamentOfDayPush]
+verify_jwt = false
+
+# User JWT validated in-function via getUser() — same gateway pattern as wallet/H2H.
+[functions.syncSubscriptionStatus]
+verify_jwt = false
+
+[functions.awardPrize]
+verify_jwt = false
+
+[functions.createTournament]
+verify_jwt = false
+
+[functions.joinTournament]
+verify_jwt = false
+
+[functions.lockTournament]
+verify_jwt = false
+
+[functions.generateBracket]
+verify_jwt = false
+
+[functions.resolveDispute]
+verify_jwt = false
+
+[functions.seasonReset]
 verify_jwt = false
 
 # [edge_runtime.secrets]

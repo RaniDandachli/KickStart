@@ -1,5 +1,6 @@
 import { HomeH2hCarouselWeb } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,11 +31,14 @@ import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
+import { presentAddMoneyChooser, pushCashWalletShop } from '@/lib/shopNavigation';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
+
+const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
 export default function HomeScreen() {
   const webDesktopTabs = useWebUsesTopTabBar();
@@ -147,10 +151,20 @@ export default function HomeScreen() {
           contentContainerStyle={[styles.scroll, isWeb && styles.scrollWebDesktop]}
           showsVerticalScrollIndicator={false}
         >
+          {isWeb && !webDesktopTabs ? (
+            <View style={styles.webLogoNarrowRow}>
+              <Image
+                source={WEB_BRAND_LOGO}
+                style={styles.webLogoNarrowImg}
+                contentFit="contain"
+                accessibilityLabel="Run iT Arcade"
+              />
+            </View>
+          ) : null}
           <HomePlayHero
             liveLobby={liveLobby}
             walletDisplay={walletDisplay}
-            onWalletPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')}
+            onWalletPress={() => pushCashWalletShop(router)}
             onEntryTierPress={(entry, prize) => {
               const ec = Math.round(entry * 100);
               const pc = Math.round(prize * 100);
@@ -165,6 +179,22 @@ export default function HomeScreen() {
             compactHome
           >
             <Pressable
+              onPress={() => presentAddMoneyChooser(router)}
+              accessibilityRole="button"
+              accessibilityLabel="Add money — cash or arcade credits"
+              style={({ pressed }) => [styles.addMoneyHeroBtn, pressed && { opacity: 0.92 }]}
+            >
+              <LinearGradient
+                colors={['#0d9488', '#14b8a6', '#2dd4bf']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.addMoneyHeroGrad}
+              >
+                <SafeIonicons name="wallet-outline" size={18} color="#fff" />
+                <Text style={styles.addMoneyHeroText}>ADD MONEY</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
               onPress={() => setPlayNowOpen(true)}
               accessibilityRole="button"
               accessibilityLabel="Play now"
@@ -177,7 +207,18 @@ export default function HomeScreen() {
             </Pressable>
 
             <View style={styles.liveCarouselHead}>
-              <Text style={[styles.liveCarouselTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
+              <View style={styles.liveCarouselHeadLeft}>
+                <Text style={[styles.liveCarouselTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
+                <Pressable
+                  onPress={goBrowseLive}
+                  accessibilityRole="button"
+                  accessibilityLabel="Join a match — open live matches"
+                  style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  hitSlop={6}
+                >
+                  <Text style={styles.liveCarouselJoinHint}>Join a match</Text>
+                </Pressable>
+              </View>
               <Pressable onPress={goBrowseLive} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
                 <Text style={styles.liveCarouselLink}>See all</Text>
               </Pressable>
@@ -404,6 +445,28 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
   scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
+  webLogoNarrowRow: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 640,
+    paddingHorizontal: 16,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  webLogoNarrowImg: { width: 104, height: 30, alignSelf: 'flex-start' },
+  addMoneyHeroBtn: { marginBottom: 10 },
+  addMoneyHeroGrad: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  addMoneyHeroText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.8 },
   playNowBtn: { marginBottom: 12 },
   playNowGrad: {
     borderRadius: 12,
@@ -423,6 +486,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 18,
     marginBottom: 10,
+  },
+  liveCarouselHeadLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  liveCarouselJoinHint: {
+    marginTop: 4,
+    color: runit.neonCyan,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   liveCarouselTitle: {
     color: 'rgba(226,232,240,0.95)',

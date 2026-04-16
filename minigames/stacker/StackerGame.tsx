@@ -17,7 +17,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, STACKER_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import {
   awardRedeemTicketsForPrizeRun,
@@ -200,8 +202,8 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     if (playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits, STACKER_PRIZE_RUN_ENTRY_CREDITS);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Stacker prize runs cost ${STACKER_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
         );
         return;
@@ -217,7 +219,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     setSubmitErr(false);
     setPhase('playing');
     bump();
-  }, [bump, playMode, profileQ.data?.prize_credits]);
+  }, [bump, playMode, profileQ.data?.prize_credits, router]);
 
   const onStackTap = useCallback(() => {
     if (phase !== 'playing') return;
@@ -274,7 +276,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         return;
       }
       const prizeRun = playMode === 'prize';
-      const { error } = await supabase.functions.invoke('submitMinigameScore', {
+      const { error } = await invokeEdgeFunction('submitMinigameScore', {
         body: {
           ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'stacker' as const,

@@ -117,7 +117,20 @@ curl -i --location --request POST "http://127.0.0.1:54321/functions/v1/submitMin
 
 ## App configuration
 
-In the Expo app `.env`, set `EXPO_PUBLIC_ENABLE_BACKEND=true` when the database and functions are ready. The client calls functions with `supabase.functions.invoke(...)` using the anon key + user session; no service role in the app.
+In the Expo app `.env`, set `EXPO_PUBLIC_ENABLE_BACKEND=true` when the database and functions are ready. The client calls Edge Functions with the anon key (`apikey` header) plus the user access token (`Authorization: Bearer <jwt>`). You do **not** mint JWTs yourself — Supabase Auth issues them at sign-in. Use the same project URL and anon key in the app as in this Supabase project.
+
+### “JWT required” / gateway auth errors
+
+Hosted projects may enforce **JWT verification at the API gateway** (`verify_jwt`). If you see generic JWT errors even while signed in, ensure `supabase/config.toml` sets `verify_jwt = false` for functions that already validate the user inside the handler (`auth.getUser()`), then redeploy those functions so the dashboard picks up the setting:
+
+```bash
+npx supabase functions deploy submitMinigameScore
+npx supabase functions deploy redeem-gift-card
+npx supabase functions deploy notifyDailyCreditsPush
+# …and any other function you changed in config.toml
+```
+
+Also check **Dashboard → Edge Functions → [function] → Settings** and turn off “Enforce JWT verification” if it overrides the CLI for that function.
 
 ## Welcome email (`sendWelcomeEmail`)
 

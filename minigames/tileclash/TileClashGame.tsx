@@ -18,7 +18,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import {
@@ -265,8 +267,8 @@ export default function TileClashGame({
     if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
       const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
       if (!ok) {
-        Alert.alert(
-          'Not enough prize credits',
+        alertInsufficientPrizeCredits(
+          router,
           `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
         );
         return;
@@ -284,7 +286,7 @@ export default function TileClashGame({
     setSubmitErr(false);
     setPhase('playing');
     bump();
-  }, [bump, playMode, dailyTournament, h2hSkillContest]);
+  }, [bump, playMode, dailyTournament, h2hSkillContest, router, profileQ.data?.prize_credits]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -368,7 +370,7 @@ export default function TileClashGame({
         return;
       }
       const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
-      const { error } = await supabase.functions.invoke('submitMinigameScore', {
+      const { error } = await invokeEdgeFunction('submitMinigameScore', {
         body: {
           ...(prizeRun ? { prize_run: true as const } : {}),
           game_type: 'tile_clash' as const,

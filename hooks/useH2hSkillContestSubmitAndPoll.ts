@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 
 import { finalizeH2hTapDashScores } from '@/lib/h2hMinigameOutcome';
 import { queryKeys } from '@/lib/queryKeys';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import { getSupabase } from '@/supabase/client';
 import type { H2hSkillContestBundle } from '@/types/match';
@@ -121,7 +122,7 @@ export function useH2hSkillContestSubmitAndPoll(
           }
           return;
         }
-        const { error } = await supabase.functions.invoke('submitMinigameScore', {
+        const { error } = await invokeEdgeFunction('submitMinigameScore', {
           body: buildBodyRef.current(),
         });
         if (cancelled) return;
