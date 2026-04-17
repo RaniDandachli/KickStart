@@ -22,7 +22,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
+import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { arcade } from '@/lib/arcadeTheme';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
@@ -332,6 +334,7 @@ export default function TurboArenaGame({
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const lastHudEmitRef = useRef(0);
+  const prizeRunReservationRef = useRef<string | null>(null);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -396,24 +399,44 @@ export default function TurboArenaGame({
   );
 
   const startGame = useCallback(() => {
-    if (!h2hSkillContest && playMode === 'prize') {
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        return;
+    void (async () => {
+      if (!h2hSkillContest && playMode === 'prize') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('turbo_arena');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
       }
-    }
-    stateRef.current = createTurboArenaState();
-    startTimeRef.current = Date.now();
-    resetMinigameHudClock(lastHudEmitRef);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('playing');
-    bump();
-  }, [playMode, profileQ.data?.prize_credits, bump, h2hSkillContest, router]);
+      stateRef.current = createTurboArenaState();
+      startTimeRef.current = Date.now();
+      resetMinigameHudClock(lastHudEmitRef);
+      setSubmitOk(false);
+      setSubmitErr(false);
+      setPhase('playing');
+      bump();
+    })();
+  }, [playMode, profileQ.data?.prize_credits, bump, h2hSkillContest, router, queryClient, uid]);
 
   const submitScore = useCallback(async () => {
     const { scoreP1, durationMs } = endStatsRef.current;
@@ -428,15 +451,21 @@ export default function TurboArenaGame({
         return;
       }
       const prizeRun = playMode === 'prize' && !h2hSkillContest;
-      const { error } = await invokeEdgeFunction('submitMinigameScore', {
-        body: {
-          ...(prizeRun ? { prize_run: true as const } : {}),
-          game_type: 'turbo_arena' as const,
-          score: scoreP1,
-          duration_ms: durationMs,
-          taps: 0,
-        },
-      });
+      if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
+        setSubmitErr(true);
+        return;
+      }
+      const body: Record<string, unknown> = {
+        game_type: 'turbo_arena' as const,
+        score: scoreP1,
+        duration_ms: durationMs,
+        taps: 0,
+      };
+      if (prizeRun && ENABLE_BACKEND) {
+        body.prize_run = true;
+        body.prize_run_reservation_id = prizeRunReservationRef.current!;
+      }
+      const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
         setSubmitErr(true);
@@ -554,7 +583,7 @@ export default function TurboArenaGame({
               {h2hSkillContest
                 ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · goals vs CPU, score vs human`
                 : playMode === 'prize'
-                  ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits`
+                  ? `Prize run · ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} credits`
                   : 'Practice · free'}
             </Text>
             <Text style={styles.readyHint}>

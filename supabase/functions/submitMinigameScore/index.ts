@@ -18,6 +18,7 @@ const STACKER_JACKPOT_TICKETS = 10_000;
 const STACKER_WIN_ROWS = 26;
 const DEFAULT_PRIZE_RUN_ENTRY_CREDITS = 10;
 const STACKER_PRIZE_RUN_ENTRY_CREDITS = 20;
+const TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS = 20;
 
 function prizeRunEntryAndTickets(gameType: string, score: number): { entry: number; tickets: number } {
   switch (gameType) {
@@ -53,7 +54,7 @@ function prizeRunEntryAndTickets(gameType: string, score: number): { entry: numb
       };
     case 'turbo_arena':
       return {
-        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        entry: TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
         tickets: Math.max(0, Math.floor(score / TURBO_ARENA_POINTS_PER_TICKET)),
       };
     case 'neon_dance':
@@ -272,6 +273,12 @@ Deno.serve(async (req) => {
     }
 
     const prizeRun = typeof rawJson === 'object' && rawJson !== null && (rawJson as { prize_run?: unknown }).prize_run === true;
+    const prizeReservationRaw =
+      typeof rawJson === 'object' && rawJson !== null
+        ? (rawJson as { prize_run_reservation_id?: unknown }).prize_run_reservation_id
+        : undefined;
+    const prizeReservationId =
+      typeof prizeReservationRaw === 'string' ? prizeReservationRaw.trim() : '';
 
     const parsed = Body.safeParse(rawJson);
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
@@ -376,24 +383,37 @@ Deno.serve(async (req) => {
       if (!supportedPrize.has(gt)) {
         return errorResponse('prize_run is not supported for this game_type', 422);
       }
-      const { entry, tickets: ticketsGranted } = prizeRunEntryAndTickets(gt, score);
-      const { data: rpcData, error: rpcErr } = await admin.rpc('record_minigame_prize_run', {
+      const uuidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(prizeReservationId)) {
+        return errorResponse(
+          'prize_run_reservation_id required — prize credits are charged when the run starts; restart the run from the arcade.',
+          422,
+        );
+      }
+
+      const { tickets: ticketsGranted } = prizeRunEntryAndTickets(gt, score);
+      const { data: rpcData, error: rpcErr } = await admin.rpc('complete_minigame_prize_run', {
+        p_reservation_id: prizeReservationId,
         p_user_id: userData.user.id,
         p_game_type: gt,
         p_score: score,
         p_duration_ms: duration_ms,
         p_taps: taps,
-        p_entry_credits: entry,
         p_tickets_granted: ticketsGranted,
       });
       if (rpcErr) {
-        console.error('[submitMinigameScore] record_minigame_prize_run', rpcErr.message, rpcErr);
+        console.error('[submitMinigameScore] complete_minigame_prize_run', rpcErr.message, rpcErr);
         return errorResponse(rpcErr.message, 500);
       }
       const row = rpcData as { ok?: boolean; error?: string; prize_credits?: number; redeem_tickets?: number; tickets_granted?: number };
       if (!row?.ok) {
-        if (row?.error === 'insufficient_credits') {
-          return errorResponse('Not enough prize credits for this run', 402);
+        const err = row?.error ?? '';
+        if (err === 'invalid_or_consumed_reservation' || err === 'reservation_game_mismatch') {
+          return errorResponse(
+            'This prize run is no longer valid. If you already submitted, refresh your profile; otherwise start a new run.',
+            409,
+          );
         }
         return errorResponse(row?.error ?? 'Prize run failed', 400);
       }

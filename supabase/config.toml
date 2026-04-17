@@ -394,6 +394,18 @@ verify_jwt = false
 [functions.withdrawWalletToConnect]
 verify_jwt = false
 
+[functions.createWhopPayoutPortalLink]
+verify_jwt = false
+
+[functions.withdrawWalletToWhop]
+verify_jwt = false
+
+[functions.createWhopCheckoutSession]
+verify_jwt = false
+
+[functions.whopWebhook]
+verify_jwt = false
+
 # Invoked by Database Webhook (Bearer secret), not user JWT.
 [functions.sendWelcomeEmail]
 verify_jwt = false

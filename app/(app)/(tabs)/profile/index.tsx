@@ -455,6 +455,14 @@ export default function ProfileScreen() {
                 <Text style={[styles.wBtnText, { color: runit.neonCyan }]}>WITHDRAW</Text>
               </Pressable>
             </View>
+            {ENABLE_BACKEND ? (
+              <Pressable
+                onPress={() => router.push('/(app)/(tabs)/profile/whop-payouts')}
+                style={({ pressed }) => [styles.whopPayoutLink, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.whopPayoutLinkTxt}>Whop payouts (beta) — optional alternative to Stripe</Text>
+              </Pressable>
+            ) : null}
             {ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED ? (
               <Text style={styles.walletFootnote}>
                 Withdrawals need Stripe bank setup on the next screen — we will walk you through anything missing.
@@ -778,6 +786,19 @@ const styles = StyleSheet.create({
   },
   addFundsBtnText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   walletBtns: { flexDirection: 'row', gap: 10 },
+  whopPayoutLink: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  whopPayoutLinkTxt: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: 'rgba(167,139,250,0.95)',
+    fontWeight: '700',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
   walletFootnote: {
     marginTop: 4,
     fontSize: 11,

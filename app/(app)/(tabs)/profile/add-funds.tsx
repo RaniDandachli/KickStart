@@ -16,7 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Screen } from '@/components/ui/Screen';
-import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
+import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
 import { useWalletPaymentSheet } from '@/hooks/useWalletPaymentSheet';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -38,6 +38,7 @@ import {
   assertValidTopUpAmountCents,
   completeCreditsPackagePurchase,
   completeWalletTopUp,
+  type WalletCheckoutProvider,
 } from '@/services/wallet/completeTopUp';
 import { useAuthStore } from '@/store/authStore';
 
@@ -148,6 +149,7 @@ export default function AddFundsScreen() {
   const [selectedCents, setSelectedCents] = useState<number>(1000);
   const [customDollars, setCustomDollars] = useState('');
   const [selectedPackId, setSelectedPackId] = useState<string>(CREDIT_PACKAGES[1]?.id ?? CREDIT_PACKAGES[0]?.id ?? '');
+  const [checkoutProvider, setCheckoutProvider] = useState<WalletCheckoutProvider>('stripe');
 
   useEffect(() => {
     if (tabFromRoute === 'credits') {
@@ -158,6 +160,15 @@ export default function AddFundsScreen() {
       setStep('amount');
     }
   }, [tabFromRoute]);
+
+  const stripeReady = ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED;
+  const whopReady = ENABLE_BACKEND && WHOP_CHECKOUT_ENABLED;
+  const checkoutUnlocked = stripeReady || whopReady;
+
+  useEffect(() => {
+    if (whopReady && !stripeReady) setCheckoutProvider('whop');
+    else if (stripeReady && !whopReady) setCheckoutProvider('stripe');
+  }, [whopReady, stripeReady]);
 
   const amountCents = useMemo(() => {
     if (customDollars.trim() !== '') {
@@ -182,10 +193,11 @@ export default function AddFundsScreen() {
     [selectedPackId],
   );
 
-  const stripeReady = ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED;
-  const backendPending = ENABLE_BACKEND && !WALLET_TOPUP_STRIPE_ENABLED;
+  const backendPending = ENABLE_BACKEND && !checkoutUnlocked;
   const stripePk = env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
-  const useEmbeddedSheet = stripeReady && Platform.OS !== 'web' && !!stripePk;
+  const useEmbeddedSheet =
+    stripeReady && checkoutProvider === 'stripe' && Platform.OS !== 'web' && !!stripePk;
+  const payRailName = checkoutProvider === 'whop' ? 'Whop' : 'Stripe';
 
   const handleWalletPaid = useCallback(
     (completed: boolean) => {
@@ -193,14 +205,14 @@ export default function AddFundsScreen() {
       if (completed) {
         Alert.alert(
           'Payment',
-          stripeReady
-            ? 'Thanks! Your cash balance updates within a few seconds after Stripe confirms the payment.'
+          checkoutUnlocked
+            ? `Thanks! Your cash balance updates within a few seconds after ${payRailName} confirms the payment.`
             : `${formatUsdFromCents(amountCents)} added to your wallet.`,
           [{ text: 'OK', onPress: () => goBackFromAddFunds(router) }],
         );
       }
     },
-    [amountCents, qc, router, stripeReady, uid],
+    [amountCents, checkoutUnlocked, payRailName, qc, router, uid],
   );
 
   const handleCreditsPaid = useCallback(
@@ -209,18 +221,18 @@ export default function AddFundsScreen() {
       if (completed) {
         Alert.alert(
           'Payment',
-          stripeReady
-            ? 'Thanks! Arcade credits appear shortly after Stripe confirms the payment.'
+          checkoutUnlocked
+            ? `Thanks! Arcade credits appear shortly after ${payRailName} confirms the payment.`
             : 'Arcade Credits updated on this device.',
           [{ text: 'OK', onPress: () => goBackFromAddFunds(router) }],
         );
       }
     },
-    [qc, router, stripeReady, uid],
+    [checkoutUnlocked, payRailName, qc, router, uid],
   );
 
   const topUpWallet = useMutation({
-    mutationFn: async () => completeWalletTopUp(amountCents),
+    mutationFn: async () => completeWalletTopUp(amountCents, checkoutProvider),
     onSuccess: handleWalletPaid,
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : 'Could not add funds';
@@ -229,7 +241,7 @@ export default function AddFundsScreen() {
   });
 
   const buyCredits = useMutation({
-    mutationFn: async () => completeCreditsPackagePurchase(selectedPackId),
+    mutationFn: async () => completeCreditsPackagePurchase(selectedPackId, checkoutProvider),
     onSuccess: handleCreditsPaid,
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : 'Could not complete purchase';
@@ -325,7 +337,7 @@ export default function AddFundsScreen() {
           </View>
         ) : null}
 
-        {stripeReady && Platform.OS !== 'web' && !stripePk ? (
+        {checkoutProvider === 'stripe' && stripeReady && Platform.OS !== 'web' && !stripePk ? (
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
             <Text style={styles.bannerTxt}>
@@ -335,7 +347,7 @@ export default function AddFundsScreen() {
           </View>
         ) : null}
 
-        {shopTab === 'wallet' && stripeReady && uid ? (
+        {shopTab === 'wallet' && checkoutUnlocked && uid ? (
           <View style={styles.policyBanner}>
             <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
             <Text style={styles.bannerTxt}>{WALLET_DEPOSIT_WITHDRAW_POLICY}</Text>
@@ -403,9 +415,15 @@ export default function AddFundsScreen() {
                   </Text>
                 )}
                 <Text style={styles.hint}>
-                  {useEmbeddedSheet
-                    ? 'You will pay with Stripe’s in-app sheet (Apple Pay / Google Pay / card).'
-                    : 'You will pay with Stripe (hosted checkout in the browser on web, or in-app when publishable key is set).'}
+                  {ENABLE_BACKEND && checkoutUnlocked
+                    ? stripeReady && whopReady
+                      ? 'Next: choose Stripe or Whop, then pay securely (in-app Stripe sheet or browser checkout).'
+                      : useEmbeddedSheet
+                        ? 'You will pay with Stripe’s in-app sheet (Apple Pay / Google Pay / card).'
+                        : whopReady
+                          ? 'You will pay through Whop (hosted checkout in the browser).'
+                          : 'You will pay with Stripe (hosted checkout in the browser on web, or in-app when publishable key is set).'
+                    : 'Guest mode: tap Continue to add demo cash on this device.'}
                 </Text>
                 <Pressable onPress={() => void onContinueToPayment()} style={({ pressed }) => [styles.ctaOuter, pressed && { opacity: 0.92 }]}>
                   <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaGrad}>
@@ -421,23 +439,48 @@ export default function AddFundsScreen() {
                   {formatUsdFromCents(amountCents)} to your wallet · {formatUsdFromCents(walletFeeCents)} processing ·{' '}
                   <Text style={styles.paySubStrong}>{formatUsdFromCents(walletTotalChargeCents)} charged</Text>
                 </Text>
-                {stripeReady ? (
-                  <Text style={styles.stripeNote}>
-                    {useEmbeddedSheet
-                      ? 'Stripe opens a secure payment sheet inside the app.'
-                      : 'A secure Stripe page opens in the browser. When you finish, you return here automatically.'}
-                  </Text>
+                {stripeReady && whopReady ? (
+                  <View style={styles.payMethodBlock}>
+                    <Text style={styles.payMethodLbl}>Pay with</Text>
+                    <View style={styles.payMethodRow}>
+                      <Pressable
+                        onPress={() => setCheckoutProvider('stripe')}
+                        style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
+                      >
+                        <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setCheckoutProvider('whop')}
+                        style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
+                      >
+                        <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
+                {checkoutUnlocked ? (
+                  checkoutProvider === 'whop' ? (
+                    <Text style={styles.stripeNote}>
+                      Whop opens a secure checkout in the browser. When you finish, you return here automatically.
+                    </Text>
+                  ) : (
+                    <Text style={styles.stripeNote}>
+                      {useEmbeddedSheet
+                        ? 'Stripe opens a secure payment sheet inside the app.'
+                        : 'A secure Stripe page opens in the browser. When you finish, you return here automatically.'}
+                    </Text>
+                  )
                 ) : (
                   <Text style={styles.stripeNote}>
                     {ENABLE_BACKEND
-                      ? 'Stripe checkout is not enabled in this build — enable wallet top-up in project env to take card payments.'
+                      ? 'Checkout is not enabled in this build — enable Stripe and/or Whop in project env.'
                       : 'Guest mode — adds cash on this device only (no payment processor).'}
                   </Text>
                 )}
                 {useEmbeddedSheet ? (
                   <WalletPaySheetButton
                     amountCents={amountCents}
-                    payLabel={stripeReady ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                    payLabel={checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
                     onComplete={handleWalletPaid}
                   />
                 ) : (
@@ -453,7 +496,7 @@ export default function AddFundsScreen() {
                         <>
                           <SafeIonicons name="card-outline" size={22} color="#fff" />
                           <Text style={styles.ctaTxt}>
-                            {stripeReady ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                            {checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
                           </Text>
                         </>
                       )}
@@ -507,6 +550,26 @@ export default function AddFundsScreen() {
               </Text>
             </View>
 
+            {stripeReady && whopReady ? (
+              <View style={styles.payMethodBlock}>
+                <Text style={styles.payMethodLbl}>Pay with</Text>
+                <View style={styles.payMethodRow}>
+                  <Pressable
+                    onPress={() => setCheckoutProvider('stripe')}
+                    style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
+                  >
+                    <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setCheckoutProvider('whop')}
+                    style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
+                  >
+                    <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
             {useEmbeddedSheet ? (
               <CreditsPaySheetButton
                 packageId={selectedPackId}
@@ -526,7 +589,7 @@ export default function AddFundsScreen() {
                     <>
                       <SafeIonicons name="cart-outline" size={22} color="#fff" />
                       <Text style={styles.ctaTxt}>
-                        {stripeReady ? `Pay ${formatUsdFromCents(selectedPack.priceCents)}` : 'Add credits (device)'}
+                        {checkoutUnlocked ? `Pay ${formatUsdFromCents(selectedPack.priceCents)}` : 'Add credits (device)'}
                       </Text>
                     </>
                   )}
@@ -680,6 +743,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   stripeNote: { color: 'rgba(148,163,184,0.85)', fontSize: 12, lineHeight: 17, marginBottom: 16 },
+  payMethodBlock: { marginBottom: 14 },
+  payMethodLbl: { color: 'rgba(226,232,240,0.95)', fontWeight: '800', fontSize: 12, marginBottom: 8 },
+  payMethodRow: { flexDirection: 'row', gap: 10 },
+  payPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(157,78,237,0.45)',
+    backgroundColor: 'rgba(8,4,18,0.65)',
+  },
+  payPillOn: { borderColor: runit.neonCyan, backgroundColor: 'rgba(167,139,250,0.08)' },
+  payPillTxt: { color: '#94a3b8', fontWeight: '800', fontSize: 14 },
+  payPillTxtOn: { color: runit.neonCyan },
   packGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   pack: {
     width: '47%',

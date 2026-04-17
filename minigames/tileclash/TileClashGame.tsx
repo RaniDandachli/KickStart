@@ -17,6 +17,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
@@ -38,6 +41,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
@@ -150,6 +154,7 @@ export default function TileClashGame({
   const colW = boardW / COLS;
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  useLockNavigatorGesturesWhile(phase === 'playing');
   useTileClashMusic(phase === 'playing');
   const [, setUiTick] = useState(0);
   const modelRef = useRef<GameModel>(createGame());
@@ -162,6 +167,7 @@ export default function TileClashGame({
   const [submitOk, setSubmitOk] = useState(false);
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
+  const prizeRunReservationRef = useRef<string | null>(null);
   const [redFlash, setRedFlash] = useState(false);
   const dailyCompleteRef = useRef(false);
   const lastHudEmitRef = useRef(0);
@@ -264,29 +270,49 @@ export default function TileClashGame({
   );
 
   const startGame = useCallback(() => {
-    if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        return;
+    void (async () => {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('tile_clash');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
       }
-    }
-    const m = createGame();
-    spawnRow(m, HIT_TOP - 14);
-    modelRef.current = m;
-    startTimeRef.current = Date.now();
-    lastTapAtRef.current = 0;
-    intervalsRef.current = [];
-    tapCountRef.current = 0;
-    resetMinigameHudClock(lastHudEmitRef);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('playing');
-    bump();
-  }, [bump, playMode, dailyTournament, h2hSkillContest, router, profileQ.data?.prize_credits]);
+      const m = createGame();
+      spawnRow(m, HIT_TOP - 14);
+      modelRef.current = m;
+      startTimeRef.current = Date.now();
+      lastTapAtRef.current = 0;
+      intervalsRef.current = [];
+      tapCountRef.current = 0;
+      resetMinigameHudClock(lastHudEmitRef);
+      setSubmitOk(false);
+      setSubmitErr(false);
+      setPhase('playing');
+      bump();
+    })();
+  }, [bump, playMode, dailyTournament, h2hSkillContest, router, profileQ.data?.prize_credits, queryClient, uid]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -370,16 +396,22 @@ export default function TileClashGame({
         return;
       }
       const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
-      const { error } = await invokeEdgeFunction('submitMinigameScore', {
-        body: {
-          ...(prizeRun ? { prize_run: true as const } : {}),
-          game_type: 'tile_clash' as const,
-          score,
-          duration_ms: durationMs,
-          taps,
-          tap_intervals_ms: intervals,
-        },
-      });
+      if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
+        setSubmitErr(true);
+        return;
+      }
+      const body: Record<string, unknown> = {
+        game_type: 'tile_clash' as const,
+        score,
+        duration_ms: durationMs,
+        taps,
+        tap_intervals_ms: intervals,
+      };
+      if (prizeRun && ENABLE_BACKEND) {
+        body.prize_run = true;
+        body.prize_run_reservation_id = prizeRunReservationRef.current!;
+      }
+      const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
         setSubmitErr(true);

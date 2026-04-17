@@ -3,10 +3,10 @@ import { DAILY_FREE_PRIZE_CREDITS, WELCOME_PRIZE_CREDITS } from '@/lib/arcadeGra
 import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 
 /**
- * Arcade economy: guest uses on-device store; with backend, spend is enforced server-side on score submit / RPCs.
+ * Arcade economy: guest uses on-device store; with backend, prize run entry is debited when the run starts (`begin_minigame_prize_run`) and tickets are granted on score submit.
  *
  * - **Arcade Credits (`prize_credits`)**: closed-loop gameplay currency — typically **10–20 credits per prize run** depending on the
- *   game (`PRIZE_RUN_ENTRY_CREDITS` vs Turbo/Stacker). Not withdrawable, not for head-to-head entry unless explicitly enabled later.
+ *   game (`PRIZE_RUN_ENTRY_CREDITS` vs Turbo/Stacker). Charged at run start when online; not withdrawable, not for head-to-head entry unless explicitly enabled later.
  * - **Redeem tickets**: spend in the Prizes catalog to claim physical/digital rewards (not used as run entry).
  *
  * Free credits (guest): `WELCOME_PRIZE_CREDITS` on first install + `DAILY_FREE_PRIZE_CREDITS` once per day — see `applyArcadePrizeCreditGrants`.

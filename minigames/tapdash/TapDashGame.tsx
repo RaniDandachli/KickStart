@@ -16,6 +16,9 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
@@ -29,6 +32,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
@@ -441,6 +445,7 @@ export default function TapDashGame({
   const gameH = LANE_H * scale;
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  useLockNavigatorGesturesWhile(phase === 'playing');
   const [, setUiTick] = useState(0);
   const modelRef = useRef<GameModel>(createGame());
   const lastHudEmitRef = useRef(0);
@@ -452,6 +457,7 @@ export default function TapDashGame({
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const dailyCompleteRef = useRef(false);
+  const prizeRunReservationRef = useRef<string | null>(null);
   const [lastLocalAttempt, setLastLocalAttempt] = useState<LastMinigameAttempt | null>(null);
 
   useEffect(() => {
@@ -603,14 +609,44 @@ export default function TapDashGame({
   const onTap = useCallback(() => {
     if (phase === 'ready') {
       if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
-        const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-        if (!ok) {
-          alertInsufficientPrizeCredits(
-            router,
-            `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free. Earn credits by winning prize runs.`,
-          );
-          return;
-        }
+        void (async () => {
+          if (ENABLE_BACKEND) {
+            if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+            const r = await beginMinigamePrizeRun('tap_dash');
+            if (!r.ok) {
+              if (r.error === 'insufficient_credits') {
+                alertInsufficientPrizeCredits(
+                  router,
+                  `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free. Earn credits by winning prize runs.`,
+                );
+              } else {
+                Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+              }
+              return;
+            }
+            prizeRunReservationRef.current = r.reservationId;
+            if (uid) invalidateProfileEconomy(queryClient, uid);
+          } else {
+            const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+            if (!ok) {
+              alertInsufficientPrizeCredits(
+                router,
+                `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free. Earn credits by winning prize runs.`,
+              );
+              return;
+            }
+          }
+          modelRef.current = createGame();
+          startTimeRef.current = Date.now();
+          modelRef.current.worldTimeMs = 0;
+          setSubmitOk(false);
+          setSubmitErr(false);
+          setPhase('playing');
+          resetMinigameHudClock(lastHudEmitRef);
+          queueFlap();
+          bump();
+        })();
+        return;
       }
       modelRef.current = createGame();
       startTimeRef.current = Date.now();
@@ -626,7 +662,18 @@ export default function TapDashGame({
     if (phase === 'playing') {
       queueFlap();
     }
-  }, [phase, bump, queueFlap, playMode, profileQ.data?.prize_credits, dailyTournament, h2hSkillContest, router]);
+  }, [
+    phase,
+    bump,
+    queueFlap,
+    playMode,
+    profileQ.data?.prize_credits,
+    dailyTournament,
+    h2hSkillContest,
+    router,
+    queryClient,
+    uid,
+  ]);
 
   /** Same controls as in-play (Space / ↑): start from ready, flap while playing — web only. */
   useWebGameKeyboard(phase === 'playing' || phase === 'ready', {
@@ -651,15 +698,21 @@ export default function TapDashGame({
         return;
       }
       const prizeRun = playMode === 'prize' && !dailyTournament && !h2hSkillContest;
-      const { error } = await invokeEdgeFunction('submitMinigameScore', {
-        body: {
-          ...(prizeRun ? { prize_run: true as const } : {}),
-          game_type: 'tap_dash' as const,
-          score,
-          duration_ms: durationMs,
-          taps,
-        },
-      });
+      if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
+        setSubmitErr(true);
+        return;
+      }
+      const body: Record<string, unknown> = {
+        game_type: 'tap_dash' as const,
+        score,
+        duration_ms: durationMs,
+        taps,
+      };
+      if (prizeRun && ENABLE_BACKEND) {
+        body.prize_run = true;
+        body.prize_run_reservation_id = prizeRunReservationRef.current!;
+      }
+      const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
       if (error) {
         await saveLastMinigameAttempt({
           game_type: 'tap_dash',

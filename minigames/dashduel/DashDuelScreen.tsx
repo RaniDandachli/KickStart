@@ -16,6 +16,8 @@ import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
 import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';
 import { useDashDuelNeonVelocityMusic } from '@/minigames/dashduel/useDashDuelNeonVelocityMusic';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
@@ -61,6 +63,7 @@ export default function DashDuelScreen({
   const [finalDistance, setFinalDistance] = useState(0);
   const [ticketsEarned, setTicketsEarned] = useState(0);
   const appliedRouteMode = useRef(false);
+  const prizeRunReservationRef = useRef<string | null>(null);
   const lastRunRef = useRef({ score: 0, distance: 0, durationMs: 0, jumpCount: 0 });
 
   const buildH2hBody = useCallback(() => {
@@ -90,18 +93,10 @@ export default function DashDuelScreen({
   }, []);
 
   const goVs = useCallback(() => {
-    const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-    if (!ok) {
-      alertInsufficientPrizeCredits(
-        router,
-        `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-      );
-      return;
-    }
     setMode('vs');
     setSeed(nextSeed());
     setPhase('lobby');
-  }, [profileQ.data?.prize_credits, router]);
+  }, []);
 
   useEffect(() => {
     if (h2hSkillContest) return;
@@ -112,22 +107,45 @@ export default function DashDuelScreen({
       goPractice();
     } else if (m === 'prize') {
       appliedRouteMode.current = true;
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        router.back();
-        return;
-      }
       setMode('vs');
       setSeed(nextSeed());
       setPhase('lobby');
     }
-  }, [h2hSkillContest, modeParam, goPractice, router, profileQ.data?.prize_credits]);
+  }, [h2hSkillContest, modeParam, goPractice]);
 
-  const lobbyStart = useCallback(() => setPhase('countdown'), []);
+  const lobbyStart = useCallback(() => {
+    void (async () => {
+      if (mode === 'vs') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('dash_duel');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
+      }
+      setPhase('countdown');
+    })();
+  }, [mode, profileQ.data?.prize_credits, queryClient, router, uid]);
   const onCountdownDone = useCallback(() => setPhase('playing'), []);
 
   /** Web: Space starts the same way you jump in-run — practice from menu, Ready from prize lobby. */
@@ -157,46 +175,53 @@ export default function DashDuelScreen({
       void (async () => {
         let tickets = 0;
         if (mode === 'vs') {
-          if (ENABLE_BACKEND && uid) {
-            try {
-              const supabase = getSupabase();
-              const { data: sess } = await supabase.auth.getSession();
-              if (!sess.session) {
-                Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
-              } else {
-                const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
-                  body: {
-                    prize_run: true,
-                    game_type: 'dash_duel' as const,
-                    score,
-                    duration_ms: durationMs,
-                    taps: jumpCount,
-                  },
-                });
-                if (error) {
-                  Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
+          if (ENABLE_BACKEND) {
+            if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) {
+              tickets = ticketsFromDashDuelDisplayedScore(score);
+            } else {
+              try {
+                const supabase = getSupabase();
+                const { data: sess } = await supabase.auth.getSession();
+                if (!sess.session) {
+                  Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
+                  tickets = ticketsFromDashDuelDisplayedScore(score);
+                } else if (!assertPrizeRunReservation(true, ENABLE_BACKEND, prizeRunReservationRef.current)) {
                   tickets = ticketsFromDashDuelDisplayedScore(score);
                 } else {
-                  const row = data as { tickets_granted?: number } | null;
-                  tickets = Math.max(
-                    0,
-                    typeof row?.tickets_granted === 'number'
-                      ? row.tickets_granted
-                      : ticketsFromDashDuelDisplayedScore(score),
-                  );
-                  invalidateProfileEconomy(queryClient, uid);
+                  const rid = prizeRunReservationRef.current!;
+                  const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
+                    body: {
+                      prize_run: true,
+                      prize_run_reservation_id: rid,
+                      game_type: 'dash_duel' as const,
+                      score,
+                      duration_ms: durationMs,
+                      taps: jumpCount,
+                    },
+                  });
+                  if (error) {
+                    Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
+                    tickets = ticketsFromDashDuelDisplayedScore(score);
+                  } else {
+                    const row = data as { tickets_granted?: number } | null;
+                    tickets = Math.max(
+                      0,
+                      typeof row?.tickets_granted === 'number'
+                        ? row.tickets_granted
+                        : ticketsFromDashDuelDisplayedScore(score),
+                    );
+                    if (uid) invalidateProfileEconomy(queryClient, uid);
+                  }
                 }
+              } catch {
+                Alert.alert('Could not save prize run', 'Check your connection and try again.');
+                tickets = ticketsFromDashDuelDisplayedScore(score);
               }
-            } catch {
-              Alert.alert('Could not save prize run', 'Check your connection and try again.');
-              tickets = ticketsFromDashDuelDisplayedScore(score);
             }
-          } else if (!ENABLE_BACKEND) {
+          } else {
             const n = ticketsFromDashDuelDisplayedScore(score);
             awardRedeemTicketsForPrizeRun(n);
             tickets = n;
-          } else {
-            tickets = ticketsFromDashDuelDisplayedScore(score);
           }
         }
         setTicketsEarned(mode === 'vs' ? tickets : 0);
@@ -210,12 +235,42 @@ export default function DashDuelScreen({
 
   const rematch = useCallback(() => {
     if (h2hSkillContest) return;
-    setFinalScore(0);
-    setFinalDistance(0);
-    setTicketsEarned(0);
-    setSeed(nextSeed());
-    setPhase('countdown');
-  }, [h2hSkillContest]);
+    void (async () => {
+      if (mode === 'vs') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('dash_duel');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
+      }
+      setFinalScore(0);
+      setFinalDistance(0);
+      setTicketsEarned(0);
+      setSeed(nextSeed());
+      setPhase('countdown');
+    })();
+  }, [h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, router, uid]);
 
   const exitToMenu = useCallback(() => {
     if (h2hSkillContest) {

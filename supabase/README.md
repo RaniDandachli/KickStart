@@ -34,6 +34,8 @@ Supabase injects `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE
 | Secret | Used by |
 |--------|---------|
 | `STRIPE_SECRET_KEY` | Stripe-powered functions: `stripeWebhook`, `createWalletCheckoutSession`, `createWalletPaymentIntent`, `createStripeConnectLink`, `getStripeConnectAccount`, `withdrawWalletToConnect`, and `syncSubscriptionStatus` (test `sk_test_…`, then live `sk_live_…`) |
+| `WHOP_COMPANY_API_KEY` | `createWhopPayoutPortalLink` — Company API key from [Whop developer dashboard](https://whop.com/dashboard/developer) (platform / connected accounts) |
+| `WHOP_PARENT_COMPANY_ID` | `createWhopPayoutPortalLink`, `withdrawWalletToWhop` — Your platform Whop company id (`biz_…`): parent for connected accounts and **origin** for ledger transfers |
 
 Local testing with secrets file (do not commit):
 
@@ -63,7 +65,7 @@ npm run functions:deploy:stripe
 Or only Connect-related functions:
 
 ```bash
-npx supabase functions deploy createStripeConnectLink getStripeConnectAccount withdrawWalletToConnect
+npx supabase functions deploy createStripeConnectLink getStripeConnectAccount withdrawWalletToConnect createWhopPayoutPortalLink withdrawWalletToWhop
 ```
 
 **2. Stripe Dashboard — allow return / refresh URLs**
@@ -85,6 +87,16 @@ If Account Link creation fails with an invalid URL error, copy the `refreshUrl` 
 If `createStripeConnectLink` returns *“You can only create new accounts if you've signed up for Connect”*, the **platform** has not finished **Connect** onboarding in Stripe: open **[dashboard.stripe.com/connect](https://dashboard.stripe.com/connect)** (use **Test mode** while developing), complete agreements and any required business profile steps, then retry. Your **Supabase secret** must use a key from the **same** Stripe mode (e.g. `sk_test_…` with Test mode Connect, `sk_live_…` with Live mode Connect).
 
 The `Deno.core.runMicrotasks() is not supported` log line can appear after errors in Edge Functions; it is usually harmless. If it persists on every invoke, update the Supabase CLI or check Supabase status.
+
+### Whop (connected accounts + hosted payout portal)
+
+1. Set **`WHOP_COMPANY_API_KEY`** and **`WHOP_PARENT_COMPANY_ID`** (your platform `biz_…` id) in Edge secrets.
+2. Deploy: `npx supabase functions deploy createWhopPayoutPortalLink withdrawWalletToWhop`
+3. Apply migration **`00040_profiles_whop_company_id.sql`** so `profiles.whop_company_id` exists.
+4. Return URLs are built like Stripe (`EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL` or `EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL`) with path **`profile/whop-payouts`**. Whop requires publicly reachable `https://` URLs for the hosted portal — use your production domain or a tunnel in dev.
+5. Grant the Company API key **`payout:transfer_funds`** (Whop Dashboard → API key permissions) for withdrawals.
+
+**Withdrawals to Whop:** `withdrawWalletToWhop` moves USD from the user’s **in-app** `wallet_cents` to their **connected** Whop company via `POST /transfers` (`origin_id` = platform, `destination_id` = user’s `whop_company_id`). The API key needs **`payout:transfer_funds`**, and your **platform Whop balance** must cover the transfer ([top up](https://docs.whop.com/developer/platforms/add-funds-to-your-balance) if needed). Users still cash out to their bank through Whop’s payout portal.
 
 ## Deploy all functions
 

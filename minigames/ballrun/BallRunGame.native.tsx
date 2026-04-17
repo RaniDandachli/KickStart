@@ -26,9 +26,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as THREE from 'three';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { arcade } from '@/lib/arcadeTheme';
@@ -39,6 +42,7 @@ import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
@@ -606,6 +610,7 @@ export default function NeonBallRunGame({
   const { height: sh } = useWindowDimensions();
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  useLockNavigatorGesturesWhile(phase === 'playing');
   const [, setUiTick] = useState(0);
   const [trackRevision, setTrackRevision] = useState(0);
 
@@ -619,6 +624,7 @@ export default function NeonBallRunGame({
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const dailyCompleteRef = useRef(false);
+  const prizeRunReservationRef = useRef<string | null>(null);
 
   const bump = useCallback(() => setUiTick(t => t + 1), []);
 
@@ -688,29 +694,49 @@ export default function NeonBallRunGame({
   );
 
   const startGame = useCallback(() => {
-    if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        return;
+    void (async () => {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('ball_run');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
       }
-    }
-    stateRef.current = createNeonBallRunState();
-    startTimeRef.current = Date.now();
-    lastTrackSigRef.current = stateRef.current.segments
-      .map((x) => x.id)
-      .sort((a, b) => a - b)
-      .join(',');
-    setTrackRevision((n) => n + 1);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('playing');
-    lastHudReactRef.current = 0;
-    bump();
-  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament, h2hSkillContest, router]);
+      stateRef.current = createNeonBallRunState();
+      startTimeRef.current = Date.now();
+      lastTrackSigRef.current = stateRef.current.segments
+        .map((x) => x.id)
+        .sort((a, b) => a - b)
+        .join(',');
+      setTrackRevision((n) => n + 1);
+      setSubmitOk(false);
+      setSubmitErr(false);
+      setPhase('playing');
+      lastHudReactRef.current = 0;
+      bump();
+    })();
+  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament, h2hSkillContest, router, queryClient, uid]);
 
   const resetRun = useCallback(() => {
     stateRef.current = null;
@@ -734,15 +760,21 @@ export default function NeonBallRunGame({
         return;
       }
       const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
-      const { error } = await invokeEdgeFunction('submitMinigameScore', {
-        body: {
-          ...(prizeRun ? { prize_run: true as const } : {}),
-          game_type: 'ball_run',
-          score,
-          duration_ms: durationMs,
-          taps: dodgeCount,
-        },
-      });
+      if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
+        setSubmitErr(true);
+        return;
+      }
+      const body: Record<string, unknown> = {
+        game_type: 'ball_run',
+        score,
+        duration_ms: durationMs,
+        taps: dodgeCount,
+      };
+      if (prizeRun && ENABLE_BACKEND) {
+        body.prize_run = true;
+        body.prize_run_reservation_id = prizeRunReservationRef.current!;
+      }
+      const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
         setSubmitErr(true);

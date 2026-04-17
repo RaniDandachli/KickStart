@@ -14,10 +14,13 @@ export const ENABLE_BACKEND = env.EXPO_PUBLIC_ENABLE_BACKEND;
 export const ALLOW_GUEST_MODE = !ENABLE_BACKEND;
 
 /**
- * Wallet top-up UI (Stripe test/live publishable key in app; secret only in Edge Functions / Dashboard).
- * Never credit `wallet_cents` from the client without a verified Stripe server event.
+ * Wallet top-up UI — Stripe (publishable key in app; secret in Edge Functions). Never credit `wallet_cents`
+ * from the client without a verified server event (Stripe webhook or Whop webhook).
  */
 export const WALLET_TOPUP_STRIPE_ENABLED = env.EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED;
+
+/** Whop checkout for wallet + arcade credit packs (parallel to Stripe). */
+export const WHOP_CHECKOUT_ENABLED = env.EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED;
 
 /** Daily elimination event (no entry fee in-app). */
 export const ENABLE_DAILY_FREE_TOURNAMENT = true;

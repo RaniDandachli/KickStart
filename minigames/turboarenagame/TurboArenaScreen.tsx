@@ -6,6 +6,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +24,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useProfile } from '@/hooks/useProfile';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+import { getSupabase } from '@/supabase/client';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { theme } from '@/lib/theme';
 import { awardRedeemTicketsForPrizeRun, ticketsFromTurboArenaPrizeRun } from '@/lib/ticketPayouts';
@@ -565,6 +572,7 @@ type Props = { playMode?: TurboArenaPlayMode };
 export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   useHidePlayTabBar();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const { width: sw, height: sh } = useWindowDimensions();
@@ -575,6 +583,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   const [, setUiTick] = useState(0);
   const stateRef = useRef<TurboArenaState | null>(null);
   const ticketsAwardedRef = useRef(false);
+  const prizeRunReservationRef = useRef<string | null>(null);
   const matchEndedRef = useRef(false);
   const lastHudEmitRef = useRef(0);
   const navigation = useNavigation();
@@ -649,25 +658,45 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
   }, [playMode]);
 
   const startRun = useCallback(() => {
-    if (playMode === 'prize') {
-      const ok = consumePrizeRunEntryCredits(
-        profileQ.data?.prize_credits,
-        TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
-      );
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits (HARD AI). Practice is free.`,
-        );
-        return;
+    void (async () => {
+      if (playMode === 'prize') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('turbo_arena');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits (HARD AI). Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(
+            profileQ.data?.prize_credits,
+            TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
+          );
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Turbo Arena prize runs cost ${TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS} prize credits (HARD AI). Practice is free.`,
+            );
+            return;
+          }
+        }
       }
-    }
-    ticketsAwardedRef.current = false;
-    stateRef.current = createTurboArenaState();
-    resetMinigameHudClock(lastHudEmitRef);
-    setPhase('countdown');
-    bump();
-  }, [bump, playMode, profileQ.data?.prize_credits, router]);
+      ticketsAwardedRef.current = false;
+      stateRef.current = createTurboArenaState();
+      resetMinigameHudClock(lastHudEmitRef);
+      setPhase('countdown');
+      bump();
+    })();
+  }, [bump, playMode, profileQ.data?.prize_credits, router, queryClient, uid]);
 
   const onCountdownDone = useCallback(() => {
     resetMinigameHudClock(lastHudEmitRef);
@@ -747,9 +776,41 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
     const s = stateRef.current;
     if (!s || ticketsAwardedRef.current) return;
     ticketsAwardedRef.current = true;
-    const n = ticketsFromTurboArenaPrizeRun(s.scoreP1, s.scoreP2);
-    awardRedeemTicketsForPrizeRun(n);
-  }, [phase, playMode]);
+    void (async () => {
+      if (ENABLE_BACKEND) {
+        if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+        if (!assertPrizeRunReservation(true, ENABLE_BACKEND, prizeRunReservationRef.current)) return;
+        const rid = prizeRunReservationRef.current!;
+        try {
+          const supabase = getSupabase();
+          const { data: sess } = await supabase.auth.getSession();
+          if (!sess.session) {
+            Alert.alert('Sign in required', 'Log in to save your prize run.');
+            return;
+          }
+          const body: Record<string, unknown> = {
+            prize_run: true,
+            prize_run_reservation_id: rid,
+            game_type: 'turbo_arena',
+            score: s.scoreP1,
+            duration_ms: TURBO.matchMs,
+            taps: 0,
+          };
+          const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
+          if (error) {
+            Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
+          } else if (uid) {
+            invalidateProfileEconomy(queryClient, uid);
+          }
+        } catch {
+          Alert.alert('Could not save prize run', 'Check your connection and try again.');
+        }
+      } else {
+        const n = ticketsFromTurboArenaPrizeRun(s.scoreP1, s.scoreP2);
+        awardRedeemTicketsForPrizeRun(n);
+      }
+    })();
+  }, [phase, playMode, queryClient, uid]);
 
   const winnerTitle =
     snap && phase === 'done'

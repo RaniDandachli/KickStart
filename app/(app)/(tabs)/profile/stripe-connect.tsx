@@ -297,6 +297,9 @@ export default function StripeConnectScreen() {
           <Text style={styles.legal}>
             Stripe may still ask for identity or extra steps for legal compliance — we don't control that in-app.
           </Text>
+          <Pressable onPress={() => router.push('/(app)/(tabs)/profile/whop-payouts')} style={styles.altRail}>
+            <Text style={styles.altRailTxt}>Try Whop payouts (beta) instead →</Text>
+          </Pressable>
         </LinearGradient>
 
         {ENABLE_BACKEND && uid ? (
@@ -419,6 +422,8 @@ const styles = StyleSheet.create({
   dashTxt: { color: runit.neonCyan, fontWeight: '800', fontSize: 14 },
   warn: { color: '#fbbf24', marginTop: 12, fontSize: 13 },
   legal: { color: 'rgba(148,163,184,0.75)', fontSize: 11, lineHeight: 16, marginTop: 14 },
+  altRail: { marginTop: 10, paddingVertical: 6 },
+  altRailTxt: { color: 'rgba(167,139,250,0.95)', fontSize: 13, fontWeight: '800' },
   input: {
     borderWidth: 1,
     borderColor: 'rgba(157,78,237,0.45)',

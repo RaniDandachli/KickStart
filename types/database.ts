@@ -69,6 +69,8 @@ export type ProfileRow = {
   gems: number;
   stripe_customer_id: string | null;
   stripe_connect_account_id: string | null;
+  /** Whop Company id (`biz_…`) for connected-account payout portal; server-managed. */
+  whop_company_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -501,6 +503,17 @@ export interface Database {
         };
         Returns: Json;
       };
+      fulfill_whop_payment: {
+        Args: {
+          p_user_id: string;
+          p_payment_id: string;
+          p_wallet_cents_add: number;
+          p_prize_credits_add: number;
+          p_description: string;
+          p_whop_event_id: string | null;
+        };
+        Returns: Json;
+      };
       join_tournament: {
         Args: { p_tournament_id: string };
         Returns: Json;
@@ -574,6 +587,10 @@ export interface Database {
       };
       h2h_file_match_dispute: {
         Args: { p_match_session_id: string; p_details: string };
+        Returns: Json;
+      };
+      begin_minigame_prize_run: {
+        Args: { p_game_type: string };
         Returns: Json;
       };
     };

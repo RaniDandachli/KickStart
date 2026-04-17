@@ -16,6 +16,9 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, STACKER_PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
@@ -134,6 +137,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
   const lastHudEmitRef = useRef(0);
+  const prizeRunReservationRef = useRef<string | null>(null);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -199,27 +203,47 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   }, [bump]);
 
   const startGame = useCallback(() => {
-    if (playMode === 'prize') {
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits, STACKER_PRIZE_RUN_ENTRY_CREDITS);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Stacker prize runs cost ${STACKER_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        return;
+    void (async () => {
+      if (playMode === 'prize') {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
+          const r = await beginMinigamePrizeRun('stacker');
+          if (!r.ok) {
+            if (r.error === 'insufficient_credits') {
+              alertInsufficientPrizeCredits(
+                router,
+                `Stacker prize runs cost ${STACKER_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+              );
+            } else {
+              Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+            }
+            return;
+          }
+          prizeRunReservationRef.current = r.reservationId;
+          if (uid) invalidateProfileEconomy(queryClient, uid);
+        } else {
+          const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits, STACKER_PRIZE_RUN_ENTRY_CREDITS);
+          if (!ok) {
+            alertInsufficientPrizeCredits(
+              router,
+              `Stacker prize runs cost ${STACKER_PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+            );
+            return;
+          }
+        }
       }
-    }
-    gameRef.current = createGame();
-    startTimeRef.current = Date.now();
-    tapCountRef.current = 0;
-    lastTapAtRef.current = 0;
-    wonRef.current = false;
-    resetMinigameHudClock(lastHudEmitRef);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('playing');
-    bump();
-  }, [bump, playMode, profileQ.data?.prize_credits, router]);
+      gameRef.current = createGame();
+      startTimeRef.current = Date.now();
+      tapCountRef.current = 0;
+      lastTapAtRef.current = 0;
+      wonRef.current = false;
+      resetMinigameHudClock(lastHudEmitRef);
+      setSubmitOk(false);
+      setSubmitErr(false);
+      setPhase('playing');
+      bump();
+    })();
+  }, [bump, playMode, profileQ.data?.prize_credits, router, queryClient, uid]);
 
   const onStackTap = useCallback(() => {
     if (phase !== 'playing') return;
@@ -276,15 +300,21 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         return;
       }
       const prizeRun = playMode === 'prize';
-      const { error } = await invokeEdgeFunction('submitMinigameScore', {
-        body: {
-          ...(prizeRun ? { prize_run: true as const } : {}),
-          game_type: 'stacker' as const,
-          score: rows,
-          duration_ms: durationMs,
-          taps: tapCountRef.current,
-        },
-      });
+      if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
+        setSubmitErr(true);
+        return;
+      }
+      const body: Record<string, unknown> = {
+        game_type: 'stacker' as const,
+        score: rows,
+        duration_ms: durationMs,
+        taps: tapCountRef.current,
+      };
+      if (prizeRun && ENABLE_BACKEND) {
+        body.prize_run = true;
+        body.prize_run_reservation_id = prizeRunReservationRef.current!;
+      }
+      const { error } = await invokeEdgeFunction('submitMinigameScore', { body });
       if (error) {
         Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
         setSubmitErr(true);

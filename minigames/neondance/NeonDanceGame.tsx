@@ -14,7 +14,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
@@ -24,6 +24,8 @@ import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
@@ -33,6 +35,7 @@ import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { minigameResponsiveStageWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
@@ -43,13 +46,8 @@ const BGM_ASSET = require('@/assets/sounds/dash-duel-neon-velocity.mp3');
 
 const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
 
-/** Advance units / sec — lower = more time between hoops. */
-const FORWARD_BASE = 0.1;
-const FORWARD_TIME_SCALE = 0.009;
-const FORWARD_STREAK_SCALE = 0.008;
-const FORWARD_SCORE_CAP = 0.1;
-/** Hard cap so difficulty doesn’t run away; queue gap also scales up with speed. */
-const FORWARD_MAX = 2.35;
+/** Advance units / sec — fixed so difficulty does not ramp as the run goes on. */
+const FORWARD_FIXED = 0.12;
 /** Minimum / maximum spacing in advance space when queueing the next hoop. */
 const HOOP_QUEUE_GAP_MIN = 0.45;
 const HOOP_QUEUE_GAP_MAX = 2.45;
@@ -154,7 +152,6 @@ type Hoop = {
   rot: number;
   omega: number;
   n: number;
-  fast: boolean;
 };
 
 type Particle = { id: number; x: number; y: number; vx: number; vy: number; life: number; color: string };
@@ -203,14 +200,6 @@ export default function NeonDanceGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
-  const navigation = useNavigation();
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      gestureEnabled: false,
-      ...(Platform.OS === 'ios' ? { fullScreenGestureEnabled: false } : {}),
-    });
-  }, [navigation]);
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
@@ -220,6 +209,9 @@ export default function NeonDanceGame({
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'paused' | 'dying' | 'over'>(() =>
     h2hSkillContest ? 'playing' : 'ready',
+  );
+  useLockNavigatorGesturesWhile(
+    phase === 'playing' || phase === 'paused' || phase === 'dying',
   );
   const [score, setScore] = useState(0);
   const [tick, setTick] = useState(0);
@@ -236,6 +228,10 @@ export default function NeonDanceGame({
 
   const mode = h2hSkillContest ? 'h2h' : playMode === 'prize' ? 'prize' : 'practice';
   const appliedRoute = useRef(false);
+  const prizeRunReservationRef = useRef<string | null>(null);
+  const routePrizeAutoStartedRef = useRef(false);
+  /** Prize run started from the ready screen without `?mode=prize` (charges + tickets still apply). */
+  const manualPrizeRunRef = useRef(false);
 
   const hoopsRef = useRef<Hoop[]>([]);
   const nextHoopIdRef = useRef(1);
@@ -253,8 +249,8 @@ export default function NeonDanceGame({
   const sectorsRef = useRef(2);
   const ballIdxRef = useRef(0);
   const progressionRef = useRef(0);
-  /** Last approach speed — used when queueing hoops so spacing scales as the game speeds up. */
-  const forwardQueueRef = useRef(0.12);
+  /** Last approach speed — used when queueing hoops (spacing matches fixed forward speed). */
+  const forwardQueueRef = useRef(FORWARD_FIXED);
   const bgPulseRef = useRef(0);
   const passBurstRef = useRef(0);
   const lastRunRef = useRef({
@@ -292,18 +288,14 @@ export default function NeonDanceGame({
 
   const pushHoop = useCallback((advance: number) => {
     const n = sectorsRef.current;
-    const fast = Math.random() < 0.08;
     const omega =
-      (Math.sign(Math.random() - 0.5) || 1) *
-      (0.72 + n * 0.28 + Math.random() * 0.45) *
-      (fast ? 1.45 : 1);
+      (Math.sign(Math.random() - 0.5) || 1) * (0.72 + n * 0.28 + Math.random() * 0.45);
     hoopsRef.current.push({
       id: nextHoopIdRef.current++,
       advance,
       rot: Math.random() * Math.PI * 2,
       omega,
       n,
-      fast,
     });
   }, []);
 
@@ -337,7 +329,7 @@ export default function NeonDanceGame({
     streakRef.current = 0;
     bestStreakRef.current = 0;
     progressionRef.current = 0;
-    forwardQueueRef.current = 0.12;
+    forwardQueueRef.current = FORWARD_FIXED;
     ballAngleRef.current = Math.PI / 2;
     targetAngleRef.current = Math.PI / 2;
     trailRef.current = [];
@@ -397,10 +389,56 @@ export default function NeonDanceGame({
     'over',
   );
 
+  const chargePrizeRunIfNeeded = useCallback(async (): Promise<boolean> => {
+    if (ENABLE_BACKEND) {
+      if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return false;
+      const r = await beginMinigamePrizeRun('neon_dance');
+      if (!r.ok) {
+        if (r.error === 'insufficient_credits') {
+          alertInsufficientPrizeCredits(
+            router,
+            `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+          );
+        } else {
+          Alert.alert('Could not start prize run', r.message ?? 'Try again.');
+        }
+        return false;
+      }
+      prizeRunReservationRef.current = r.reservationId;
+      if (uid) invalidateProfileEconomy(qc, uid);
+      return true;
+    }
+    if (!consumePrizeRunEntryCredits(profileQ.data?.prize_credits)) {
+      alertInsufficientPrizeCredits(
+        router,
+        `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
+      );
+      return false;
+    }
+    return true;
+  }, [profileQ.data?.prize_credits, qc, router, uid]);
+
   const startPlaying = useCallback(() => {
-    resetGame();
-    setPhase('playing');
-  }, [resetGame]);
+    void (async () => {
+      manualPrizeRunRef.current = false;
+      if (!h2hSkillContest && mode === 'prize') {
+        const ok = await chargePrizeRunIfNeeded();
+        if (!ok) return;
+      }
+      resetGame();
+      setPhase('playing');
+    })();
+  }, [chargePrizeRunIfNeeded, h2hSkillContest, mode, resetGame]);
+
+  const startManualPrizeRun = useCallback(() => {
+    void (async () => {
+      const ok = await chargePrizeRunIfNeeded();
+      if (!ok) return;
+      manualPrizeRunRef.current = true;
+      resetGame();
+      setPhase('playing');
+    })();
+  }, [chargePrizeRunIfNeeded, resetGame]);
 
   useLayoutEffect(() => {
     if (h2hSkillContest || appliedRoute.current) return;
@@ -414,23 +452,11 @@ export default function NeonDanceGame({
       setPhase('playing');
       return;
     }
-    if (appliedRoute.current) return;
-    const m = String(modeParam ?? '');
-    if (m === 'prize') {
-      appliedRoute.current = true;
-      const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-      if (!ok) {
-        alertInsufficientPrizeCredits(
-          router,
-          `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-        );
-        router.back();
-        return;
-      }
-      resetGame();
-      setPhase('playing');
-    }
-  }, [h2hSkillContest, modeParam, profileQ.data?.prize_credits, resetGame, router]);
+    if (routePrizeAutoStartedRef.current) return;
+    if (String(modeParam ?? '') !== 'prize') return;
+    routePrizeAutoStartedRef.current = true;
+    startPlaying();
+  }, [h2hSkillContest, modeParam, resetGame, startPlaying]);
 
   const endRunSnapshot = useCallback(() => {
     const durationMs = Math.max(0, Math.floor(timeMsRef.current));
@@ -449,55 +475,64 @@ export default function NeonDanceGame({
     const durationMs = lastRunRef.current.durationMs;
     void (async () => {
       let tickets = 0;
-      if (mode === 'prize') {
-        if (ENABLE_BACKEND && uid) {
-          try {
-            const supabase = getSupabase();
-            const { data: sess } = await supabase.auth.getSession();
-            if (!sess.session) {
-              Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
-            } else {
-              const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
-                body: {
-                  prize_run: true,
-                  game_type: 'neon_dance' as const,
-                  score: lastRunRef.current.score,
-                  duration_ms: durationMs,
-                  taps: lastRunRef.current.taps,
-                  rings_passed: lastRunRef.current.ringsPassed,
-                  best_streak: lastRunRef.current.bestStreak,
-                  progression: lastRunRef.current.progression,
-                  survival_time_sec: durationMs / 1000,
-                  winner_ready: true,
-                },
-              });
-              if (error) {
-                Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
+      const prizeRunActive = mode === 'prize' || manualPrizeRunRef.current;
+      if (prizeRunActive) {
+        if (ENABLE_BACKEND) {
+          if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) {
+            tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
+          } else {
+            try {
+              const supabase = getSupabase();
+              const { data: sess } = await supabase.auth.getSession();
+              if (!sess.session) {
+                Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
+                tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
+              } else if (!assertPrizeRunReservation(true, ENABLE_BACKEND, prizeRunReservationRef.current)) {
                 tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
               } else {
-                const row = data as { tickets_granted?: number } | null;
-                tickets = Math.max(
-                  0,
-                  typeof row?.tickets_granted === 'number'
-                    ? row.tickets_granted
-                    : ticketsFromNeonDanceScore(lastRunRef.current.score),
-                );
-                invalidateProfileEconomy(qc, uid);
+                const rid = prizeRunReservationRef.current!;
+                const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
+                  body: {
+                    prize_run: true,
+                    prize_run_reservation_id: rid,
+                    game_type: 'neon_dance' as const,
+                    score: lastRunRef.current.score,
+                    duration_ms: durationMs,
+                    taps: lastRunRef.current.taps,
+                    rings_passed: lastRunRef.current.ringsPassed,
+                    best_streak: lastRunRef.current.bestStreak,
+                    progression: lastRunRef.current.progression,
+                    survival_time_sec: durationMs / 1000,
+                    winner_ready: true,
+                  },
+                });
+                if (error) {
+                  Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
+                  tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
+                } else {
+                  const row = data as { tickets_granted?: number } | null;
+                  tickets = Math.max(
+                    0,
+                    typeof row?.tickets_granted === 'number'
+                      ? row.tickets_granted
+                      : ticketsFromNeonDanceScore(lastRunRef.current.score),
+                  );
+                  if (uid) invalidateProfileEconomy(qc, uid);
+                }
               }
+            } catch {
+              Alert.alert('Could not save prize run', 'Check your connection and try again.');
+              tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
             }
-          } catch {
-            Alert.alert('Could not save prize run', 'Check your connection and try again.');
-            tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
           }
-        } else if (!ENABLE_BACKEND) {
+        } else {
           const n0 = ticketsFromNeonDanceScore(lastRunRef.current.score);
           awardRedeemTicketsForPrizeRun(n0);
           tickets = n0;
-        } else {
-          tickets = ticketsFromNeonDanceScore(lastRunRef.current.score);
         }
       }
-      setTicketsEarned(mode === 'prize' ? tickets : 0);
+      manualPrizeRunRef.current = false;
+      setTicketsEarned(prizeRunActive ? tickets : 0);
     })();
   }, [h2hSkillContest, mode, qc, uid]);
 
@@ -609,16 +644,7 @@ export default function NeonDanceGame({
         const dt = h / 1000;
         timeMsRef.current += h;
         const t = timeMsRef.current;
-        const rp = ringsPassedRef.current;
-        const sc = scoreRef.current;
-        const timeSec = t / 1000;
-
-        let forward =
-          FORWARD_BASE +
-          timeSec * FORWARD_TIME_SCALE +
-          rp * FORWARD_STREAK_SCALE +
-          Math.min(FORWARD_SCORE_CAP, sc * 0.00008);
-        forward = Math.min(FORWARD_MAX, forward);
+        const forward = FORWARD_FIXED;
         forwardQueueRef.current = forward;
         progressionRef.current += forward * 180 * dt;
 
@@ -641,18 +667,17 @@ export default function NeonDanceGame({
         hoopsRef.current = hoopsRef.current.filter((h) => h.advance < 1.45);
 
         const hoops = hoopsRef.current;
-        const spinEase = 1 / (1 + timeSec * 0.01);
         for (const hoop of hoops) {
           const prev = hoop.advance;
           hoop.advance += forward * dt;
-          hoop.rot += hoop.omega * spinEase * dt * (1 + timeSec * 0.012);
+          hoop.rot += hoop.omega * dt;
           if (prev < 1 && hoop.advance >= 1) {
             const idx = sectorAtWorldAngle(ballAngleRef.current, hoop.rot, hoop.n);
             if (idx === ballIdxRef.current) {
               ringsPassedRef.current += 1;
               streakRef.current += 1;
               if (streakRef.current > bestStreakRef.current) bestStreakRef.current = streakRef.current;
-              const pts = 88 + streakRef.current * 15 + hoop.n * 20 + (hoop.fast ? 45 : 0);
+              const pts = 88 + streakRef.current * 15 + hoop.n * 20;
               scoreRef.current += pts;
               setScore(scoreRef.current);
 
@@ -902,22 +927,7 @@ export default function NeonDanceGame({
               <Text style={styles.bestLbl}>Best run · {bestLocal.toLocaleString()} pts</Text>
             ) : null}
             <AppButton title="Play" onPress={startPlaying} />
-            <AppButton
-              className="mt-2"
-              title="Prize run"
-              variant="secondary"
-              onPress={() => {
-                const ok = consumePrizeRunEntryCredits(profileQ.data?.prize_credits);
-                if (!ok) {
-                  alertInsufficientPrizeCredits(
-                    router,
-                    `Prize runs cost ${PRIZE_RUN_ENTRY_CREDITS} prize credits. Practice is free.`,
-                  );
-                  return;
-                }
-                startPlaying();
-              }}
-            />
+            <AppButton className="mt-2" title="Prize run" variant="secondary" onPress={startManualPrizeRun} />
             <Pressable style={styles.muteRow} onPress={() => setMuted((m) => !m)}>
               <SafeIonicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#94a3b8" />
               <Text style={styles.muteTxt}>{muted ? 'Music off' : 'Music on'}</Text>
@@ -973,11 +983,6 @@ export default function NeonDanceGame({
                         fill="#e0f2fe"
                       />
                     </Svg>
-                    {h.fast ? (
-                      <View style={styles.fastTag}>
-                        <Text style={styles.fastTagTxt}>FAST</Text>
-                      </View>
-                    ) : null}
                   </View>
                 );
               })}
@@ -1221,16 +1226,6 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  fastTag: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(251,113,133,0.92)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  fastTagTxt: { color: '#fff', fontSize: 10, fontWeight: '900' },
   hudGlass: {
     flexDirection: 'row',
     alignItems: 'center',
