@@ -2,7 +2,11 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
 
+import { runWhopCheckoutUI } from '@/lib/whopCheckoutBridge';
+import type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+
+export type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
 
 type WalletOpts = { kind: 'wallet'; amountCents: number };
 type CreditsOpts = { kind: 'credits'; packageId: string };
@@ -19,11 +23,7 @@ async function parseFunctionError(error: unknown): Promise<string> {
   return error instanceof Error ? error.message : 'Request failed';
 }
 
-/**
- * Opens Whop hosted checkout in the browser. Returns whether the user completed payment (success redirect).
- * Balances update after `whopWebhook` — caller should invalidate profile on success.
- */
-export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
+async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise<WhopCheckoutPayload> {
   const base = Linking.createURL('profile/add-funds');
   const successUrl = `${base}${base.includes('?') ? '&' : '?'}status=success&provider=whop`;
   const cancelUrl = `${base}${base.includes('?') ? '&' : '?'}status=cancel&provider=whop`;
@@ -54,16 +54,33 @@ export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): P
     throw new Error(await parseFunctionError(error));
   }
 
-  const payload = data as { ok?: boolean; url?: string; error?: string };
+  const payload = data as { ok?: boolean; url?: string; sessionId?: string | null; error?: string };
   if (payload?.error) throw new Error(payload.error);
   const url = payload?.url;
   if (!url) throw new Error('No checkout URL returned');
 
-  const result = await WebBrowser.openAuthSessionAsync(url, base);
+  return {
+    url,
+    sessionId: payload.sessionId ?? null,
+    returnUrl: successUrl,
+  };
+}
 
-  if (result.type === 'success' && result.url) {
-    if (result.url.includes('status=cancel')) return false;
-    if (result.url.includes('status=success')) return true;
-  }
-  return false;
+/**
+ * Opens Whop checkout in-app when Shop is mounted (`WhopCheckoutHost`); otherwise falls back to the system browser.
+ * Balances update after `whopWebhook` — caller should invalidate profile on success.
+ */
+export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
+  const p = await buildWhopCheckoutPayload(opts);
+  const redirectBase = Linking.createURL('profile/add-funds');
+
+  return runWhopCheckoutUI(p, async () => {
+    const result = await WebBrowser.openAuthSessionAsync(p.url, redirectBase);
+
+    if (result.type === 'success' && result.url) {
+      if (result.url.includes('status=cancel')) return false;
+      if (result.url.includes('status=success')) return true;
+    }
+    return false;
+  });
 }

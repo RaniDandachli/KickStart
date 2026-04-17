@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { WhopCheckoutHost } from '@/components/wallet/WhopCheckoutHost';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
 import { useWalletPaymentSheet } from '@/hooks/useWalletPaymentSheet';
@@ -609,6 +610,7 @@ export default function AddFundsScreen() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+      {whopReady ? <WhopCheckoutHost /> : null}
     </Screen>
   );
 }

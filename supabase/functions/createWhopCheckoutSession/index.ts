@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       app: 'kickclash',
     };
 
-    const { purchase_url } = await whopCheckoutConfigurationsCreate(whopKey, {
+    const { purchase_url, id: checkoutConfigId } = await whopCheckoutConfigurationsCreate(whopKey, {
       mode: 'payment',
       plan: {
         company_id: companyId,
@@ -125,7 +125,11 @@ Deno.serve(async (req) => {
     });
 
     const url = absolutePurchaseUrl(purchase_url);
-    return json({ ok: true, url });
+    return json({
+      ok: true,
+      url,
+      sessionId: checkoutConfigId ?? null,
+    });
   } catch (e) {
     console.error('[createWhopCheckoutSession]', e);
     return errorResponse(e instanceof Error ? e.message : 'error', 500);

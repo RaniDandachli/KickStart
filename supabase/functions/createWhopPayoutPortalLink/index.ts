@@ -15,6 +15,30 @@ const Body = z.object({
   returnUrl: z.string().min(8),
 });
 
+/** Whop rejects placeholder / disposable-style addresses for company creation. */
+function emailLooksDeliverableForWhop(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  if (e.length < 6 || e.length > 254) return false;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return false;
+  const at = e.lastIndexOf('@');
+  const domain = e.slice(at + 1);
+  if (!domain || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
+  const blocked = new Set([
+    'example.com',
+    'example.org',
+    'example.net',
+    'test.com',
+    'localhost',
+  ]);
+  if (blocked.has(domain)) return false;
+  if (domain.endsWith('.invalid') || domain.endsWith('.local') || domain.endsWith('.localhost')) return false;
+  if (domain.includes('phone.auth') || domain.includes('sms.') || domain.includes('fakeemail')) return false;
+  return true;
+}
+
+const WHOP_EMAIL_HELP =
+  'Whop needs a real mailbox (e.g. Gmail). Add or change the email on your RunitArcade account to one you use, confirm it if asked, then try again. Test or placeholder addresses are rejected.';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -50,6 +74,9 @@ Deno.serve(async (req) => {
     if (!email) {
       return errorResponse('Your account needs an email address to use Whop payouts.', 422);
     }
+    if (!emailLooksDeliverableForWhop(email)) {
+      return errorResponse(WHOP_EMAIL_HELP, 422);
+    }
 
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return errorResponse(parsed.error.message, 422);
@@ -70,13 +97,22 @@ Deno.serve(async (req) => {
     const title = (display || username).slice(0, 120) || 'RunitArcade player';
 
     if (!companyId) {
-      const created = await whopCompaniesCreate(whopKey, {
-        title,
-        email,
-        parent_company_id: parentId,
-        metadata: { internal_user_id: userId, source: 'runitarcade_payouts' },
-        send_customer_emails: true,
-      });
+      let created: { id: string };
+      try {
+        created = await whopCompaniesCreate(whopKey, {
+          title,
+          email,
+          parent_company_id: parentId,
+          metadata: { internal_user_id: userId, source: 'runitarcade_payouts' },
+          send_customer_emails: true,
+        });
+      } catch (err) {
+        const m = err instanceof Error ? err.message : '';
+        if (/invalid email|real email address/i.test(m)) {
+          return errorResponse(WHOP_EMAIL_HELP, 422);
+        }
+        throw err;
+      }
       companyId = created.id;
       const { error: upErr } = await admin
         .from('profiles')
@@ -96,6 +132,9 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('[createWhopPayoutPortalLink]', e);
     const msg = e instanceof Error ? e.message : 'error';
+    if (/invalid email|real email address/i.test(msg)) {
+      return errorResponse(WHOP_EMAIL_HELP, 422);
+    }
     return errorResponse(msg, 500);
   }
 });

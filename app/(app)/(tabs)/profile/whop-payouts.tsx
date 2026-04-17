@@ -168,6 +168,11 @@ export default function WhopPayoutsScreen() {
             <Text style={styles.meta}>No Whop company yet — tap below to create one and continue on Whop.</Text>
           )}
 
+          <Text style={styles.emailNote}>
+            Whop uses the email on your RunitArcade account. It must be a real inbox (e.g. Gmail) — test or placeholder addresses are
+            rejected.
+          </Text>
+
           <Pressable
             onPress={() => void onOpenPortal()}
             disabled={busy || !uid}
@@ -287,6 +292,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(56,189,248,0.25)',
   },
   meta: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  emailNote: {
+    color: 'rgba(251,191,36,0.95)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
   mono: { fontFamily: 'monospace', fontSize: 12, color: '#e2e8f0' },
   ctaOuter: { borderRadius: 12, overflow: 'hidden', marginBottom: 12 },
   ctaGrad: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
