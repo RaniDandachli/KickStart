@@ -32,7 +32,7 @@ import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
-import { presentAddMoneyChooser, pushCashWalletShop } from '@/lib/shopNavigation';
+import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { isWebLaptopViewport } from '@/lib/homeWebLayout';
 import { formatUsdFromCents } from '@/lib/money';
@@ -171,7 +171,7 @@ export default function HomeScreen() {
             dailyDayKey={todaysKey}
             dailyResetCountdownHms={dailyResetCountdown}
             onWalletPress={() => pushCashWalletShop(router)}
-            onAddMoney={() => presentAddMoneyChooser(router)}
+            onAddMoney={() => pushCrossTab(router, SHOP_PATH as never)}
             onPlayNow={() => setPlayNowOpen(true)}
             onHowItWorks={() => setHowItWorksOpen(true)}
             onEnterDailyTournament={goDailyTournament}
@@ -269,9 +269,9 @@ export default function HomeScreen() {
             compactHome
           >
             <Pressable
-              onPress={() => presentAddMoneyChooser(router)}
+              onPress={() => pushCrossTab(router, SHOP_PATH as never)}
               accessibilityRole="button"
-              accessibilityLabel="Add money — cash or arcade credits"
+              accessibilityLabel="Add money — open wallet and top-up"
               style={({ pressed }) => [styles.addMoneyHeroBtn, pressed && { opacity: 0.92 }]}
             >
               <LinearGradient

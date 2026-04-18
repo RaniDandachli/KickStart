@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -25,7 +26,11 @@ import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { CREDIT_PACKAGES } from '@/lib/creditPackages';
-import { WALLET_DEPOSIT_WITHDRAW_POLICY } from '@/lib/payoutCopy';
+import {
+  PAYOUT_BANK_TIMING_WITHDRAWAL_SUCCESS,
+  PAYOUT_WHOP_TRANSFER_SUCCESS,
+  WALLET_DEPOSIT_WITHDRAW_POLICY,
+} from '@/lib/payoutCopy';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { env } from '@/lib/env';
 import { queryKeys } from '@/lib/queryKeys';
@@ -43,10 +48,32 @@ import {
   completeWalletTopUp,
   type WalletCheckoutProvider,
 } from '@/services/wallet/completeTopUp';
+import {
+  fetchStripeConnectStatus,
+  openStripeConnectOnboarding,
+  type StripeConnectStatus,
+} from '@/services/wallet/stripeConnectOnboarding';
+import { openWhopPayoutPortal } from '@/services/wallet/whopPayoutOnboarding';
+import { withdrawWalletToConnect } from '@/services/wallet/withdrawWallet';
+import { withdrawWalletToWhop } from '@/services/wallet/withdrawWalletToWhop';
 import { useAuthStore } from '@/store/authStore';
 
 function goBackFromAddFunds(router: ReturnType<typeof useRouter>) {
   safeBack(router, ROUTES.profileTab);
+}
+
+function newIdempotencyKey(): string {
+  const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
+function parseUsdToCents(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number.parseFloat(t.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100);
 }
 
 /** Embedded Stripe Payment Sheet — only mount when `StripeProvider` is present (publishable key in .env). */
@@ -135,8 +162,7 @@ function CreditsPaySheetButton({
 
 const PRESETS_CENTS = [500, 1000, 2500, 5000] as const;
 
-type Step = 'amount' | 'payment';
-type ShopTab = 'wallet' | 'credits';
+type DepositStep = 'amount' | 'payment';
 
 /** VAZA-inspired wallet shell: cyan headers, lime deposit CTA, teal panels (see design pass on Shop). */
 const W = {
@@ -162,22 +188,54 @@ export default function AddFundsScreen() {
   const prizeCredits = usePrizeCreditsDisplay();
   const cardRow = winW >= 720;
 
-  const [shopTab, setShopTab] = useState<ShopTab>('wallet');
-  const [step, setStep] = useState<Step>('amount');
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [depositStep, setDepositStep] = useState<DepositStep>('amount');
+  const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
+  const [withdrawStripeStatus, setWithdrawStripeStatus] = useState<StripeConnectStatus | null>(null);
+  const [withdrawStripeLoading, setWithdrawStripeLoading] = useState(false);
+  const [withdrawUsd, setWithdrawUsd] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [whopPortalBusy, setWhopPortalBusy] = useState(false);
   const [selectedCents, setSelectedCents] = useState<number>(1000);
   const [customDollars, setCustomDollars] = useState('');
   const [selectedPackId, setSelectedPackId] = useState<string>(CREDIT_PACKAGES[1]?.id ?? CREDIT_PACKAGES[0]?.id ?? '');
   const [checkoutProvider, setCheckoutProvider] = useState<WalletCheckoutProvider>('stripe');
 
+  const connectId = profileQ.data?.stripe_connect_account_id;
+  const whopCompanyId = profileQ.data?.whop_company_id;
+
   useEffect(() => {
-    if (tabFromRoute === 'credits') {
-      setShopTab('credits');
-      setStep('amount');
-    } else if (tabFromRoute === 'wallet') {
-      setShopTab('wallet');
-      setStep('amount');
+    if (tabFromRoute === 'wallet') {
+      setDepositModalVisible(true);
+      setDepositStep('amount');
     }
   }, [tabFromRoute]);
+
+  useEffect(() => {
+    if (!depositModalVisible) setDepositStep('amount');
+  }, [depositModalVisible]);
+
+  useEffect(() => {
+    if (!withdrawModalVisible) setWithdrawUsd('');
+  }, [withdrawModalVisible]);
+
+  const loadWithdrawStripeStatus = useCallback(async () => {
+    if (!ENABLE_BACKEND || !uid) {
+      setWithdrawStripeStatus(null);
+      return;
+    }
+    setWithdrawStripeLoading(true);
+    try {
+      const s = await fetchStripeConnectStatus();
+      setWithdrawStripeStatus(s);
+    } finally {
+      setWithdrawStripeLoading(false);
+    }
+  }, [uid]);
+
+  useEffect(() => {
+    if (withdrawModalVisible) void loadWithdrawStripeStatus();
+  }, [withdrawModalVisible, loadWithdrawStripeStatus]);
 
   const stripeReady = ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED;
   const whopReady = ENABLE_BACKEND && WHOP_CHECKOUT_ENABLED;
@@ -197,14 +255,8 @@ export default function AddFundsScreen() {
     return selectedCents;
   }, [customDollars, selectedCents]);
 
-  const walletFeeCents =
-    shopTab === 'wallet' && ENABLE_BACKEND ? walletDepositProcessingFeeCents(amountCents) : 0;
-  const walletTotalChargeCents =
-    shopTab === 'wallet'
-      ? ENABLE_BACKEND
-        ? walletDepositTotalChargeCents(amountCents)
-        : amountCents
-      : amountCents;
+  const walletFeeCents = ENABLE_BACKEND ? walletDepositProcessingFeeCents(amountCents) : 0;
+  const walletTotalChargeCents = ENABLE_BACKEND ? walletDepositTotalChargeCents(amountCents) : amountCents;
 
   const selectedPack = useMemo(
     () => CREDIT_PACKAGES.find((p) => p.id === selectedPackId) ?? CREDIT_PACKAGES[0],
@@ -221,16 +273,17 @@ export default function AddFundsScreen() {
     (completed: boolean) => {
       if (completed && ENABLE_BACKEND && uid) void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
       if (completed) {
+        setDepositModalVisible(false);
+        setDepositStep('amount');
         Alert.alert(
           'Payment',
           checkoutUnlocked
             ? `Thanks! Your cash balance updates within a few seconds after ${payRailName} confirms the payment.`
             : `${formatUsdFromCents(amountCents)} added to your wallet.`,
-          [{ text: 'OK', onPress: () => goBackFromAddFunds(router) }],
         );
       }
     },
-    [amountCents, checkoutUnlocked, payRailName, qc, router, uid],
+    [amountCents, checkoutUnlocked, payRailName, qc, uid],
   );
 
   const handleCreditsPaid = useCallback(
@@ -274,7 +327,7 @@ export default function AddFundsScreen() {
       Alert.alert('Amount', e instanceof Error ? e.message : 'Invalid amount');
       return;
     }
-    setStep('payment');
+    setDepositStep('payment');
   }, [amountCents]);
 
   const onPayWallet = useCallback(() => {
@@ -289,6 +342,165 @@ export default function AddFundsScreen() {
     buyCredits.mutate();
   }, [buyCredits, selectedPackId]);
 
+  const stripePayoutReady = useMemo(
+    () => withdrawStripeStatus?.payouts_enabled === true,
+    [withdrawStripeStatus?.payouts_enabled],
+  );
+  const hasStripeAccount = useMemo(
+    () => !!(connectId || withdrawStripeStatus?.connected),
+    [connectId, withdrawStripeStatus?.connected],
+  );
+
+  const onStripeConnectFromModal = useCallback(async () => {
+    if (!ENABLE_BACKEND) {
+      Alert.alert('Not available', 'Sign in with an online account to set up bank payouts.');
+      return;
+    }
+    try {
+      await openStripeConnectOnboarding();
+      if (uid) void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+      await loadWithdrawStripeStatus();
+    } catch (e) {
+      Alert.alert('Connect', e instanceof Error ? e.message : 'Could not open onboarding');
+    }
+  }, [qc, uid, loadWithdrawStripeStatus]);
+
+  const onOpenWhopPortalFromModal = useCallback(async () => {
+    if (!ENABLE_BACKEND || !uid) return;
+    setWhopPortalBusy(true);
+    try {
+      await openWhopPayoutPortal();
+      void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+      await loadWithdrawStripeStatus();
+    } catch (e) {
+      Alert.alert('Whop payouts', e instanceof Error ? e.message : 'Could not open Whop');
+    } finally {
+      setWhopPortalBusy(false);
+    }
+  }, [qc, uid, loadWithdrawStripeStatus]);
+
+  const onWithdrawStripe = useCallback(async () => {
+    if (!uid || !ENABLE_BACKEND) return;
+    if (withdrawStripeLoading) {
+      Alert.alert('One moment', 'Still checking your payout setup with Stripe.');
+      return;
+    }
+    const cents = parseUsdToCents(withdrawUsd);
+    if (cents == null) {
+      Alert.alert('Amount', 'Enter a valid dollar amount (e.g. 10 or 10.50).');
+      return;
+    }
+    if (cents < 100) {
+      Alert.alert('Minimum', 'Minimum withdrawal is $1.00.');
+      return;
+    }
+    if (cents > walletCents) {
+      Alert.alert('Balance', `You only have ${formatUsdFromCents(walletCents)} available.`);
+      return;
+    }
+    if (!stripePayoutReady) {
+      Alert.alert(
+        'Finish setup',
+        'Complete Stripe bank payouts before withdrawing. Use “Continue setup” below.',
+      );
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      await withdrawWalletToConnect({
+        amountCents: cents,
+        idempotencyKey: newIdempotencyKey(),
+      });
+      setWithdrawUsd('');
+      void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
+      setWithdrawModalVisible(false);
+      Alert.alert('Withdrawal started', PAYOUT_BANK_TIMING_WITHDRAWAL_SUCCESS);
+      await loadWithdrawStripeStatus();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      if (/Connect a bank account|Complete Stripe payout/i.test(msg)) {
+        Alert.alert(
+          'Setup needed',
+          'Connect and verify a bank account in Stripe before withdrawing.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open setup', onPress: () => void onStripeConnectFromModal() },
+          ],
+        );
+        return;
+      }
+      Alert.alert('Withdrawal failed', msg);
+    } finally {
+      setWithdrawing(false);
+    }
+  }, [
+    uid,
+    withdrawUsd,
+    walletCents,
+    qc,
+    loadWithdrawStripeStatus,
+    withdrawStripeLoading,
+    stripePayoutReady,
+    onStripeConnectFromModal,
+  ]);
+
+  const onWithdrawWhop = useCallback(async () => {
+    if (!uid || !ENABLE_BACKEND) return;
+    if (!whopCompanyId) {
+      Alert.alert(
+        'Whop account required',
+        'Open the Whop payout portal first so we can create your connected account.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open portal', onPress: () => void onOpenWhopPortalFromModal() },
+        ],
+      );
+      return;
+    }
+    const cents = parseUsdToCents(withdrawUsd);
+    if (cents == null) {
+      Alert.alert('Amount', 'Enter a valid dollar amount (e.g. 10 or 10.50).');
+      return;
+    }
+    if (cents < 100) {
+      Alert.alert('Minimum', 'Minimum withdrawal is $1.00.');
+      return;
+    }
+    if (cents > walletCents) {
+      Alert.alert('Balance', `You only have ${formatUsdFromCents(walletCents)} available.`);
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      await withdrawWalletToWhop({
+        amountCents: cents,
+        idempotencyKey: newIdempotencyKey(),
+      });
+      setWithdrawUsd('');
+      void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+      void qc.invalidateQueries({ queryKey: queryKeys.transactions(uid) });
+      setWithdrawModalVisible(false);
+      Alert.alert('Sent to Whop', PAYOUT_WHOP_TRANSFER_SUCCESS);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      if (/Open Whop payouts|connected account/i.test(msg)) {
+        Alert.alert(
+          'Finish Whop setup',
+          'Create your Whop connected account in the payout portal first.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open portal', onPress: () => void onOpenWhopPortalFromModal() },
+          ],
+        );
+        return;
+      }
+      Alert.alert('Withdrawal failed', msg);
+    } finally {
+      setWithdrawing(false);
+    }
+  }, [uid, whopCompanyId, withdrawUsd, walletCents, qc, onOpenWhopPortalFromModal]);
+
   const wins = fightQ.data?.wins ?? 0;
   const losses = fightQ.data?.losses ?? 0;
   const played = wins + losses;
@@ -299,16 +511,9 @@ export default function AddFundsScreen() {
   return (
     <Screen>
       <View style={styles.topBar}>
-        <Pressable
-          onPress={() => {
-            if (shopTab === 'wallet' && step === 'payment') setStep('amount');
-            else goBackFromAddFunds(router);
-          }}
-          style={styles.backBtn}
-          accessibilityRole="button"
-        >
+        <Pressable onPress={() => goBackFromAddFunds(router)} style={styles.backBtn} accessibilityRole="button">
           <SafeIonicons name="chevron-back" size={24} color={W.cyan} />
-          <Text style={styles.backLbl}>{shopTab === 'wallet' && step === 'payment' ? 'Amount' : 'Back'}</Text>
+          <Text style={styles.backLbl}>Back</Text>
         </Pressable>
         <View style={styles.topSpacer} />
       </View>
@@ -328,8 +533,8 @@ export default function AddFundsScreen() {
               <View style={styles.vCardActions}>
                 <Pressable
                   onPress={() => {
-                    setShopTab('wallet');
-                    setStep('amount');
+                    setDepositStep('amount');
+                    setDepositModalVisible(true);
                   }}
                   style={({ pressed }) => [styles.btnDeposit, pressed && { opacity: 0.92 }]}
                 >
@@ -338,10 +543,7 @@ export default function AddFundsScreen() {
                   </LinearGradient>
                 </Pressable>
                 <Pressable
-                  onPress={() => {
-                    if (ENABLE_BACKEND) router.push('/(app)/(tabs)/profile/stripe-connect');
-                    else Alert.alert('Withdraw', 'Sign in and connect a bank account to withdraw.');
-                  }}
+                  onPress={() => setWithdrawModalVisible(true)}
                   style={({ pressed }) => [styles.btnWithdraw, pressed && { opacity: 0.9 }]}
                 >
                   <Text style={styles.btnWithdrawTxt}>- WITHDRAW</Text>
@@ -355,16 +557,7 @@ export default function AddFundsScreen() {
                 <SafeIonicons name="sparkles-outline" size={18} color={W.cyan} />
               </View>
               <Text style={styles.vCardVal}>{prizeCredits.toLocaleString()}</Text>
-              <Text style={styles.vCardHint}>Prize runs & ticket economy</Text>
-              <Pressable
-                onPress={() => {
-                  setShopTab('credits');
-                  setStep('amount');
-                }}
-                style={({ pressed }) => [styles.btnGhostSm, pressed && { opacity: 0.9 }]}
-              >
-                <Text style={styles.btnGhostSmTxt}>Buy credits →</Text>
-              </Pressable>
+              <Text style={styles.vCardHint}>Prize runs & ticket economy · packs below</Text>
             </View>
 
             <View style={styles.vCard}>
@@ -406,27 +599,6 @@ export default function AddFundsScreen() {
           )}
         </View>
 
-        <View style={styles.tabs}>
-          <Pressable
-            onPress={() => {
-              setShopTab('wallet');
-              setStep('amount');
-            }}
-            style={[styles.tab, shopTab === 'wallet' && styles.tabOn]}
-          >
-            <Text style={[styles.tabTxt, shopTab === 'wallet' && styles.tabTxtOn]}>Cash wallet</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setShopTab('credits');
-              setStep('amount');
-            }}
-            style={[styles.tab, shopTab === 'credits' && styles.tabOn]}
-          >
-            <Text style={[styles.tabTxt, shopTab === 'credits' && styles.tabTxtOn]}>Arcade credits</Text>
-          </Pressable>
-        </View>
-
         {backendPending ? (
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#FDE047" />
@@ -447,167 +619,9 @@ export default function AddFundsScreen() {
           </View>
         ) : null}
 
-        {shopTab === 'wallet' && checkoutUnlocked && uid ? (
-          <View style={styles.policyBanner}>
-            <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
-            <Text style={styles.bannerTxt}>{WALLET_DEPOSIT_WITHDRAW_POLICY}</Text>
-          </View>
-        ) : null}
 
-        {shopTab === 'wallet' ? (
-          <>
-            {step === 'amount' ? (
-              <>
-                <Text style={styles.sectionLbl}>Amount (USD)</Text>
-                <View style={styles.presets}>
-                  {PRESETS_CENTS.map((c) => {
-                    const active = customDollars.trim() === '' && selectedCents === c;
-                    return (
-                      <Pressable
-                        key={c}
-                        onPress={() => {
-                          setCustomDollars('');
-                          setSelectedCents(c);
-                        }}
-                        style={({ pressed }) => [styles.preset, active && styles.presetOn, pressed && { opacity: 0.88 }]}
-                      >
-                        <Text style={[styles.presetTxt, active && styles.presetTxtOn]}>{formatUsdFromCents(c)}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <Text style={styles.customLbl}>Or enter amount</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="$0.00"
-                  placeholderTextColor="rgba(148,163,184,0.45)"
-                  keyboardType="decimal-pad"
-                  value={customDollars}
-                  onChangeText={setCustomDollars}
-                />
-                {ENABLE_BACKEND ? (
-                  <View style={styles.walletFeeCard}>
-                    <Text style={styles.walletFeeTitle}>Why your total is a little higher than the deposit</Text>
-                    <Text style={styles.walletFeeBody}>
-                      The amount you pick is the cash that lands in your wallet for entry fees — dollar for dollar. Card networks charge
-                      a small fee to run secure payments, so we add {(WALLET_DEPOSIT_FEE_PERCENT * 100).toFixed(1)}% +{' '}
-                      {formatUsdFromCents(WALLET_DEPOSIT_FIXED_FEE_CENTS)} on top. That way your playable balance matches what you chose,
-                      and the processing cost is covered transparently.
-                    </Text>
-                    <View style={styles.walletFeeRows}>
-                      <View style={styles.walletFeeRow}>
-                        <Text style={styles.walletFeeRowLbl}>Added to your cash wallet</Text>
-                        <Text style={styles.walletFeeRowVal}>{formatUsdFromCents(amountCents)}</Text>
-                      </View>
-                      <View style={styles.walletFeeRow}>
-                        <Text style={styles.walletFeeRowLbl}>Card processing</Text>
-                        <Text style={styles.walletFeeRowVal}>{formatUsdFromCents(walletFeeCents)}</Text>
-                      </View>
-                      <View style={[styles.walletFeeRow, styles.walletFeeRowTotal]}>
-                        <Text style={styles.walletFeeRowLblStrong}>You pay (total)</Text>
-                        <Text style={styles.walletFeeRowValStrong}>{formatUsdFromCents(walletTotalChargeCents)}</Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={styles.hint}>
-                    Guest mode: we credit the full amount you choose on this device — no card processing in offline demo.
-                  </Text>
-                )}
-                <Text style={styles.hint}>
-                  {ENABLE_BACKEND && checkoutUnlocked
-                    ? stripeReady && whopReady
-                      ? 'Next: choose Stripe or Whop, then pay securely (in-app Stripe sheet or browser checkout).'
-                      : useEmbeddedSheet
-                        ? 'You will pay with Stripe’s in-app sheet (Apple Pay / Google Pay / card).'
-                        : whopReady
-                          ? 'You will pay through Whop (hosted checkout in the browser).'
-                          : 'You will pay with Stripe (hosted checkout in the browser on web, or in-app when publishable key is set).'
-                    : 'Guest mode: tap Continue to add demo cash on this device.'}
-                </Text>
-                <Pressable onPress={() => void onContinueToPayment()} style={({ pressed }) => [styles.ctaOuter, pressed && { opacity: 0.92 }]}>
-                  <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaGrad}>
-                    <Text style={styles.ctaTxt}>Continue to payment</Text>
-                    <SafeIonicons name="arrow-forward" size={20} color="#fff" />
-                  </LinearGradient>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text style={styles.payHead}>Payment</Text>
-                <Text style={styles.paySub}>
-                  {formatUsdFromCents(amountCents)} to your wallet · {formatUsdFromCents(walletFeeCents)} processing ·{' '}
-                  <Text style={styles.paySubStrong}>{formatUsdFromCents(walletTotalChargeCents)} charged</Text>
-                </Text>
-                {stripeReady && whopReady ? (
-                  <View style={styles.payMethodBlock}>
-                    <Text style={styles.payMethodLbl}>Pay with</Text>
-                    <View style={styles.payMethodRow}>
-                      <Pressable
-                        onPress={() => setCheckoutProvider('stripe')}
-                        style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
-                      >
-                        <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setCheckoutProvider('whop')}
-                        style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
-                      >
-                        <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : null}
-                {checkoutUnlocked ? (
-                  checkoutProvider === 'whop' ? (
-                    <Text style={styles.stripeNote}>
-                      Whop opens a secure checkout in the browser. When you finish, you return here automatically.
-                    </Text>
-                  ) : (
-                    <Text style={styles.stripeNote}>
-                      {useEmbeddedSheet
-                        ? 'Stripe opens a secure payment sheet inside the app.'
-                        : 'A secure Stripe page opens in the browser. When you finish, you return here automatically.'}
-                    </Text>
-                  )
-                ) : (
-                  <Text style={styles.stripeNote}>
-                    {ENABLE_BACKEND
-                      ? 'Checkout is not enabled in this build — enable Stripe and/or Whop in project env.'
-                      : 'Guest mode — adds cash on this device only (no payment processor).'}
-                  </Text>
-                )}
-                {useEmbeddedSheet ? (
-                  <WalletPaySheetButton
-                    amountCents={amountCents}
-                    payLabel={checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
-                    onComplete={handleWalletPaid}
-                  />
-                ) : (
-                  <Pressable
-                    onPress={onPayWallet}
-                    disabled={topUpWallet.isPending}
-                    style={({ pressed }) => [styles.ctaOuter, pressed && !topUpWallet.isPending && { opacity: 0.92 }]}
-                  >
-                    <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
-                      {topUpWallet.isPending ? (
-                        <ActivityIndicator color="#fff" />
-                      ) : (
-                        <>
-                          <SafeIonicons name="card-outline" size={22} color="#fff" />
-                          <Text style={styles.ctaTxt}>
-                            {checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          <>
+        <>
+            <Text style={styles.statSectionLbl}>BUY ARCADE CREDITS</Text>
             <Text style={styles.sectionLbl}>Credit packs</Text>
             <Text style={styles.hint}>Tap a pack to select it — your choice is highlighted.</Text>
             <View style={styles.packGrid}>
@@ -697,18 +711,349 @@ export default function AddFundsScreen() {
               </Pressable>
             )}
           </>
-        )}
 
         {ENABLE_BACKEND && stripeReady ? (
           <Pressable onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')} style={styles.linkRow}>
             <SafeIonicons name="link-outline" size={18} color={runit.neonCyan} />
-            <Text style={styles.linkTxt}>Creator payouts — Stripe Connect</Text>
+            <Text style={styles.linkTxt}>Payout details — Stripe Connect</Text>
+            <SafeIonicons name="chevron-forward" size={18} color="rgba(148,163,184,0.8)" />
+          </Pressable>
+        ) : null}
+
+        {ENABLE_BACKEND ? (
+          <Pressable onPress={() => router.push('/(app)/(tabs)/profile/whop-payouts')} style={styles.linkRow}>
+            <SafeIonicons name="open-outline" size={18} color={runit.neonCyan} />
+            <Text style={styles.linkTxt}>Whop payouts (optional)</Text>
             <SafeIonicons name="chevron-forward" size={18} color="rgba(148,163,184,0.8)" />
           </Pressable>
         ) : null}
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <Modal
+        visible={depositModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDepositModalVisible(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setDepositModalVisible(false)} />
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>+ DEPOSIT FUNDS</Text>
+              <Pressable
+                onPress={() => setDepositModalVisible(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <SafeIonicons name="close" size={26} color="rgba(148,163,184,0.95)" />
+              </Pressable>
+            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={styles.sheetScroll}
+            >
+              {depositStep === 'amount' ? (
+                <>
+                  <View style={styles.sheetPresets}>
+                    {PRESETS_CENTS.map((c) => {
+                      const active = customDollars.trim() === '' && selectedCents === c;
+                      return (
+                        <Pressable
+                          key={c}
+                          onPress={() => {
+                            setCustomDollars('');
+                            setSelectedCents(c);
+                          }}
+                          style={({ pressed }) => [
+                            styles.sheetPreset,
+                            active && styles.sheetPresetOn,
+                            pressed && { opacity: 0.88 },
+                          ]}
+                        >
+                          <Text style={[styles.sheetPresetTxt, active && styles.sheetPresetTxtOn]}>
+                            {formatUsdFromCents(c)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    style={styles.sheetInput}
+                    placeholder="$ Custom amount"
+                    placeholderTextColor="rgba(148,163,184,0.45)"
+                    keyboardType="decimal-pad"
+                    value={customDollars}
+                    onChangeText={setCustomDollars}
+                  />
+                  {checkoutUnlocked && uid ? (
+                    <Text style={styles.sheetPolicy}>{WALLET_DEPOSIT_WITHDRAW_POLICY}</Text>
+                  ) : null}
+                  {ENABLE_BACKEND ? (
+                    <View style={styles.sheetFeeMini}>
+                      <View style={styles.sheetFeeRow}>
+                        <Text style={styles.sheetFeeLbl}>Wallet credit</Text>
+                        <Text style={styles.sheetFeeVal}>{formatUsdFromCents(amountCents)}</Text>
+                      </View>
+                      <View style={styles.sheetFeeRow}>
+                        <Text style={styles.sheetFeeLbl}>Card processing</Text>
+                        <Text style={styles.sheetFeeVal}>{formatUsdFromCents(walletFeeCents)}</Text>
+                      </View>
+                      <View style={[styles.sheetFeeRow, styles.sheetFeeRowTotal]}>
+                        <Text style={styles.sheetFeeLblStrong}>You pay</Text>
+                        <Text style={styles.sheetFeeValStrong}>{formatUsdFromCents(walletTotalChargeCents)}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.sheetHint}>Guest mode adds the full amount on this device (demo).</Text>
+                  )}
+                  <Text style={styles.sheetPartner}>
+                    {checkoutUnlocked
+                      ? 'You will be taken to our secure payment partner to complete your deposit.'
+                      : ENABLE_BACKEND
+                        ? 'Card checkout is not enabled in this build.'
+                        : 'Guest mode: continue adds demo cash on this device.'}
+                  </Text>
+                  <Pressable
+                    onPress={() => void onContinueToPayment()}
+                    style={({ pressed }) => [styles.sheetCtaOuter, pressed && { opacity: 0.92 }]}
+                  >
+                    <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetCtaGrad}>
+                      <SafeIonicons name="open-outline" size={20} color="#052e16" />
+                      <Text style={styles.sheetCtaTxtDark}>Continue to payment</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Pressable
+                    onPress={() => setDepositStep('amount')}
+                    style={styles.sheetBackRow}
+                    accessibilityRole="button"
+                  >
+                    <SafeIonicons name="chevron-back" size={20} color={W.cyan} />
+                    <Text style={styles.sheetBackLbl}>Amount</Text>
+                  </Pressable>
+                  <Text style={styles.paySub}>
+                    {formatUsdFromCents(amountCents)} to your wallet · {formatUsdFromCents(walletFeeCents)} processing ·{' '}
+                    <Text style={styles.paySubStrong}>{formatUsdFromCents(walletTotalChargeCents)} charged</Text>
+                  </Text>
+                  {stripeReady && whopReady ? (
+                    <View style={styles.payMethodBlock}>
+                      <Text style={styles.payMethodLbl}>Pay with</Text>
+                      <View style={styles.payMethodRow}>
+                        <Pressable
+                          onPress={() => setCheckoutProvider('stripe')}
+                          style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
+                        >
+                          <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setCheckoutProvider('whop')}
+                          style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
+                        >
+                          <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+                  {checkoutUnlocked ? (
+                    checkoutProvider === 'whop' ? (
+                      <Text style={styles.stripeNote}>
+                        Whop opens a secure checkout in the browser. When you finish, you return here automatically.
+                      </Text>
+                    ) : (
+                      <Text style={styles.stripeNote}>
+                        {useEmbeddedSheet
+                          ? 'Stripe opens a secure payment sheet inside the app.'
+                          : 'A secure Stripe page opens in the browser. When you finish, you return here automatically.'}
+                      </Text>
+                    )
+                  ) : (
+                    <Text style={styles.stripeNote}>
+                      {ENABLE_BACKEND
+                        ? 'Checkout is not enabled in this build — enable Stripe and/or Whop in project env.'
+                        : 'Guest mode — adds cash on this device only (no payment processor).'}
+                    </Text>
+                  )}
+                  {useEmbeddedSheet ? (
+                    <WalletPaySheetButton
+                      amountCents={amountCents}
+                      payLabel={checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                      onComplete={handleWalletPaid}
+                    />
+                  ) : (
+                    <Pressable
+                      onPress={onPayWallet}
+                      disabled={topUpWallet.isPending}
+                      style={({ pressed }) => [styles.sheetCtaOuter, pressed && !topUpWallet.isPending && { opacity: 0.92 }]}
+                    >
+                      <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetCtaGrad}>
+                        {topUpWallet.isPending ? (
+                          <ActivityIndicator color="#052e16" />
+                        ) : (
+                          <>
+                            <SafeIonicons name="open-outline" size={20} color="#052e16" />
+                            <Text style={styles.sheetCtaTxtDark}>
+                              {checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
+                            </Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={withdrawModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWithdrawModalVisible(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setWithdrawModalVisible(false)} />
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>− WITHDRAW</Text>
+              <Pressable
+                onPress={() => setWithdrawModalVisible(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <SafeIonicons name="close" size={26} color="rgba(148,163,184,0.95)" />
+              </Pressable>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.sheetScroll}>
+              {withdrawStripeLoading && ENABLE_BACKEND && uid ? (
+                <ActivityIndicator color={W.cyan} style={{ marginVertical: 24 }} />
+              ) : !ENABLE_BACKEND ? (
+                <Text style={styles.sheetHint}>Sign in with an online account to withdraw cash to your bank.</Text>
+              ) : !uid ? (
+                <Text style={styles.sheetHint}>Create an account or sign in to withdraw.</Text>
+              ) : stripePayoutReady ? (
+                <>
+                  <Text style={styles.sheetBody}>
+                    Available: <Text style={styles.sheetBodyStrong}>{formatUsdFromCents(walletCents)}</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    placeholder="Amount (USD)"
+                    placeholderTextColor="rgba(148,163,184,0.45)"
+                    keyboardType="decimal-pad"
+                    value={withdrawUsd}
+                    onChangeText={setWithdrawUsd}
+                  />
+                  <Text style={styles.sheetPartner}>Funds move to your connected bank through Stripe (min $1.00).</Text>
+                  <Pressable
+                    onPress={() => void onWithdrawStripe()}
+                    disabled={withdrawing}
+                    style={({ pressed }) => [styles.sheetCtaOuter, pressed && !withdrawing && { opacity: 0.92 }]}
+                  >
+                    <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetCtaGrad}>
+                      {withdrawing ? (
+                        <ActivityIndicator color="#052e16" />
+                      ) : (
+                        <>
+                          <SafeIonicons name="cash-outline" size={20} color="#052e16" />
+                          <Text style={styles.sheetCtaTxtDark}>Withdraw to bank</Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </Pressable>
+                </>
+              ) : whopCompanyId ? (
+                <>
+                  <Text style={styles.sheetBody}>
+                    Whop is linked. Move cash to your Whop balance, then cash out from their payout portal.
+                  </Text>
+                  <Text style={styles.sheetBody}>
+                    Available: <Text style={styles.sheetBodyStrong}>{formatUsdFromCents(walletCents)}</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    placeholder="Amount (USD)"
+                    placeholderTextColor="rgba(148,163,184,0.45)"
+                    keyboardType="decimal-pad"
+                    value={withdrawUsd}
+                    onChangeText={setWithdrawUsd}
+                  />
+                  <Pressable
+                    onPress={() => void onWithdrawWhop()}
+                    disabled={withdrawing}
+                    style={({ pressed }) => [styles.sheetCtaOuter, pressed && !withdrawing && { opacity: 0.92 }]}
+                  >
+                    <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetCtaGrad}>
+                      {withdrawing ? (
+                        <ActivityIndicator color="#052e16" />
+                      ) : (
+                        <>
+                          <SafeIonicons name="open-outline" size={20} color="#052e16" />
+                          <Text style={styles.sheetCtaTxtDark}>Send to Whop</Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void onOpenWhopPortalFromModal()}
+                    disabled={whopPortalBusy}
+                    style={({ pressed }) => [styles.sheetSecondary, pressed && { opacity: 0.9 }]}
+                  >
+                    {whopPortalBusy ? (
+                      <ActivityIndicator color={W.cyan} />
+                    ) : (
+                      <Text style={styles.sheetSecondaryTxt}>Open Whop payout portal</Text>
+                    )}
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sheetBody}>
+                    {hasStripeAccount
+                      ? 'Stripe still needs a verified bank before we can send cash. Continue setup in the secure browser flow.'
+                      : 'Connect a bank account to withdraw. Card deposits do not require this — only cash-outs.'}
+                  </Text>
+                  <Pressable
+                    onPress={() => void onStripeConnectFromModal()}
+                    style={({ pressed }) => [styles.sheetCtaOuter, pressed && { opacity: 0.92 }]}
+                  >
+                    <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sheetCtaGrad}>
+                      <SafeIonicons name="link-outline" size={20} color="#052e16" />
+                      <Text style={styles.sheetCtaTxtDark}>{hasStripeAccount ? 'Continue Stripe setup' : 'Set up Stripe payouts'}</Text>
+                    </LinearGradient>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void onOpenWhopPortalFromModal()}
+                    disabled={whopPortalBusy}
+                    style={({ pressed }) => [styles.sheetSecondary, pressed && { opacity: 0.9 }]}
+                  >
+                    {whopPortalBusy ? (
+                      <ActivityIndicator color={W.cyan} />
+                    ) : (
+                      <Text style={styles.sheetSecondaryTxt}>Or use Whop payouts</Text>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')}
+                    style={({ pressed }) => [styles.sheetTertiary, pressed && { opacity: 0.88 }]}
+                  >
+                    <Text style={styles.sheetTertiaryTxt}>Full payout screen →</Text>
+                  </Pressable>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {whopReady ? <WhopCheckoutHost /> : null}
     </Screen>
   );
@@ -1040,4 +1385,119 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(148,163,184,0.2)',
   },
   linkTxt: { flex: 1, color: runit.neonCyan, fontWeight: '700', fontSize: 14 },
+  sheetOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 18 },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,6,23,0.76)' },
+  sheetCard: {
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(10,14,28,0.98)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.28)',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    maxHeight: 560,
+  },
+  sheetScroll: { maxHeight: 480 },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sheetTitle: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  sheetPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  sheetPreset: {
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(51,65,85,0.9)',
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    minWidth: '22%',
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  sheetPresetOn: {
+    borderColor: 'rgba(34,211,238,0.75)',
+    backgroundColor: 'rgba(8,47,73,0.5)',
+  },
+  sheetPresetTxt: { color: '#e2e8f0', fontWeight: '800', fontSize: 14 },
+  sheetPresetTxtOn: { color: W.cyan },
+  sheetInput: {
+    borderWidth: 1,
+    borderColor: 'rgba(51,65,85,0.95)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    backgroundColor: 'rgba(15,23,42,0.92)',
+    marginBottom: 12,
+  },
+  sheetPolicy: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  sheetFeeMini: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.22)',
+    backgroundColor: 'rgba(8,47,73,0.28)',
+    padding: 12,
+    marginBottom: 12,
+    gap: 6,
+  },
+  sheetFeeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sheetFeeLbl: { color: 'rgba(148,163,184,0.95)', fontSize: 12 },
+  sheetFeeVal: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
+  sheetFeeRowTotal: {
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148,163,184,0.2)',
+  },
+  sheetFeeLblStrong: { color: '#f0f9ff', fontSize: 13, fontWeight: '900' },
+  sheetFeeValStrong: { color: W.cyan, fontSize: 14, fontWeight: '900' },
+  sheetHint: { color: 'rgba(148,163,184,0.88)', fontSize: 13, lineHeight: 19, marginBottom: 12 },
+  sheetPartner: {
+    color: 'rgba(148,163,184,0.82)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  sheetCtaOuter: { borderRadius: 14, overflow: 'hidden', marginBottom: 10 },
+  sheetCtaGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+  },
+  sheetCtaTxtDark: { color: '#052e16', fontWeight: '900', fontSize: 15, letterSpacing: 0.3 },
+  sheetBackRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  sheetBackLbl: { color: W.cyan, fontWeight: '800', fontSize: 14 },
+  sheetBody: { color: 'rgba(226,232,240,0.95)', fontSize: 14, lineHeight: 21, marginBottom: 12 },
+  sheetBodyStrong: { color: '#f8fafc', fontWeight: '900' },
+  sheetSecondary: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.4)',
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  sheetSecondaryTxt: { color: W.cyan, fontWeight: '800', fontSize: 14 },
+  sheetTertiary: { paddingVertical: 10, alignItems: 'center' },
+  sheetTertiaryTxt: { color: 'rgba(148,163,184,0.9)', fontWeight: '700', fontSize: 13 },
 });
