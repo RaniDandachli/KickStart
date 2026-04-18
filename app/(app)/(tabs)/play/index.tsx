@@ -24,6 +24,7 @@ import {
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { BackendModeBanner } from '@/components/BackendModeBanner';
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
@@ -42,7 +43,14 @@ export default function PlayHubScreen() {
   const [showCabinetIntro, setShowCabinetIntro] = useState(() => !arcadeCabinetIntroPlayedThisSession);
   const [soloPlayGate, setSoloPlayGate] = useState(false);
   const [arcadeHowItWorksOpen, setArcadeHowItWorksOpen] = useState(false);
+  const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
   const uid = useAuthStore((s) => s.user?.id);
+  const needAccount = ENABLE_BACKEND && !uid;
+
+  function onAddMoneyPress() {
+    if (needAccount) setGuestPrompt('arcade_credits');
+    else presentAddMoneyChooser(router);
+  }
   const profileQ = useProfile(uid);
   const demoPrizeCredits = usePrizeCreditsDisplay();
   useRestoreBottomTabBarOnFocus();
@@ -82,10 +90,7 @@ export default function PlayHubScreen() {
           <Text style={styles.howItWorksText}>How Arcade works</Text>
         </Pressable>
 
-        <ArcadeBalanceBar
-          balanceLabel={prizeBalanceLabel}
-          onAddPress={() => presentAddMoneyChooser(router)}
-        />
+        <ArcadeBalanceBar balanceLabel={prizeBalanceLabel} onAddPress={onAddMoneyPress} />
 
         {ENABLE_BACKEND && uid && profileQ.isError ? (
           <Pressable
@@ -122,7 +127,7 @@ export default function PlayHubScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Add funds"
-                onPress={() => presentAddMoneyChooser(router)}
+                onPress={onAddMoneyPress}
                 style={({ pressed }) => [styles.prizeZeroChip, styles.prizeZeroChipGhost, pressed && { opacity: 0.88 }]}
               >
                 <Text style={[styles.prizeZeroChipTxt, { color: '#5eead4' }]}>Add funds</Text>
@@ -257,6 +262,11 @@ export default function PlayHubScreen() {
       </ArcadeFloor>
       {showCabinetIntro ? <ArcadeCabinetIntro onComplete={onCabinetIntroDone} /> : null}
       <ArcadeHowItWorksModal visible={arcadeHowItWorksOpen} onClose={() => setArcadeHowItWorksOpen(false)} />
+      <GuestAuthPromptModal
+        visible={guestPrompt != null}
+        variant={guestPrompt ?? 'arcade_credits'}
+        onClose={() => setGuestPrompt(null)}
+      />
     </View>
   );
 }

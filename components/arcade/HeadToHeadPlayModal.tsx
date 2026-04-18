@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatUsdFromCents } from '@/lib/money';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { SKILL_CONTEST_OPERATOR_PRIZE } from '@/lib/skillContestCopy';
 
 type Props = {
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: 'rgba(6,2,14,0.96)',
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     maxHeight: '92%',
   },
   sheetScroll: { paddingBottom: 4 },

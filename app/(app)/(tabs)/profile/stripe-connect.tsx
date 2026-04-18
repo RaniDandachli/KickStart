@@ -31,7 +31,7 @@ import {
   type StripeConnectStatus,
 } from '@/services/wallet/stripeConnectOnboarding';
 import { withdrawWalletToConnect } from '@/services/wallet/withdrawWallet';
-import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, appBorderAccentMuted, runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 
 function newIdempotencyKey(): string {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.35)',
+    borderColor: appBorderAccentMuted,
     marginBottom: 14,
   },
   head: { color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 10 },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   altRailTxt: { color: 'rgba(167,139,250,0.95)', fontSize: 13, fontWeight: '800' },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 12,

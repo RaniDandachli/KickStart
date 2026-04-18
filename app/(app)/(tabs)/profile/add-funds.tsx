@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { WhopCheckoutHost } from '@/components/wallet/WhopCheckoutHost';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
@@ -41,7 +42,7 @@ import {
   walletDepositProcessingFeeCents,
   walletDepositTotalChargeCents,
 } from '@/lib/walletDepositFee';
-import { runit, runitFont } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit, runitFont } from '@/lib/runitArcadeTheme';
 import {
   assertValidTopUpAmountCents,
   completeCreditsPackagePurchase,
@@ -81,17 +82,25 @@ function WalletPaySheetButton({
   amountCents,
   payLabel,
   onComplete,
+  guestBlocked,
+  onGuestBlocked,
 }: {
   amountCents: number;
   /** e.g. "Pay $10.59" — includes processing fee line */
   payLabel: string;
   onComplete: (completed: boolean) => void;
+  guestBlocked?: boolean;
+  onGuestBlocked?: () => void;
 }) {
   const { payWallet } = useWalletPaymentSheet();
   const [pending, setPending] = useState(false);
   return (
     <Pressable
       onPress={() => {
+        if (guestBlocked) {
+          onGuestBlocked?.();
+          return;
+        }
         void (async () => {
           setPending(true);
           try {
@@ -123,16 +132,24 @@ function CreditsPaySheetButton({
   packageId,
   payLabel,
   onComplete,
+  guestBlocked,
+  onGuestBlocked,
 }: {
   packageId: string;
   payLabel: string;
   onComplete: (completed: boolean) => void;
+  guestBlocked?: boolean;
+  onGuestBlocked?: () => void;
 }) {
   const { payCredits } = useWalletPaymentSheet();
   const [pending, setPending] = useState(false);
   return (
     <Pressable
       onPress={() => {
+        if (guestBlocked) {
+          onGuestBlocked?.();
+          return;
+        }
         void (async () => {
           setPending(true);
           try {
@@ -200,16 +217,24 @@ export default function AddFundsScreen() {
   const [customDollars, setCustomDollars] = useState('');
   const [selectedPackId, setSelectedPackId] = useState<string>(CREDIT_PACKAGES[1]?.id ?? CREDIT_PACKAGES[0]?.id ?? '');
   const [checkoutProvider, setCheckoutProvider] = useState<WalletCheckoutProvider>('stripe');
+  const [guestAuthPrompt, setGuestAuthPrompt] = useState<GuestAuthPromptVariant | null>(null);
 
   const connectId = profileQ.data?.stripe_connect_account_id;
   const whopCompanyId = profileQ.data?.whop_company_id;
 
   useEffect(() => {
+    if (uid) setGuestAuthPrompt(null);
+  }, [uid]);
+
+  useEffect(() => {
     if (tabFromRoute === 'wallet') {
-      setDepositModalVisible(true);
-      setDepositStep('amount');
+      if (ENABLE_BACKEND && !uid) setGuestAuthPrompt('wallet');
+      else {
+        setDepositModalVisible(true);
+        setDepositStep('amount');
+      }
     }
-  }, [tabFromRoute]);
+  }, [tabFromRoute, uid]);
 
   useEffect(() => {
     if (!depositModalVisible) setDepositStep('amount');
@@ -321,6 +346,10 @@ export default function AddFundsScreen() {
   });
 
   const onContinueToPayment = useCallback(() => {
+    if (ENABLE_BACKEND && !uid) {
+      setGuestAuthPrompt('wallet');
+      return;
+    }
     try {
       assertValidTopUpAmountCents(amountCents);
     } catch (e) {
@@ -328,19 +357,27 @@ export default function AddFundsScreen() {
       return;
     }
     setDepositStep('payment');
-  }, [amountCents]);
+  }, [amountCents, uid]);
 
   const onPayWallet = useCallback(() => {
+    if (ENABLE_BACKEND && !uid) {
+      setGuestAuthPrompt('wallet');
+      return;
+    }
     topUpWallet.mutate();
-  }, [topUpWallet]);
+  }, [topUpWallet, uid]);
 
   const onPayCredits = useCallback(() => {
+    if (ENABLE_BACKEND && !uid) {
+      setGuestAuthPrompt('arcade_credits');
+      return;
+    }
     if (!selectedPackId) {
       Alert.alert('Credits', 'Choose a package.');
       return;
     }
     buyCredits.mutate();
-  }, [buyCredits, selectedPackId]);
+  }, [buyCredits, selectedPackId, uid]);
 
   const stripePayoutReady = useMemo(
     () => withdrawStripeStatus?.payouts_enabled === true,
@@ -533,8 +570,11 @@ export default function AddFundsScreen() {
               <View style={styles.vCardActions}>
                 <Pressable
                   onPress={() => {
-                    setDepositStep('amount');
-                    setDepositModalVisible(true);
+                    if (ENABLE_BACKEND && !uid) setGuestAuthPrompt('wallet');
+                    else {
+                      setDepositStep('amount');
+                      setDepositModalVisible(true);
+                    }
                   }}
                   style={({ pressed }) => [styles.btnDeposit, pressed && { opacity: 0.92 }]}
                 >
@@ -543,7 +583,9 @@ export default function AddFundsScreen() {
                   </LinearGradient>
                 </Pressable>
                 <Pressable
-                  onPress={() => setWithdrawModalVisible(true)}
+                  onPress={() =>
+                    ENABLE_BACKEND && !uid ? setGuestAuthPrompt('withdraw') : setWithdrawModalVisible(true)
+                  }
                   style={({ pressed }) => [styles.btnWithdraw, pressed && { opacity: 0.9 }]}
                 >
                   <Text style={styles.btnWithdrawTxt}>- WITHDRAW</Text>
@@ -689,6 +731,8 @@ export default function AddFundsScreen() {
                 packageId={selectedPackId}
                 payLabel={`Pay ${formatUsdFromCents(selectedPack.priceCents)}`}
                 onComplete={handleCreditsPaid}
+                guestBlocked={ENABLE_BACKEND && !uid}
+                onGuestBlocked={() => setGuestAuthPrompt('arcade_credits')}
               />
             ) : (
               <Pressable
@@ -884,6 +928,8 @@ export default function AddFundsScreen() {
                       amountCents={amountCents}
                       payLabel={checkoutUnlocked ? `Pay ${formatUsdFromCents(walletTotalChargeCents)}` : 'Add cash (device)'}
                       onComplete={handleWalletPaid}
+                      guestBlocked={ENABLE_BACKEND && !uid}
+                      onGuestBlocked={() => setGuestAuthPrompt('wallet')}
                     />
                   ) : (
                     <Pressable
@@ -1053,6 +1099,12 @@ export default function AddFundsScreen() {
           </View>
         </View>
       </Modal>
+
+      <GuestAuthPromptModal
+        visible={guestAuthPrompt != null}
+        variant={guestAuthPrompt ?? 'wallet'}
+        onClose={() => setGuestAuthPrompt(null)}
+      />
 
       {whopReady ? <WhopCheckoutHost /> : null}
     </Screen>
@@ -1242,7 +1294,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     backgroundColor: 'rgba(8,4,18,0.65)',
   },
   presetOn: { borderColor: runit.neonCyan, backgroundColor: 'rgba(167,139,250,0.08)' },
@@ -1251,7 +1303,7 @@ const styles = StyleSheet.create({
   customLbl: { color: 'rgba(148,163,184,0.9)', fontSize: 12, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -1306,7 +1358,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     backgroundColor: 'rgba(8,4,18,0.65)',
   },
   payPillOn: { borderColor: runit.neonCyan, backgroundColor: 'rgba(167,139,250,0.08)' },
@@ -1319,7 +1371,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     backgroundColor: 'rgba(8,4,18,0.72)',
   },
   packOn: {
@@ -1351,7 +1403,7 @@ const styles = StyleSheet.create({
   selectionSummary: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.4)',
+    borderColor: appBorderAccent,
     backgroundColor: 'rgba(167,139,250,0.06)',
     paddingVertical: 12,
     paddingHorizontal: 14,

@@ -15,7 +15,7 @@ import { useTournaments } from '@/hooks/useTournaments';
 import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
 import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
-import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appChromeGradientFadePink, runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -201,7 +201,7 @@ export default function TournamentsListScreen() {
         return (
           <Pressable key={t.id} onPress={() => router.push(`/(app)/(tabs)/tournaments/${t.id}`)} style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}>
             <LinearGradient
-              colors={isHi ? [runit.neonCyan, runit.neonPurple] : [runit.neonPurple, 'rgba(157,78,237,0.3)']}
+              colors={isHi ? [runit.neonCyan, runit.neonPink] : [runit.neonPink, appChromeGradientFadePink]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.cardBorder}
@@ -249,7 +249,7 @@ function cupAccentGradient(accent: (typeof CREDIT_CUPS)[number]['accent']): read
     case 'emerald':
       return ['#047857', '#34d399'] as const;
     default:
-      return [runit.neonPurple, 'rgba(157,78,237,0.3)'] as const;
+      return [runit.neonPink, appChromeGradientFadePink] as const;
   }
 }
 

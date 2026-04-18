@@ -18,6 +18,7 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { ShippingAddressForm } from '@/components/profile/ShippingAddressForm';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -37,7 +38,14 @@ import { getSupabase } from '@/supabase/client';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { redeemGiftCard } from '@/services/redeemGiftCard';
 import { getNextRewardTarget } from '@/lib/nextRewardProgress';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  appBorderAccent,
+  appBorderAccentMuted,
+  runit,
+  runitFont,
+  runitGlowPinkSoft,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 
 type ShippingModal =
   | null
@@ -81,6 +89,8 @@ export default function PrizesScreen() {
   const [shippingModal, setShippingModal] = useState<ShippingModal>(null);
   const [draft, setDraft] = useState(emptyShippingAddress);
   const [redeemingGiftId, setRedeemingGiftId] = useState<string | null>(null);
+  const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
+  const needAccount = ENABLE_BACKEND && !uid;
 
   const addressFingerprint = JSON.stringify(address);
 
@@ -217,7 +227,12 @@ export default function PrizesScreen() {
       <Text style={[styles.pageTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>PRIZES</Text>
       <Text style={styles.pageSub}>Spend redeem tickets here — earn them from arcade prize runs</Text>
 
-      <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/shipping-address')} style={styles.shipLink}>
+      <Pressable
+        onPress={() =>
+          needAccount ? setGuestPrompt('shipping') : pushCrossTab(router, '/(app)/(tabs)/profile/shipping-address')
+        }
+        style={styles.shipLink}
+      >
         <View style={styles.iconLine}>
           <SafeIonicons name="cube-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Shipping address for physical prizes →</Text>
@@ -232,7 +247,12 @@ export default function PrizesScreen() {
           </Text>
         </View>
       </View>
-      <Pressable onPress={() => pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')} style={styles.shipLink}>
+      <Pressable
+        onPress={() =>
+          needAccount ? setGuestPrompt('prizes') : pushCrossTab(router, '/(app)/(tabs)/profile/add-funds')
+        }
+        style={styles.shipLink}
+      >
         <View style={styles.iconLine}>
           <SafeIonicons name="card-outline" size={16} color={runit.neonCyan} accessibilityIgnoresInvertColors />
           <Text style={styles.shipLinkText}>Buy credits & tickets (pricing) →</Text>
@@ -461,6 +481,12 @@ export default function PrizesScreen() {
           </SafeAreaView>
         </KeyboardAvoidingView>
       </Modal>
+
+      <GuestAuthPromptModal
+        visible={guestPrompt != null}
+        variant={guestPrompt ?? 'prizes'}
+        onClose={() => setGuestPrompt(null)}
+      />
     </Screen>
   );
 }
@@ -513,7 +539,7 @@ const styles = StyleSheet.create({
   infoCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.4)',
+    borderColor: appBorderAccentMuted,
     backgroundColor: 'rgba(12,6,22,0.85)',
     padding: 12,
     marginBottom: 10,
@@ -538,10 +564,10 @@ const styles = StyleSheet.create({
   prizeCard: {
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     backgroundColor: 'rgba(12,6,22,0.88)',
     overflow: 'hidden',
-    shadowColor: 'rgba(157,78,237,0.22)',
+    shadowColor: runitGlowPinkSoft.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
     shadowRadius: 5,
@@ -581,7 +607,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
   },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4 },
   modalSub: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginBottom: 12 },

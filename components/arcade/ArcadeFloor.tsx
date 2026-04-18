@@ -4,7 +4,12 @@ import { type PropsWithChildren } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { runit } from '@/lib/runitArcadeTheme';
+import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
+import {
+  APP_SCREEN_GRADIENT_COLORS,
+  APP_SCREEN_GRADIENT_LOCATIONS,
+  runit,
+} from '@/lib/runitArcadeTheme';
 
 /** Extra space so scroll content clears the bottom tab bar (icons + labels). */
 const TAB_BAR_CLEARANCE = Platform.OS === 'ios' ? 54 : 56;
@@ -24,28 +29,21 @@ function ScanlineOverlay() {
   );
 }
 
-/** Pink / cyan horizon glow + purple haze — clean 80s arcade floor. */
+/** Extra floor polish — pink horizon + stars + scanlines (Home uses the same `HomeNeonBackground` streaks). */
 function ArcadeRetroAtmosphere() {
   return (
     <>
       <LinearGradient
-        colors={['rgba(157,78,237,0.18)', 'transparent', 'rgba(0,240,255,0.1)']}
-        start={{ x: 0.15, y: 0 }}
-        end={{ x: 0.85, y: 0.95 }}
-        style={styles.atmoTop}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['transparent', 'rgba(255,0,110,0.08)', 'rgba(6,2,14,0.95)']}
-        start={{ x: 0.5, y: 0.35 }}
+        colors={['transparent', 'rgba(255,0,110,0.1)', 'rgba(6,2,14,0.88)']}
+        start={{ x: 0.5, y: 0.38 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.atmoBottom}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={['transparent', 'rgba(255,0,110,0.07)', 'transparent']}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
+        colors={['transparent', 'rgba(236,72,153,0.09)', 'transparent']}
+        start={{ x: 0, y: 0.55 }}
+        end={{ x: 1, y: 0.45 }}
         style={styles.horizonGlow}
         pointerEvents="none"
       />
@@ -91,12 +89,13 @@ export function ArcadeFloor({ children }: PropsWithChildren) {
 
   return (
     <LinearGradient
-      colors={[runit.bgDeep, '#12081f', '#0c0618', '#050208']}
-      locations={[0, 0.35, 0.65, 1]}
+      colors={[...APP_SCREEN_GRADIENT_COLORS]}
+      locations={[...APP_SCREEN_GRADIENT_LOCATIONS]}
       style={styles.flex}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
     >
+      <HomeNeonBackground />
       <ArcadeRetroAtmosphere />
       <StatusBar style="light" />
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
@@ -115,13 +114,6 @@ export function ArcadeFloor({ children }: PropsWithChildren) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 16 },
-  atmoTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '58%',
-  },
   atmoBottom: {
     position: 'absolute',
     left: 0,

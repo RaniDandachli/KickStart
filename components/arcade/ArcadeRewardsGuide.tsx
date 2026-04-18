@@ -11,7 +11,7 @@ import {
     TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
     WELCOME_PRIZE_CREDITS,
 } from '@/lib/arcadeEconomy';
-import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import {
     ARCADE_TICKET_SCORE_RULES,
     STACKER_JACKPOT_TICKETS,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     padding: 2,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.35)',
+    borderColor: appBorderAccentMuted,
   },
   outerCollapsed: {
     marginBottom: 12,

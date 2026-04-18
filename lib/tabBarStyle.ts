@@ -1,7 +1,10 @@
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Platform } from 'react-native';
 
-import { runit } from '@/lib/runitArcadeTheme';
+import { appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
+
+/** Desktop web top tab row height — exported so the corner logo aligns vertically. */
+export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 44;
 
 export type TabBarSafeInsets = { top: number; bottom: number; left?: number; right?: number };
 
@@ -19,15 +22,14 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   const useWebTopChrome = Platform.OS === 'web' && opts?.webTopBar === true;
   if (useWebTopChrome) {
     const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
-    const padTop = Math.max(insets.top, 10) + 4;
-    const padBottom = 14;
-    /** RN `getTabBarHeight` only reads `height` — tall enough for icon + label beside (web). */
-    const contentIconAndLabel = 52;
+    /** Slim strip: same tone as page shows through (body / scene) — not a separate “dock”. */
+    const padTop = Math.max(insets.top, 8) + 2;
+    const padBottom = 8;
+    const contentIconAndLabel = WEB_TOP_TAB_BAR_ROW_HEIGHT_PX;
     return {
-      backgroundColor: runit.bgDeep,
+      backgroundColor: 'transparent',
       borderTopWidth: 0,
-      borderBottomWidth: 2,
-      borderBottomColor: 'rgba(157, 78, 237, 0.45)',
+      borderBottomWidth: 0,
       paddingTop: padTop,
       paddingBottom: padBottom,
       paddingHorizontal: padH,
@@ -52,7 +54,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       backgroundColor: 'rgba(5, 2, 14, 0.76)',
       borderTopWidth: 0,
       borderWidth: 1,
-      borderColor: 'rgba(157, 78, 237, 0.4)',
+      borderColor: appTabBarBorderAccent,
       borderRadius: 22,
       marginHorizontal: 12,
       marginBottom: 10,
@@ -78,7 +80,7 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   return {
     backgroundColor: runit.bgDeep,
     borderTopWidth: 2,
-    borderTopColor: 'rgba(157, 78, 237, 0.45)',
+    borderTopColor: appTabBarBorderAccent,
     paddingTop: padTop,
     paddingBottom: bottomPad,
     paddingHorizontal: 6,

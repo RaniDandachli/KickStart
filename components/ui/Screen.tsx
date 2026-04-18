@@ -4,6 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
+import { APP_SCREEN_GRADIENT_COLORS, APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
+
 export function Screen({
   children,
   scroll = true,
@@ -26,12 +29,13 @@ export function Screen({
 
   return (
     <LinearGradient
-      colors={['#06020e', '#12081f', '#0c0618', '#050208']}
-      locations={[0, 0.35, 0.65, 1]}
+      colors={[...APP_SCREEN_GRADIENT_COLORS]}
+      locations={[...APP_SCREEN_GRADIENT_LOCATIONS]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={styles.flex}
     >
+      <HomeNeonBackground />
       <StatusBar style="light" />
       <SafeAreaView className={`flex-1 ${className ?? ''}`} edges={['top', 'left', 'right']}>
         {inner}

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { runit } from '@/lib/runitArcadeTheme';
+import { WEB_TOP_TAB_BAR_ROW_HEIGHT_PX } from '@/lib/tabBarStyle';
 import { useAuthStore } from '@/store/authStore';
 
 /**
@@ -20,8 +21,12 @@ export function WebBrowseAuthBar() {
     return null;
   }
 
-  /** Desktop web: align with top tab strip. Narrow web: status bar only (bottom tabs match native). */
-  const top = webTopTabs ? Math.max(insets.top, 10) + 12 : insets.top + 8;
+  /** Desktop web: vertically center in the slim top tab strip. Narrow web: status bar only. */
+  const top = webTopTabs
+    ? Math.max(insets.top, 8) +
+      2 +
+      Math.max(0, (WEB_TOP_TAB_BAR_ROW_HEIGHT_PX - 40) / 2)
+    : insets.top + 8;
   const right = Math.max(insets.right, 12);
 
   return (

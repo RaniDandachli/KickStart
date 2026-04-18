@@ -5,7 +5,7 @@ import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } fro
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { arcade } from '@/lib/arcadeTheme';
-import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, appChromeLinePink, runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 const WINNER_ROTATION_MS = 3800;
 /** How often lobby stats nudge (feels “live”). */
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(8,4,18,0.65)',
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.28)',
+    borderColor: appBorderAccentMuted,
   },
   winnerTickerRow: {
     flexDirection: 'row',
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
   },
-  arcadeGamesSectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
+  arcadeGamesSectionLine: { flex: 1, height: 1, backgroundColor: appChromeLinePink },
   pickTier: {
     color: arcade.textMuted,
     fontSize: 11,

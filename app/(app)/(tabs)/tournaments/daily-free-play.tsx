@@ -5,6 +5,7 @@ import { Alert, Text, View } from 'react-native';
 
 import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
 import { Screen } from '@/components/ui/Screen';
+import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import {
   computeOpponentRoundScore,
   getDailyTournamentPrizeUsd,
@@ -15,8 +16,8 @@ import {
   todayYmdLocal,
   titleForDailyGame,
 } from '@/lib/dailyFreeTournament';
-import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { pushProfilePollingPause } from '@/lib/profilePollingPause';
+import { appChromeLinePink, runit } from '@/lib/runitArcadeTheme';
 import NeonBallRunGame from '@/minigames/ballrun/BallRunGame';
 import TapDashGame from '@/minigames/tapdash/TapDashGame';
 import TileClashGame from '@/minigames/tileclash/TileClashGame';
@@ -133,14 +134,14 @@ export default function DailyFreeTournamentPlayScreen() {
   const roundTitle = titleForDailyGame(gameKey);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#04080f' }}>
+    <View style={{ flex: 1, backgroundColor: runit.bgDeep }}>
       <View
         style={{
           paddingHorizontal: 12,
           paddingTop: 8,
           paddingBottom: 4,
           borderBottomWidth: 1,
-          borderBottomColor: 'rgba(148,163,184,0.2)',
+          borderBottomColor: appChromeLinePink,
         }}
       >
         <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(148,163,184,0.9)', letterSpacing: 1 }}>

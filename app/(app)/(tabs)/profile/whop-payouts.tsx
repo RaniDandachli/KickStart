@@ -10,7 +10,7 @@ import {
   PAYOUT_WHOP_TRANSFER_SUCCESS,
 } from '@/lib/payoutCopy';
 import { queryKeys } from '@/lib/queryKeys';
-import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { openWhopPayoutPortal } from '@/services/wallet/whopPayoutOnboarding';
 import { withdrawWalletToWhop } from '@/services/wallet/withdrawWalletToWhop';
 import { useAuthStore } from '@/store/authStore';
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.35)',
+    borderColor: appBorderAccentMuted,
     marginBottom: 14,
   },
   badge: {

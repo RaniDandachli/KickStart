@@ -1,3 +1,4 @@
+import { appBorderAccent } from '@/lib/runitArcadeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type PropsWithChildren } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   ghost: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 2,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     paddingHorizontal: 24,
     paddingVertical: 14,
   },

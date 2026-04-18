@@ -2,7 +2,15 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { runit, runitFont, runitGlowCyanSoft, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  appChromeLinePink,
+  runit,
+  runitFont,
+  runitGlowCyanSoft,
+  runitGlowPinkSoft,
+  runitTextGlowCyan,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 
 interface Props {
   /** Head-to-head 1v1 (Home tab). */
@@ -74,7 +82,7 @@ const styles = StyleSheet.create({
   ruleLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(157,78,237,0.45)',
+    backgroundColor: appChromeLinePink,
     marginLeft: 4,
   },
   row: { flexDirection: 'row', gap: 10 },

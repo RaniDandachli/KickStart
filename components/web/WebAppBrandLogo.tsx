@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { isWebLaptopViewport } from '@/lib/homeWebLayout';
+import { WEB_TOP_TAB_BAR_ROW_HEIGHT_PX } from '@/lib/tabBarStyle';
 
 const LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
@@ -31,9 +32,8 @@ export function WebAppBrandLogo() {
   if (Platform.OS !== 'web' || !desktopTopTabs) return null;
   if (isHomeTab && isWebLaptopViewport(width)) return null;
 
-  const padTop = Math.max(insets.top, 10) + 4;
-  const barContentH = 52;
-  const top = padTop + (barContentH - DESKTOP_H) / 2;
+  const padTop = Math.max(insets.top, 8) + 2;
+  const top = padTop + (WEB_TOP_TAB_BAR_ROW_HEIGHT_PX - DESKTOP_H) / 2;
   return (
     <View style={[styles.corner, { top, left: Math.max(insets.left, 16) }]} pointerEvents="none">
       <Image

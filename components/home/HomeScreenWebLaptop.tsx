@@ -17,7 +17,7 @@ import type { HomeLobbyRecentReward } from '@/services/api/homeLobby';
 import type { ProfileFightStats } from '@/services/api/profileFightStats';
 import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
-import { runit, runitFont } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
 
 const TIER_SUB =
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,4,18,0.72)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.25)',
+    borderColor: appBorderAccentMuted,
     padding: 18,
     minHeight: 200,
   },

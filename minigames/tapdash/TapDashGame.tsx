@@ -23,6 +23,7 @@ import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arca
 import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
 import { awardRedeemTicketsForPrizeRun, TAP_DASH_POINTS_PER_TICKET, ticketsFromTapDashScore } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
+import { runit } from '@/lib/runitArcadeTheme';
 import { getSupabase } from '@/supabase/client';
 import {
   MINIGAME_HUD_MS,
@@ -1054,7 +1055,7 @@ export default function TapDashGame({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#04080f' },
+  safe: { flex: 1, backgroundColor: runit.bgDeep },
   root: { flex: 1, width: '100%' },
   topBar: {
     flexDirection: 'row',

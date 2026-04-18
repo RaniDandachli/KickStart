@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import {
   BallRunGameIcon,
@@ -36,7 +37,14 @@ import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { isWebLaptopViewport } from '@/lib/homeWebLayout';
 import { formatUsdFromCents } from '@/lib/money';
-import { runit, runitFont } from '@/lib/runitArcadeTheme';
+import {
+  APP_SCREEN_GRADIENT_COLORS,
+  APP_SCREEN_GRADIENT_LOCATIONS,
+  appBorderAccentMuted,
+  appChromeLinePink,
+  runit,
+  runitFont,
+} from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 
@@ -98,6 +106,44 @@ export default function HomeScreen() {
   const walletDisplay = formatUsdFromCents(walletCents);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [playNowOpen, setPlayNowOpen] = useState(false);
+  const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
+  const needAccount = ENABLE_BACKEND && !uid;
+
+  function openGuestPrompt(v: GuestAuthPromptVariant) {
+    setGuestPrompt(v);
+  }
+
+  function goAddMoney() {
+    if (needAccount) openGuestPrompt('wallet');
+    else pushCrossTab(router, SHOP_PATH as never);
+  }
+
+  function goWalletShop() {
+    if (needAccount) openGuestPrompt('wallet');
+    else pushCashWalletShop(router);
+  }
+
+  function openPlayNowOrAuth() {
+    if (needAccount) openGuestPrompt('play');
+    else setPlayNowOpen(true);
+  }
+
+  function browseLiveOrAuth() {
+    if (needAccount) openGuestPrompt('play');
+    else goBrowseLive();
+  }
+
+  function entryTierOrAuth(entry: number, prize: number) {
+    if (needAccount) openGuestPrompt('play');
+    else {
+      const ec = Math.round(entry * 100);
+      const pc = Math.round(prize * 100);
+      pushCrossTab(
+        router,
+        `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
+      );
+    }
+  }
 
   function goQuickMatch() {
     const rt = encodeURIComponent('/(app)/(tabs)');
@@ -151,8 +197,8 @@ export default function HomeScreen() {
   if (webLaptopHome) {
     return (
       <LinearGradient
-        colors={['#06020e', '#12081f', '#0c0618', '#050208']}
-        locations={[0, 0.35, 0.65, 1]}
+        colors={[...APP_SCREEN_GRADIENT_COLORS]}
+        locations={[...APP_SCREEN_GRADIENT_LOCATIONS]}
         style={styles.screenRoot}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -170,13 +216,13 @@ export default function HomeScreen() {
             uid={uid}
             dailyDayKey={todaysKey}
             dailyResetCountdownHms={dailyResetCountdown}
-            onWalletPress={() => pushCashWalletShop(router)}
-            onAddMoney={() => pushCrossTab(router, SHOP_PATH as never)}
-            onPlayNow={() => setPlayNowOpen(true)}
+            onWalletPress={goWalletShop}
+            onAddMoney={goAddMoney}
+            onPlayNow={openPlayNowOrAuth}
             onHowItWorks={() => setHowItWorksOpen(true)}
             onEnterDailyTournament={goDailyTournament}
-            onBrowseLiveMatches={goBrowseLive}
-            onGameCardPress={() => goBrowseLive()}
+            onBrowseLiveMatches={browseLiveOrAuth}
+            onGameCardPress={() => browseLiveOrAuth()}
             h2hIconFor={h2hIconFor}
             h2hGradients={h2hGradients}
           />
@@ -192,7 +238,8 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   setPlayNowOpen(false);
-                  goQuickMatch();
+                  if (needAccount) openGuestPrompt('play');
+                  else goQuickMatch();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -207,7 +254,8 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   setPlayNowOpen(false);
-                  goChooseContest();
+                  if (needAccount) openGuestPrompt('play');
+                  else goChooseContest();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -222,14 +270,20 @@ export default function HomeScreen() {
             </View>
           </View>
         </Modal>
+
+        <GuestAuthPromptModal
+          visible={guestPrompt != null}
+          variant={guestPrompt ?? 'wallet'}
+          onClose={() => setGuestPrompt(null)}
+        />
       </LinearGradient>
     );
   }
 
   return (
     <LinearGradient
-      colors={['#06020e', '#12081f', '#0c0618', '#050208']}
-      locations={[0, 0.35, 0.65, 1]}
+      colors={[...APP_SCREEN_GRADIENT_COLORS]}
+      locations={[...APP_SCREEN_GRADIENT_LOCATIONS]}
       style={styles.screenRoot}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
@@ -254,22 +308,15 @@ export default function HomeScreen() {
           <HomePlayHero
             liveLobby={liveLobby}
             walletDisplay={walletDisplay}
-            onWalletPress={() => pushCashWalletShop(router)}
-            onEntryTierPress={(entry, prize) => {
-              const ec = Math.round(entry * 100);
-              const pc = Math.round(prize * 100);
-              pushCrossTab(
-                router,
-                `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${encodeURIComponent(String(entry))}&prize=${encodeURIComponent(String(prize))}`,
-              );
-            }}
-            onQuickMatch={goQuickMatch}
+            onWalletPress={goWalletShop}
+            onEntryTierPress={entryTierOrAuth}
+            onQuickMatch={() => (needAccount ? openGuestPrompt('play') : goQuickMatch())}
             onHowItWorksPress={() => setHowItWorksOpen(true)}
             webStacked={isWeb}
             compactHome
           >
             <Pressable
-              onPress={() => pushCrossTab(router, SHOP_PATH as never)}
+              onPress={goAddMoney}
               accessibilityRole="button"
               accessibilityLabel="Add money — open wallet and top-up"
               style={({ pressed }) => [styles.addMoneyHeroBtn, pressed && { opacity: 0.92 }]}
@@ -285,7 +332,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </Pressable>
             <Pressable
-              onPress={() => setPlayNowOpen(true)}
+              onPress={openPlayNowOrAuth}
               accessibilityRole="button"
               accessibilityLabel="Play now"
               style={({ pressed }) => [styles.playNowBtn, pressed && { opacity: 0.92 }]}
@@ -300,7 +347,7 @@ export default function HomeScreen() {
               <View style={styles.liveCarouselHeadLeft}>
                 <Text style={[styles.liveCarouselTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
                 <Pressable
-                  onPress={goBrowseLive}
+                  onPress={browseLiveOrAuth}
                   accessibilityRole="button"
                   accessibilityLabel="Join a match — open live matches"
                   style={({ pressed }) => [pressed && { opacity: 0.85 }]}
@@ -309,7 +356,7 @@ export default function HomeScreen() {
                   <Text style={styles.liveCarouselJoinHint}>Join a match</Text>
                 </Pressable>
               </View>
-              <Pressable onPress={goBrowseLive} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+              <Pressable onPress={browseLiveOrAuth} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
                 <Text style={styles.liveCarouselLink}>See all</Text>
               </Pressable>
             </View>
@@ -318,7 +365,7 @@ export default function HomeScreen() {
               h2hIconFor={h2hIconFor}
               h2hGradients={h2hGradients}
               phoneWeb={!webDesktopTabs}
-              onRowPress={() => goBrowseLive()}
+              onRowPress={() => browseLiveOrAuth()}
             />
           </HomePlayHero>
 
@@ -495,7 +542,8 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   setPlayNowOpen(false);
-                  goQuickMatch();
+                  if (needAccount) openGuestPrompt('play');
+                  else goQuickMatch();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -510,7 +558,8 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   setPlayNowOpen(false);
-                  goChooseContest();
+                  if (needAccount) openGuestPrompt('play');
+                  else goChooseContest();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -525,6 +574,12 @@ export default function HomeScreen() {
             </View>
           </View>
         </Modal>
+
+        <GuestAuthPromptModal
+          visible={guestPrompt != null}
+          variant={guestPrompt ?? 'wallet'}
+          onClose={() => setGuestPrompt(null)}
+        />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -612,7 +667,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
   },
-  sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.45)' },
+  sectionLine: { flex: 1, height: 1, backgroundColor: appChromeLinePink },
   homeTourneyFreePill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -786,7 +841,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.3)',
+    borderColor: appBorderAccentMuted,
     backgroundColor: 'rgba(8,4,18,0.7)',
   },
   seasonName: { color: '#fff', fontWeight: '800', fontSize: 15 },

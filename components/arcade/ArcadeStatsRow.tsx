@@ -2,7 +2,7 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type ViewStyle, StyleSheet, Text, View } from 'react-native';
 
-import { runit, runitFont } from '@/lib/runitArcadeTheme';
+import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
 
 type StatConfig = {
   label: string;
@@ -30,9 +30,9 @@ const STATS: StatConfig[] = [
     label: 'RANK',
     value: 'Gold III',
     icon: 'star-outline',
-    border: [runit.neonPurple, 'rgba(157,78,237,0.35)'],
+    border: [runit.neonPink, appChromeGradientFadePink],
     glow: {
-      shadowColor: 'rgba(157, 78, 237, 0.45)',
+      shadowColor: 'rgba(255, 0, 110, 0.45)',
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 1,
       shadowRadius: 12,

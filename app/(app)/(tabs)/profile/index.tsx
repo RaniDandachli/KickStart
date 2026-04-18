@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { AppButton } from '@/components/ui/AppButton';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
@@ -33,7 +34,16 @@ import { pushCrossTab } from '@/lib/appNavigation';
 import { shortRelativeTime } from '@/lib/relativeTime';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  appBorderAccent,
+  appBorderAccentMuted,
+  appChromeLinePink,
+  runit,
+  runitFont,
+  runitGlowPinkSoft,
+  runitTextGlowCyan,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 import {
   normalizeUsername,
   updateProfileFields,
@@ -73,8 +83,19 @@ export default function ProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   /** Bumps after upload + refetch so Image remounts (RN caches same URL after Storage upsert). */
   const [avatarRenderNonce, setAvatarRenderNonce] = useState(0);
+  const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
 
   const useServer = ENABLE_BACKEND && !!uid;
+  const needAccount = ENABLE_BACKEND && !uid;
+
+  function openGuestPrompt(v: GuestAuthPromptVariant) {
+    setGuestPrompt(v);
+  }
+
+  function goAddFundsScreen() {
+    if (needAccount) openGuestPrompt('wallet');
+    else router.push('/(app)/(tabs)/profile/add-funds');
+  }
 
   const profileStatCards = useMemo(() => {
     if (!useServer) {
@@ -400,7 +421,7 @@ export default function ProfileScreen() {
                 <View style={styles.walletZeroRow}>
                   <Pressable
                     style={({ pressed }) => [styles.walletZeroChip, pressed && { opacity: 0.88 }]}
-                    onPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
+                    onPress={goAddFundsScreen}
                   >
                     <Text style={styles.walletZeroChipTxt}>Add funds</Text>
                   </Pressable>
@@ -437,7 +458,7 @@ export default function ProfileScreen() {
             </View>
             <Pressable
               style={({ pressed }) => [styles.addFundsBtn, pressed && { opacity: 0.88 }]}
-              onPress={() => router.push('/(app)/(tabs)/profile/add-funds')}
+              onPress={goAddFundsScreen}
             >
               <SafeIonicons name="add-circle-outline" size={18} color="#fff" />
               <Text style={styles.addFundsBtnText}>ADD FUNDS</Text>
@@ -449,7 +470,9 @@ export default function ProfileScreen() {
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.wBtn, styles.wBtnGhost, pressed && { opacity: 0.85 }]}
-                onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')}
+                onPress={() =>
+                  needAccount ? openGuestPrompt('withdraw') : router.push('/(app)/(tabs)/profile/stripe-connect')
+                }
               >
                 <SafeIonicons name="arrow-down-circle-outline" size={16} color={runit.neonCyan} />
                 <Text style={[styles.wBtnText, { color: runit.neonCyan }]}>WITHDRAW</Text>
@@ -457,7 +480,9 @@ export default function ProfileScreen() {
             </View>
             {ENABLE_BACKEND ? (
               <Pressable
-                onPress={() => router.push('/(app)/(tabs)/profile/whop-payouts')}
+                onPress={() =>
+                  needAccount ? openGuestPrompt('withdraw') : router.push('/(app)/(tabs)/profile/whop-payouts')
+                }
                 style={({ pressed }) => [styles.whopPayoutLink, pressed && { opacity: 0.85 }]}
               >
                 <Text style={styles.whopPayoutLinkTxt}>Whop payouts (beta) — optional alternative to Stripe</Text>
@@ -592,7 +617,9 @@ export default function ProfileScreen() {
         <Pressable
           accessibilityRole="button"
           style={({ pressed }) => [styles.actionRowCard, pressed && styles.actionRowCardPressed]}
-          onPress={() => router.push('/(app)/(tabs)/profile/transactions')}
+          onPress={() =>
+            needAccount ? openGuestPrompt('wallet') : router.push('/(app)/(tabs)/profile/transactions')
+          }
         >
           <View style={styles.actionRowLeft}>
             <SafeIonicons name="receipt-outline" size={24} color={runit.neonCyan} />
@@ -614,6 +641,12 @@ export default function ProfileScreen() {
           </Pressable>
         ) : null}
       </View>
+
+      <GuestAuthPromptModal
+        visible={guestPrompt != null}
+        variant={guestPrompt ?? 'wallet'}
+        onClose={() => setGuestPrompt(null)}
+      />
     </Screen>
   );
 }
@@ -698,7 +731,7 @@ const styles = StyleSheet.create({
   fieldLbl: { color: 'rgba(203,213,225,0.95)', fontSize: 12, fontWeight: '800', letterSpacing: 0.4, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccentMuted,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -753,9 +786,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: 'rgba(167,139,250,0.25)',
+    backgroundColor: 'rgba(255,0,110,0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.5)',
+    borderColor: appBorderAccent,
   },
   walletZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(34,211,238,0.45)' },
   walletZeroChipTxt: { color: '#fff', fontWeight: '800', fontSize: 12 },
@@ -763,7 +796,7 @@ const styles = StyleSheet.create({
   pill: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.25)',
+    borderColor: appBorderAccentMuted,
     backgroundColor: 'rgba(6,2,14,0.6)',
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -780,9 +813,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     marginBottom: 10,
-    backgroundColor: 'rgba(167,139,250,0.15)',
+    backgroundColor: 'rgba(255,0,110,0.12)',
     borderWidth: 2,
-    borderColor: 'rgba(167,139,250,0.55)',
+    borderColor: appBorderAccent,
   },
   addFundsBtnText: { color: runit.neonCyan, fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   walletBtns: { flexDirection: 'row', gap: 10 },
@@ -794,7 +827,7 @@ const styles = StyleSheet.create({
   whopPayoutLinkTxt: {
     fontSize: 12,
     lineHeight: 17,
-    color: 'rgba(167,139,250,0.95)',
+    color: 'rgba(255,182,193,0.95)',
     fontWeight: '700',
     textAlign: 'center',
     textDecorationLine: 'underline',
@@ -808,11 +841,11 @@ const styles = StyleSheet.create({
   },
   wBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   wBtnPrimary: { backgroundColor: runit.neonPink, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
-  wBtnGhost: { borderWidth: 2, borderColor: 'rgba(167,139,250,0.55)', backgroundColor: 'rgba(167,139,250,0.06)' },
+  wBtnGhost: { borderWidth: 2, borderColor: appBorderAccent, backgroundColor: 'rgba(255,0,110,0.06)' },
   wBtnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
   sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   sectionTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 2 },
-  sectionLine: { flex: 1, height: 1, backgroundColor: 'rgba(157,78,237,0.4)' },
+  sectionLine: { flex: 1, height: 1, backgroundColor: appChromeLinePink },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   statGrad: { flex: 1, borderRadius: 14, padding: 2 },
   statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },

@@ -6,6 +6,7 @@
 @media (min-width: 900px) {
   html,
   body {
-    background-color: #030208;
+    /* Match `runit.bgDeep` so the transparent top tab strip feels like the page, not a floating bar */
+    background-color: #06020e;
   }
 }

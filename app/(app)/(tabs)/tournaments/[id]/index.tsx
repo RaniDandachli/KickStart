@@ -14,7 +14,13 @@ import {
 } from '@/features/tournaments/tournamentPresentation';
 import { useJoinTournament, useTournament, useTournamentRules } from '@/hooks/useTournaments';
 import { useAuthStore } from '@/store/authStore';
-import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  appBorderAccentMuted,
+  appChromeGradientFadePink,
+  runit,
+  runitFont,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 
 export default function TournamentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,7 +58,7 @@ export default function TournamentDetailScreen() {
           <Text style={[styles.name, { fontFamily: runitFont.black }, runitTextGlowPink]}>{t.name}</Text>
           <Text style={styles.desc}>{t.description}</Text>
 
-          <LinearGradient colors={[runit.neonPurple, 'rgba(157,78,237,0.3)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.detailBorder}>
+          <LinearGradient colors={[runit.neonPink, appChromeGradientFadePink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.detailBorder}>
             <View style={styles.detailInner}>
               <InfoRow label="PRIZE" value={t.prize_description} />
               <InfoRow label="SLOTS" value={`${t.current_player_count} / ${t.max_players}`} />
@@ -102,10 +108,10 @@ const styles = StyleSheet.create({
   detailBorder: { borderRadius: 16, padding: 2, marginBottom: 20 },
   detailInner: { backgroundColor: 'rgba(8,4,18,0.88)', borderRadius: 14, padding: 14 },
   infoRow: { marginBottom: 10 },
-  infoLbl: { color: 'rgba(157,78,237,0.9)', fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: 2 },
+  infoLbl: { color: 'rgba(255, 0, 110, 0.92)', fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: 2 },
   infoVal: { color: '#e2e8f0', fontSize: 14, fontWeight: '700' },
   rulesTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 2, marginBottom: 10 },
-  ruleCard: { borderRadius: 12, borderWidth: 1, borderColor: 'rgba(157,78,237,0.3)', backgroundColor: 'rgba(12,6,22,0.85)', padding: 12, marginBottom: 8 },
+  ruleCard: { borderRadius: 12, borderWidth: 1, borderColor: appBorderAccentMuted, backgroundColor: 'rgba(12,6,22,0.85)', padding: 12, marginBottom: 8 },
   ruleTitle: { color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 4 },
   ruleBody: { color: 'rgba(203,213,225,0.85)', fontSize: 13, lineHeight: 18 },
   noRules: { color: 'rgba(148,163,184,0.7)', fontSize: 13, marginBottom: 16 },

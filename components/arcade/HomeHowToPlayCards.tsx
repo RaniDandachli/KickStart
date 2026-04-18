@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,0,110,0.28)',
   },
   iconBoxContest: {
-    backgroundColor: 'rgba(157,78,237,0.18)',
+    backgroundColor: 'rgba(255, 0, 110, 0.18)',
     borderColor: 'rgba(167,139,250,0.32)',
   },
   liveDot: {

@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { MATCH_ENTRY_TIERS, type MatchEntryTier } from '@/components/arcade/matchEntryTiers';
 import { formatUsdFromCents } from '@/lib/money';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 
 type Props = {
   visible: boolean;
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'rgba(6,2,14,0.96)',
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
     maxHeight: '88%',
   },
   scroll: { paddingBottom: 8 },

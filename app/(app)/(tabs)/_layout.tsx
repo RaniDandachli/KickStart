@@ -1,4 +1,5 @@
-import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarButtonProps, BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Tabs, usePathname } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -32,10 +33,19 @@ type IonName = ComponentProps<typeof SafeIonicons>['name'];
 const NATIVE_TAB_ICON = 20;
 /** Web: use SafeIonicons (SVG glyphs) — Ionicon font often paints as empty squares in the tab bar. */
 const WEB_TAB_ICON = 22;
+/** Desktop web top strip: slightly smaller icons so the row feels like a slim header, not a fat toolbar. */
+const WEB_TOP_TAB_ICON = 19;
 
-function tabBarIcon(name: IonName) {
-  const size = Platform.OS === 'web' ? WEB_TAB_ICON : NATIVE_TAB_ICON;
+function tabBarIcon(name: IonName, opts?: { webTop?: boolean }) {
+  const webTop = opts?.webTop === true;
+  const size =
+    Platform.OS === 'web' ? (webTop ? WEB_TOP_TAB_ICON : WEB_TAB_ICON) : NATIVE_TAB_ICON;
   return ({ color }: { color: string }) => <SafeIonicons name={name} color={color} size={size} />;
+}
+
+/** UIKit top tabs default to square hit targets; rounded pill matches VAZA-style active state. */
+function WebTopTabPillButton(props: BottomTabBarButtonProps) {
+  return <PlatformPressable {...props} style={[props.style, { borderRadius: 999 }]} />;
 }
 
 export default function TabsLayout() {
@@ -133,10 +143,15 @@ export default function TabsLayout() {
               tabBarPosition: 'top' as const,
               /** Top bar must not use `material` — RN only allows that for left/right side tabs. */
               tabBarVariant: 'uikit' as const,
+              tabBarButton: (p: BottomTabBarButtonProps) => <WebTopTabPillButton {...p} />,
+              /** Slim header: active tab reads as a soft pill on the page background (not a separate bar). */
+              tabBarActiveBackgroundColor: 'rgba(255, 0, 110, 0.14)',
+              tabBarInactiveBackgroundColor: 'transparent',
               sceneStyle: {
                 maxWidth: 1280,
                 width: '100%' as const,
                 alignSelf: 'center' as const,
+                backgroundColor: 'transparent',
               },
             }
           : {}),
@@ -158,7 +173,8 @@ export default function TabsLayout() {
             : {}),
         },
         tabBarActiveTintColor: '#ff006e',
-        tabBarInactiveTintColor: '#CBD5E1',
+        tabBarInactiveTintColor:
+          Platform.OS === 'web' && webUsesTopTabBar ? 'rgba(248, 250, 252, 0.78)' : '#CBD5E1',
         tabBarShowLabel: true,
         /** RN `Label` only (native); web uses {@link webTabBarLabelRenderer}. */
         tabBarLabelStyle:
@@ -172,15 +188,17 @@ export default function TabsLayout() {
               },
         tabBarIconStyle:
           Platform.OS === 'web' && webUsesTopTabBar
-            ? { marginTop: 2, marginBottom: 0, marginRight: 0 }
+            ? { marginTop: 0, marginBottom: 0, marginRight: 0 }
             : Platform.OS === 'web'
               ? { marginTop: 0, marginBottom: 2 }
               : { marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
           paddingVertical:
-            Platform.OS === 'web' && webUsesTopTabBar ? 10 : Platform.OS === 'web' ? 8 : 5,
+            Platform.OS === 'web' && webUsesTopTabBar ? 6 : Platform.OS === 'web' ? 8 : 5,
           justifyContent: 'center',
-          ...(Platform.OS === 'web' && webUsesTopTabBar ? { paddingHorizontal: 6 } : {}),
+          ...(Platform.OS === 'web' && webUsesTopTabBar
+            ? { paddingHorizontal: 10, borderRadius: 999, marginHorizontal: 2 }
+            : {}),
           ...(Platform.OS === 'web' && !webUsesTopTabBar
             ? {
                 alignItems: 'center' as const,
@@ -196,35 +214,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: tabBarIcon('home'),
+          tabBarIcon: tabBarIcon('home', { webTop: webUsesTopTabBar }),
         }}
       />
       <Tabs.Screen
         name="tournaments"
         options={{
           title: 'Events',
-          tabBarIcon: tabBarIcon('trophy'),
+          tabBarIcon: tabBarIcon('trophy', { webTop: webUsesTopTabBar }),
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
           title: 'Arcade',
-          tabBarIcon: tabBarIcon('game-controller'),
+          tabBarIcon: tabBarIcon('game-controller', { webTop: webUsesTopTabBar }),
         }}
       />
       <Tabs.Screen
         name="prizes"
         options={{
           title: 'Prizes',
-          tabBarIcon: tabBarIcon('gift'),
+          tabBarIcon: tabBarIcon('gift', { webTop: webUsesTopTabBar }),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'You',
-          tabBarIcon: tabBarIcon('person'),
+          tabBarIcon: tabBarIcon('person', { webTop: webUsesTopTabBar }),
         }}
       />
     </Tabs>

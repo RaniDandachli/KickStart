@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type ModalProps = {
   visible: boolean;
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: 'rgba(6,2,14,0.96)',
     borderWidth: 1,
-    borderColor: 'rgba(157,78,237,0.45)',
+    borderColor: appBorderAccent,
   },
   kicker: {
     color: 'rgba(148,163,184,0.95)',

@@ -10,7 +10,7 @@ export function webTabBarLabelRenderer(props: {
   position: 'beside-icon' | 'below-icon';
   children: string;
 }) {
-  const { color, position, children } = props;
+  const { focused, color, position, children } = props;
   const beside = position === 'beside-icon';
   const label = typeof children === 'string' && children.length > 0 ? children : '·';
   /** Narrow web bottom tabs: fill the column — fixed maxWidth was clipping titles on mobile Safari. */
@@ -22,13 +22,13 @@ export function webTabBarLabelRenderer(props: {
       style={[
         {
           color,
-          fontSize: beside ? 14 : 10,
-          lineHeight: beside ? 18 : 13,
-          fontWeight: '700',
-          letterSpacing: 0.15,
+          fontSize: beside ? 13 : 10,
+          lineHeight: beside ? 17 : 13,
+          fontWeight: beside ? (focused ? '800' : '600') : '700',
+          letterSpacing: beside ? 0.02 : 0.15,
           marginTop: beside ? 0 : 4,
-          marginLeft: beside ? 8 : 0,
-          maxWidth: beside ? 140 : undefined,
+          marginLeft: beside ? 6 : 0,
+          maxWidth: beside ? 132 : undefined,
           width: narrowWebStacked ? ('100%' as const) : undefined,
           alignSelf: narrowWebStacked ? 'stretch' : undefined,
           flexShrink: 0,

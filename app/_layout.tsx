@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { NeonArcadeSplash } from '@/components/splash/NeonArcadeSplash';
+import { runit } from '@/lib/runitArcadeTheme';
 import { theme } from '@/lib/theme';
 import { AppProviders } from '@/providers/AppProviders';
 
@@ -61,7 +62,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#060d18' },
+            contentStyle: { backgroundColor: runit.bgDeep },
           }}
         >
           <Stack.Screen name="index" />
