@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -249,7 +249,8 @@ const W = {
 export default function AddFundsScreen() {
   const router = useRouter();
   const { width: winW } = useWindowDimensions();
-  const { tab: tabFromRoute } = useLocalSearchParams<{ tab?: string }>();
+  const { tab: tabFromRoute, status: checkoutReturnStatus, provider: checkoutReturnProvider } =
+    useLocalSearchParams<{ tab?: string; status?: string; provider?: string; session_id?: string }>();
   const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
@@ -288,6 +289,40 @@ export default function AddFundsScreen() {
       }
     }
   }, [tabFromRoute, uid]);
+
+  /** Web: Stripe / Whop hosted checkout uses full-page redirect; resume UX from `successUrl` / `cancelUrl`. */
+  const checkoutReturnHandledRef = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!ENABLE_BACKEND) return;
+
+    const st = checkoutReturnStatus;
+    if (st !== 'success' && st !== 'cancel') {
+      checkoutReturnHandledRef.current = false;
+      return;
+    }
+    if (checkoutReturnHandledRef.current) return;
+    checkoutReturnHandledRef.current = true;
+
+    const isWhop = checkoutReturnProvider === 'whop';
+    const partner = isWhop ? 'Whop' : 'Stripe';
+
+    const finish = () => {
+      router.replace('/(app)/(tabs)/profile/add-funds');
+    };
+
+    if (st === 'cancel') {
+      Alert.alert('Checkout', 'Payment was cancelled.', [{ text: 'OK', onPress: finish }]);
+      return;
+    }
+
+    if (uid) void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    Alert.alert(
+      'Payment',
+      `Thanks! Your balance updates within a few seconds after ${partner} confirms the payment.`,
+      [{ text: 'OK', onPress: finish }],
+    );
+  }, [checkoutReturnStatus, checkoutReturnProvider, uid, qc, router]);
 
   useEffect(() => {
     if (!depositModalVisible) setDepositStep('amount');

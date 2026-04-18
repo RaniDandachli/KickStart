@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
+import { Platform } from 'react-native';
 
 import { walletCheckoutStripeReturnUrls } from '@/lib/walletCheckoutReturnUrls';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
@@ -56,6 +57,15 @@ export async function openStripeCheckoutSession(opts: WalletOpts | CreditsOpts):
   if (payload?.error) throw new Error(payload.error);
   const url = payload?.url;
   if (!url) throw new Error('No checkout URL returned');
+
+  /**
+   * Mobile Safari and many mobile browsers block or break `openAuthSessionAsync` (popup / async gesture).
+   * Same-tab navigation always works; completion is handled when the user returns to `successUrl` (see add-funds).
+   */
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') window.location.assign(url);
+    return false;
+  }
 
   const result = await WebBrowser.openAuthSessionAsync(url, authSessionRedirect);
 

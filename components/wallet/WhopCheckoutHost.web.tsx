@@ -57,9 +57,18 @@ export function WhopCheckoutHost() {
                   onComplete={() => finish(true)}
                 />
               ) : (
-                <Text style={styles.fallbackTxt}>
-                  Missing checkout session. Deploy the latest `createWhopCheckoutSession` (returns sessionId).
-                </Text>
+                // Hosted Whop URL when API omits embed id (or embed blocked — e.g. strict Safari).
+                // eslint-disable-next-line react/forbid-elements -- RN Web: real iframe for Whop hosted page
+                <iframe
+                  title="Whop checkout"
+                  src={payload.url}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: 360,
+                    border: 'none',
+                  }}
+                />
               )}
             </View>
           </View>

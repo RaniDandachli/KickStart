@@ -4,8 +4,9 @@ import { StyleSheet, View } from 'react-native';
 import { APP_SCREEN_GRADIENT_COLORS, APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
 
 /**
- * Desktop web top tabs: React Navigation uses an opaque `colors.card` bar unless `tabBarBackground`
- * is set. This fills the strip with the same gradient as {@link Screen} so the header isn’t a flat slab.
+ * Web tabs (desktop top strip + narrow / iPhone bottom bar): React Navigation uses an opaque
+ * `colors.card` unless `tabBarBackground` is set. This fills the bar with the same gradient as
+ * {@link Screen} so chrome matches the page instead of a separate slab.
  */
 export function WebTopTabBarBackdrop() {
   return (

@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
+import { Platform } from 'react-native';
 
 import { runWhopCheckoutUI } from '@/lib/whopCheckoutBridge';
 import type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
@@ -71,6 +72,11 @@ async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise
  */
 export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
   const p = await buildWhopCheckoutPayload(opts);
+
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') window.location.assign(p.url);
+    return false;
+  }
 
   return runWhopCheckoutUI(p, async () => {
     const result = await WebBrowser.openAuthSessionAsync(p.url, p.authSessionRedirect);

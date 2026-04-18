@@ -137,6 +137,8 @@ export default function TabsLayout() {
         ...(Platform.OS === 'web'
           ? {
               tabBarLabel: webTabBarLabelRenderer,
+              /** Same screen gradient for desktop top strip and iPhone-style bottom tabs (avoids opaque `colors.card`). */
+              tabBarBackground: () => <WebTopTabBarBackdrop />,
             }
           : {}),
         ...(Platform.OS === 'web' && webUsesTopTabBar
@@ -144,8 +146,6 @@ export default function TabsLayout() {
               tabBarPosition: 'top' as const,
               /** Top bar must not use `material` — RN only allows that for left/right side tabs. */
               tabBarVariant: 'uikit' as const,
-              /** Forces container off `colors.card` (opaque on web) — see `WebTopTabBarBackdrop`. */
-              tabBarBackground: () => <WebTopTabBarBackdrop />,
               tabBarButton: (p: BottomTabBarButtonProps) => <WebTopTabPillButton {...p} />,
               /** Slim header: active tab reads as a soft pill on the page background (not a separate bar). */
               tabBarActiveBackgroundColor: 'rgba(255, 0, 110, 0.14)',

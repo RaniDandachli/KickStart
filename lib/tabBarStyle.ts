@@ -1,7 +1,7 @@
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Platform } from 'react-native';
 
-import { appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
 
 /** Desktop web top tab row height — exported so the corner logo aligns vertically. */
 export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 44;
@@ -51,10 +51,11 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
     /** Icon + 1–2 lines of label on narrow mobile web (Safari). */
     const contentForIconAndLabel = 72;
     return {
-      backgroundColor: 'rgba(5, 2, 14, 0.76)',
+      /** Gradient comes from `tabBarBackground` (`WebTopTabBarBackdrop`); keep bar visually continuous with the screen. */
+      backgroundColor: 'transparent',
       borderTopWidth: 0,
       borderWidth: 1,
-      borderColor: appTabBarBorderAccent,
+      borderColor: appBorderAccentMuted,
       borderRadius: 22,
       marginHorizontal: 12,
       marginBottom: 10,
@@ -66,10 +67,10 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       minHeight: padTop + contentForIconAndLabel + padBottom,
       overflow: 'visible',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.4,
-      shadowRadius: 18,
-      elevation: 20,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      elevation: 12,
     };
   }
 

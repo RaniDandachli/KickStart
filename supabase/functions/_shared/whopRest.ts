@@ -138,9 +138,11 @@ export async function whopCheckoutConfigurationsCreate(
   if (!res.ok) {
     throw new Error(whopErrorMessage(data));
   }
-  const purchase_url = (data as { purchase_url?: string }).purchase_url;
+  const d = data as { purchase_url?: string; id?: string; checkout_configuration?: { id?: string } };
+  const purchase_url = d.purchase_url;
   if (!purchase_url) throw new Error('Whop: checkout configuration returned no purchase_url');
-  return { purchase_url, id: (data as { id?: string }).id };
+  const id = d.id ?? d.checkout_configuration?.id;
+  return { purchase_url, id };
 }
 
 export async function whopTransfersCreate(apiKey: string, body: WhopTransferCreateBody): Promise<WhopTransfer> {
