@@ -20,7 +20,7 @@ const DESKTOP_H = 34;
 export function WebAppBrandLogo() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const segments = useSegments();
+  const segments = useSegments() as readonly string[];
   const desktopTopTabs = useWebUsesTopTabBar();
   /** Home tab uses the laptop landing layout with its own wordmark; hide the floating corner logo. */
   const isHomeTab =

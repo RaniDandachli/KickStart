@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
 import { useWalletPaymentSheet } from '@/hooks/useWalletPaymentSheet';
 import { useProfile } from '@/hooks/useProfile';
+import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { CREDIT_PACKAGES } from '@/lib/creditPackages';
@@ -34,7 +36,7 @@ import {
   walletDepositProcessingFeeCents,
   walletDepositTotalChargeCents,
 } from '@/lib/walletDepositFee';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import {
   assertValidTopUpAmountCents,
   completeCreditsPackagePurchase,
@@ -136,14 +138,29 @@ const PRESETS_CENTS = [500, 1000, 2500, 5000] as const;
 type Step = 'amount' | 'payment';
 type ShopTab = 'wallet' | 'credits';
 
+/** VAZA-inspired wallet shell: cyan headers, lime deposit CTA, teal panels (see design pass on Shop). */
+const W = {
+  cyan: '#22d3ee',
+  cyanMuted: 'rgba(34,211,238,0.85)',
+  lime: '#4ade80',
+  limeGrad: ['#4ade80', '#22c55e'] as const,
+  panel: 'rgba(15,23,42,0.92)',
+  panelBorder: 'rgba(56,189,248,0.22)',
+  statBlock: '#0e7490',
+  statBlockBorder: 'rgba(34,211,238,0.35)',
+};
+
 export default function AddFundsScreen() {
   const router = useRouter();
+  const { width: winW } = useWindowDimensions();
   const { tab: tabFromRoute } = useLocalSearchParams<{ tab?: string }>();
   const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
+  const fightQ = useProfileFightStats(uid);
   const walletCents = useWalletDisplayCents();
   const prizeCredits = usePrizeCreditsDisplay();
+  const cardRow = winW >= 720;
 
   const [shopTab, setShopTab] = useState<ShopTab>('wallet');
   const [step, setStep] = useState<Step>('amount');
@@ -272,6 +289,13 @@ export default function AddFundsScreen() {
     buyCredits.mutate();
   }, [buyCredits, selectedPackId]);
 
+  const wins = fightQ.data?.wins ?? 0;
+  const losses = fightQ.data?.losses ?? 0;
+  const played = wins + losses;
+  const winRateStr =
+    ENABLE_BACKEND && uid && played > 0 ? `${Math.round((100 * wins) / played)}%` : '—';
+  const recordStr = ENABLE_BACKEND && uid && played > 0 ? `${wins}/${played}` : '—';
+
   return (
     <Screen>
       <View style={styles.topBar}>
@@ -283,14 +307,105 @@ export default function AddFundsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
         >
-          <SafeIonicons name="chevron-back" size={24} color={runit.neonCyan} />
+          <SafeIonicons name="chevron-back" size={24} color={W.cyan} />
           <Text style={styles.backLbl}>{shopTab === 'wallet' && step === 'payment' ? 'Amount' : 'Back'}</Text>
         </Pressable>
-        <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowCyan]}>SHOP</Text>
         <View style={styles.topSpacer} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={styles.pageInner}>
+          <Text style={[styles.walletHeroTitle, { fontFamily: runitFont.black }]}>WALLET</Text>
+          <Text style={styles.walletHeroSub}>MANAGE YOUR FUNDS AND TRANSACTIONS</Text>
+
+          <View style={[styles.cardGrid, !cardRow && styles.cardGridStack]}>
+            <View style={styles.vCard}>
+              <View style={styles.vCardTop}>
+                <Text style={styles.vCardLbl}>Available balance</Text>
+                <SafeIonicons name="wallet-outline" size={18} color={W.cyan} />
+              </View>
+              <Text style={styles.vCardVal}>{formatUsdFromCents(walletCents)} USD</Text>
+              <View style={styles.vCardActions}>
+                <Pressable
+                  onPress={() => {
+                    setShopTab('wallet');
+                    setStep('amount');
+                  }}
+                  style={({ pressed }) => [styles.btnDeposit, pressed && { opacity: 0.92 }]}
+                >
+                  <LinearGradient colors={W.limeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btnDepositGrad}>
+                    <Text style={styles.btnDepositTxt}>+ DEPOSIT</Text>
+                  </LinearGradient>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (ENABLE_BACKEND) router.push('/(app)/(tabs)/profile/stripe-connect');
+                    else Alert.alert('Withdraw', 'Sign in and connect a bank account to withdraw.');
+                  }}
+                  style={({ pressed }) => [styles.btnWithdraw, pressed && { opacity: 0.9 }]}
+                >
+                  <Text style={styles.btnWithdrawTxt}>- WITHDRAW</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.vCard}>
+              <View style={styles.vCardTop}>
+                <Text style={styles.vCardLbl}>Arcade credits</Text>
+                <SafeIonicons name="sparkles-outline" size={18} color={W.cyan} />
+              </View>
+              <Text style={styles.vCardVal}>{prizeCredits.toLocaleString()}</Text>
+              <Text style={styles.vCardHint}>Prize runs & ticket economy</Text>
+              <Pressable
+                onPress={() => {
+                  setShopTab('credits');
+                  setStep('amount');
+                }}
+                style={({ pressed }) => [styles.btnGhostSm, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.btnGhostSmTxt}>Buy credits →</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.vCard}>
+              <View style={styles.vCardTop}>
+                <Text style={styles.vCardLbl}>Match record</Text>
+                <SafeIonicons name="trending-up-outline" size={18} color={W.cyan} />
+              </View>
+              <Text style={styles.vCardVal}>{winRateStr}</Text>
+              <Text style={styles.vCardHint}>
+                {recordStr === '—' ? 'Ranked H2H stats when you play' : `Record ${recordStr}`}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.statSectionLbl}>WALLET STATISTICS</Text>
+          <View style={styles.statBlocksRow}>
+            <View style={styles.statBlock}>
+              <Text style={styles.statBlockVal}>{formatUsdFromCents(walletCents)}</Text>
+              <Text style={styles.statBlockCap}>Cash balance</Text>
+            </View>
+            <View style={styles.statBlock}>
+              <Text style={styles.statBlockVal}>{winRateStr}</Text>
+              <Text style={styles.statBlockCap}>
+                {recordStr === '—' ? 'Win rate' : `Win rate (${recordStr})`}
+              </Text>
+            </View>
+            <View style={styles.statBlock}>
+              <Text style={styles.statBlockVal}>—</Text>
+              <Text style={styles.statBlockCap}>Total won (coming soon)</Text>
+            </View>
+          </View>
+
+          {profileQ.isLoading ? null : (
+            <Text style={styles.dashboardFoot}>
+              {ENABLE_BACKEND
+                ? 'Cash is for contests & tournaments. Arcade credits are for arcade prize runs.'
+                : 'Guest mode: balances stay on this device until you sign in.'}
+            </Text>
+          )}
+        </View>
+
         <View style={styles.tabs}>
           <Pressable
             onPress={() => {
@@ -311,22 +426,6 @@ export default function AddFundsScreen() {
             <Text style={[styles.tabTxt, shopTab === 'credits' && styles.tabTxtOn]}>Arcade credits</Text>
           </Pressable>
         </View>
-
-        <LinearGradient colors={[runit.neonPurple, runit.neonPink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.balanceOuter, runitGlowPinkSoft]}>
-          <View style={styles.balanceInner}>
-            <Text style={styles.balanceLbl}>Cash balance</Text>
-            <Text style={styles.balanceVal}>{formatUsdFromCents(walletCents)}</Text>
-            <Text style={styles.balanceLbl}>Arcade credits</Text>
-            <Text style={[styles.balanceVal, styles.balanceCredits]}>{prizeCredits.toLocaleString()}</Text>
-            {profileQ.isLoading ? null : (
-              <Text style={styles.balanceMeta}>
-                {ENABLE_BACKEND
-                  ? 'Cash is for contest access & tournaments. Arcade Credits are for arcade runs.'
-                  : 'Guest mode: balances stay on this device. Sign in to sync your wallet and use card top-ups when available.'}
-              </Text>
-            )}
-          </View>
-        </LinearGradient>
 
         {backendPending ? (
           <View style={styles.banner}>
@@ -623,37 +722,146 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backLbl: { color: runit.neonCyan, fontWeight: '800', fontSize: 15 },
-  title: { color: '#fff', fontSize: 16, letterSpacing: 2 },
-  topSpacer: { width: 72 },
+  backLbl: { color: W.cyan, fontWeight: '800', fontSize: 15 },
+  topSpacer: { flex: 1 },
+  pageInner: { maxWidth: 960, width: '100%', alignSelf: 'center', marginBottom: 8 },
+  walletHeroTitle: {
+    color: W.cyan,
+    fontSize: 28,
+    letterSpacing: 4,
+    marginBottom: 6,
+  },
+  walletHeroSub: {
+    color: 'rgba(248,250,252,0.88)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 20,
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 22,
+  },
+  cardGridStack: { flexDirection: 'column' },
+  vCard: {
+    flex: 1,
+    minWidth: 200,
+    backgroundColor: W.panel,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: W.panelBorder,
+    padding: 16,
+  },
+  vCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  vCardLbl: {
+    color: 'rgba(226,232,240,0.92)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  vCardVal: { color: '#f8fafc', fontSize: 22, fontWeight: '900', marginBottom: 6 },
+  vCardHint: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 11,
+    marginBottom: 10,
+    lineHeight: 15,
+  },
+  vCardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  btnDeposit: { borderRadius: 999, overflow: 'hidden', flex: 1, minWidth: 120 },
+  btnDepositGrad: {
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDepositTxt: { color: '#052e16', fontWeight: '900', fontSize: 12, letterSpacing: 0.8 },
+  btnWithdraw: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(13,148,136,0.85)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    flex: 1,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  btnWithdrawTxt: { color: '#5eead4', fontWeight: '800', fontSize: 12, letterSpacing: 0.6 },
+  btnGhostSm: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.35)',
+  },
+  btnGhostSmTxt: { color: W.cyanMuted, fontWeight: '800', fontSize: 12 },
+  statSectionLbl: {
+    color: 'rgba(226,232,240,0.85)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 10,
+  },
+  statBlocksRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  statBlock: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: W.statBlock,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: W.statBlockBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  statBlockVal: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  statBlockCap: { color: 'rgba(240,253,250,0.88)', fontSize: 11, fontWeight: '600' },
+  dashboardFoot: {
+    color: 'rgba(148,163,184,0.85)',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
   tabs: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 14,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(157,78,237,0.45)',
-    backgroundColor: 'rgba(8,4,18,0.65)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.2)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
     alignItems: 'center',
   },
-  tabOn: { borderColor: runit.neonCyan, backgroundColor: 'rgba(167,139,250,0.08)' },
-  tabTxt: { color: '#94a3b8', fontWeight: '800', fontSize: 13 },
-  tabTxtOn: { color: runit.neonCyan },
-  balanceOuter: { borderRadius: 16, padding: 2, marginBottom: 22 },
-  balanceInner: {
-    borderRadius: 14,
-    backgroundColor: 'rgba(6,2,14,0.78)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  tabOn: {
+    borderColor: 'rgba(34,211,238,0.45)',
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    shadowColor: 'rgba(34,211,238,0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  balanceLbl: { color: 'rgba(148,163,184,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  balanceVal: { color: runit.neonCyan, fontSize: 26, fontWeight: '900', marginTop: 2 },
-  balanceCredits: { color: '#f472b6', marginBottom: 4 },
-  balanceMeta: { color: 'rgba(148,163,184,0.8)', fontSize: 12, marginTop: 6 },
+  tabTxt: { color: 'rgba(148,163,184,0.95)', fontWeight: '800', fontSize: 13 },
+  tabTxtOn: { color: W.cyan },
   walletFeeCard: {
     marginBottom: 16,
     padding: 14,

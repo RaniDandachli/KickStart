@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -18,7 +17,6 @@ import type { HomeLobbyRecentReward } from '@/services/api/homeLobby';
 import type { ProfileFightStats } from '@/services/api/profileFightStats';
 import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
-import { pushCrossTab } from '@/lib/appNavigation';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
 
@@ -93,7 +91,6 @@ export function HomeScreenWebLaptop({
   h2hIconFor,
   h2hGradients,
 }: HomeScreenWebLaptopProps) {
-  const router = useRouter();
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(dailyDayKey);
   const dailyRounds = getDailyTournamentRounds(dailyDayKey);
 
@@ -122,35 +119,17 @@ export function HomeScreenWebLaptop({
   const streak =
     fightStats != null && fightStats.current_streak > 0 ? String(fightStats.current_streak) : '—';
 
-  function navTo(href: string) {
-    pushCrossTab(router, href as never);
-  }
-
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.max}>
-        {/* Top nav */}
+        {/* Top bar — wordmark + wallet (tab strip above has Home / Events / Arcade / Prizes with icons) */}
         <View style={styles.topNav}>
           <View style={styles.brandBlock}>
             <Text style={[styles.brandRunIt, { fontFamily: runitFont.black }]}>RUN IT</Text>
-            <Text style={[styles.brandArcades, { fontFamily: runitFont.black }]}>ARCADES</Text>
-          </View>
-          <View style={styles.navLinks}>
-            <Pressable onPress={() => navTo('/(app)/(tabs)')} style={styles.navLinkHit}>
-              <Text style={styles.navLink}>Home</Text>
-            </Pressable>
-            <Pressable onPress={() => navTo('/(app)/(tabs)/tournaments')} style={styles.navLinkHit}>
-              <Text style={styles.navLink}>Events</Text>
-            </Pressable>
-            <Pressable onPress={() => navTo('/(app)/(tabs)/play')} style={styles.navLinkHit}>
-              <Text style={styles.navLink}>Arcade</Text>
-            </Pressable>
-            <Pressable onPress={() => navTo('/(app)/(tabs)/prizes')} style={styles.navLinkHit}>
-              <Text style={styles.navLink}>Prizes</Text>
-            </Pressable>
+            <Text style={[styles.brandArcade, { fontFamily: runitFont.black }]}>ARCADE</Text>
           </View>
           <View style={styles.navRight}>
             <Pressable
@@ -238,8 +217,11 @@ export function HomeScreenWebLaptop({
               end={{ x: 1, y: 1 }}
               style={styles.tourneyCard}
             >
-              <View style={styles.dailyBadge}>
-                <Text style={styles.dailyBadgeTxt}>DAILY TOURNAMENT</Text>
+              <View style={styles.dailyHeadRow}>
+                <View style={styles.dailyBadge}>
+                  <Text style={styles.dailyBadgeTxt}>DAILY TOURNAMENT</Text>
+                </View>
+                <Text style={styles.dailyPrizeAmt}>${dailyPrizeUsd}</Text>
               </View>
               <View style={styles.countdownRow}>
                 <View style={styles.countBox}>
@@ -257,10 +239,6 @@ export function HomeScreenWebLaptop({
                   <Text style={styles.countLbl}>SEC</Text>
                 </View>
               </View>
-              <Text style={[styles.poolLine, { fontFamily: runitFont.black }]}>
-                <Text style={styles.poolUsd}>${dailyPrizeUsd}</Text>
-                <Text style={styles.poolRest}> Prize Pool</Text>
-              </Text>
               <Text style={styles.tourneyFoot}>
                 {ENABLE_DAILY_FREE_TOURNAMENT ? 'Free to enter · ' : ''}Skill path · {dailyRounds}{' '}
                 rounds. New bracket at local midnight.
@@ -444,6 +422,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
     gap: 16,
+    paddingTop: 10,
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(139,92,246,0.75)',
+    backgroundColor: 'rgba(6,2,14,0.35)',
+    borderRadius: 12,
   },
   brandBlock: { minWidth: 100 },
   brandRunIt: {
@@ -452,26 +437,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     lineHeight: 16,
   },
-  brandArcades: {
+  brandArcade: {
     color: runit.neonPink,
     fontSize: 17,
     letterSpacing: 1.4,
     lineHeight: 20,
   },
-  navLinks: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 22,
-  },
-  navLinkHit: { paddingVertical: 6, paddingHorizontal: 4 },
-  navLink: {
-    color: 'rgba(248,250,252,0.92)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  navRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  navRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
   walletPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,21 +546,32 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 18,
   },
+  dailyHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 14,
+  },
   dailyBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: 'rgba(225,29,140,0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255,0,110,0.45)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    marginBottom: 14,
   },
   dailyBadgeTxt: {
     color: runit.neonPink,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  dailyPrizeAmt: {
+    color: '#4ade80',
+    fontSize: 22,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   countdownRow: {
     flexDirection: 'row',
@@ -613,9 +596,6 @@ const styles = StyleSheet.create({
   },
   countLbl: { color: 'rgba(148,163,184,0.85)', fontSize: 9, fontWeight: '700', marginTop: 2 },
   countSep: { color: 'rgba(148,163,184,0.5)', fontSize: 18, fontWeight: '700' },
-  poolLine: { marginBottom: 8 },
-  poolUsd: { color: '#4ade80', fontSize: 28 },
-  poolRest: { color: '#f8fafc', fontSize: 22 },
   tourneyFoot: {
     color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
