@@ -46,14 +46,17 @@ const BGM_ASSET = require('@/assets/sounds/dash-duel-neon-velocity.mp3');
 
 const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
 
-/** Advance units / sec — fixed so difficulty does not ramp as the run goes on. */
+/**
+ * Advance units / sec toward the player — constant for the whole run.
+ * Difficulty comes from more hoop colors + ball color swaps only, not faster approach.
+ */
 const FORWARD_FIXED = 0.12;
 /** Minimum / maximum spacing in advance space when queueing the next hoop. */
 const HOOP_QUEUE_GAP_MIN = 0.45;
 const HOOP_QUEUE_GAP_MAX = 2.45;
 /**
- * Target minimum real time (seconds) for a hoop to travel from spawn to the player plane.
- * When `forward` rises, gap grows so rings don’t stack on top of each other.
+ * Target minimum real time (seconds) for a hoop to travel spawn → player at the fixed forward rate.
+ * Gap scales with that rate so hoops stay spaced; forward itself never ramps.
  */
 const HOOP_ARRIVAL_MIN_SEC = 0.52;
 
@@ -288,8 +291,9 @@ export default function NeonDanceGame({
 
   const pushHoop = useCallback((advance: number) => {
     const n = sectorsRef.current;
+    /** Spin (rad/s) — same statistical range for every hoop; harder tiers add segments, not faster spin. */
     const omega =
-      (Math.sign(Math.random() - 0.5) || 1) * (0.72 + n * 0.28 + Math.random() * 0.45);
+      (Math.sign(Math.random() - 0.5) || 1) * (1.28 + Math.random() * 0.48);
     hoopsRef.current.push({
       id: nextHoopIdRef.current++,
       advance,
@@ -920,8 +924,9 @@ export default function NeonDanceGame({
             <Text style={styles.logoMark}>NEON DANCE</Text>
             <Text style={styles.title}>Neon Dance</Text>
             <Text style={styles.blurb}>
-              Drag anywhere to aim. Tap your color chip to cycle hues when 2+ segments show. After enough hoops or ~45s,
-              rings add a third color; later runs add even more. Wrong segment ends the run.
+              Drag anywhere to aim. Hoops keep the same pace — it gets harder when you cycle ball color (chip) and when
+              rings gain a third color (then more), not from speeding up. After enough hoops or ~45s, rings add that third
+              slice. Wrong segment ends the run.
             </Text>
             {bestLocal != null ? (
               <Text style={styles.bestLbl}>Best run · {bestLocal.toLocaleString()} pts</Text>
