@@ -1,11 +1,12 @@
 import { HomeH2hCarouselWeb } from '@/components/arcade/HomeH2hCarouselWeb';
+import { HomeScreenWebLaptop } from '@/components/home/HomeScreenWebLaptop';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
@@ -33,6 +34,7 @@ import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { presentAddMoneyChooser, pushCashWalletShop } from '@/lib/shopNavigation';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
+import { isWebLaptopViewport } from '@/lib/homeWebLayout';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -43,6 +45,8 @@ const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 export default function HomeScreen() {
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
+  const { width: windowWidth } = useWindowDimensions();
+  const webLaptopHome = isWebLaptopViewport(windowWidth);
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
@@ -110,6 +114,14 @@ export default function HomeScreen() {
     pushCrossTab(router, `/(app)/(tabs)/play/choose-contest?returnTo=${rt}` as never);
   }
 
+  function goDailyTournament() {
+    if (ENABLE_DAILY_FREE_TOURNAMENT) {
+      pushCrossTab(router, '/(app)/(tabs)/tournaments/daily-free');
+    } else {
+      pushCrossTab(router, '/(app)/(tabs)/tournaments');
+    }
+  }
+
   function h2hIconFor(gameKey: H2hGameKey, size: number) {
     switch (gameKey) {
       case 'tap-dash':
@@ -134,6 +146,84 @@ export default function HomeScreen() {
     const bg = row?.bgColors;
     if (bg && bg.length >= 2) return [bg[0], bg[bg.length - 1]];
     return ['#141028', '#3b2b68'];
+  }
+
+  if (webLaptopHome) {
+    return (
+      <LinearGradient
+        colors={['#06020e', '#12081f', '#0c0618', '#050208']}
+        locations={[0, 0.35, 0.65, 1]}
+        style={styles.screenRoot}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      >
+        <StatusBar style="light" />
+        <HomeNeonBackground />
+        <SafeAreaView style={styles.safeLaptop} edges={['top', 'left', 'right']}>
+          <HomeScreenWebLaptop
+            walletDisplay={walletDisplay}
+            walletCents={walletCents}
+            liveLobby={liveLobby}
+            recentRewards={lobbyStatsQ.data?.recent_rewards ?? []}
+            fightStats={fightQ.data}
+            fightLoading={fightQ.isLoading}
+            uid={uid}
+            dailyDayKey={todaysKey}
+            dailyResetCountdownHms={dailyResetCountdown}
+            onWalletPress={() => pushCashWalletShop(router)}
+            onAddMoney={() => presentAddMoneyChooser(router)}
+            onPlayNow={() => setPlayNowOpen(true)}
+            onHowItWorks={() => setHowItWorksOpen(true)}
+            onEnterDailyTournament={goDailyTournament}
+            onBrowseLiveMatches={goBrowseLive}
+            onGameCardPress={() => goBrowseLive()}
+            h2hIconFor={h2hIconFor}
+            h2hGradients={h2hGradients}
+          />
+        </SafeAreaView>
+
+        <HowItWorksModal visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)} />
+
+        <Modal visible={playNowOpen} transparent animationType="fade" onRequestClose={() => setPlayNowOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setPlayNowOpen(false)} />
+            <View style={styles.modalCard}>
+              <Text style={[styles.modalTitle, { fontFamily: runitFont.black }]}>Choose how you want to play</Text>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  goQuickMatch();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="flash" size={18} color={runit.neonCyan} />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Quick Play</Text>
+                </View>
+                <Text style={styles.modalActionSub}>Fastest queue. We find the first available match for you.</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  goChooseContest();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="options-outline" size={18} color={runit.neonPink} />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Start Your Own Match</Text>
+                </View>
+                <Text style={styles.modalActionSub}>Pick your game + contest tier, then queue for an opponent.</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </LinearGradient>
+    );
   }
 
   return (
@@ -443,6 +533,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
+  safeLaptop: { flex: 1, maxWidth: 1280, width: '100%', alignSelf: 'center' },
   scroll: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
   scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   webLogoNarrowRow: {

@@ -1,8 +1,10 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useSegments } from 'expo-router';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
+import { isWebLaptopViewport } from '@/lib/homeWebLayout';
 
 const LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
@@ -17,9 +19,17 @@ const DESKTOP_H = 34;
  */
 export function WebAppBrandLogo() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const segments = useSegments();
   const desktopTopTabs = useWebUsesTopTabBar();
+  /** Home tab uses the laptop landing layout with its own wordmark; hide the floating corner logo. */
+  const isHomeTab =
+    segments[0] === '(app)' &&
+    segments[1] === '(tabs)' &&
+    (segments.length === 2 || (segments.length === 3 && segments[2] === 'index'));
 
   if (Platform.OS !== 'web' || !desktopTopTabs) return null;
+  if (isHomeTab && isWebLaptopViewport(width)) return null;
 
   const padTop = Math.max(insets.top, 10) + 4;
   const barContentH = 52;
