@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { WebBrowseAuthBar } from '@/components/WebBrowseAuthBar';
 import { WebAppBrandLogo, WEB_TOP_LOGO_SLOT_PX } from '@/components/web/WebAppBrandLogo';
+import { WebTopTabBarBackdrop } from '@/components/web/WebTopTabBarBackdrop';
 import { FirstRunTabTour } from '@/components/onboarding/FirstRunTabTour';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
@@ -143,6 +144,8 @@ export default function TabsLayout() {
               tabBarPosition: 'top' as const,
               /** Top bar must not use `material` — RN only allows that for left/right side tabs. */
               tabBarVariant: 'uikit' as const,
+              /** Forces container off `colors.card` (opaque on web) — see `WebTopTabBarBackdrop`. */
+              tabBarBackground: () => <WebTopTabBarBackdrop />,
               tabBarButton: (p: BottomTabBarButtonProps) => <WebTopTabPillButton {...p} />,
               /** Slim header: active tab reads as a soft pill on the page background (not a separate bar). */
               tabBarActiveBackgroundColor: 'rgba(255, 0, 110, 0.14)',
