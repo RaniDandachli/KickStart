@@ -19,7 +19,10 @@ export const ALLOW_GUEST_MODE = !ENABLE_BACKEND;
  */
 export const WALLET_TOPUP_STRIPE_ENABLED = env.EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED;
 
-/** Whop checkout for wallet + arcade credit packs (parallel to Stripe). */
+/**
+ * Whop checkout for wallet top-ups + arcade credit packs (same flows as Stripe; separate Edge + webhook).
+ * Off by default — set `EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED=true` when `createWhopCheckoutSession` + Whop webhook are live.
+ */
 export const WHOP_CHECKOUT_ENABLED = env.EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED;
 
 /** Daily elimination event (no entry fee in-app). */

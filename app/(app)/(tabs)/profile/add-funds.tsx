@@ -177,6 +177,59 @@ function CreditsPaySheetButton({
   );
 }
 
+function PayWithSelector({
+  stripeReady,
+  whopReady,
+  checkoutProvider,
+  setCheckoutProvider,
+}: {
+  stripeReady: boolean;
+  whopReady: boolean;
+  checkoutProvider: WalletCheckoutProvider;
+  setCheckoutProvider: (p: WalletCheckoutProvider) => void;
+}) {
+  if (!stripeReady && !whopReady) return null;
+  const both = stripeReady && whopReady;
+  return (
+    <View style={styles.payMethodBlock}>
+      <Text style={styles.payMethodLbl}>Pay with</Text>
+      {both ? (
+        <View style={styles.payMethodRow}>
+          <Pressable
+            onPress={() => setCheckoutProvider('stripe')}
+            style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
+          >
+            <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setCheckoutProvider('whop')}
+            style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
+          >
+            <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <View style={[styles.payPill, styles.payPillOn, styles.payPillSingle]}>
+            <Text style={[styles.payPillTxt, styles.payPillTxtOn]}>{whopReady ? 'Whop' : 'Stripe'}</Text>
+          </View>
+          <Text style={styles.paySingleRailHint}>
+            {whopReady
+              ? 'Deposits and credit packs use Whop hosted checkout (browser).'
+              : 'Deposits and credit packs use Stripe secure checkout.'}
+          </Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function initialWalletCheckoutProvider(): WalletCheckoutProvider {
+  if (!ENABLE_BACKEND) return 'stripe';
+  if (WHOP_CHECKOUT_ENABLED && !WALLET_TOPUP_STRIPE_ENABLED) return 'whop';
+  return 'stripe';
+}
+
 const PRESETS_CENTS = [500, 1000, 2500, 5000] as const;
 
 type DepositStep = 'amount' | 'payment';
@@ -216,7 +269,7 @@ export default function AddFundsScreen() {
   const [selectedCents, setSelectedCents] = useState<number>(1000);
   const [customDollars, setCustomDollars] = useState('');
   const [selectedPackId, setSelectedPackId] = useState<string>(CREDIT_PACKAGES[1]?.id ?? CREDIT_PACKAGES[0]?.id ?? '');
-  const [checkoutProvider, setCheckoutProvider] = useState<WalletCheckoutProvider>('stripe');
+  const [checkoutProvider, setCheckoutProvider] = useState<WalletCheckoutProvider>(initialWalletCheckoutProvider);
   const [guestAuthPrompt, setGuestAuthPrompt] = useState<GuestAuthPromptVariant | null>(null);
 
   const connectId = profileQ.data?.stripe_connect_account_id;
@@ -293,6 +346,19 @@ export default function AddFundsScreen() {
   const useEmbeddedSheet =
     stripeReady && checkoutProvider === 'stripe' && Platform.OS !== 'web' && !!stripePk;
   const payRailName = checkoutProvider === 'whop' ? 'Whop' : 'Stripe';
+
+  const depositAmountStepCopy = useMemo(() => {
+    if (!checkoutUnlocked) {
+      return ENABLE_BACKEND
+        ? 'Card checkout is not enabled in this build. Turn on Stripe and/or Whop in your project environment.'
+        : 'Guest mode: continue adds demo cash on this device.';
+    }
+    if (stripeReady && whopReady) {
+      return 'On the next step, choose Stripe or Whop, then complete checkout with your selected partner.';
+    }
+    if (whopReady) return 'You will complete checkout with Whop (secure browser window).';
+    return 'You will complete checkout with Stripe (secure browser or in-app card sheet on supported builds).';
+  }, [checkoutUnlocked, stripeReady, whopReady, ENABLE_BACKEND]);
 
   const handleWalletPaid = useCallback(
     (completed: boolean) => {
@@ -645,8 +711,8 @@ export default function AddFundsScreen() {
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#FDE047" />
             <Text style={styles.bannerTxt}>
-              In-app card top-ups aren&apos;t enabled in this build yet. You can still browse pricing; check back after an app update or
-              contact support if you need to add cash.
+              In-app top-ups aren&apos;t enabled in this build yet (enable Stripe and/or Whop checkout in your project environment). You
+              can still browse pricing; check back after configuration or contact support if you need to add cash.
             </Text>
           </View>
         ) : null}
@@ -655,8 +721,10 @@ export default function AddFundsScreen() {
           <View style={styles.banner}>
             <SafeIonicons name="information-circle" size={20} color="#93c5fd" />
             <Text style={styles.bannerTxt}>
-              Card entry inside the app isn&apos;t configured in this build. Use any on-screen web checkout option, or update the app when
-              a new version is available.
+              Card entry inside the app isn&apos;t configured in this build.
+              {whopReady
+                ? ' Tap Pay with → Whop below for hosted checkout, or use a build with a Stripe publishable key for in-app cards.'
+                : ' Use any on-screen web checkout option, or update the app when a new version is available.'}
             </Text>
           </View>
         ) : null}
@@ -706,25 +774,12 @@ export default function AddFundsScreen() {
               </Text>
             </View>
 
-            {stripeReady && whopReady ? (
-              <View style={styles.payMethodBlock}>
-                <Text style={styles.payMethodLbl}>Pay with</Text>
-                <View style={styles.payMethodRow}>
-                  <Pressable
-                    onPress={() => setCheckoutProvider('stripe')}
-                    style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
-                  >
-                    <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setCheckoutProvider('whop')}
-                    style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
-                  >
-                    <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
+            <PayWithSelector
+              stripeReady={stripeReady}
+              whopReady={whopReady}
+              checkoutProvider={checkoutProvider}
+              setCheckoutProvider={setCheckoutProvider}
+            />
 
             {useEmbeddedSheet ? (
               <CreditsPaySheetButton
@@ -854,13 +909,7 @@ export default function AddFundsScreen() {
                   ) : (
                     <Text style={styles.sheetHint}>Guest mode adds the full amount on this device (demo).</Text>
                   )}
-                  <Text style={styles.sheetPartner}>
-                    {checkoutUnlocked
-                      ? 'You will be taken to our secure payment partner to complete your deposit.'
-                      : ENABLE_BACKEND
-                        ? 'Card checkout is not enabled in this build.'
-                        : 'Guest mode: continue adds demo cash on this device.'}
-                  </Text>
+                  <Text style={styles.sheetPartner}>{depositAmountStepCopy}</Text>
                   <Pressable
                     onPress={() => void onContinueToPayment()}
                     style={({ pressed }) => [styles.sheetCtaOuter, pressed && { opacity: 0.92 }]}
@@ -885,25 +934,12 @@ export default function AddFundsScreen() {
                     {formatUsdFromCents(amountCents)} to your wallet · {formatUsdFromCents(walletFeeCents)} processing ·{' '}
                     <Text style={styles.paySubStrong}>{formatUsdFromCents(walletTotalChargeCents)} charged</Text>
                   </Text>
-                  {stripeReady && whopReady ? (
-                    <View style={styles.payMethodBlock}>
-                      <Text style={styles.payMethodLbl}>Pay with</Text>
-                      <View style={styles.payMethodRow}>
-                        <Pressable
-                          onPress={() => setCheckoutProvider('stripe')}
-                          style={[styles.payPill, checkoutProvider === 'stripe' && styles.payPillOn]}
-                        >
-                          <Text style={[styles.payPillTxt, checkoutProvider === 'stripe' && styles.payPillTxtOn]}>Stripe</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setCheckoutProvider('whop')}
-                          style={[styles.payPill, checkoutProvider === 'whop' && styles.payPillOn]}
-                        >
-                          <Text style={[styles.payPillTxt, checkoutProvider === 'whop' && styles.payPillTxtOn]}>Whop</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : null}
+                  <PayWithSelector
+                    stripeReady={stripeReady}
+                    whopReady={whopReady}
+                    checkoutProvider={checkoutProvider}
+                    setCheckoutProvider={setCheckoutProvider}
+                  />
                   {checkoutUnlocked ? (
                     checkoutProvider === 'whop' ? (
                       <Text style={styles.stripeNote}>
@@ -1353,6 +1389,13 @@ const styles = StyleSheet.create({
   payMethodBlock: { marginBottom: 14 },
   payMethodLbl: { color: 'rgba(226,232,240,0.95)', fontWeight: '800', fontSize: 12, marginBottom: 8 },
   payMethodRow: { flexDirection: 'row', gap: 10 },
+  payPillSingle: { alignSelf: 'flex-start' },
+  paySingleRailHint: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 6,
+  },
   payPill: {
     paddingVertical: 10,
     paddingHorizontal: 16,
