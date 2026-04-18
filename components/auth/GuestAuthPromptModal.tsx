@@ -12,7 +12,8 @@ export type GuestAuthPromptVariant =
   | 'play'
   | 'withdraw'
   | 'prizes'
-  | 'shipping';
+  | 'shipping'
+  | 'tournaments';
 
 type Copy = {
   title: string;
@@ -94,6 +95,19 @@ function copyForVariant(v: GuestAuthPromptVariant): Copy {
           'Tied to your account for support',
         ],
         primaryCta: 'SIGN UP & CONTINUE',
+      };
+    case 'tournaments':
+      return {
+        title: 'TOURNAMENT EVENTS',
+        subtitle: 'You are about to enter a Run It tournament path',
+        tagline: 'COMPETE. TRACK BRACKETS. EARN CREDITS.',
+        bullets: [
+          'Tournament of the Day and Run It cup runs need a saved account',
+          'Bracket progress and prize credits sync when you are signed in',
+          'One entry per day per event — tied to your profile',
+          'Sign in on any device to continue your run',
+        ],
+        primaryCta: 'SIGN UP & PLAY EVENTS',
       };
     case 'wallet':
     default:

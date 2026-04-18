@@ -6,6 +6,7 @@ import { Alert, Text, View } from 'react-native';
 
 import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
 import { Screen } from '@/components/ui/Screen';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import {
   getCreditCupById,
@@ -36,7 +37,8 @@ export default function CreditCupPlayScreen() {
   const { cupId } = useLocalSearchParams<{ cupId: string }>();
   const cup = typeof cupId === 'string' ? getCreditCupById(cupId) : undefined;
 
-  const uid = useAuthStore((s) => s.user?.id ?? 'guest');
+  const userId = useAuthStore((s) => s.user?.id);
+  const uid = userId ?? 'guest';
   const hydrated = useCupBracketStore((s) => s.hydrated);
   const nextRound = useCupBracketStore((s) => s.nextRound);
   const dayKey = useCupBracketStore((s) => s.dayKey);
@@ -76,7 +78,16 @@ export default function CreditCupPlayScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (ENABLE_BACKEND && !userId && cup?.id) {
+        router.replace(`/(app)/(tabs)/tournaments/cup/${cup.id}`);
+      }
+    }, [userId, router, cup?.id]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       if (!cup?.id || !hydrated) return;
+      if (ENABLE_BACKEND && !userId) return;
       let cancelled = false;
       setDailyCommitOk(false);
       void (async () => {
@@ -96,7 +107,7 @@ export default function CreditCupPlayScreen() {
       return () => {
         cancelled = true;
       };
-    }, [cup?.id, uid, hydrated, router]),
+    }, [cup?.id, uid, userId, hydrated, router]),
   );
 
   /** Only when focusing the screen — avoids kicking mid-run when `nextRound` advances. */
@@ -188,6 +199,14 @@ export default function CreditCupPlayScreen() {
     return (
       <Screen scroll={false}>
         <Text className="text-slate-400">Cup not found.</Text>
+      </Screen>
+    );
+  }
+
+  if (ENABLE_BACKEND && !userId) {
+    return (
+      <Screen scroll={false}>
+        <Text className="text-slate-400">Sign in to play cup events.</Text>
       </Screen>
     );
   }

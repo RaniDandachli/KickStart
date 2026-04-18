@@ -5,6 +5,7 @@ import { Alert, Text, View } from 'react-native';
 
 import { RoundAdvanceOverlay } from '@/components/ui/RoundAdvanceOverlay';
 import { Screen } from '@/components/ui/Screen';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import {
   computeOpponentRoundScore,
@@ -28,7 +29,8 @@ import type { MatchFinishPayload } from '@/types/match';
 
 export default function DailyFreeTournamentPlayScreen() {
   const router = useRouter();
-  const uid = useAuthStore((s) => s.user?.id ?? 'guest');
+  const userId = useAuthStore((s) => s.user?.id);
+  const uid = userId ?? 'guest';
   const hydrated = useDailyFreeTournamentStore((s) => s.hydrated);
   const nextRound = useDailyFreeTournamentStore((s) => s.nextRound);
   const dayKey = useDailyFreeTournamentStore((s) => s.dayKey);
@@ -50,6 +52,14 @@ export default function DailyFreeTournamentPlayScreen() {
     useCallback(() => {
       void hydrate(uid);
     }, [uid, hydrate]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (ENABLE_BACKEND && !userId) {
+        router.replace('/(app)/(tabs)/tournaments/daily-free');
+      }
+    }, [userId, router]),
   );
 
   /** Bounce stale bracket state only when the screen gains focus — not on every round advance mid-run. */
@@ -122,6 +132,14 @@ export default function DailyFreeTournamentPlayScreen() {
     }),
     [oppName, opponentRoundScore, forcedOutcome, uid, onComplete, dayKey, nextRound],
   );
+
+  if (ENABLE_BACKEND && !userId) {
+    return (
+      <Screen scroll={false}>
+        <Text className="text-slate-400">Sign in to play tournament events.</Text>
+      </Screen>
+    );
+  }
 
   if (!hydrated) {
     return (

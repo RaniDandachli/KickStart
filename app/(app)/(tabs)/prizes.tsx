@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -37,6 +37,7 @@ import { useDemoRedeemTicketsStore } from '@/store/demoRedeemTicketsStore';
 import { getSupabase } from '@/supabase/client';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { redeemGiftCard } from '@/services/redeemGiftCard';
+import { GUEST_PRIZE_TEASERS, guestTeasersAsCatalogRows, type GuestPrizeTeaser } from '@/lib/guestPrizeTeasers';
 import { getNextRewardTarget } from '@/lib/nextRewardProgress';
 import {
   appBorderAccent,
@@ -50,7 +51,7 @@ import {
 type ShippingModal =
   | null
   | { kind: 'catalog'; prize: PrizeCatalogWithReward }
-  | { kind: 'guest_sample' };
+  | { kind: 'guest_sample'; cost: number };
 
 function isGiftCardPrize(p: PrizeCatalogWithReward): boolean {
   return !!p.reward_catalog?.reward_key;
@@ -91,6 +92,20 @@ export default function PrizesScreen() {
   const [redeemingGiftId, setRedeemingGiftId] = useState<string | null>(null);
   const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
   const needAccount = ENABLE_BACKEND && !uid;
+  /** Signed out (live backend) or offline app — show enticing sample catalog instead of an empty grid. */
+  const useTeaserGrid = !ENABLE_BACKEND || needAccount;
+
+  const displayRows = useMemo(() => {
+    if (useTeaserGrid) {
+      return GUEST_PRIZE_TEASERS.map((teaser) => ({ kind: 'teaser' as const, teaser }));
+    }
+    return (catalogQ.data ?? []).map((prize) => ({ kind: 'live' as const, prize }));
+  }, [useTeaserGrid, catalogQ.data]);
+
+  const catalogForProgress = useMemo(
+    () => (useTeaserGrid ? guestTeasersAsCatalogRows(GUEST_PRIZE_TEASERS) : catalogQ.data),
+    [useTeaserGrid, catalogQ.data],
+  );
 
   const addressFingerprint = JSON.stringify(address);
 
@@ -138,18 +153,20 @@ export default function PrizesScreen() {
   );
 
   const saveDraftAndRedeemDemo = useCallback(async () => {
+    if (shippingModal?.kind !== 'guest_sample') return;
+    const cost = shippingModal.cost;
     if (!isShippingAddressComplete(draft)) {
       Alert.alert('Incomplete address', 'Fill in name, street, city, postal code, and country.');
       return;
     }
     await save(draft);
-    if (!trySpendDemoTickets(3)) {
+    if (!trySpendDemoTickets(cost)) {
       Alert.alert('Not enough tickets', 'Win arcade prize runs to earn redeem tickets.');
       return;
     }
     setShippingModal(null);
     Alert.alert('Redeemed (preview)', 'Saved on this device only — sign in with the live catalog for real fulfillment.');
-  }, [draft, save, trySpendDemoTickets]);
+  }, [shippingModal, draft, save, trySpendDemoTickets]);
 
   const startRedeemCatalog = useCallback(
     (p: PrizeCatalogWithReward) => {
@@ -204,23 +221,25 @@ export default function PrizesScreen() {
     [uid, shippingComplete, redeem, qc],
   );
 
-  const nextReward = getNextRewardTarget(
-    redeemTickets,
-    catalogQ.data,
-    !ENABLE_BACKEND ? { cost: 3, title: 'Sample physical prize' } : undefined,
-  );
+  const nextReward = getNextRewardTarget(redeemTickets, catalogForProgress);
 
-  const startRedeemDemo = useCallback(() => {
-    if (!shippingComplete) {
-      setShippingModal({ kind: 'guest_sample' });
-      return;
-    }
-    if (!trySpendDemoTickets(3)) {
-      Alert.alert('Not enough tickets', 'Win arcade prize runs to earn redeem tickets.');
-      return;
-    }
-    Alert.alert('Redeemed (preview)', 'Guest mode — this device only. Sign in to redeem for real when available.');
-  }, [shippingComplete, trySpendDemoTickets]);
+  const startRedeemTeaserPreview = useCallback(
+    (t: GuestPrizeTeaser) => {
+      if (t.requires_shipping && !shippingComplete) {
+        setShippingModal({ kind: 'guest_sample', cost: t.cost_redeem_tickets });
+        return;
+      }
+      if (!trySpendDemoTickets(t.cost_redeem_tickets)) {
+        Alert.alert('Not enough tickets', 'Win arcade prize runs to earn redeem tickets.');
+        return;
+      }
+      Alert.alert(
+        'Redeemed (preview)',
+        'Guest mode — this device only. Sign in and connect the backend for real fulfillment.',
+      );
+    },
+    [shippingComplete, trySpendDemoTickets],
+  );
 
   return (
     <Screen>
@@ -266,7 +285,7 @@ export default function PrizesScreen() {
           <Text style={[styles.balanceVal, { fontFamily: runitFont.black }]}>
             {ENABLE_BACKEND && profileQ.isLoading ? '…' : redeemTickets.toLocaleString()}
           </Text>
-          {nextReward && !(ENABLE_BACKEND && catalogQ.isLoading) ? (
+          {nextReward && !(ENABLE_BACKEND && !useTeaserGrid && catalogQ.isLoading) ? (
             <View
               style={styles.progressBlock}
               accessibilityRole="progressbar"
@@ -292,22 +311,26 @@ export default function PrizesScreen() {
               )}
             </View>
           ) : null}
-          {!ENABLE_BACKEND ? (
+          {useTeaserGrid ? (
             <Text style={styles.balanceHint}>
-              Guest mode — Arcade Credits are for playing; redeem tickets are for this preview catalog
+              {needAccount
+                ? 'Preview balance while signed out — sign in to earn redeem tickets for real and unlock the live shop.'
+                : 'Guest mode — Arcade Credits are for playing; redeem tickets are for this preview catalog'}
             </Text>
           ) : null}
         </View>
       </LinearGradient>
 
-      {!ENABLE_BACKEND ? (
+      {useTeaserGrid ? (
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
-            <SafeIonicons name="folder-open-outline" size={14} color={runit.neonCyan} accessibilityIgnoresInvertColors />
-            <Text style={styles.infoTitle}>CATALOG</Text>
+            <SafeIonicons name="gift-outline" size={14} color={runit.neonCyan} accessibilityIgnoresInvertColors />
+            <Text style={styles.infoTitle}>PRIZE SHOP PREVIEW</Text>
           </View>
           <Text style={styles.infoBody}>
-            Preview catalog for guest mode — sign in for the full prize shop when it&apos;s live.
+            {needAccount
+              ? 'Examples of what players cash out with redeem tickets — gift cards, tech, and more. Create an account to redeem for real when you are ready.'
+              : 'Offline preview — tiles below are samples. Turn on the backend for your live catalog and fulfillment.'}
           </Text>
         </View>
       ) : null}
@@ -316,127 +339,167 @@ export default function PrizesScreen() {
         <EmptyState title="Could not load prizes" description="Check your connection and try again." />
       )}
 
-      {ENABLE_BACKEND && !catalogQ.isLoading && !catalogQ.data?.length ? (
+      {ENABLE_BACKEND && !useTeaserGrid && !catalogQ.isLoading && !catalogQ.data?.length ? (
         <EmptyState title="No prizes yet" description="Check back soon — new rewards are added regularly." />
       ) : null}
 
-      {!catalogQ.error &&
-      (catalogQ.isLoading || (catalogQ.data?.length ?? 0) > 0 || !ENABLE_BACKEND) ? (
+      {!catalogQ.error && (catalogQ.isLoading || (catalogQ.data?.length ?? 0) > 0 || useTeaserGrid) ? (
         <>
           <Text style={styles.catalogHeading}>Catalog</Text>
           <View style={styles.catalogGrid}>
-            {catalogQ.isLoading
+            {catalogQ.isLoading && !useTeaserGrid
               ? [0, 1, 2, 3, 4, 5].map((k) => (
                   <View key={k} style={{ width: catalogTileW }}>
                     <SkeletonBlock className="h-36 w-full rounded-lg" />
                   </View>
                 ))
               : null}
-            {!catalogQ.isLoading &&
-              catalogQ.data?.map((p) => {
-          const short = p.cost_redeem_tickets > redeemTickets;
-          const isGift = isGiftCardPrize(p);
-          const giftBusy = redeemingGiftId === p.id;
-          const disabled = short || giftBusy || (!isGift && redeem.isPending);
-          const redeemLabel = short
-            ? 'Need tickets'
-            : giftBusy || (!isGift && redeem.isPending)
-              ? '…'
-              : 'Redeem';
-          return (
-            <View key={p.id} style={[styles.prizeCard, { width: catalogTileW }]}>
-              {p.image_url ? (
-                <Image source={{ uri: p.image_url }} style={[styles.prizeImg, { height: PRIZE_IMG_H }]} resizeMode="cover" />
-              ) : (
-                <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
-              )}
-              <View style={styles.prizeMeta}>
-                <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                  {p.title}
-                </Text>
-                {p.description ? (
-                  <Text style={styles.prizeDesc} numberOfLines={2}>
-                    {p.description}
-                  </Text>
-                ) : null}
-                <View style={styles.prizeRow}>
-                  <View style={styles.prizeCostRow}>
-                    <SafeIonicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
-                    <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()}</Text>
-                  </View>
-                </View>
-                <Text style={styles.prizeMetaLine} numberOfLines={1}>
-                  {p.requires_shipping
-                    ? 'Physical · ships to you'
-                    : p.stock_remaining != null
-                      ? `Stock ${p.stock_remaining}`
-                      : 'Digital'}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={disabled}
-                  onPress={() => startRedeemCatalog(p)}
-                  style={({ pressed }) => [
-                    styles.tileRedeemOuter,
-                    disabled && styles.tileRedeemOuterDisabled,
-                    pressed && !disabled && styles.tileRedeemPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={disabled ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.tileRedeemGrad}
-                  >
-                    <Text style={styles.tileRedeemText}>{redeemLabel}</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-          );
-              })}
+            {!catalogQ.isLoading || useTeaserGrid
+              ? displayRows.map((row) => {
+                  if (row.kind === 'teaser') {
+                    const p = row.teaser;
+                    const short = p.cost_redeem_tickets > redeemTickets;
+                    const needSignIn = needAccount;
+                    const disabled = needSignIn ? false : short;
+                    const redeemLabel = needSignIn
+                      ? 'Sign in to redeem'
+                      : short
+                        ? 'Need tickets'
+                        : 'Redeem (preview)';
+                    return (
+                      <View key={p.id} style={[styles.prizeCard, { width: catalogTileW }]}>
+                        {p.image_url ? (
+                          <Image
+                            source={{ uri: p.image_url }}
+                            style={[styles.prizeImg, { height: PRIZE_IMG_H }]}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
+                        )}
+                        <View style={styles.prizeMeta}>
+                          <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                            {p.title}
+                          </Text>
+                          <Text style={styles.prizeDesc} numberOfLines={2}>
+                            {p.description}
+                          </Text>
+                          <View style={styles.prizeRow}>
+                            <View style={styles.prizeCostRow}>
+                              <SafeIonicons
+                                name="ticket-outline"
+                                size={12}
+                                color={runit.neonCyan}
+                                accessibilityIgnoresInvertColors
+                              />
+                              <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.prizeMetaLine} numberOfLines={1}>
+                            {p.requires_shipping
+                              ? 'Physical · ships to you'
+                              : p.stock_remaining != null
+                                ? `Stock ${p.stock_remaining}`
+                                : 'Digital'}
+                          </Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            disabled={disabled}
+                            onPress={() =>
+                              needSignIn ? setGuestPrompt('prizes') : startRedeemTeaserPreview(p)
+                            }
+                            style={({ pressed }) => [
+                              styles.tileRedeemOuter,
+                              disabled && styles.tileRedeemOuterDisabled,
+                              pressed && !disabled && styles.tileRedeemPressed,
+                            ]}
+                          >
+                            <LinearGradient
+                              colors={disabled ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.tileRedeemGrad}
+                            >
+                              <Text style={styles.tileRedeemText}>{redeemLabel}</Text>
+                            </LinearGradient>
+                          </Pressable>
+                        </View>
+                      </View>
+                    );
+                  }
 
-        {!catalogQ.isLoading && !ENABLE_BACKEND ? (
-          <View style={[styles.prizeCard, { width: catalogTileW }]}>
-            <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
-            <View style={styles.prizeMeta}>
-              <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                Sample physical (preview)
-              </Text>
-              <Text style={styles.prizeDesc} numberOfLines={2}>
-                Ship-to-you example — address required if not saved.
-              </Text>
-              <View style={styles.prizeRow}>
-                <View style={styles.prizeCostRow}>
-                  <SafeIonicons name="ticket-outline" size={12} color={runit.neonCyan} accessibilityIgnoresInvertColors />
-                  <Text style={styles.prizeCost}>3</Text>
-                </View>
-              </View>
-              <Text style={styles.prizeMetaLine} numberOfLines={1}>
-                Physical · ships to you
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={redeemTickets < 3}
-                onPress={startRedeemDemo}
-                style={({ pressed }) => [
-                  styles.tileRedeemOuter,
-                  redeemTickets < 3 && styles.tileRedeemOuterDisabled,
-                  pressed && redeemTickets >= 3 && styles.tileRedeemPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={redeemTickets < 3 ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.tileRedeemGrad}
-                >
-                  <Text style={styles.tileRedeemText}>{redeemTickets < 3 ? 'Need tickets' : 'Redeem (preview)'}</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
+                  const p = row.prize;
+                  const short = p.cost_redeem_tickets > redeemTickets;
+                  const isGift = isGiftCardPrize(p);
+                  const giftBusy = redeemingGiftId === p.id;
+                  const disabled = short || giftBusy || (!isGift && redeem.isPending);
+                  const redeemLabel = short
+                    ? 'Need tickets'
+                    : giftBusy || (!isGift && redeem.isPending)
+                      ? '…'
+                      : 'Redeem';
+                  return (
+                    <View key={p.id} style={[styles.prizeCard, { width: catalogTileW }]}>
+                      {p.image_url ? (
+                        <Image
+                          source={{ uri: p.image_url }}
+                          style={[styles.prizeImg, { height: PRIZE_IMG_H }]}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.prizeImgPlaceholder, { height: PRIZE_IMG_H }]} />
+                      )}
+                      <View style={styles.prizeMeta}>
+                        <Text style={[styles.prizeTitle, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                          {p.title}
+                        </Text>
+                        {p.description ? (
+                          <Text style={styles.prizeDesc} numberOfLines={2}>
+                            {p.description}
+                          </Text>
+                        ) : null}
+                        <View style={styles.prizeRow}>
+                          <View style={styles.prizeCostRow}>
+                            <SafeIonicons
+                              name="ticket-outline"
+                              size={12}
+                              color={runit.neonCyan}
+                              accessibilityIgnoresInvertColors
+                            />
+                            <Text style={styles.prizeCost}>{p.cost_redeem_tickets.toLocaleString()}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.prizeMetaLine} numberOfLines={1}>
+                          {p.requires_shipping
+                            ? 'Physical · ships to you'
+                            : p.stock_remaining != null
+                              ? `Stock ${p.stock_remaining}`
+                              : 'Digital'}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={disabled}
+                          onPress={() => startRedeemCatalog(p)}
+                          style={({ pressed }) => [
+                            styles.tileRedeemOuter,
+                            disabled && styles.tileRedeemOuterDisabled,
+                            pressed && !disabled && styles.tileRedeemPressed,
+                          ]}
+                        >
+                          <LinearGradient
+                            colors={disabled ? ['#444', '#2a2a2a'] : [runit.neonPink, runit.neonPurple]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.tileRedeemGrad}
+                          >
+                            <Text style={styles.tileRedeemText}>{redeemLabel}</Text>
+                          </LinearGradient>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })
+              : null}
           </View>
         </>
       ) : null}
@@ -459,7 +522,9 @@ export default function PrizesScreen() {
               <Text style={styles.modalSub}>
                 {shippingModal?.kind === 'catalog'
                   ? `Required for "${shippingModal.prize.title}".`
-                  : 'Required for this sample physical prize (preview).'}
+                  : shippingModal?.kind === 'guest_sample'
+                    ? `Physical prize (preview). After save, ${shippingModal.cost.toLocaleString()} redeem tickets are spent on this device only.`
+                    : ''}
               </Text>
               <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll}>
                 <ShippingAddressForm value={draft} onChange={setDraft} />

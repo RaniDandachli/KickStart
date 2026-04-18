@@ -1,11 +1,13 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
+import { GuestAuthPromptModal } from '@/components/auth/GuestAuthPromptModal';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { getCreditCupById } from '@/lib/cupTournaments';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getRoundLabel } from '@/lib/dailyFreeTournament';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
@@ -17,7 +19,10 @@ import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 export default function CreditCupHubScreen() {
   const router = useRouter();
   const { cupId } = useLocalSearchParams<{ cupId: string }>();
-  const uid = useAuthStore((s) => s.user?.id ?? 'guest');
+  const userId = useAuthStore((s) => s.user?.id);
+  const uid = userId ?? 'guest';
+  const mustSignInToPlay = ENABLE_BACKEND && !userId;
+  const [guestAuthOpen, setGuestAuthOpen] = useState(false);
   const cup = typeof cupId === 'string' ? getCreditCupById(cupId) : undefined;
 
   const hydrated = useCupBracketStore((s) => s.hydrated);
@@ -58,6 +63,7 @@ export default function CreditCupHubScreen() {
   const blockedByOtherCup = !!(committedCupId && committedCupId !== cup.id);
   const canPlay =
     !blockedByOtherCup && !eliminated && nextRound <= DAILY_FREE_TOURNAMENT_ROUNDS;
+  const showSignInToPlay = mustSignInToPlay && canPlay;
   const otherCupName = blockedByOtherCup ? getCreditCupById(committedCupId!)?.name : undefined;
   const statusLine = blockedByOtherCup
     ? `Your Run It cup run today is on ${otherCupName ?? 'another cup'}. One cup run per day — back at midnight.`
@@ -101,14 +107,28 @@ export default function CreditCupHubScreen() {
             ? 'Loading…'
             : blockedByOtherCup
               ? 'Cup run on another tier'
-              : canPlay
-                ? 'Play next match'
-                : clearedToday || eliminated
-                  ? 'Come back tomorrow'
-                  : 'Bracket complete'
+              : showSignInToPlay
+                ? 'Sign in to play'
+                : canPlay
+                  ? 'Play next match'
+                  : clearedToday || eliminated
+                    ? 'Come back tomorrow'
+                    : 'Bracket complete'
         }
-        disabled={!hydrated || !canPlay}
-        onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}/play`)}
+        disabled={!hydrated || (!canPlay && !showSignInToPlay)}
+        onPress={() => {
+          if (showSignInToPlay) {
+            setGuestAuthOpen(true);
+            return;
+          }
+          router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}/play`);
+        }}
+      />
+
+      <GuestAuthPromptModal
+        visible={guestAuthOpen}
+        variant="tournaments"
+        onClose={() => setGuestAuthOpen(false)}
       />
     </Screen>
   );

@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { GuestAuthPromptModal } from '@/components/auth/GuestAuthPromptModal';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
@@ -14,6 +16,7 @@ import {
 } from '@/features/tournaments/tournamentPresentation';
 import { useJoinTournament, useTournament, useTournamentRules } from '@/hooks/useTournaments';
 import { useAuthStore } from '@/store/authStore';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
   appBorderAccentMuted,
   appChromeGradientFadePink,
@@ -26,6 +29,7 @@ export default function TournamentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
+  const [guestAuthOpen, setGuestAuthOpen] = useState(false);
   const tq = useTournament(id);
   const rq = useTournamentRules(id);
   const join = useJoinTournament(userId);
@@ -81,11 +85,27 @@ export default function TournamentDetailScreen() {
           )}
 
           <View style={styles.actions}>
-            <AppButton title="Join tournament" loading={join.isPending} onPress={onJoin} />
+            <AppButton
+              title={ENABLE_BACKEND && !userId ? 'Sign in to join' : 'Join tournament'}
+              loading={join.isPending}
+              onPress={() => {
+                if (ENABLE_BACKEND && !userId) {
+                  setGuestAuthOpen(true);
+                  return;
+                }
+                onJoin();
+              }}
+            />
             <AppButton className="mt-2" title="View bracket" variant="secondary" onPress={() => router.push(`/(app)/(tabs)/tournaments/${t.id}/bracket`)} />
           </View>
         </>
       ) : null}
+
+      <GuestAuthPromptModal
+        visible={guestAuthOpen}
+        variant="tournaments"
+        onClose={() => setGuestAuthOpen(false)}
+      />
     </Screen>
   );
 }

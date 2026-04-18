@@ -1,12 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
+import { GuestAuthPromptModal } from '@/components/auth/GuestAuthPromptModal';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
-import { ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
+import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import {
   getDailyTournamentPrizeUsd,
   getDailyTournamentRounds,
@@ -20,7 +21,10 @@ import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 
 export default function DailyFreeTournamentScreen() {
   const router = useRouter();
-  const uid = useAuthStore((s) => s.user?.id ?? 'guest');
+  const userId = useAuthStore((s) => s.user?.id);
+  const uid = userId ?? 'guest';
+  const mustSignInToPlay = ENABLE_BACKEND && !userId;
+  const [guestAuthOpen, setGuestAuthOpen] = useState(false);
   const hydrated = useDailyFreeTournamentStore((s) => s.hydrated);
   const nextRound = useDailyFreeTournamentStore((s) => s.nextRound);
   const eliminated = useDailyFreeTournamentStore((s) => s.eliminated);
@@ -48,6 +52,7 @@ export default function DailyFreeTournamentScreen() {
 
   const clearedToday = !eliminated && nextRound > dailyRounds;
   const canPlay = !eliminated && nextRound <= dailyRounds;
+  const showSignInToPlay = mustSignInToPlay && canPlay;
   const statusLine = eliminated
     ? `Today’s run ended in ${getRoundLabel(Math.min(nextRound, dailyRounds))}. New bracket at midnight.`
     : clearedToday
@@ -94,14 +99,28 @@ export default function DailyFreeTournamentScreen() {
         title={
           !hydrated
             ? 'Loading…'
-            : canPlay
-              ? 'Play next match'
-              : clearedToday || eliminated
-                ? 'Come back tomorrow'
-                : 'Bracket complete'
+            : showSignInToPlay
+              ? 'Sign in to play'
+              : canPlay
+                ? 'Play next match'
+                : clearedToday || eliminated
+                  ? 'Come back tomorrow'
+                  : 'Bracket complete'
         }
-        disabled={!hydrated || !canPlay}
-        onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free-play')}
+        disabled={!hydrated || (!canPlay && !showSignInToPlay)}
+        onPress={() => {
+          if (showSignInToPlay) {
+            setGuestAuthOpen(true);
+            return;
+          }
+          router.push('/(app)/(tabs)/tournaments/daily-free-play');
+        }}
+      />
+
+      <GuestAuthPromptModal
+        visible={guestAuthOpen}
+        variant="tournaments"
+        onClose={() => setGuestAuthOpen(false)}
       />
     </Screen>
   );
