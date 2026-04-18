@@ -31,24 +31,24 @@ const envSchema = z.object({
     .string()
     .optional()
     .default('true')
-    .transform((v) => v !== 'false'),
+    .transform((v) => v.trim().toLowerCase() !== 'false'),
   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   /** Enable wallet top-up UI when Stripe Checkout is wired server-side. */
   EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED: z
     .string()
     .optional()
     .default('false')
-    .transform((v) => v === 'true'),
+    .transform((v) => v.trim().toLowerCase() === 'true'),
   /** Whop hosted checkout (Edge `createWhopCheckoutSession` + `whopWebhook`). */
   EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED: z
     .string()
     .optional()
     .default('false')
-    .transform((v) => v === 'true'),
+    .transform((v) => v.trim().toLowerCase() === 'true'),
   EXPO_PUBLIC_ENABLE_REALTIME: z
     .string()
     .optional()
-    .transform((v) => v === 'true'),
+    .transform((v) => (v == null ? false : v.trim().toLowerCase() === 'true')),
   /** Second Supabase Auth user id for mock H2H when `ENABLE_BACKEND` (create user in Dashboard, paste UUID). */
   EXPO_PUBLIC_DEV_OPPONENT_USER_ID: optionalUuidFromEnv,
   EXPO_PUBLIC_TERMS_URL: optionalUrlFromEnv,
