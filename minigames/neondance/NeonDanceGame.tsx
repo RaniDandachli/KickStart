@@ -75,9 +75,9 @@ const TRAIL_MAX = 8;
 const TUNNEL_RING_COUNT = 3;
 /**
  * Throttle React re-renders to N animation frames (not physics steps — avoids multiple
- * setState in one rAF when catch-up runs several fixed steps).
+ * setState in one rAF when catch-up runs several fixed steps). Keep low so hoop spin looks smooth.
  */
-const RENDER_FRAME_STRIDE = 3;
+const RENDER_FRAME_STRIDE = 2;
 
 /** Run It Arcade / match resolution payload (client-side; optional fields also sent to submitMinigameScore). */
 export type NeonDanceRunPayload = {
@@ -311,11 +311,13 @@ export default function NeonDanceGame({
       pushHoop(-0.42);
       return;
     }
-    const minAdv = Math.min(...list.map((h) => h.advance));
+    /** Walk backward from the furthest hoop; each new spawn must sit at its own depth (bug was reusing one minAdv → stacked rings + mismatched omegas = twitch). */
+    let minAdv = Math.min(...list.map((h) => h.advance));
     let guard = 0;
     while (minAdv < -0.08 && guard++ < 10) {
       const gap = queueGapForForward(forwardQueueRef.current);
-      pushHoop(minAdv - gap);
+      minAdv -= gap;
+      pushHoop(minAdv);
     }
   }, [pushHoop]);
 

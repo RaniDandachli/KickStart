@@ -550,7 +550,7 @@ export function QueueScreen({
   const supabaseConfigured = isSupabaseLikelyConfigured();
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll>
       {ENABLE_BACKEND && !supabaseConfigured ? (
         <Text className="mb-3 rounded-lg bg-amber-500/20 px-3 py-2 text-center text-xs font-semibold text-amber-100">
           Matchmaking can&apos;t connect right now. Check your internet connection, update the app, or try again in a moment.

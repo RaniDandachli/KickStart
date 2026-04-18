@@ -12,6 +12,7 @@ import { getH2hLossArcadeCreditsForEntryFeeWalletCents } from '@/constants/h2hLo
 import { trackProductEvent } from '@/lib/analytics/productAnalytics';
 import { isUuid } from '@/lib/isUuid';
 import { formatUsdFromCents } from '@/lib/money';
+import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import {
@@ -62,15 +63,22 @@ export default function MatchResultScreen() {
   const hasPrize = Number.isFinite(prizeUsd) && prizeUsd > 0;
   const hasPaidRematch =
     Number.isFinite(entryUsd) && entryUsd > 0 && Number.isFinite(prizeUsd) && prizeUsd > 0;
-  const rematchHref: Href = hasPaidRematch
-    ? (`/(app)/(tabs)/play/casual?entryCents=${Math.round(entryUsd * 100)}&prizeCents=${Math.round(prizeUsd * 100)}&entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}` as Href)
-    : '/(app)/(tabs)/play/casual';
 
   const { data: ms } = useQuery({
     queryKey: queryKeys.matchSession(matchId ?? ''),
     queryFn: () => fetchMatchSessionWithPlayers(matchId!),
     enabled: ENABLE_BACKEND && !!matchId && isUuid(matchId) && uid !== 'guest',
   });
+
+  const rematchGameQs = useMemo(() => {
+    const gk = ms?.game_key;
+    if (!gk || !H2H_OPEN_GAMES.some((g) => g.gameKey === gk)) return '';
+    return `&game=${encodeURIComponent(gk)}&intent=start`;
+  }, [ms?.game_key]);
+
+  const rematchHref: Href = hasPaidRematch
+    ? (`/(app)/(tabs)/play/casual?entryCents=${Math.round(entryUsd * 100)}&prizeCents=${Math.round(prizeUsd * 100)}&entry=${encodeURIComponent(String(entryUsd))}&prize=${encodeURIComponent(String(prizeUsd))}${rematchGameQs}` as Href)
+    : '/(app)/(tabs)/play/casual';
 
   const isDraw = draw === '1' || winner === 'draw';
   const won = !isDraw && winner === uid;
@@ -98,10 +106,14 @@ export default function MatchResultScreen() {
   const showLossCredits = lost && !isDraw && lossCreditsShown != null && lossCreditsShown > 0;
 
   const outcomeLine = useMemo(() => {
-    if (isDraw) return 'No winner — same score.';
+    if (isDraw) {
+      return hasPrize
+        ? 'Tie score — this contest isn’t finished yet.'
+        : 'No winner — same score.';
+    }
     if (won) return `You had the top score against ${oppName}.`;
     return `You didn't take the top score this time — ${oppName} did.`;
-  }, [isDraw, won, oppName]);
+  }, [isDraw, hasPrize, won, oppName]);
 
   const recordedOkRef = useRef(false);
   const submitInFlightRef = useRef(false);
@@ -325,12 +337,24 @@ export default function MatchResultScreen() {
         {isDraw ? (
           <View style={styles.drawBox}>
             <SafeIonicons name="git-compare-outline" size={22} color={runit.neonCyan} />
-            <Text style={styles.drawTitle}>Same score — it&apos;s a draw</Text>
-            <Text style={styles.drawBody}>
-              {hasPrize
-                ? 'No top performer this round, so the listed prize was not awarded. Run it back with the same contest tier if you like.'
-                : 'No winner this time. Queue again for another match.'}
+            <Text style={styles.drawTitle}>
+              {hasPrize ? 'Break the tie — same contest' : 'Same score — it&apos;s a draw'}
             </Text>
+            {hasPrize ? (
+              <Text style={styles.drawBody}>
+                Your match access for this skill contest already counted for that round. Because you tied,{' '}
+                <Text style={styles.drawEm}>no one was top performer</Text>
+                {' — the listed prize wasn&apos;t paid out.'}
+                {'\n\n'}
+                You need{' '}
+                <Text style={styles.drawEm}>another match at the same fee and same prize</Text>
+                {
+                  ' to decide a winner. Whoever earns the top score in that game wins the cash — same rules as always. Tap below to queue again right away.'
+                }
+              </Text>
+            ) : (
+              <Text style={styles.drawBody}>No winner this time. Queue again for another match.</Text>
+            )}
           </View>
         ) : null}
 
@@ -347,7 +371,11 @@ export default function MatchResultScreen() {
         ) : null}
         {isDraw ? (
           <AppButton
-            title={hasPaidRematch ? 'Rematch — same contest tier' : 'Go again — find a match'}
+            title={
+              hasPaidRematch
+                ? 'Play again — same fee & prize'
+                : 'Go again — find a match'
+            }
             onPress={() => router.replace(rematchHref)}
           />
         ) : null}
@@ -450,5 +478,6 @@ const styles = StyleSheet.create({
   },
   drawTitle: { color: runit.neonCyan, fontSize: 15, fontWeight: '900' },
   drawBody: { color: 'rgba(226,232,240,0.95)', fontSize: 13, lineHeight: 19 },
+  drawEm: { fontWeight: '800', color: '#e2e8f0' },
   btnCol: { gap: 10, width: '100%' },
 });

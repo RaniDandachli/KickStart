@@ -1,11 +1,11 @@
-import { HomeH2hCarouselWeb } from '@/components/arcade/HomeH2hCarouselWeb';
+import { HomeH2hCarouselWeb, type H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { HomeScreenWebLaptop } from '@/components/home/HomeScreenWebLaptop';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,7 +25,9 @@ import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featur
 import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useActiveSeason } from '@/hooks/useActiveSeason';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
+import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { buildTickerLinesFromLobby, useHomeLobbyStats } from '@/hooks/useHomeLobbyStats';
+import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
@@ -47,6 +49,7 @@ import {
 } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
+import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
@@ -69,6 +72,19 @@ export default function HomeScreen() {
   const seasonQ = useActiveSeason();
   const tournamentsQ = useTournaments(true);
   const lobbyStatsQ = useHomeLobbyStats();
+  const h2hBoardQuery = useHomeH2hQueueBoard();
+  const replaceWaitersFromServer = useHomeH2hBoardStore((s) => s.replaceWaitersFromServer);
+  const h2hWaiters = useHomeH2hBoardStore((s) => s.waiters);
+
+  useEffect(() => {
+    if (!ENABLE_BACKEND) return;
+    replaceWaitersFromServer(h2hBoardQuery.data ?? []);
+  }, [h2hBoardQuery.data, replaceWaitersFromServer]);
+
+  const h2hCarouselRows = useMemo(
+    () => buildHomeH2hCarouselRows(ENABLE_BACKEND ? h2hWaiters : []),
+    [h2hWaiters],
+  );
 
   const liveLobby = useMemo(() => {
     if (!ENABLE_BACKEND || lobbyStatsQ.data == null) return null;
@@ -155,6 +171,25 @@ export default function HomeScreen() {
     pushCrossTab(router, `/(app)/(tabs)/play/live-matches?returnTo=${rt}` as never);
   }
 
+  function openH2hCarouselRow(row: H2hCarouselRow) {
+    if (needAccount) {
+      openGuestPrompt('play');
+      return;
+    }
+    const rt = encodeURIComponent('/(app)/(tabs)');
+    if (row.activeWaiter) {
+      pushCrossTab(
+        router,
+        `/(app)/(tabs)/play/live-matches?returnTo=${rt}&joinWaiterId=${encodeURIComponent(row.activeWaiter.id)}` as never,
+      );
+    } else {
+      pushCrossTab(
+        router,
+        `/(app)/(tabs)/play/live-matches?returnTo=${rt}&pickTierGame=${encodeURIComponent(row.gameKey)}` as never,
+      );
+    }
+  }
+
   function goChooseContest() {
     const rt = encodeURIComponent('/(app)/(tabs)');
     pushCrossTab(router, `/(app)/(tabs)/play/choose-contest?returnTo=${rt}` as never);
@@ -222,7 +257,8 @@ export default function HomeScreen() {
             onHowItWorks={() => setHowItWorksOpen(true)}
             onEnterDailyTournament={goDailyTournament}
             onBrowseLiveMatches={browseLiveOrAuth}
-            onGameCardPress={() => browseLiveOrAuth()}
+            h2hCarouselRows={h2hCarouselRows}
+            onH2hCarouselRowPress={openH2hCarouselRow}
             h2hIconFor={h2hIconFor}
             h2hGradients={h2hGradients}
           />
@@ -361,11 +397,11 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <HomeH2hCarouselWeb
-              rows={H2H_OPEN_GAMES.map((g) => ({ ...g, activeWaiter: null, queueTotal: 0, rotateIndex: 0 }))}
+              rows={h2hCarouselRows}
               h2hIconFor={h2hIconFor}
               h2hGradients={h2hGradients}
               phoneWeb={!webDesktopTabs}
-              onRowPress={() => browseLiveOrAuth()}
+              onRowPress={openH2hCarouselRow}
             />
           </HomePlayHero>
 

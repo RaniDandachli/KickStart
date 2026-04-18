@@ -1,9 +1,9 @@
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
 
 import { runWhopCheckoutUI } from '@/lib/whopCheckoutBridge';
 import type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
+import { walletCheckoutWhopReturnUrls } from '@/lib/walletCheckoutReturnUrls';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 export type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
@@ -24,9 +24,7 @@ async function parseFunctionError(error: unknown): Promise<string> {
 }
 
 async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise<WhopCheckoutPayload> {
-  const base = Linking.createURL('profile/add-funds');
-  const successUrl = `${base}${base.includes('?') ? '&' : '?'}status=success&provider=whop`;
-  const cancelUrl = `${base}${base.includes('?') ? '&' : '?'}status=cancel&provider=whop`;
+  const { successUrl, cancelUrl, authSessionRedirect } = walletCheckoutWhopReturnUrls();
 
   const body =
     opts.kind === 'wallet'
@@ -63,6 +61,7 @@ async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise
     url,
     sessionId: payload.sessionId ?? null,
     returnUrl: successUrl,
+    authSessionRedirect,
   };
 }
 
@@ -72,10 +71,9 @@ async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise
  */
 export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
   const p = await buildWhopCheckoutPayload(opts);
-  const redirectBase = Linking.createURL('profile/add-funds');
 
   return runWhopCheckoutUI(p, async () => {
-    const result = await WebBrowser.openAuthSessionAsync(p.url, redirectBase);
+    const result = await WebBrowser.openAuthSessionAsync(p.url, p.authSessionRedirect);
 
     if (result.type === 'success' && result.url) {
       if (result.url.includes('status=cancel')) return false;

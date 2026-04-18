@@ -10,12 +10,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import type { H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import type { HomeLobbyRecentReward } from '@/services/api/homeLobby';
 import type { ProfileFightStats } from '@/services/api/profileFightStats';
-import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
+import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
@@ -66,7 +67,8 @@ export type HomeScreenWebLaptopProps = {
   onHowItWorks: () => void;
   onEnterDailyTournament: () => void;
   onBrowseLiveMatches: () => void;
-  onGameCardPress: (gameKey: H2hGameKey) => void;
+  h2hCarouselRows: H2hCarouselRow[];
+  onH2hCarouselRowPress: (row: H2hCarouselRow) => void;
   h2hIconFor: (gameKey: H2hGameKey, size: number) => ReactNode;
   h2hGradients: (gameKey: H2hGameKey) => readonly [string, string];
 };
@@ -87,7 +89,8 @@ export function HomeScreenWebLaptop({
   onHowItWorks,
   onEnterDailyTournament,
   onBrowseLiveMatches,
-  onGameCardPress,
+  h2hCarouselRows,
+  onH2hCarouselRowPress,
   h2hIconFor,
   h2hGradients,
 }: HomeScreenWebLaptopProps) {
@@ -96,7 +99,7 @@ export function HomeScreenWebLaptop({
 
   const paidOut = liveLobby ? formatPaidOut24h(liveLobby.rewardsWalletCents24h) : '$0';
   const matchesInFlight = liveLobby ? liveLobby.matchesLive + liveLobby.matchesQueued : 0;
-  const activeGames = H2H_OPEN_GAMES.length;
+  const activeGames = h2hCarouselRows.length;
 
   const topEarners = useMemo(() => {
     const sorted = [...recentRewards].sort((a, b) => b.cents - a.cents);
@@ -292,39 +295,46 @@ export function HomeScreenWebLaptop({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.liveCardsScroll}
         >
-          {H2H_OPEN_GAMES.map((g) => {
-            const grad = h2hGradients(g.gameKey);
-            const highlight = g.gameKey === 'tap-dash';
+          {h2hCarouselRows.map((row) => {
+            const grad = h2hGradients(row.gameKey);
+            const highlight = row.gameKey === 'tap-dash';
+            const hostWaiting = row.activeWaiter != null;
             const cardStyle: ViewStyle[] = [styles.gameCard];
             if (highlight) {
               cardStyle.push(styles.gameCardHighlight);
             }
+            const subLine = hostWaiting
+              ? `${row.activeWaiter!.hostLabel} waiting · ${row.activeWaiter!.postedMinutesAgo}m · ${row.activeWaiter!.tierShortLabel} tier`
+              : TIER_SUB;
+            const entryCents = hostWaiting
+              ? Math.round(row.activeWaiter!.entryUsd * 100)
+              : Math.round(MATCH_ENTRY_TIERS[0].entry * 100);
             return (
               <Pressable
-                key={g.gameKey}
-                onPress={() => onGameCardPress(g.gameKey)}
+                key={row.gameKey}
+                onPress={() => onH2hCarouselRowPress(row)}
                 style={({ pressed }) => [cardStyle, pressed && { opacity: 0.94 }]}
               >
                 <LinearGradient colors={[grad[0], grad[1]]} style={styles.gameCardGrad}>
                   <View style={styles.gameCardTop}>
-                    {h2hIconFor(g.gameKey, 40)}
+                    {h2hIconFor(row.gameKey, 40)}
                     <View style={styles.gameCardTitles}>
-                      <Text style={styles.gameTitle}>{g.title}</Text>
-                      <Text style={styles.gameSub}>{TIER_SUB}</Text>
+                      <Text style={styles.gameTitle}>{row.title}</Text>
+                      <Text style={styles.gameSub} numberOfLines={2}>
+                        {subLine}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.gameCardBottom}>
-                    {highlight ? (
+                    {highlight && !hostWaiting ? (
                       <View style={styles.priceDash}>
                         <SafeIonicons name="flash" size={18} color="#4ade80" />
                       </View>
                     ) : (
-                      <Text style={styles.priceTxt}>
-                        {formatUsdFromCents(MATCH_ENTRY_TIERS[0].entry * 100)}
-                      </Text>
+                      <Text style={styles.priceTxt}>{formatUsdFromCents(entryCents)}</Text>
                     )}
                     <View style={styles.findOppBtn}>
-                      <Text style={styles.findOppTxt}>Find Opponent</Text>
+                      <Text style={styles.findOppTxt}>{hostWaiting ? 'Join' : 'Find Opponent'}</Text>
                     </View>
                   </View>
                 </LinearGradient>

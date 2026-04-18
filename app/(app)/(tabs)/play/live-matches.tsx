@@ -24,24 +24,36 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
+import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
-import { sortWaitersForDisplay, useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
+import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 /**
  * Head-to-head browse — open searches per game (moved off Home for a calmer landing).
  */
+function firstParam(v: string | string[] | undefined): string | undefined {
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v) && v.length > 0) return v[0];
+  return undefined;
+}
+
 export default function LiveMatchesScreen() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    returnTo?: string | string[];
+    joinWaiterId?: string | string[];
+    pickTierGame?: string | string[];
+  }>();
   const rawReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
   const returnTo = typeof rawReturnTo === 'string' && rawReturnTo.startsWith('/') ? rawReturnTo : undefined;
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
   const h2hBoardQuery = useHomeH2hQueueBoard();
+  const boardLoading = ENABLE_BACKEND && h2hBoardQuery.isLoading;
 
   const [h2hGate, setH2hGate] = useState<{
     path: string;
@@ -69,41 +81,54 @@ export default function LiveMatchesScreen() {
   /** Per-game waiter position (user-controlled carousel when a game has multiple waiters). */
   const [waiterIndexByGame, setWaiterIndexByGame] = useState<Partial<Record<H2hGameKey, number>>>({});
 
-  const h2hRows = useMemo(() => {
-    return H2H_OPEN_GAMES.map((g) => {
-      const forGame = sortWaitersForDisplay(waiters.filter((w) => w.gameKey === g.gameKey));
-      const queueTotal = forGame.length;
-      const idxRaw = waiterIndexByGame[g.gameKey] ?? 0;
-      const idx = queueTotal > 0 ? ((idxRaw % queueTotal) + queueTotal) % queueTotal : 0;
-      const w = queueTotal > 0 ? forGame[idx]! : null;
-      const tier =
-        w != null
-          ? MATCH_ENTRY_TIERS[((w.tierIndex % MATCH_ENTRY_TIERS.length) + MATCH_ENTRY_TIERS.length) % MATCH_ENTRY_TIERS.length]
-          : null;
-      if (!w || !tier) {
-        return { ...g, activeWaiter: null, queueTotal: 0, rotateIndex: 0 };
-      }
-      const postedMinutesAgo = Math.max(1, Math.floor((Date.now() - w.postedAt) / 60_000));
-      const rotateIndex = queueTotal > 0 ? idx + 1 : 0;
-      const entryUsd = w.entryFeeWalletCents != null ? w.entryFeeWalletCents / 100 : tier.entry;
-      const prizeUsd = w.listedPrizeUsdCents != null ? w.listedPrizeUsdCents / 100 : tier.prize;
-      return {
-        ...g,
-        activeWaiter: {
-          id: w.id,
-          tierShortLabel: tier.shortLabel,
-          entryUsd,
-          prizeUsd,
-          hostLabel: w.hostLabel,
-          postedMinutesAgo,
-          entryFeeWalletCents: w.entryFeeWalletCents,
-          listedPrizeUsdCents: w.listedPrizeUsdCents,
-        },
-        queueTotal,
-        rotateIndex,
-      };
+  const h2hRows = useMemo(
+    () => buildHomeH2hCarouselRows(waiters, waiterIndexByGame),
+    [waiters, waiterIndexByGame],
+  );
+
+  const joinWaiterIdParam = firstParam(params.joinWaiterId);
+  const pickTierGameParam = firstParam(params.pickTierGame);
+
+  useEffect(() => {
+    if (!joinWaiterIdParam || !ENABLE_BACKEND) return;
+    if (boardLoading) return;
+    const w = waiters.find((x) => x.id === joinWaiterIdParam);
+    const gameRow = w ? H2H_OPEN_GAMES.find((g) => g.gameKey === w.gameKey) : undefined;
+    const tier =
+      w != null
+        ? MATCH_ENTRY_TIERS[((w.tierIndex % MATCH_ENTRY_TIERS.length) + MATCH_ENTRY_TIERS.length) % MATCH_ENTRY_TIERS.length]
+        : null;
+    if (!w || !gameRow || !tier) {
+      router.setParams({ joinWaiterId: undefined });
+      return;
+    }
+    const entryUsd = w.entryFeeWalletCents != null ? w.entryFeeWalletCents / 100 : tier.entry;
+    const prizeUsd = w.listedPrizeUsdCents != null ? w.listedPrizeUsdCents / 100 : tier.prize;
+    setH2hGate({
+      path: gameRow.route,
+      title: gameRow.title,
+      entryUsd,
+      prizeUsd,
+      gameKey: w.gameKey,
+      lobbyKind: 'host_waiting',
+      waiterId: w.id,
+      entryFeeWalletCents: w.entryFeeWalletCents,
+      listedPrizeUsdCents: w.listedPrizeUsdCents,
     });
-  }, [waiters, waiterIndexByGame]);
+    router.setParams({ joinWaiterId: undefined });
+  }, [joinWaiterIdParam, waiters, boardLoading, router]);
+
+  useEffect(() => {
+    if (!pickTierGameParam) return;
+    const gk = pickTierGameParam as H2hGameKey;
+    const gameRow = H2H_OPEN_GAMES.find((g) => g.gameKey === gk);
+    if (!gameRow) {
+      router.setParams({ pickTierGame: undefined });
+      return;
+    }
+    setTierPick({ title: gameRow.title, gameKey: gameRow.gameKey, route: gameRow.route });
+    router.setParams({ pickTierGame: undefined });
+  }, [pickTierGameParam, router]);
 
   useEffect(() => {
     // Keep selected waiter index valid when queue sizes change.
@@ -123,7 +148,6 @@ export default function LiveMatchesScreen() {
   }, [waiters]);
 
   const totalWaiters = waiters.length;
-  const boardLoading = ENABLE_BACKEND && h2hBoardQuery.isLoading;
   const boardEmpty = ENABLE_BACKEND && !boardLoading && totalWaiters === 0;
 
   function h2hIconFor(gameKey: H2hGameKey, size: number) {

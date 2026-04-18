@@ -11,6 +11,15 @@ import { whopCheckoutConfigurationsCreate } from '../_shared/whopRest.ts';
 const MIN_WALLET_CENTS = 100;
 const MAX_WALLET_CENTS = 50_000;
 
+/** Whop dynamic plan / product `title` max length (API validation). */
+const WHOP_TITLE_MAX_LEN = 30;
+
+function clampWhopTitle(raw: string): string {
+  const t = raw.trim();
+  if (t.length <= WHOP_TITLE_MAX_LEN) return t;
+  return `${t.slice(0, WHOP_TITLE_MAX_LEN - 1)}…`;
+}
+
 function walletProcessingFeeCents(walletCents: number): number {
   return Math.round(walletCents * 0.029) + 30;
 }
@@ -79,7 +88,8 @@ Deno.serve(async (req) => {
       walletCents = ac;
       const feeCents = walletProcessingFeeCents(ac);
       lineAmountCents = ac + feeCents;
-      productName = `Wallet deposit $${(ac / 100).toFixed(2)} + card processing`;
+      /** Keep under Whop's 30-char title limit; total charged = initial_price (credit + fee). */
+      productName = `Wallet $${(ac / 100).toFixed(2)}`;
       productExternalId = `kc_wallet_${userId}_${ac}_${crypto.randomUUID().replace(/-/g, '')}`;
     } else {
       const pid = parsed.data.packageId;
@@ -104,6 +114,8 @@ Deno.serve(async (req) => {
       app: 'kickclash',
     };
 
+    const whopTitle = clampWhopTitle(productName);
+
     const { purchase_url, id: checkoutConfigId } = await whopCheckoutConfigurationsCreate(whopKey, {
       mode: 'payment',
       plan: {
@@ -112,10 +124,10 @@ Deno.serve(async (req) => {
         plan_type: 'one_time',
         release_method: 'buy_now',
         initial_price: initialPriceUsd,
-        title: productName,
+        title: whopTitle,
         product: {
           external_identifier: productExternalId,
-          title: productName,
+          title: whopTitle,
           visibility: 'hidden',
         },
       },

@@ -1,7 +1,7 @@
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { FunctionsHttpError } from '@supabase/functions-js';
 
+import { walletCheckoutStripeReturnUrls } from '@/lib/walletCheckoutReturnUrls';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 type WalletOpts = { kind: 'wallet'; amountCents: number };
@@ -24,9 +24,7 @@ async function parseFunctionError(error: unknown): Promise<string> {
  * Balance updates only after the Stripe webhook runs — caller should invalidate profile on success.
  */
 export async function openStripeCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {
-  const base = Linking.createURL('profile/add-funds');
-  const successUrl = `${base}${base.includes('?') ? '&' : '?'}status=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${base}${base.includes('?') ? '&' : '?'}status=cancel`;
+  const { successUrl, cancelUrl, authSessionRedirect } = walletCheckoutStripeReturnUrls();
 
   const body =
     opts.kind === 'wallet'
@@ -59,7 +57,7 @@ export async function openStripeCheckoutSession(opts: WalletOpts | CreditsOpts):
   const url = payload?.url;
   if (!url) throw new Error('No checkout URL returned');
 
-  const result = await WebBrowser.openAuthSessionAsync(url, base);
+  const result = await WebBrowser.openAuthSessionAsync(url, authSessionRedirect);
 
   if (result.type === 'success' && result.url) {
     if (result.url.includes('status=cancel')) return false;

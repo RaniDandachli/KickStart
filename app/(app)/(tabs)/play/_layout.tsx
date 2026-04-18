@@ -21,6 +21,15 @@ const minigamesParentGestureLock =
       }
     : {};
 
+/** Queue / matchmaking screens scroll vertically — disable stack swipe-back so drags don’t pop the route. */
+const queueFlowGestureLock =
+  Platform.OS !== 'web'
+    ? {
+        gestureEnabled: false as const,
+        ...(Platform.OS === 'ios' ? { fullScreenGestureEnabled: false as const } : {}),
+      }
+    : {};
+
 export default function PlayStackLayout() {
   return (
     <Stack
@@ -35,10 +44,10 @@ export default function PlayStackLayout() {
     >
       {/* Hub + queues use in-screen headers so we always show a back control (tab deep-links have no stack history). */}
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="casual" options={{ headerShown: false }} />
-      <Stack.Screen name="live-matches" options={{ headerShown: false }} />
-      <Stack.Screen name="choose-contest" options={{ headerShown: false }} />
-      <Stack.Screen name="ranked" options={{ headerShown: false }} />
+      <Stack.Screen name="casual" options={{ headerShown: false, ...queueFlowGestureLock }} />
+      <Stack.Screen name="live-matches" options={{ headerShown: false, ...queueFlowGestureLock }} />
+      <Stack.Screen name="choose-contest" options={{ headerShown: false, ...queueFlowGestureLock }} />
+      <Stack.Screen name="ranked" options={{ headerShown: false, ...queueFlowGestureLock }} />
       {/* Nested minigames stack — hide parent title bar; lock gestures so drags don’t pop to arcade */}
       <Stack.Screen name="minigames" options={{ headerShown: false, ...minigamesParentGestureLock }} />
       <Stack.Screen name="match/[matchId]" options={{ headerShown: false }} />
