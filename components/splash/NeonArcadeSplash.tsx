@@ -12,11 +12,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import {
-  APP_SCREEN_GRADIENT_COLORS,
-  APP_SCREEN_GRADIENT_LOCATIONS,
-  runitFont,
-} from '@/lib/runitArcadeTheme';
+import { WebRunItArcadeWordmark } from '@/components/web/WebRunItArcadeWordmark';
+import { APP_SCREEN_GRADIENT_COLORS, APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
 
 const TOTAL_MS = 2000;
 
@@ -182,7 +179,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
 
         {isWeb ? (
           <Animated.View style={[styles.webTaglineBlock, webTaglineStyle]}>
-            <Text style={[styles.webTitle, { fontFamily: runitFont.black }]}>RUN IT ARCADE</Text>
+            <WebRunItArcadeWordmark size="splash" layout="inline" style={styles.webWordmark} />
             <Animated.View style={webSublineStyle}>
               <Text style={styles.webSubtitle}>Skill contests · Events · Prizes</Text>
             </Animated.View>
@@ -267,15 +264,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     maxWidth: 520,
   },
-  webTitle: {
-    color: '#f8fafc',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 4,
-    textAlign: 'center',
-    textShadowColor: 'rgba(255, 0, 110, 0.75)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 18,
+  webWordmark: {
+    alignSelf: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   webSubtitle: {
     marginTop: 10,

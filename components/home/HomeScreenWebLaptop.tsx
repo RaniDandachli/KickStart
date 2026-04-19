@@ -13,6 +13,7 @@ import {
 
 import type { H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { WebRunItArcadeWordmark } from '@/components/web/WebRunItArcadeWordmark';
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import type { HomeLobbyRecentReward } from '@/services/api/homeLobby';
@@ -137,9 +138,8 @@ export function HomeScreenWebLaptop({
       <View style={[styles.max, compact && styles.maxCompact]}>
         {/* Top bar — wordmark + wallet (tab strip above has Home / Events / Arcade / Prizes with icons) */}
         <View style={[styles.topNav, compact && styles.topNavCompact]}>
-          <View style={styles.brandBlock}>
-            <Text style={[styles.brandRunIt, { fontFamily: runitFont.black }]}>RUN IT</Text>
-            <Text style={[styles.brandArcade, { fontFamily: runitFont.black }]}>ARCADE</Text>
+          <View style={[styles.brandBlock, compact && styles.brandBlockCompact]}>
+            <WebRunItArcadeWordmark size="hero" layout="stacked" />
           </View>
           <View style={[styles.navRight, compact && styles.navRightCompact]}>
             <Pressable
@@ -449,19 +449,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6,2,14,0.35)',
     borderRadius: 12,
   },
-  brandBlock: { minWidth: 100 },
-  brandRunIt: {
-    color: '#f8fafc',
-    fontSize: 13,
-    letterSpacing: 1.2,
-    lineHeight: 16,
-  },
-  brandArcade: {
-    color: runit.neonPink,
-    fontSize: 17,
-    letterSpacing: 1.4,
-    lineHeight: 20,
-  },
+  brandBlock: { minWidth: 0, flexShrink: 1 },
+  brandBlockCompact: { maxWidth: '52%' as const },
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
   walletPill: {
     flexDirection: 'row',

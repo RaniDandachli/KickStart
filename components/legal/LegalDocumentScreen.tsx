@@ -1,9 +1,10 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
 import type { LegalSection } from '@/lib/inAppLegalCopy';
+import { runit } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 
 export function LegalDocumentScreen({
@@ -32,11 +33,18 @@ export function LegalDocumentScreen({
 
   return (
     <Screen>
-      <View className="mb-4 flex-row items-center gap-2">
-        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
-          <Ionicons name="chevron-back" size={28} color="#e2e8f0" />
+      <View className="mb-4 flex-row items-center gap-3">
+        <Pressable
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={goBack}
+          className="flex-row items-center gap-1 rounded-xl border border-slate-500/50 bg-slate-900/60 py-2 pl-1 pr-3 active:opacity-90"
+        >
+          <SafeIonicons name="chevron-back" size={26} color={runit.neonCyan} />
+          <Text className="text-base font-extrabold text-slate-100">Back</Text>
         </Pressable>
-        <Text className="flex-1 text-xl font-bold text-white" numberOfLines={2}>
+        <Text className="min-w-0 flex-1 text-xl font-bold text-white" numberOfLines={2}>
           {heading}
         </Text>
       </View>
