@@ -35,7 +35,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow RunitArcade to set your profile photo from your library."
+          "photosPermission": "Allow Run iT Arcade to set your profile photo from your library."
         }
       ],
       "expo-asset",

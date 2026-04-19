@@ -8,14 +8,14 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
+import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { NeonArcadeSplash } from '@/components/splash/NeonArcadeSplash';
 import { runit } from '@/lib/runitArcadeTheme';
-import { theme } from '@/lib/theme';
 import { AppProviders } from '@/providers/AppProviders';
 
 import '../global.css';
@@ -23,6 +23,20 @@ import '../global.css';
 export { ErrorBoundary } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
+
+/**
+ * RN Web maps `colors.card` onto the bottom tab bar shell. `DarkTheme` uses near-black rgb(18,18,18),
+ * which reads as a solid black strip on iPhone Safari behind our glass `tabBarBackground`.
+ */
+const WebArcadeNavigationTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: 'transparent',
+    card: 'transparent',
+    border: 'transparent',
+  },
+};
 
 export default function RootLayout() {
   const [loaded, err] = useFonts({
@@ -55,20 +69,26 @@ export default function RootLayout() {
 
   if (!loaded) return null;
 
+  const stack = (
+    <>
+      <StatusBar barStyle="light-content" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: runit.bgDeep },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
+      </Stack>
+    </>
+  );
+
   return (
     <SafeAreaProvider>
       <AppProviders>
-        <StatusBar barStyle="light-content" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: runit.bgDeep },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
+        {Platform.OS === 'web' ? <ThemeProvider value={WebArcadeNavigationTheme}>{stack}</ThemeProvider> : stack}
       </AppProviders>
       {!splashDone ? <NeonArcadeSplash onComplete={onSplashComplete} /> : null}
     </SafeAreaProvider>

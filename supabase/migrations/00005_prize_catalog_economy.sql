@@ -26,7 +26,7 @@ values
   ),
   (
     'kickclash-hat-demo',
-    'KickClash cap',
+    'Run iT Arcade cap',
     'Adjustable cap — ships to verified address after redemption.',
     'https://placehold.co/800x500/1e293b/fbbf24/png?text=Prize+photo',
     2500,

@@ -215,7 +215,7 @@ export default function MatchPlayScreen() {
     ENABLE_BACKEND;
 
   const serverGameKey = (msQ.data?.game_key ?? '').trim().toLowerCase();
-  const kickClashRetired =
+  const legacySoccerH2hRetired =
     ENABLE_BACKEND &&
     userId !== 'guest' &&
     !!matchId &&
@@ -356,7 +356,7 @@ export default function MatchPlayScreen() {
     );
   }
 
-  if (kickClashRetired || neonHopRetired) {
+  if (legacySoccerH2hRetired || neonHopRetired) {
     return (
       <Screen scroll={false}>
         <Text className="text-lg font-black text-white">Minigame unavailable</Text>

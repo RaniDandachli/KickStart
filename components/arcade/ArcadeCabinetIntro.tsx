@@ -155,7 +155,7 @@ export function ArcadeCabinetIntro({ onComplete }: Props) {
         >
           <View style={styles.marqueeRow} accessibilityRole="text">
             <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />
-            <Text style={styles.marqueeText}> KICKCLASH </Text>
+            <Text style={styles.marqueeText}> Run iT Arcade </Text>
             <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />
             <Text style={styles.marqueeText}> INSERT SKILL </Text>
             <SafeIonicons name="star" size={11} color="#fef08a" accessible={false} />

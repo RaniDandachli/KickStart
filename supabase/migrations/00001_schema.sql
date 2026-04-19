@@ -1,4 +1,4 @@
--- KickClash — core schema (Supabase Postgres)
+-- Run iT Arcade — core schema (Supabase Postgres)
 -- Fresh install: run migrations in order. Matches `types/database.ts` and Edge Functions.
 
 -- ---------------------------------------------------------------------------

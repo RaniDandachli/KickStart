@@ -36,7 +36,7 @@ export function WebRunItArcadeWordmark({ size = 'hero', layout = 'stacked', styl
   const mark = (
     <Image
       source={WEB_RUN_IT_R_MARK}
-      style={[styles.mark, { height: h, width: h * 0.92 }]}
+      style={[styles.mark, { height: h, width: h * 0.88 }]}
       contentFit="contain"
       accessibilityElementsHidden
       importantForAccessibility="no"
@@ -95,11 +95,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 2,
   },
-  mark: {},
+  /** Pull copy closer to the R; transparent PNG still has a bit of side padding in the file. */
+  mark: { marginRight: -6 },
   textCol: {
     justifyContent: 'center',
+    marginLeft: -2,
   },
   line1: {
     color: '#f8fafc',
@@ -115,6 +117,7 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontWeight: '900',
     flexShrink: 1,
+    marginLeft: -2,
   },
   inlineUn: {
     color: '#f8fafc',

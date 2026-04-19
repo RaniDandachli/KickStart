@@ -1,4 +1,4 @@
--- H2H skill scores RPC: support both Tap Dash and Kick Clash (arcade soccer) by game_key.
+-- H2H skill scores RPC: support both Tap Dash and arcade soccer (`kick-clash` game_key).
 
 create or replace function public.h2h_tap_dash_scores_for_match(p_match_session_id uuid)
 returns jsonb

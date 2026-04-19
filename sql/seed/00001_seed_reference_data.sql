@@ -5,7 +5,7 @@
 insert into public.seasons (id, name, starts_at, ends_at, is_active)
 values (
   '11111111-1111-4111-8111-111111111111',
-  'KickClash S1 — Neon Pitch',
+  'Run iT Arcade S1 — Neon Pitch',
   now() - interval '30 days',
   now() + interval '60 days',
   true
@@ -41,7 +41,7 @@ insert into public.tournaments (
   'Top 3 receive exclusive avatar frames and titles awarded by admins.',
   32,
   6,
-  '1v1 KickClash rules. Single elimination. Check in 10 min before start.',
+  '1v1 Run iT Arcade rules. Single elimination. Check in 10 min before start.',
   now() + interval '2 days'
 ),
 (

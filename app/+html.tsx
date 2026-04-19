@@ -59,12 +59,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Match `runit.bgDeep` everywhere — app is dark; avoids a light or mismatched strip behind the web tab bar. */
 const responsiveBackground = `
-body {
-  background-color: #fff;
+html, body {
+  background-color: #06020e;
 }
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #06020e;
-  }
-}`;
+`;

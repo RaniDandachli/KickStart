@@ -1,4 +1,4 @@
-# KickClash — Phase 1 scaffold
+# Run iT Arcade — Phase 1 scaffold
 
 Production-oriented MVP shell for a competitive 1v1 arcade soccer-style game: **Expo Router + React Native**, **TanStack Query**, **Zustand**, **NativeWind**, **Zod**, and **Supabase** (Auth, Postgres, Realtime hooks, Edge Function stubs). Gameplay physics are intentionally stubbed behind a reusable match session model and placeholder screen.
 
@@ -9,7 +9,7 @@ Production-oriented MVP shell for a competitive 1v1 arcade soccer-style game: **
 ## Quick start
 
 ```bash
-cd KickClash
+cd <project-root>
 npm install
 cp .env.example .env
 # fill EXPO_PUBLIC_SUPABASE_* then:
@@ -117,7 +117,7 @@ Implemented as HTTP handlers with shared `supabase/functions/_shared/http.ts`. D
 ## Project tree (abbrev.)
 
 ```
-KickClash/
+run-it-arcade/
 ├── app/
 │   ├── _layout.tsx
 │   ├── index.tsx

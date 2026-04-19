@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             unit_amount: lineAmountCents,
             product_data: {
               name: productName,
-              metadata: { app: 'kickclash' },
+              metadata: { app: 'run-it-arcade' },
             },
           },
           quantity: 1,

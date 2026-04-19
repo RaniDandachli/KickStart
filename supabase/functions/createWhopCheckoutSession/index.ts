@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       processing_fee_cents: kind === 'wallet' ? String(walletProcessingFeeCents(walletCents)) : '0',
       prize_credits: String(prizeCredits),
       package_id: parsed.data.packageId ?? '',
-      app: 'kickclash',
+      app: 'run-it-arcade',
     };
 
     const whopTitle = clampWhopTitle(productName);

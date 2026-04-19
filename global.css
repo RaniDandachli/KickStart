@@ -2,11 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Web shell: letterbox wide viewports so the app doesn’t float on white */
-@media (min-width: 900px) {
-  html,
-  body {
-    /* Match `runit.bgDeep` so the transparent top tab strip feels like the page, not a floating bar */
-    background-color: #06020e;
-  }
+/* Web shell: match `runit.bgDeep` so transparent tab chrome (top + iPhone bottom) blends with the page */
+html,
+body {
+  background-color: #06020e;
 }

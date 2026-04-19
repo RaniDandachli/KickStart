@@ -23,7 +23,7 @@ export default function NeonBallRunGame({
       <View style={styles.box}>
         <Text style={styles.title}>Ball Run</Text>
         <Text style={styles.body}>
-          This game uses native 3D (expo-gl) and is only available in the mobile app. Open KickClash on iOS or
+          This game uses native 3D (expo-gl) and is only available in the mobile app. Open Run iT Arcade on iOS or
           Android to play.
         </Text>
         <Pressable
