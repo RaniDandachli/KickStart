@@ -145,8 +145,10 @@ export default function TabsLayout() {
         ...(Platform.OS === 'web'
           ? {
               tabBarLabel: webTabBarLabelRenderer,
-              /** Same screen gradient for desktop top strip and iPhone-style bottom tabs (avoids opaque `colors.card`). */
-              tabBarBackground: () => <WebTopTabBarBackdrop />,
+              /** Top strip vs floating iPhone glass dock — different blur/tint (see `WebTopTabBarBackdrop`). */
+              tabBarBackground: () => (
+                <WebTopTabBarBackdrop variant={webUsesTopTabBar ? 'topStrip' : 'mobileBottomGlass'} />
+              ),
             }
           : {}),
         ...(Platform.OS === 'web' && webUsesTopTabBar
@@ -164,6 +166,13 @@ export default function TabsLayout() {
                 alignSelf: 'center' as const,
                 backgroundColor: 'transparent',
               },
+            }
+          : {}),
+        ...(Platform.OS === 'web' && !webUsesTopTabBar
+          ? {
+              /** Frosted pill behind the active tab (reference-style dock). */
+              tabBarActiveBackgroundColor: 'rgba(255, 255, 255, 0.11)',
+              tabBarInactiveBackgroundColor: 'transparent',
             }
           : {}),
         tabBarStyle: {
@@ -217,6 +226,8 @@ export default function TabsLayout() {
                 flex: 1,
                 minWidth: 0,
                 overflow: 'visible' as const,
+                borderRadius: 14,
+                marginHorizontal: 1,
               }
             : {}),
         },

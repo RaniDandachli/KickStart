@@ -15,7 +15,7 @@ const MARK_HEIGHT: Record<WebRunItArcadeWordmarkSize, number> = {
 
 const FONT: Record<WebRunItArcadeWordmarkSize, { line1: number; line2: number; inline: number }> = {
   nav: { line1: 12, line2: 14, inline: 13 },
-  hero: { line1: 13, line2: 17, inline: 15 },
+  hero: { line1: 13, line2: 17, inline: 17 },
   splash: { line1: 22, line2: 28, inline: 24 },
 };
 
@@ -29,14 +29,18 @@ type Props = {
 /**
  * Web wordmark: stylized **R** logo + “UN iT Arcade” (the R is only in the artwork).
  */
-export function WebRunItArcadeWordmark({ size = 'hero', layout = 'stacked', style }: Props) {
+export function WebRunItArcadeWordmark({ size = 'hero', layout = 'inline', style }: Props) {
   const h = MARK_HEIGHT[size];
   const f = FONT[size];
 
   const mark = (
     <Image
       source={WEB_RUN_IT_R_MARK}
-      style={[styles.mark, { height: h, width: h * 0.88 }]}
+      style={[
+        styles.mark,
+        layout === 'inline' && styles.markInlineOptical,
+        { height: h, width: h * 0.88 },
+      ]}
       contentFit="contain"
       accessibilityElementsHidden
       importantForAccessibility="no"
@@ -46,12 +50,18 @@ export function WebRunItArcadeWordmark({ size = 'hero', layout = 'stacked', styl
   if (layout === 'inline') {
     return (
       <View
-        style={[styles.row, style]}
+        style={[styles.row, styles.rowInline, style]}
         accessibilityRole="text"
         accessibilityLabel="Run It Arcade"
       >
         {mark}
-        <Text style={[styles.inlineRoot, { fontSize: f.inline }, { fontFamily: runitFont.black }]}>
+        <Text
+          style={[
+            styles.inlineRoot,
+            { fontSize: f.inline, lineHeight: f.inline * 1.15 },
+            { fontFamily: runitFont.black },
+          ]}
+        >
           <Text style={styles.inlineUn}>UN </Text>
           <Text style={styles.inlineIt}>iT </Text>
           <Text style={styles.inlineArcade}>Arcade</Text>
@@ -97,8 +107,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  /** One baseline: cap height lines up with the R loop; bolt tail hangs below text naturally. */
+  rowInline: {
+    alignItems: 'center',
+  },
   /** Pull copy closer to the R; transparent PNG still has a bit of side padding in the file. */
   mark: { marginRight: -6 },
+  markInlineOptical: {
+    marginTop: -2,
+  },
   textCol: {
     justifyContent: 'center',
     marginLeft: -2,

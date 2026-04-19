@@ -139,7 +139,7 @@ export function HomeScreenWebLaptop({
         {/* Top bar — wordmark + wallet (tab strip above has Home / Events / Arcade / Prizes with icons) */}
         <View style={[styles.topNav, compact && styles.topNavCompact]}>
           <View style={[styles.brandBlock, compact && styles.brandBlockCompact]}>
-            <WebRunItArcadeWordmark size="hero" layout="stacked" />
+            <WebRunItArcadeWordmark size="hero" layout="inline" />
           </View>
           <View style={[styles.navRight, compact && styles.navRightCompact]}>
             <Pressable

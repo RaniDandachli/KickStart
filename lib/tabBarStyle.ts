@@ -1,7 +1,7 @@
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Platform } from 'react-native';
 
-import { appBorderAccentMuted, appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
+import { appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
 
 /** Desktop web top tab row height — exported so the corner logo aligns vertically. */
 export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 44;
@@ -51,25 +51,27 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
     /** Icon + 1–2 lines of label on narrow mobile web (Safari). */
     const contentForIconAndLabel = 72;
     return {
-      /** Gradient comes from `tabBarBackground` (`WebTopTabBarBackdrop`); keep bar visually continuous with the screen. */
+      /** Gradient + blur from `tabBarBackground` (`WebTopTabBarBackdrop` variant `mobileBottomGlass`). */
       backgroundColor: 'transparent',
       borderTopWidth: 0,
       borderWidth: 1,
-      borderColor: appBorderAccentMuted,
-      borderRadius: 22,
-      marginHorizontal: 12,
-      marginBottom: 10,
+      /** Soft “glass rim” — light outline so the frosted pill reads on busy backgrounds. */
+      borderColor: 'rgba(255, 255, 255, 0.14)',
+      borderRadius: 26,
+      marginHorizontal: 14,
+      marginBottom: 12,
       marginTop: 4,
       paddingTop: padTop,
       paddingBottom: padBottom,
-      paddingHorizontal: 2,
+      paddingHorizontal: 4,
       height: padTop + contentForIconAndLabel + padBottom,
       minHeight: padTop + contentForIconAndLabel + padBottom,
-      overflow: 'visible',
+      /** Clip backdrop blur to the pill on iOS Safari. */
+      overflow: 'hidden' as const,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.18,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.14,
+      shadowRadius: 20,
       elevation: 12,
     };
   }
