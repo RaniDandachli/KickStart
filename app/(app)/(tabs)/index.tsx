@@ -141,6 +141,11 @@ export default function HomeScreen() {
     else setPlayNowOpen(true);
   }
 
+  function goNotificationSettings() {
+    if (needAccount) openGuestPrompt('play');
+    else router.push('/(app)/(tabs)/profile/settings' as never);
+  }
+
   function browseLiveOrAuth() {
     if (needAccount) openGuestPrompt('play');
     else goBrowseLive();
@@ -254,6 +259,7 @@ export default function HomeScreen() {
             onHowItWorks={() => setHowItWorksOpen(true)}
             onEnterDailyTournament={goDailyTournament}
             onBrowseLiveMatches={browseLiveOrAuth}
+            onNotificationsPress={goNotificationSettings}
             h2hCarouselRows={h2hCarouselRows}
             onH2hCarouselRowPress={openH2hCarouselRow}
             h2hIconFor={h2hIconFor}
@@ -328,6 +334,20 @@ export default function HomeScreen() {
           contentContainerStyle={[styles.scroll, isWeb && styles.scrollWebDesktop]}
           showsVerticalScrollIndicator={false}
         >
+          {ENABLE_BACKEND ? (
+            <View style={styles.homeAlertsStrip}>
+              <Pressable
+                onPress={goNotificationSettings}
+                accessibilityRole="button"
+                accessibilityLabel="Alerts and notifications — open settings"
+                style={({ pressed }) => [styles.homeAlertsStripInner, pressed && { opacity: 0.88 }]}
+              >
+                <SafeIonicons name="notifications-outline" size={22} color="#e2e8f0" />
+                <Text style={styles.homeAlertsStripTxt}>Match & queue alerts</Text>
+                <SafeIonicons name="chevron-forward" size={18} color="rgba(226,232,240,0.45)" />
+              </Pressable>
+            </View>
+          ) : null}
           {isWeb && !webDesktopTabs ? (
             <View style={styles.webLogoNarrowRow}>
               <Image
@@ -624,6 +644,30 @@ const styles = StyleSheet.create({
   safeLaptop: { flex: 1, maxWidth: 1280, width: '100%', alignSelf: 'center' },
   scroll: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
   scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
+  homeAlertsStrip: {
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 0,
+  },
+  homeAlertsStripInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.35)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  homeAlertsStripTxt: {
+    flex: 1,
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   webLogoNarrowRow: {
     alignSelf: 'center',
     width: '100%',

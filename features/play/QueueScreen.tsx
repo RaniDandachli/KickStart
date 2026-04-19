@@ -95,7 +95,8 @@ export function QueueScreen({
   const queueKind = useMatchmakingStore((s) => s.queue);
   const keepSearchingWhenAway = useMatchmakingStore((s) => s.keepSearchingWhenAway);
   const setKeepSearchingWhenAway = useMatchmakingStore((s) => s.setKeepSearchingWhenAway);
-  const [pingOpenQueueAlerts, setPingOpenQueueAlerts] = useState(false);
+  const pingOpenQueueAlerts = useMatchmakingStore((s) => s.openSlotPingWhileSearching);
+  const setOpenSlotPingWhileSearching = useMatchmakingStore((s) => s.setOpenSlotPingWhileSearching);
   const prevPhaseRef = useRef(phase);
   const setQueuePollSnapshot = useMatchmakingStore((s) => s.setQueuePollSnapshot);
   const setMatchmakingAcceptRoute = useMatchmakingStore((s) => s.setMatchmakingAcceptRoute);
@@ -192,16 +193,16 @@ export function QueueScreen({
   useEffect(() => {
     const prev = prevPhaseRef.current;
     if (prev === 'searching' && phase === 'idle' && ENABLE_BACKEND && userId !== 'guest') {
-      setPingOpenQueueAlerts(false);
+      setOpenSlotPingWhileSearching(false);
       void registerExpoPushWithSupabase(userId);
     }
     prevPhaseRef.current = phase;
-  }, [phase, userId]);
+  }, [phase, userId, setOpenSlotPingWhileSearching]);
 
   const onPingOpenQueueAlertsChange = useCallback(
     async (next: boolean) => {
       if (!ENABLE_BACKEND || userId === 'guest') return;
-      setPingOpenQueueAlerts(next);
+      setOpenSlotPingWhileSearching(next);
       if (!next) {
         await unregisterWebPushForUser();
         await registerExpoPushWithSupabase(userId);
@@ -226,7 +227,7 @@ export function QueueScreen({
           status = req.status;
         }
         if (status !== 'granted') {
-          setPingOpenQueueAlerts(false);
+          setOpenSlotPingWhileSearching(false);
           Alert.alert(
             'Notifications needed',
             'Turn on notifications for Run It Arcade in system settings so we can ping you when someone joins a matching queue.',
@@ -237,19 +238,22 @@ export function QueueScreen({
           );
           return;
         }
-      }
-      await registerExpoPushWithSupabase(userId, { openSlotWatch: { ...openWatch, enabled: true } });
-      if (Platform.OS === 'web' && isWebPushConfigured()) {
-        const wr = await registerWebPushForUser();
-        if (!wr.ok) {
-          setPingOpenQueueAlerts(false);
-          Alert.alert('Browser notifications', wr.error);
-          return;
+        await registerExpoPushWithSupabase(userId, { openSlotWatch: { ...openWatch, enabled: true } });
+      } else {
+        /** Web: subscribe + save keys first so we do not mark the profile “on” if the browser cannot push. */
+        if (isWebPushConfigured()) {
+          const wr = await registerWebPushForUser();
+          if (!wr.ok) {
+            setOpenSlotPingWhileSearching(false);
+            Alert.alert('Browser notifications', wr.error);
+            return;
+          }
         }
+        await registerExpoPushWithSupabase(userId, { openSlotWatch: { ...openWatch, enabled: true } });
       }
       void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
     },
-    [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc],
+    [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc, setOpenSlotPingWhileSearching],
   );
 
   useEffect(() => {
@@ -323,6 +327,7 @@ export function QueueScreen({
         allowedEntryCents: quickMatchAllowedEntryCentsRef.current,
       };
       setQueue(mode);
+      setOpenSlotPingWhileSearching(false);
       setPhase('searching');
       const snap = buildBackendQueueParams({
         mode,
@@ -369,6 +374,7 @@ export function QueueScreen({
     }
 
     setQueue(mode);
+    setOpenSlotPingWhileSearching(false);
     setPhase('searching');
 
     const snap = buildBackendQueueParams({
@@ -398,6 +404,7 @@ export function QueueScreen({
     profileQ.data?.wallet_cents,
     setQueuePollSnapshot,
     pushMatchmakingAcceptRoute,
+    setOpenSlotPingWhileSearching,
   ]);
 
   const runQuickMatchResolve = useCallback(async () => {

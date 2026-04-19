@@ -42,6 +42,11 @@ interface MatchmakingState {
   queuePollSnapshot: H2hQueuePollPayload | null;
   /** Route + wallet context for accepting a match when the modal is hosted globally. */
   matchmakingAcceptRoute: MatchmakingAcceptRoute | null;
+  /**
+   * “Ping me for open queues” while on the queue screen — stored here so profile refetch / remount
+   * does not snap the Switch back to off after a successful enable.
+   */
+  openSlotPingWhileSearching: boolean;
   setQueue: (q: QueueKind | null) => void;
   setPhase: (p: MatchmakingState['phase']) => void;
   setFound: (matchId: string, opponent: MatchOpponentPreview, opts?: { serverSessionReady?: boolean }) => void;
@@ -49,6 +54,7 @@ interface MatchmakingState {
   setKeepSearchingWhenAway: (v: boolean) => void;
   setQueuePollSnapshot: (p: H2hQueuePollPayload | null) => void;
   setMatchmakingAcceptRoute: (r: MatchmakingAcceptRoute | null) => void;
+  setOpenSlotPingWhileSearching: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -62,6 +68,7 @@ export const useMatchmakingStore = create<MatchmakingState>((set) => ({
   keepSearchingWhenAway: false,
   queuePollSnapshot: null,
   matchmakingAcceptRoute: null,
+  openSlotPingWhileSearching: false,
   setQueue: (queue) => set({ queue }),
   setPhase: (phase) => set({ phase }),
   setFound: (mockMatchId, opponent, opts) =>
@@ -75,6 +82,7 @@ export const useMatchmakingStore = create<MatchmakingState>((set) => ({
   setKeepSearchingWhenAway: (keepSearchingWhenAway) => set({ keepSearchingWhenAway }),
   setQueuePollSnapshot: (queuePollSnapshot) => set({ queuePollSnapshot }),
   setMatchmakingAcceptRoute: (matchmakingAcceptRoute) => set({ matchmakingAcceptRoute }),
+  setOpenSlotPingWhileSearching: (openSlotPingWhileSearching) => set({ openSlotPingWhileSearching }),
   reset: () =>
     set({
       queue: null,
@@ -86,5 +94,6 @@ export const useMatchmakingStore = create<MatchmakingState>((set) => ({
       keepSearchingWhenAway: false,
       queuePollSnapshot: null,
       matchmakingAcceptRoute: null,
+      openSlotPingWhileSearching: false,
     }),
 }));

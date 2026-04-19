@@ -70,6 +70,8 @@ export type HomeScreenWebLaptopProps = {
   onHowItWorks: () => void;
   onEnterDailyTournament: () => void;
   onBrowseLiveMatches: () => void;
+  /** Opens notification / alert settings (e.g. Profile → Settings). */
+  onNotificationsPress?: () => void;
   h2hCarouselRows: H2hCarouselRow[];
   onH2hCarouselRowPress: (row: H2hCarouselRow) => void;
   h2hIconFor: (gameKey: H2hGameKey, size: number) => ReactNode;
@@ -92,6 +94,7 @@ export function HomeScreenWebLaptop({
   onHowItWorks,
   onEnterDailyTournament,
   onBrowseLiveMatches,
+  onNotificationsPress,
   h2hCarouselRows,
   onH2hCarouselRowPress,
   h2hIconFor,
@@ -142,6 +145,16 @@ export function HomeScreenWebLaptop({
             <WebRunItArcadeWordmark size="hero" layout="inline" />
           </View>
           <View style={[styles.navRight, compact && styles.navRightCompact]}>
+            {onNotificationsPress ? (
+              <Pressable
+                onPress={onNotificationsPress}
+                accessibilityRole="button"
+                accessibilityLabel="Notification and alert settings"
+                style={({ pressed }) => [styles.navIconBtn, pressed && { opacity: 0.88 }]}
+              >
+                <SafeIonicons name="notifications-outline" size={20} color="#e2e8f0" />
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={onWalletPress}
               style={({ pressed }) => [styles.walletPill, pressed && { opacity: 0.9 }]}
@@ -452,6 +465,16 @@ const styles = StyleSheet.create({
   brandBlock: { minWidth: 0, flexShrink: 1 },
   brandBlockCompact: { maxWidth: '52%' as const },
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
+  navIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+  },
   walletPill: {
     flexDirection: 'row',
     alignItems: 'center',
