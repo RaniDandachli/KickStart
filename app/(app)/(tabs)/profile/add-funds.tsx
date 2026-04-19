@@ -227,6 +227,8 @@ function PayWithSelector({
 function initialWalletCheckoutProvider(): WalletCheckoutProvider {
   if (!ENABLE_BACKEND) return 'stripe';
   if (WHOP_CHECKOUT_ENABLED && !WALLET_TOPUP_STRIPE_ENABLED) return 'whop';
+  /** Web has no in-app Stripe Payment Sheet; both rails use hosted checkout — prefer Whop when it is enabled. */
+  if (Platform.OS === 'web' && WHOP_CHECKOUT_ENABLED) return 'whop';
   return 'stripe';
 }
 
