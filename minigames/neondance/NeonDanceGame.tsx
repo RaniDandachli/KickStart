@@ -51,6 +51,11 @@ const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
  * Difficulty comes from more hoop colors + ball color swaps only, not faster approach.
  */
 const FORWARD_FIXED = 0.12;
+/**
+ * Pass/fail when the hoop crosses this advance (slightly past 1.0 so the ring has visually
+ * “arrived” at the player plane — matches `approachScale` feel and avoids felt-early deaths).
+ */
+const HOOP_COLLISION_PLANE = 1.012;
 /** Minimum / maximum spacing in advance space when queueing the next hoop. */
 const HOOP_QUEUE_GAP_MIN = 0.45;
 const HOOP_QUEUE_GAP_MAX = 2.45;
@@ -173,7 +178,12 @@ const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
 }) {
   const dim = Math.min(winW, playAreaH);
   return (
-    <Svg style={StyleSheet.absoluteFill} width={winW} height={playAreaH} pointerEvents="none">
+    <Svg
+      style={[StyleSheet.absoluteFill, { zIndex: 0 }]}
+      width={winW}
+      height={playAreaH}
+      pointerEvents="none"
+    >
       {Array.from({ length: TUNNEL_RING_COUNT }, (_, i) => {
         const r = 28 + i * dim * 0.13;
         const o = 0.06 + i * 0.045;
@@ -681,7 +691,7 @@ export default function NeonDanceGame({
           const prev = hoop.advance;
           hoop.advance += forward * dt;
           hoop.rot += hoop.omega * dt;
-          if (prev < 1 && hoop.advance >= 1) {
+          if (prev < HOOP_COLLISION_PLANE && hoop.advance >= HOOP_COLLISION_PLANE) {
             const idx = sectorAtWorldAngle(ballAngleRef.current, hoop.rot, hoop.n);
             if (idx === ballIdxRef.current) {
               ringsPassedRef.current += 1;
@@ -973,6 +983,7 @@ export default function NeonDanceGame({
                     key={h.id}
                     style={[
                       styles.hoopLayer,
+                      Platform.OS === 'web' && styles.hoopLayerWeb,
                       {
                         left,
                         top,
@@ -1003,42 +1014,39 @@ export default function NeonDanceGame({
                 );
               })}
 
-              <Svg
-                style={[StyleSheet.absoluteFill, { zIndex: 50 }]}
-                width={winW}
-                height={playAreaH}
-                pointerEvents="none"
-              >
-                {trailRef.current.map((pt, i) => (
+              <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.ballLayerAboveHoops]}>
+                <Svg style={StyleSheet.absoluteFill} width={winW} height={playAreaH} pointerEvents="none">
+                  {trailRef.current.map((pt, i) => (
+                    <Circle
+                      key={`t-${i}`}
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={3 + (i / Math.max(1, trailRef.current.length)) * 5}
+                      fill={ballColor}
+                      opacity={0.1 + (i / Math.max(1, trailRef.current.length)) * 0.35}
+                    />
+                  ))}
+                  {particlesRef.current.map((p) => (
+                    <Circle
+                      key={p.id}
+                      cx={p.x}
+                      cy={p.y}
+                      r={4}
+                      fill={p.color}
+                      opacity={Math.max(0, p.life * 1.8)}
+                    />
+                  ))}
+                  <Circle cx={ballX} cy={ballY} r={BALL_R + 5} fill={ballColor} opacity={0.28} />
                   <Circle
-                    key={`t-${i}`}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={3 + (i / Math.max(1, trailRef.current.length)) * 5}
+                    cx={ballX}
+                    cy={ballY}
+                    r={BALL_R}
                     fill={ballColor}
-                    opacity={0.1 + (i / Math.max(1, trailRef.current.length)) * 0.35}
+                    stroke="rgba(255,255,255,0.9)"
+                    strokeWidth={2}
                   />
-                ))}
-                {particlesRef.current.map((p) => (
-                  <Circle
-                    key={p.id}
-                    cx={p.x}
-                    cy={p.y}
-                    r={4}
-                    fill={p.color}
-                    opacity={Math.max(0, p.life * 1.8)}
-                  />
-                ))}
-                <Circle cx={ballX} cy={ballY} r={BALL_R + 5} fill={ballColor} opacity={0.28} />
-                <Circle
-                  cx={ballX}
-                  cy={ballY}
-                  r={BALL_R}
-                  fill={ballColor}
-                  stroke="rgba(255,255,255,0.9)"
-                  strokeWidth={2}
-                />
-              </Svg>
+                </Svg>
+              </View>
 
               <Text style={styles.hidden}>{tick}</Text>
             </View>
@@ -1241,6 +1249,17 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
       },
     }),
+  },
+  /** Web: hoop shadows create stacking contexts; Safari can paint them above the ball SVG. */
+  hoopLayerWeb: {
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  ballLayerAboveHoops: {
+    zIndex: 500,
+    elevation: 500,
   },
   hudGlass: {
     flexDirection: 'row',

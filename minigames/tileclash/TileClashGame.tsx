@@ -11,7 +11,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  type GestureResponderEvent,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +56,8 @@ const LANE_H = 200;
 const TILE_H = 22;
 const HIT_TOP = 128;
 const HIT_BOTTOM = 178;
+/** Extra logical px around the amber band for tap + overlap checks (float edges + “feels in” taps). */
+const TAP_BAND_PAD = 2.5;
 const BASE_SCROLL = 0.056;
 const SPAWN_MS = 520;
 const SPEED_BUMP = 1.12;
@@ -86,7 +87,9 @@ type GameModel = {
 };
 
 function inHitOverlap(y: number): boolean {
-  return y + TILE_H > HIT_TOP && y < HIT_BOTTOM;
+  const lo = HIT_TOP - TAP_BAND_PAD;
+  const hi = HIT_BOTTOM + TAP_BAND_PAD;
+  return y + TILE_H >= lo && y <= hi;
 }
 
 function findTileInColumn(tiles: Tile[], col: number): Tile | undefined {
@@ -358,16 +361,6 @@ export default function TileClashGame({
     [phase, applyPlayingTap],
   );
 
-  const onBoardPressIn = useCallback(
-    (e: GestureResponderEvent) => {
-      if (phase !== 'playing' || boardW <= 0) return;
-      const x = e.nativeEvent.locationX;
-      const col = Math.min(COLS - 1, Math.max(0, Math.floor((x / boardW) * COLS)));
-      onColumnPress(col);
-    },
-    [phase, boardW, onColumnPress],
-  );
-
   useWebGameKeyboard(phase === 'playing', {
     Digit1: (down) => {
       if (down) onColumnPress(0);
@@ -433,8 +426,8 @@ export default function TileClashGame({
   });
 
   const m = modelRef.current;
-  const hitTopPx = HIT_TOP * scaleY;
-  const hitH = (HIT_BOTTOM - HIT_TOP) * scaleY;
+  const hitTopPx = (HIT_TOP - TAP_BAND_PAD) * scaleY;
+  const hitH = (HIT_BOTTOM + TAP_BAND_PAD - (HIT_TOP - TAP_BAND_PAD)) * scaleY;
   const mult = 1 + Math.floor(m.streak / 10);
 
   const dailyPayload =
@@ -558,12 +551,21 @@ export default function TileClashGame({
           {redFlash ? <View style={styles.redFlash} pointerEvents="none" /> : null}
 
           {phase === 'playing' ? (
-            <Pressable
-              accessibilityRole="none"
-              importantForAccessibility="no-hide-descendants"
-              style={[StyleSheet.absoluteFill, styles.laneHitLayer, WEB_BOARD_TOUCH]}
-              onPressIn={onBoardPressIn}
-            />
+            <View
+              style={[StyleSheet.absoluteFill, styles.laneHitLayer, styles.columnTouchRow, WEB_BOARD_TOUCH]}
+              pointerEvents="box-none"
+            >
+              {Array.from({ length: COLS }, (_, col) => (
+                <Pressable
+                  key={col}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Column ${col + 1}`}
+                  importantForAccessibility="no-hide-descendants"
+                  style={styles.columnTouchCell}
+                  onPressIn={() => onColumnPress(col)}
+                />
+              ))}
+            </View>
           ) : null}
 
           {/* Tap anywhere to start — overlay is transparent above the hint so the amber band stays visible */}
@@ -864,6 +866,14 @@ const styles = StyleSheet.create({
   },
   laneHitLayer: {
     zIndex: 8,
+  },
+  columnTouchRow: {
+    flexDirection: 'row',
+  },
+  columnTouchCell: {
+    flex: 1,
+    height: '100%',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as ViewStyle) : {}),
   },
   tapToStartLayer: {
     ...StyleSheet.absoluteFillObject,

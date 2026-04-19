@@ -1,5 +1,4 @@
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
@@ -35,21 +34,17 @@ export function WebRunItArcadeWordmark({ size = 'hero', layout = 'inline', style
   const f = FONT[size];
 
   const mark = (
-    <View style={[styles.markFrame, layout === 'inline' && styles.markFrameInline]}>
-      <LinearGradient
-        colors={['rgba(0, 240, 255, 0.16)', 'rgba(255, 0, 110, 0.12)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <Image
-        source={WEB_RUN_IT_R_MARK}
-        style={{ height: h, width: h * 0.88 }}
-        contentFit="contain"
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      />
-    </View>
+    <Image
+      source={WEB_RUN_IT_R_MARK}
+      style={[
+        styles.mark,
+        layout === 'inline' && styles.markInlineOptical,
+        { height: h, width: h * 0.88 },
+      ]}
+      contentFit="contain"
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
   );
 
   if (layout === 'inline') {
@@ -116,27 +111,9 @@ const styles = StyleSheet.create({
   rowInline: {
     alignItems: 'center',
   },
-  /**
-   * Cyan→pink wash + rim so the PNG (slightly different blues) reads as part of Run iT chrome,
-   * not a pasted asset.
-   */
-  markFrame: {
-    borderRadius: 13,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 3,
-    paddingHorizontal: 3,
-    marginRight: -6,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.32)',
-    shadowColor: runit.neonPink,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  markFrameInline: {
+  /** Pull copy closer to the R; transparent PNG still has a bit of side padding in the file. */
+  mark: { marginRight: -6 },
+  markInlineOptical: {
     marginTop: -2,
   },
   textCol: {
