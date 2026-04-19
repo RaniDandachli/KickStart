@@ -127,6 +127,21 @@ curl -i --location --request POST "http://127.0.0.1:54321/functions/v1/submitMin
   --data '{"game_type":"tap_dash","score":10,"duration_ms":60000,"taps":12}'
 ```
 
+## H2H queue maintenance + “open queue” push alerts
+
+1. Set Edge secret **`H2H_MAINTENANCE_SECRET`** (long random string).
+2. Deploy **`h2hMaintenance`**, **`h2hOpenMatchWatchScan`**, and **`registerWebPushSubscription`** (`npm run functions:deploy:match` includes them).
+3. **Supabase → Edge Functions → `h2hMaintenance` → Cron**: schedule a **POST** every **5–15 minutes** with header **`x-h2h-maintenance-secret: <your secret>`** (same value as the secret). Each run expires stale queue rows and then calls **`h2hOpenMatchWatchScan`**, which sends **Expo push** (native) and **Web Push** (browser) when configured.
+4. Set **`EXPO_ACCESS_TOKEN`** in Edge secrets (Expo dashboard → access token) so Expo’s push API accepts your sends in production.
+
+### Web Push (browser — YouTube / other tabs)
+
+1. Apply migration **`00042_web_push_subscriptions.sql`**.
+2. Generate VAPID keys: `npx web-push generate-vapid-keys` (install `web-push` globally or `npx web-push …`).
+3. **Edge secrets**: `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, optional `WEB_PUSH_CONTACT` (`mailto:…`), optional **`WEB_PUSH_PUBLIC_ORIGIN`** (e.g. `https://your-site.com` — used to build the URL opened when the user taps the notification; defaults to `https://runitarcade.app`).
+4. **Web app env** (Cloudflare / build): **`EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY`** = same **public** key as in Edge (not the private key). Rebuild the static site so `public/sw.js` is served at **`/sw.js`** (HTTPS required except localhost).
+5. Users: turn on **Open match alerts** in Settings or **Ping me for open queues** on the match screen, allow the browser notification prompt.
+
 ## App configuration
 
 In the Expo app `.env`, set `EXPO_PUBLIC_ENABLE_BACKEND=true` when the database and functions are ready. The client calls Edge Functions with the anon key (`apikey` header) plus the user access token (`Authorization: Bearer <jwt>`). You do **not** mint JWTs yourself — Supabase Auth issues them at sign-in. Use the same project URL and anon key in the app as in this Supabase project.

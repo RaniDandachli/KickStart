@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
@@ -8,6 +8,7 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { refreshArcadeScheduledNotifications } from '@/lib/arcadeLocalNotifications';
 import { supportContactHref } from '@/lib/env';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
+import { isWebPushConfigured, registerWebPushForUser, unregisterWebPushForUser } from '@/lib/webPushRegister';
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/settingsNotificationPrefs';
 import { runit } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -51,6 +52,13 @@ export default function SettingsScreen() {
     }).then(async () => {
       if (uid && ENABLE_BACKEND) {
         await registerExpoPushWithSupabase(uid);
+        if (Platform.OS === 'web') {
+          if (pushOpenMatches && isWebPushConfigured()) {
+            await registerWebPushForUser();
+          } else if (!pushOpenMatches) {
+            await unregisterWebPushForUser();
+          }
+        }
       }
       void refreshArcadeScheduledNotifications();
     });

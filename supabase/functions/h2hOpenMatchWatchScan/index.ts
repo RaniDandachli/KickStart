@@ -1,11 +1,13 @@
 /**
  * Scans `h2h_queue_entries` (waiting) and notifies users whose `h2h_open_slot_watch` prefs match.
- * Invoke on a schedule with the same secret as `h2hMaintenance` (header `x-h2h-maintenance-secret`).
+ * Sends **Expo push** (native) and **Web Push** (browser subscriptions) when configured.
+ * Invoked from `h2hMaintenance` cron or POST manually with `x-h2h-maintenance-secret`.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { sendExpoPushMessages } from '../_shared/expoPush.ts';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
+import { sendWebPushToSubscription, type WebPushSubscriptionRow } from '../_shared/webPushSend.ts';
 
 type WatchJson = {
   enabled?: boolean;
@@ -30,6 +32,14 @@ function watchMatchesRow(
   return true;
 }
 
+type Eligible = {
+  uid: string;
+  qid: string;
+  title: string;
+  body: string;
+  hrefPath: string;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
@@ -43,6 +53,12 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin = createClient(supabaseUrl, serviceKey);
+
+  const publicOrigin = (Deno.env.get('WEB_PUSH_PUBLIC_ORIGIN')?.trim() || 'https://runitarcade.app').replace(/\/$/, '');
+  const openMatchPath = Deno.env.get('WEB_PUSH_OPEN_MATCH_PATH')?.trim() || '/play/live-matches';
+  const openMatchUrl = openMatchPath.startsWith('http')
+    ? openMatchPath
+    : `${publicOrigin}${openMatchPath.startsWith('/') ? '' : '/'}${openMatchPath}`;
 
   const { data: waiters, error: wErr } = await admin
     .from('h2h_queue_entries')
@@ -60,9 +76,7 @@ Deno.serve(async (req) => {
 
   if (pErr) return errorResponse(pErr.message, 500);
 
-  let notified = 0;
-  const messages: { to: string; title: string; body: string; data?: Record<string, unknown> }[] = [];
-  const logRows: { watcher_user_id: string; queue_entry_id: string }[] = [];
+  const eligible: Eligible[] = [];
 
   for (const q of rows) {
     const waiterId = q.user_id as string;
@@ -74,8 +88,6 @@ Deno.serve(async (req) => {
     for (const p of profiles ?? []) {
       const uid = p.id as string;
       if (uid === waiterId) continue;
-      const token = typeof p.expo_push_token === 'string' ? p.expo_push_token.trim() : '';
-      if (!token) continue;
       if (!watchMatchesRow({ game_key: gk || null, entry_fee_wallet_cents: ec }, p.h2h_open_slot_watch)) continue;
 
       const { data: existing } = await admin
@@ -86,33 +98,136 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existing) continue;
 
-      messages.push({
-        to: token,
+      eligible.push({
+        uid,
+        qid,
         title: 'Open match available',
         body: gk
-          ? `Someone is in queue — $${feeUsd} · ${gk.replace(/-/g, ' ')}. Open Live matches to join.`
-          : `Someone is in queue — $${feeUsd}. Open Live matches to join.`,
-        data: { href: '/(app)/(tabs)/play/live-matches' },
+          ? `Someone is in queue — $${feeUsd} · ${gk.replace(/-/g, ' ')}. Tap to join.`
+          : `Someone is in queue — $${feeUsd}. Tap to join.`,
+        hrefPath: '/(app)/(tabs)/play/live-matches',
       });
-      logRows.push({ watcher_user_id: uid, queue_entry_id: qid });
     }
   }
 
-  if (messages.length === 0) {
+  if (eligible.length === 0) {
     return json({ ok: true, notified: 0, candidates: rows.length });
   }
 
-  const push = await sendExpoPushMessages(messages, { allowPartial: true });
-  if (!push.ok) {
-    console.error('[h2hOpenMatchWatchScan] expo', push.error);
-    return json({ ok: false, error: push.error }, 502);
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+
+  const expoMessages: { to: string; title: string; body: string; data?: Record<string, unknown> }[] = [];
+  /** Pairs where we queued an Expo message (user had a token), mirroring legacy “notify attempt” semantics. */
+  const expoQueuedKeys = new Set<string>();
+
+  for (const e of eligible) {
+    const token = typeof profileMap.get(e.uid)?.expo_push_token === 'string'
+      ? String(profileMap.get(e.uid)!.expo_push_token).trim()
+      : '';
+    if (!token) continue;
+    expoMessages.push({
+      to: token,
+      title: e.title,
+      body: e.body,
+      data: { href: e.hrefPath },
+    });
+    expoQueuedKeys.add(`${e.uid}:${e.qid}`);
   }
 
-  for (const row of logRows) {
-    const { error: insErr } = await admin.from('h2h_open_slot_notify_log').insert(row);
-    if (insErr) console.warn('[h2hOpenMatchWatchScan] log', insErr.message);
-    else notified += 1;
+  const uids = [...new Set(eligible.map((e) => e.uid))];
+  const { data: allSubs, error: sErr } = await admin
+    .from('web_push_subscriptions')
+    .select('user_id,endpoint,p256dh,auth')
+    .in('user_id', uids);
+
+  if (sErr) console.warn('[h2hOpenMatchWatchScan] web_push_subscriptions', sErr.message);
+
+  const subsByUser = new Map<string, WebPushSubscriptionRow[]>();
+  for (const s of allSubs ?? []) {
+    const uid = s.user_id as string;
+    const row: WebPushSubscriptionRow = {
+      endpoint: s.endpoint as string,
+      p256dh: s.p256dh as string,
+      auth: s.auth as string,
+    };
+    const list = subsByUser.get(uid) ?? [];
+    list.push(row);
+    subsByUser.set(uid, list);
   }
 
-  return json({ ok: true, notified, queueRows: rows.length });
+  const webSentKeys = new Set<string>();
+
+  for (const e of eligible) {
+    const subs = subsByUser.get(e.uid) ?? [];
+    for (const sub of subs) {
+      const r = await sendWebPushToSubscription(sub, {
+        title: e.title,
+        body: e.body,
+        url: openMatchUrl,
+      });
+      if (r.ok) webSentKeys.add(`${e.uid}:${e.qid}`);
+      if (!r.ok && r.statusCode === 410) {
+        await admin.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      }
+    }
+  }
+
+  let expoOk = true;
+  let expoErr: string | undefined;
+  if (expoMessages.length > 0) {
+    const push = await sendExpoPushMessages(expoMessages, { allowPartial: true });
+    if (!push.ok) {
+      expoOk = false;
+      expoErr = push.error;
+      console.error('[h2hOpenMatchWatchScan] expo', push.error);
+    }
+  }
+
+  async function insertLogsForKeys(keys: Set<string>): Promise<number> {
+    let n = 0;
+    for (const e of eligible) {
+      const key = `${e.uid}:${e.qid}`;
+      if (!keys.has(key)) continue;
+      const { error: insErr } = await admin.from('h2h_open_slot_notify_log').insert({
+        watcher_user_id: e.uid,
+        queue_entry_id: e.qid,
+      });
+      if (insErr) console.warn('[h2hOpenMatchWatchScan] log', insErr.message);
+      else n += 1;
+    }
+    return n;
+  }
+
+  const logKeys = new Set<string>();
+  for (const e of eligible) {
+    const key = `${e.uid}:${e.qid}`;
+    if (webSentKeys.has(key)) logKeys.add(key);
+    if (expoOk && expoQueuedKeys.has(key)) logKeys.add(key);
+  }
+  const notified = await insertLogsForKeys(logKeys);
+
+  if (!expoOk) {
+    return json(
+      {
+        ok: false,
+        error: expoErr,
+        notified,
+        queueRows: rows.length,
+        eligible: eligible.length,
+        expoPushes: expoMessages.length,
+        webPushesAttempted: (allSubs ?? []).length,
+        note: 'Expo push failed; web pushes and matching log rows may still have been written.',
+      },
+      502,
+    );
+  }
+
+  return json({
+    ok: true,
+    notified,
+    queueRows: rows.length,
+    eligible: eligible.length,
+    expoPushes: expoMessages.length,
+    webPushesAttempted: (allSubs ?? []).length,
+  });
 });

@@ -61,6 +61,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: optionalUrlFromEnv,
   /** Optional public HTTPS origin for Whop payout portal return/refresh (see `lib/whopConnectUrls.ts`). Falls back to Stripe connect base then runitarcade.app */
   EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL: optionalUrlFromEnv,
+  /** Web Push VAPID public key (URL-safe base64) — pair with Edge secrets WEB_PUSH_VAPID_* for open-queue browser notifications. */
+  EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional().default(''),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -81,6 +83,7 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_EXPO_PROJECT_ID: process.env.EXPO_PUBLIC_EXPO_PROJECT_ID,
   EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: process.env.EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL,
   EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL: process.env.EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL,
+  EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: process.env.EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY,
 });
 
 /**

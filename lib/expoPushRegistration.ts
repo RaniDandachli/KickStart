@@ -5,10 +5,21 @@ import { Platform } from 'react-native';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { env } from '@/lib/env';
+import type { H2hOpenSlotWatchPayload } from '@/lib/h2hOpenSlotWatch';
 import { loadNotificationPrefs } from '@/lib/settingsNotificationPrefs';
 import { getSupabase } from '@/supabase/client';
 
 const KEY_REMOTE_ACTIVE = 'kc_remote_push_active';
+
+export type { H2hOpenSlotWatchPayload } from '@/lib/h2hOpenSlotWatch';
+
+export type RegisterExpoPushOpts = {
+  /**
+   * When set, overrides Settings-derived values for `push_notify_h2h_open_slots` and `h2h_open_slot_watch`
+   * (e.g. queue screen narrows tiers / game). Pass `null` to mean “use Settings prefs” explicitly.
+   */
+  openSlotWatch?: H2hOpenSlotWatchPayload | null;
+};
 
 export async function isRemotePushPreferred(): Promise<boolean> {
   if (!ENABLE_BACKEND) return false;
@@ -33,27 +44,50 @@ function resolveExpoProjectId(): string | null {
 }
 
 /**
- * Registers Expo push token + syncs notification toggles to `profiles` (for Edge targeting).
- * Clears token on device when permission denied or project id missing.
+ * Syncs notification toggles + optional Expo push token to `profiles` (for Edge push targeting).
+ * On **web**, updates profile fields only (no Expo device token) so queue watch prefs still save for mobile.
  */
-export async function registerExpoPushWithSupabase(uid: string): Promise<void> {
-  if (!ENABLE_BACKEND || Platform.OS === 'web') return;
+export async function registerExpoPushWithSupabase(uid: string, opts?: RegisterExpoPushOpts): Promise<void> {
+  if (!ENABLE_BACKEND) return;
 
   const prefs = await loadNotificationPrefs();
-  const openWatch = prefs.openMatchAlerts
-    ? { enabled: true, entryCents: [] as number[], gameKeys: null as string[] | null }
-    : { enabled: false, entryCents: [] as number[], gameKeys: null as string[] | null };
+  const override = opts?.openSlotWatch;
+
+  let pushOpenSlots: boolean;
+  let h2hWatch: { enabled: boolean; entryCents: number[]; gameKeys: string[] | null };
+
+  if (override != null) {
+    pushOpenSlots = override.enabled;
+    h2hWatch = {
+      enabled: override.enabled,
+      entryCents: Array.isArray(override.entryCents)
+        ? override.entryCents.map((x) => Math.max(0, Math.floor(Number(x))))
+        : [],
+      gameKeys: override.gameKeys,
+    };
+  } else {
+    pushOpenSlots = prefs.openMatchAlerts;
+    h2hWatch = prefs.openMatchAlerts
+      ? { enabled: true, entryCents: [] as number[], gameKeys: null as string[] | null }
+      : { enabled: false, entryCents: [] as number[], gameKeys: null as string[] | null };
+  }
 
   const prefsPatch = {
     push_notify_match_invites: prefs.matchInvites,
     push_notify_tournament_of_day: prefs.tournamentUpdates,
     push_notify_daily_credits: prefs.dailyCredits,
-    push_notify_h2h_open_slots: prefs.openMatchAlerts,
-    h2h_open_slot_watch: openWatch,
+    push_notify_h2h_open_slots: pushOpenSlots,
+    h2h_open_slot_watch: h2hWatch,
   };
 
   const supabase = getSupabase();
   const nowIso = new Date().toISOString();
+
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.from('profiles').update({ ...prefsPatch }).eq('id', uid);
+    if (error) console.warn('[expoPush] web profile sync failed', error.message);
+    return;
+  }
 
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') {

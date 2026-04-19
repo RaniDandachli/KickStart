@@ -22,10 +22,13 @@ import { H2hQueueStatusLine } from '@/features/play/H2hFlowStatusLine';
 import type { QuickMatchCtx } from '@/features/play/matchmakingTypes';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { isSupabaseLikelyConfigured } from '@/lib/env';
+import { queryKeys } from '@/lib/queryKeys';
+import { isWebPushConfigured, registerWebPushForUser, unregisterWebPushForUser } from '@/lib/webPushRegister';
 import { useProfile } from '@/hooks/useProfile';
 import { ensureArcadeAndroidNotificationChannel } from '@/lib/arcadeLocalNotifications';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { buildBackendQueueParams } from '@/lib/h2hBuildQueueParams';
+import { buildOpenSlotWatchFromQueueParams } from '@/lib/h2hOpenSlotWatch';
 import { syncExitMatchmakingToServer, type MatchmakingExitSnapshot } from '@/lib/matchmakingExitClient';
 import { H2H_QUICK_MATCH_GAME_KEY } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
@@ -92,6 +95,8 @@ export function QueueScreen({
   const queueKind = useMatchmakingStore((s) => s.queue);
   const keepSearchingWhenAway = useMatchmakingStore((s) => s.keepSearchingWhenAway);
   const setKeepSearchingWhenAway = useMatchmakingStore((s) => s.setKeepSearchingWhenAway);
+  const [pingOpenQueueAlerts, setPingOpenQueueAlerts] = useState(false);
+  const prevPhaseRef = useRef(phase);
   const setQueuePollSnapshot = useMatchmakingStore((s) => s.setQueuePollSnapshot);
   const setMatchmakingAcceptRoute = useMatchmakingStore((s) => s.setMatchmakingAcceptRoute);
 
@@ -182,6 +187,69 @@ export function QueueScreen({
       );
     },
     [setKeepSearchingWhenAway, userId],
+  );
+
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    if (prev === 'searching' && phase === 'idle' && ENABLE_BACKEND && userId !== 'guest') {
+      setPingOpenQueueAlerts(false);
+      void registerExpoPushWithSupabase(userId);
+    }
+    prevPhaseRef.current = phase;
+  }, [phase, userId]);
+
+  const onPingOpenQueueAlertsChange = useCallback(
+    async (next: boolean) => {
+      if (!ENABLE_BACKEND || userId === 'guest') return;
+      setPingOpenQueueAlerts(next);
+      if (!next) {
+        await unregisterWebPushForUser();
+        await registerExpoPushWithSupabase(userId);
+        if (userId !== 'guest') void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+        return;
+      }
+      const quickCtx = quickMatchCtxRef.current;
+      const openWatch = buildOpenSlotWatchFromQueueParams({
+        mode,
+        quickCtx,
+        entryFeeUsd,
+        listedPrizeUsd,
+        gameKey,
+        queueTierCents,
+      });
+      if (Platform.OS !== 'web') {
+        await ensureArcadeAndroidNotificationChannel();
+        const { status: before } = await Notifications.getPermissionsAsync();
+        let status = before;
+        if (before !== 'granted') {
+          const req = await Notifications.requestPermissionsAsync();
+          status = req.status;
+        }
+        if (status !== 'granted') {
+          setPingOpenQueueAlerts(false);
+          Alert.alert(
+            'Notifications needed',
+            'Turn on notifications for Run It Arcade in system settings so we can ping you when someone joins a matching queue.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open settings', onPress: () => void Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+      }
+      await registerExpoPushWithSupabase(userId, { openSlotWatch: { ...openWatch, enabled: true } });
+      if (Platform.OS === 'web' && isWebPushConfigured()) {
+        const wr = await registerWebPushForUser();
+        if (!wr.ok) {
+          setPingOpenQueueAlerts(false);
+          Alert.alert('Browser notifications', wr.error);
+          return;
+        }
+      }
+      void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+    },
+    [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc],
   );
 
   useEffect(() => {
@@ -686,6 +754,43 @@ export function QueueScreen({
                   onValueChange={(v) => void onKeepSearchingChange(v)}
                   trackColor={{ false: 'rgba(255,255,255,0.18)', true: 'rgba(52,211,153,0.85)' }}
                   thumbColor={keepSearchingWhenAway ? '#f8fafc' : '#94a3b8'}
+                  ios_backgroundColor="rgba(255,255,255,0.2)"
+                />
+              </View>
+            </View>
+          ) : null}
+          {ENABLE_BACKEND && userId !== 'guest' ? (
+            <View className="mt-4 w-full max-w-sm rounded-xl border border-sky-500/35 bg-slate-950/55 px-3 py-3">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="min-w-0 flex-1 pr-1">
+                  <Text className="text-sm font-black text-sky-100">Ping me for open queues</Text>
+                  <Text className="mt-1 text-[11px] leading-4 text-slate-400">
+                    {Platform.OS === 'web' ? (
+                      isWebPushConfigured() ? (
+                        <>
+                          Uses <Text className="font-semibold text-slate-300">browser notifications</Text> (even in other tabs or apps
+                          that show system banners). Allow the prompt — we also save your filters on your account.
+                        </>
+                      ) : (
+                        <>
+                          Saves match filters on your account. Add <Text className="font-semibold text-slate-300">EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY</Text> to
+                          your web build and Edge VAPID secrets for browser notifications; mobile still uses Expo push.
+                        </>
+                      )
+                    ) : (
+                      <>
+                        When <Text className="font-semibold text-slate-300">someone else</Text> is waiting for a contest like this (same
+                        tiers / game), we&apos;ll send a push so you can jump in from Live matches. Uses your current search filters.
+                      </>
+                    )}
+                  </Text>
+                </View>
+                <Switch
+                  accessibilityLabel="Notify when someone queues for a matching contest"
+                  value={pingOpenQueueAlerts}
+                  onValueChange={(v) => void onPingOpenQueueAlertsChange(v)}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: 'rgba(56,189,248,0.85)' }}
+                  thumbColor={pingOpenQueueAlerts ? '#f8fafc' : '#94a3b8'}
                   ios_backgroundColor="rgba(255,255,255,0.2)"
                 />
               </View>

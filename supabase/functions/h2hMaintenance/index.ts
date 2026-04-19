@@ -26,6 +26,26 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.rpc('h2h_maintenance_expire_stale');
     if (error) return errorResponse(error.message, 500);
 
+    /** Notify watchers when queue rows are waiting (`h2hOpenMatchWatchScan` — same secret). */
+    try {
+      const scanUrl = `${supabaseUrl}/functions/v1/h2hOpenMatchWatchScan`;
+      const scanRes = await fetch(scanUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          'x-h2h-maintenance-secret': expected,
+        },
+      });
+      if (!scanRes.ok) {
+        const t = await scanRes.text();
+        console.warn('[h2hMaintenance] h2hOpenMatchWatchScan non-OK', scanRes.status, t.slice(0, 200));
+      }
+    } catch (e) {
+      console.warn('[h2hMaintenance] h2hOpenMatchWatchScan invoke failed', e);
+    }
+
     return json(data ?? { ok: false, error: 'no_payload' });
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : 'error', 500);

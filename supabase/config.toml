@@ -398,6 +398,12 @@ verify_jwt = false
 [functions.h2hMaintenance]
 verify_jwt = false
 
+[functions.h2hOpenMatchWatchScan]
+verify_jwt = false
+
+[functions.registerWebPushSubscription]
+verify_jwt = false
+
 [functions.notifyDailyCreditsPush]
 verify_jwt = false
 
