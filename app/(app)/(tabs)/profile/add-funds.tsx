@@ -116,7 +116,7 @@ function WalletPaySheetButton({
       disabled={pending}
       style={({ pressed }) => [styles.ctaOuter, pressed && !pending && { opacity: 0.92 }]}
     >
-      <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
+      <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
         {pending ? <ActivityIndicator color="#fff" /> : (
           <>
             <SafeIonicons name="card-outline" size={22} color="#fff" />
@@ -165,7 +165,7 @@ function CreditsPaySheetButton({
       disabled={pending}
       style={({ pressed }) => [styles.ctaOuter, pressed && !pending && { opacity: 0.92 }]}
     >
-      <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
+      <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
         {pending ? <ActivityIndicator color="#fff" /> : (
           <>
             <SafeIonicons name="cart-outline" size={22} color="#fff" />
@@ -832,7 +832,7 @@ export default function AddFundsScreen() {
                 disabled={buyCredits.isPending}
                 style={({ pressed }) => [styles.ctaOuter, pressed && !buyCredits.isPending && { opacity: 0.92 }]}
               >
-                <LinearGradient colors={['#ff006e', '#9d4edd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
+                <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.ctaGrad}>
                   {buyCredits.isPending ? (
                     <ActivityIndicator color="#fff" />
                   ) : (

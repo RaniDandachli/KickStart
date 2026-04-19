@@ -1,4 +1,4 @@
-import { appBorderAccent } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit } from '@/lib/runitArcadeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type PropsWithChildren } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
@@ -35,7 +35,7 @@ export function AppButton({
         {...rest}
       >
         <LinearGradient
-          colors={isDisabled ? ['#555', '#333'] : ['#ff006e', '#9d4edd']}
+          colors={isDisabled ? ['#555', '#333'] : [runit.neonPink, runit.neonPurple]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gradInner}

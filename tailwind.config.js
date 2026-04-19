@@ -11,20 +11,20 @@ module.exports = {
     extend: {
       colors: {
         ink: {
-          950: '#06080f',
-          900: '#0a0e18',
-          800: '#12182a',
-          700: '#1c2540',
+          950: '#060410',
+          900: '#0a0618',
+          800: '#140d28',
+          700: '#1c1a3a',
         },
         neon: {
           lime: '#c8f31c',
-          cyan: '#2ee6d6',
-          magenta: '#ff3dac',
+          cyan: '#40e9ff',
+          magenta: '#ff1a8c',
           amber: '#ffb020',
-          /** RuniT Arcade (see DESIGN_SYSTEM.md) */
-          pink: '#ff006e',
-          runitCyan: '#00f0ff',
-          purple: '#9d4edd',
+          /** RuniT Arcade — aligned with `lib/runitArcadeTheme` */
+          pink: '#ff1a8c',
+          runitCyan: '#40e9ff',
+          purple: '#7b5cff',
         },
         pitch: {
           DEFAULT: '#0d3b2e',

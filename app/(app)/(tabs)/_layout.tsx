@@ -23,6 +23,7 @@ import { applyArcadePrizeCreditGrants, resetArcadeGrantFlight } from '@/lib/arca
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { getHasCompletedTabTour } from '@/lib/onboardingStorage';
+import { runit } from '@/lib/runitArcadeTheme';
 import { getAppTabBarStyle } from '@/lib/tabBarStyle';
 import { webTabBarLabelRenderer } from '@/lib/webTabBarLabel';
 import { useArcadeGrantBannerStore } from '@/store/arcadeGrantBannerStore';
@@ -192,7 +193,7 @@ export default function TabsLayout() {
             ? { paddingLeft: Math.max(insets.left, 16) + WEB_TOP_LOGO_SLOT_PX }
             : {}),
         },
-        tabBarActiveTintColor: '#ff006e',
+        tabBarActiveTintColor: runit.neonPink,
         tabBarInactiveTintColor:
           Platform.OS === 'web' && webUsesTopTabBar ? 'rgba(248, 250, 252, 0.78)' : '#CBD5E1',
         tabBarShowLabel: true,

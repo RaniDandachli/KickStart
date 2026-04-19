@@ -13,7 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { WebRunItArcadeWordmark } from '@/components/web/WebRunItArcadeWordmark';
-import { APP_SCREEN_GRADIENT_COLORS, APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
+import {
+  APP_SCREEN_GRADIENT_COLORS,
+  APP_SCREEN_GRADIENT_LOCATIONS,
+  runit,
+} from '@/lib/runitArcadeTheme';
 
 const TOTAL_MS = 2000;
 
@@ -158,7 +162,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
       <View style={styles.center}>
         <Animated.View style={[styles.borderGlow, borderStyle]}>
           <LinearGradient
-            colors={['#ff006e', '#a78bfa', '#ff006e']}
+            colors={[runit.neonPink, '#a090ff', runit.neonPink]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.borderGrad}
@@ -224,7 +228,7 @@ const PARTICLE_SEEDS = [
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#090714',
+    backgroundColor: runit.bgDeep,
     zIndex: 9999,
     elevation: 9999,
   },
@@ -280,7 +284,7 @@ const styles = StyleSheet.create({
   borderGlow: {
     borderRadius: 22,
     padding: 2,
-    shadowColor: '#ff006e',
+    shadowColor: runit.neonPink,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.85,
     shadowRadius: 24,
@@ -295,7 +299,7 @@ const styles = StyleSheet.create({
   borderInner: {
     position: 'relative',
     borderRadius: 18,
-    backgroundColor: 'rgba(6, 2, 14, 0.94)',
+    backgroundColor: 'rgba(10, 6, 24, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
@@ -303,8 +307,8 @@ const styles = StyleSheet.create({
   cyanGlowFill: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 16,
-    backgroundColor: 'rgba(167,139,250,0.22)',
-    shadowColor: '#a78bfa',
+    backgroundColor: 'rgba(64, 233, 255, 0.14)',
+    shadowColor: runit.neonCyan,
     shadowOpacity: 1,
     shadowRadius: 40,
   },
@@ -322,14 +326,14 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#e0f7ff',
-    shadowColor: '#a78bfa',
+    shadowColor: runit.neonPurple,
     shadowOpacity: 0.9,
     shadowRadius: 6,
   },
   ringBurst: {
     position: 'absolute',
     borderWidth: 3,
-    borderColor: 'rgba(255,0,110,0.45)',
+    borderColor: 'rgba(255, 26, 140, 0.45)',
     backgroundColor: 'transparent',
     zIndex: 0,
   },

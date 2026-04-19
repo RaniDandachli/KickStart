@@ -30,7 +30,7 @@ import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { presentAddMoneyChooser } from '@/lib/shopNavigation';
-import { runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 
@@ -139,7 +139,7 @@ export default function PlayHubScreen() {
         <ArcadeGrantBanner />
 
         <View style={styles.gamesSectionRow}>
-          <SafeIonicons name="flame" size={20} color="#ff006e" />
+          <SafeIonicons name="flame" size={20} color={runit.neonPink} />
           <Text style={[styles.gamesSection, { fontFamily: runitFont.black }, runitTextGlowPink]}>HOT GAMES</Text>
         </View>
         <Text style={styles.gamesSub}>Tap a game · practice free or prize run</Text>

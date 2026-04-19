@@ -8,6 +8,8 @@ import {
 } from '@/lib/seo';
 import { ScrollViewStyleReset } from 'expo-router/html';
 
+import { runit } from '@/lib/runitArcadeTheme';
+
 // This file is web-only and used to configure the root HTML for every
 // web page during static rendering.
 // The contents of this function only run in Node.js environments and
@@ -27,7 +29,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <title>{SEO_DEFAULT_TITLE}</title>
         <meta name="description" content={SEO_DEFAULT_DESCRIPTION} />
         <meta name="application-name" content={SEO_SITE_NAME} />
-        <meta name="theme-color" content="#0b0814" />
+        <meta name="theme-color" content={runit.bgDeep} />
 
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content={SEO_SITE_NAME} />
@@ -62,6 +64,6 @@ export default function Root({ children }: { children: React.ReactNode }) {
 /** Match `runit.bgDeep` everywhere — app is dark; avoids a light or mismatched strip behind the web tab bar. */
 const responsiveBackground = `
 html, body {
-  background-color: #0b0814;
+  background-color: ${runit.bgDeep};
 }
 `;

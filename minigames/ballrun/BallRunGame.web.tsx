@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/ui/Screen';
+import { runit } from '@/lib/runitArcadeTheme';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { H2hSkillContestBundle } from '@/types/match';
 
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    backgroundColor: '#ff006e',
+    backgroundColor: runit.neonPink,
   },
   btnTxt: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });

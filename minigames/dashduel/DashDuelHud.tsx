@@ -1,4 +1,5 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { runit } from '@/lib/runitArcadeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -36,9 +37,9 @@ function SpeedPips({ frac }: { frac: number }) {
             pipStyles.pip,
             {
               backgroundColor: i < filled
-                ? i < 2 ? 'rgba(167,139,250,0.9)' : 'rgba(255,0,110,0.9)'
+                ? i < 2 ? 'rgba(123,92,255,0.9)' : 'rgba(255,26,140,0.9)'
                 : 'rgba(255,255,255,0.15)',
-              shadowColor: i < filled ? (i < 2 ? '#a78bfa' : '#ff006e') : 'transparent',
+              shadowColor: i < filled ? (i < 2 ? runit.neonPurple : runit.neonPink) : 'transparent',
               shadowOpacity: i < filled ? 0.8 : 0,
               shadowRadius: 4,
             },
@@ -102,7 +103,7 @@ export function DashDuelHud(props: Props) {
       <View style={styles.rightCol}>
         {prizeLabel ? (
           <LinearGradient
-            colors={['rgba(255,0,110,0.22)', 'rgba(157,78,221,0.18)']}
+            colors={['rgba(255,26,140,0.22)', 'rgba(123,92,255,0.2)']}
             style={styles.prizePill}
           >
             <Text style={styles.prizeText}>{prizeLabel}</Text>
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'rgba(6,2,14,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(255,0,110,0.4)',
+    borderColor: 'rgba(255,26,140,0.4)',
     gap: 2,
   },
   backBtnCompact: {
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.5,
-    textShadowColor: 'rgba(255,0,110,0.65)',
+    textShadowColor: 'rgba(255,26,140,0.65)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
   },
@@ -174,9 +175,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,0,110,0.35)',
+    borderColor: 'rgba(255,26,140,0.35)',
   },
-  prizeText: { color: '#ff006e', fontSize: 11, fontWeight: '800' },
+  prizeText: { color: runit.neonPink, fontSize: 11, fontWeight: '800' },
   practice: { color: 'rgba(148,163,184,0.95)', fontSize: 11, fontWeight: '700' },
   clockRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   clockSmall: {

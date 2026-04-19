@@ -1,55 +1,56 @@
 /**
- * RuniT Arcade — neon cyberpunk tokens (see DESIGN_SYSTEM.md).
+ * RuniT Arcade — palette tuned to the RUN iT Arcade wordmark:
+ * midnight purple field, electric indigo–violet frame, magenta “Arcade”, cyan “iT”, cool white text.
  */
 export const runit = {
-  neonPink: '#ff006e',
-  neonCyan: '#00f0ff',
-  neonPurple: '#9d4edd',
-  /** Base screen tone — lifted slightly from near-black so UI feels less heavy. */
-  bgDeep: '#0b0814',
-  bgPanel: 'rgba(18, 10, 34, 0.86)',
-  glass: 'rgba(12, 8, 26, 0.68)',
+  neonPink: '#ff1a8c',
+  neonCyan: '#40e9ff',
+  /** Indigo-violet (logo container / R outline energy). */
+  neonPurple: '#7b5cff',
+  /** Base screen — deep purple-black like the logo tile. */
+  bgDeep: '#0a0618',
+  bgPanel: 'rgba(22, 12, 42, 0.9)',
+  glass: 'rgba(12, 8, 30, 0.72)',
 } as const;
 
 /** Full-screen vertical gradient — matches Home tab (`index.tsx` hero). */
-export const APP_SCREEN_GRADIENT_COLORS = ['#0b0814', '#161028', '#100a1c', '#090714'] as const;
+export const APP_SCREEN_GRADIENT_COLORS = ['#0a0618', '#140d28', '#1a1034', '#060410'] as const;
 
 export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.35, 0.65, 1] as const;
 
-/** Section dividers / underlines — pink-forward (same family as Home “PLAY NOW”). */
-export const appChromeLinePink = 'rgba(255, 0, 110, 0.42)';
+/** Section dividers — indigo-violet (logo frame / top edge glow). */
+export const appChromeLinePink = 'rgba(123, 92, 255, 0.48)';
 
-/** Tab bar and floating chrome borders. */
-export const appTabBarBorderAccent = 'rgba(255, 0, 110, 0.4)';
+/** Tab bar and floating chrome borders — indigo forward, pairs with magenta CTAs. */
+export const appTabBarBorderAccent = 'rgba(129, 110, 255, 0.45)';
 
 /**
- * Default card / control outline on dark screens — pink primary + readable on `runit.bgDeep`.
- * (Replaces older purple-only `rgba(157,78,237,0.45)` in newer UI passes.)
+ * Default card / control outline — magenta accent (logo “Arcade” / lightning).
  */
-export const appBorderAccent = 'rgba(255, 0, 110, 0.38)';
+export const appBorderAccent = 'rgba(255, 26, 140, 0.4)';
 
-export const appBorderAccentMuted = 'rgba(255, 0, 110, 0.22)';
+export const appBorderAccentMuted = 'rgba(255, 26, 140, 0.22)';
 
 /** Second stop for thin `LinearGradient` borders (pair with `runit.neonPink`). */
-export const appChromeGradientFadePink = 'rgba(255, 0, 110, 0.3)' as const;
+export const appChromeGradientFadePink = 'rgba(255, 26, 140, 0.32)' as const;
 
-/** ~ drop-shadow 0 0 10px #ff006e on text */
+/** ~ drop-shadow on magenta titles */
 export const runitTextGlowPink = {
-  textShadowColor: 'rgba(255, 0, 110, 0.92)',
+  textShadowColor: 'rgba(255, 26, 140, 0.9)',
   textShadowOffset: { width: 0, height: 0 },
   textShadowRadius: 10,
 } as const;
 
-/** Cyan glow for secondary titles */
+/** Cyan glow — “iT” energy */
 export const runitTextGlowCyan = {
-  textShadowColor: 'rgba(0, 240, 255, 0.85)',
+  textShadowColor: 'rgba(64, 233, 255, 0.88)',
   textShadowOffset: { width: 0, height: 0 },
   textShadowRadius: 10,
 } as const;
 
-/** shadow-[0_0_15px_rgba(255,0,110,0.5)] — cards / pressed buttons */
+/** Cards / pressed buttons — soft magenta bloom */
 export const runitGlowPinkSoft = {
-  shadowColor: 'rgba(255, 0, 110, 0.55)',
+  shadowColor: 'rgba(255, 26, 140, 0.52)',
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 1,
   shadowRadius: 15,
@@ -57,7 +58,7 @@ export const runitGlowPinkSoft = {
 } as const;
 
 export const runitGlowCyanSoft = {
-  shadowColor: 'rgba(0, 240, 255, 0.45)',
+  shadowColor: 'rgba(64, 233, 255, 0.42)',
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 1,
   shadowRadius: 14,

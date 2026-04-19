@@ -13,7 +13,7 @@ import {
   TileClashGameIcon,
   TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
-import { runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 
 export default function MinigamesHubScreen() {
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   backHint: {
     marginTop: 16,
     textAlign: 'center',
-    color: '#ff006e',
+    color: runit.neonPink,
     fontWeight: '800',
     fontSize: 14,
   },
