@@ -7,7 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { ALLOW_GUEST_MODE, ENABLE_BACKEND } from '@/constants/featureFlags';
 import { setHasSeenWelcome } from '@/lib/onboardingStorage';
-import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  APP_SCREEN_GRADIENT_COLORS,
+  APP_SCREEN_GRADIENT_LOCATIONS,
+  runit,
+  runitFont,
+  runitTextGlowCyan,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 
 const STEP_ITEMS: [string, string, string][] = [
   ['home', 'Home', 'News, streaks & quick links'],
@@ -118,8 +125,8 @@ export default function WelcomeScreen() {
 
   return (
     <LinearGradient
-      colors={['#050208', '#12081f', '#06020e', '#0a0418']}
-      locations={[0, 0.35, 0.65, 1]}
+      colors={[...APP_SCREEN_GRADIENT_COLORS]}
+      locations={[...APP_SCREEN_GRADIENT_LOCATIONS]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={[styles.root, Platform.OS === 'web' && styles.rootWeb]}

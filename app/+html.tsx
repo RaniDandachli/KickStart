@@ -27,7 +27,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <title>{SEO_DEFAULT_TITLE}</title>
         <meta name="description" content={SEO_DEFAULT_DESCRIPTION} />
         <meta name="application-name" content={SEO_SITE_NAME} />
-        <meta name="theme-color" content="#06020e" />
+        <meta name="theme-color" content="#0b0814" />
 
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content={SEO_SITE_NAME} />
@@ -62,6 +62,6 @@ export default function Root({ children }: { children: React.ReactNode }) {
 /** Match `runit.bgDeep` everywhere — app is dark; avoids a light or mismatched strip behind the web tab bar. */
 const responsiveBackground = `
 html, body {
-  background-color: #06020e;
+  background-color: #0b0814;
 }
 `;

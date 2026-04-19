@@ -5,13 +5,14 @@ export const runit = {
   neonPink: '#ff006e',
   neonCyan: '#00f0ff',
   neonPurple: '#9d4edd',
-  bgDeep: '#06020e',
-  bgPanel: 'rgba(12, 6, 22, 0.88)',
-  glass: 'rgba(8, 4, 18, 0.72)',
+  /** Base screen tone — lifted slightly from near-black so UI feels less heavy. */
+  bgDeep: '#0b0814',
+  bgPanel: 'rgba(18, 10, 34, 0.86)',
+  glass: 'rgba(12, 8, 26, 0.68)',
 } as const;
 
 /** Full-screen vertical gradient — matches Home tab (`index.tsx` hero). */
-export const APP_SCREEN_GRADIENT_COLORS = ['#06020e', '#12081f', '#0c0618', '#050208'] as const;
+export const APP_SCREEN_GRADIENT_COLORS = ['#0b0814', '#161028', '#100a1c', '#090714'] as const;
 
 export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.35, 0.65, 1] as const;
 
@@ -22,7 +23,7 @@ export const appChromeLinePink = 'rgba(255, 0, 110, 0.42)';
 export const appTabBarBorderAccent = 'rgba(255, 0, 110, 0.4)';
 
 /**
- * Default card / control outline on dark screens — pink primary + readable on `#06020e`.
+ * Default card / control outline on dark screens — pink primary + readable on `runit.bgDeep`.
  * (Replaces older purple-only `rgba(157,78,237,0.45)` in newer UI passes.)
  */
 export const appBorderAccent = 'rgba(255, 0, 110, 0.38)';

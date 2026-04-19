@@ -80,7 +80,7 @@ export function WhopCheckoutHost() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#06020e' },
+      container: { flex: 1, backgroundColor: runit.bgDeep },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

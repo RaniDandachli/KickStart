@@ -28,7 +28,12 @@ import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
-import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import {
+  APP_SCREEN_GRADIENT_COLORS,
+  runit,
+  runitFont,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
 import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 
 /**
@@ -204,7 +209,12 @@ export default function LiveMatchesScreen() {
   }
 
   return (
-    <LinearGradient colors={['#06020e', '#12081f', '#050208']} style={styles.screenRoot} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}>
+    <LinearGradient
+      colors={[...APP_SCREEN_GRADIENT_COLORS]}
+      style={styles.screenRoot}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+    >
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.topBar}>
           <Pressable

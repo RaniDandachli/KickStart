@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 
 /** Shared deep panel — same family as H2H rows / hero */
-const PANEL = ['#06020e', '#100818', '#180d28'] as const;
+const PANEL = ['#0b0814', '#120c1e', '#1a1028'] as const;
 const CYAN = '#22d3ee';
 
 type Props = {

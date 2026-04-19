@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
@@ -34,17 +35,21 @@ export function WebRunItArcadeWordmark({ size = 'hero', layout = 'inline', style
   const f = FONT[size];
 
   const mark = (
-    <Image
-      source={WEB_RUN_IT_R_MARK}
-      style={[
-        styles.mark,
-        layout === 'inline' && styles.markInlineOptical,
-        { height: h, width: h * 0.88 },
-      ]}
-      contentFit="contain"
-      accessibilityElementsHidden
-      importantForAccessibility="no"
-    />
+    <View style={[styles.markFrame, layout === 'inline' && styles.markFrameInline]}>
+      <LinearGradient
+        colors={['rgba(0, 240, 255, 0.16)', 'rgba(255, 0, 110, 0.12)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Image
+        source={WEB_RUN_IT_R_MARK}
+        style={{ height: h, width: h * 0.88 }}
+        contentFit="contain"
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+    </View>
   );
 
   if (layout === 'inline') {
@@ -111,9 +116,27 @@ const styles = StyleSheet.create({
   rowInline: {
     alignItems: 'center',
   },
-  /** Pull copy closer to the R; transparent PNG still has a bit of side padding in the file. */
-  mark: { marginRight: -6 },
-  markInlineOptical: {
+  /**
+   * Cyan→pink wash + rim so the PNG (slightly different blues) reads as part of Run iT chrome,
+   * not a pasted asset.
+   */
+  markFrame: {
+    borderRadius: 13,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 3,
+    marginRight: -6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 240, 255, 0.32)',
+    shadowColor: runit.neonPink,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  markFrameInline: {
     marginTop: -2,
   },
   textCol: {
@@ -121,7 +144,7 @@ const styles = StyleSheet.create({
     marginLeft: -2,
   },
   line1: {
-    color: '#f8fafc',
+    color: '#e8f4ff',
     letterSpacing: 1.1,
     fontWeight: '900',
   },
@@ -136,8 +159,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginLeft: -2,
   },
+  /** Cool white — bridges the logo’s electric blue to body text. */
   inlineUn: {
-    color: '#f8fafc',
+    color: '#e8f4ff',
     letterSpacing: 0.6,
   },
   inlineIt: {

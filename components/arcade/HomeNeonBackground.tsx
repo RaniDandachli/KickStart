@@ -20,19 +20,19 @@ export function HomeNeonBackground() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* Motion streaks — low-opacity cones */}
       <LinearGradient
-        colors={['rgba(168,85,247,0.22)', 'transparent', 'rgba(249,115,22,0.12)']}
+        colors={['rgba(168,85,247,0.28)', 'transparent', 'rgba(249,115,22,0.14)']}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.85, y: 0.95 }}
         style={styles.streakA}
       />
       <LinearGradient
-        colors={['transparent', 'rgba(34,211,238,0.08)', 'transparent']}
+        colors={['transparent', 'rgba(34,211,238,0.11)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.streakB}
       />
       <LinearGradient
-        colors={['rgba(236,72,153,0.14)', 'transparent']}
+        colors={['rgba(236,72,153,0.18)', 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0.3, y: 0.6 }}
         style={styles.streakC}

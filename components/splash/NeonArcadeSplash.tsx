@@ -224,7 +224,7 @@ const PARTICLE_SEEDS = [
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#050208',
+    backgroundColor: '#090714',
     zIndex: 9999,
     elevation: 9999,
   },
