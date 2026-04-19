@@ -2,6 +2,7 @@
 
 import type { H2hGameKey } from '@/lib/homeOpenMatches';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
+import { H2H_BRACKET_GAME_ROTATION, h2hBracketGameRotationForClient } from '@/lib/h2hGameRotation';
 import type { MatchFinishPayload } from '@/types/match';
 
 /** Legacy max/defaults kept for callers that still read constants directly. */
@@ -148,8 +149,8 @@ const LAST_NAMES = [
   'Jensen',
 ] as const;
 
-/** Rotating skill games for each bracket match (deterministic per day / round / user). */
-export const DAILY_FREE_GAME_ROTATION: H2hGameKey[] = ['tap-dash', 'tile-clash', 'ball-run'];
+/** Rotating skill games for each bracket match on native (deterministic pick uses {@link pickDailyGameKey}). */
+export const DAILY_FREE_GAME_ROTATION: readonly H2hGameKey[] = H2H_BRACKET_GAME_ROTATION;
 
 export function randomOpponentName(userKey: string, roundIndex1Based: number): string {
   const h1 = hash32(`fn|${userKey}|${roundIndex1Based}`);
@@ -159,7 +160,8 @@ export function randomOpponentName(userKey: string, roundIndex1Based: number): s
 
 export function pickDailyGameKey(dayKey: string, roundIndex1Based: number, userKey: string): H2hGameKey {
   const h = hash32(`gamepick|${dayKey}|${roundIndex1Based}|${userKey}`);
-  return DAILY_FREE_GAME_ROTATION[h % DAILY_FREE_GAME_ROTATION.length];
+  const rot = h2hBracketGameRotationForClient();
+  return rot[h % rot.length]!;
 }
 
 function mulberry32(seed: number) {

@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
@@ -37,7 +37,6 @@ import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
-import { isWebLaptopViewport } from '@/lib/homeWebLayout';
 import { formatUsdFromCents } from '@/lib/money';
 import {
   APP_SCREEN_GRADIENT_COLORS,
@@ -56,8 +55,6 @@ const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 export default function HomeScreen() {
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
-  const { width: windowWidth } = useWindowDimensions();
-  const webLaptopHome = isWebLaptopViewport(windowWidth);
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
@@ -229,7 +226,7 @@ export default function HomeScreen() {
     return ['#141028', '#3b2b68'];
   }
 
-  if (webLaptopHome) {
+  if (isWeb) {
     return (
       <LinearGradient
         colors={[...APP_SCREEN_GRADIENT_COLORS]}

@@ -39,7 +39,7 @@ import {
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
-import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
@@ -107,7 +107,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { width: sw, height: sh } = useWindowDimensions();
-  const stageMax = useMemo(() => minigameStageMaxWidth(10000), [sw]);
+  const stageMax = useMemo(() => minigameImmersiveStageWidth(sw), [sw]);
   const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
 
   const [gameSize, setGameSize] = useState<{ w: number; h: number } | null>(null);

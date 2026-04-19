@@ -10,7 +10,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
-import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
 import { DashDuelLobby } from '@/minigames/dashduel/DashDuelLobby';
 import { DashDuelResults } from '@/minigames/dashduel/DashDuelResults';

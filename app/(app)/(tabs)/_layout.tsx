@@ -44,9 +44,17 @@ function tabBarIcon(name: IonName, opts?: { webTop?: boolean }) {
   return ({ color }: { color: string }) => <SafeIonicons name={name} color={color} size={size} />;
 }
 
-/** UIKit top tabs default to square hit targets; rounded pill matches VAZA-style active state. */
+/** Top tabs: keep hit targets rounded; force transparent cell bg (RN web defaults to opaque “card”). */
 function WebTopTabPillButton(props: BottomTabBarButtonProps) {
-  return <PlatformPressable {...props} style={[props.style, { borderRadius: 999 }]} />;
+  return (
+    <PlatformPressable
+      {...props}
+      style={[
+        props.style,
+        { borderRadius: 999, backgroundColor: 'transparent' },
+      ]}
+    />
+  );
 }
 
 export default function TabsLayout() {
@@ -199,6 +207,7 @@ export default function TabsLayout() {
           paddingVertical:
             Platform.OS === 'web' && webUsesTopTabBar ? 6 : Platform.OS === 'web' ? 8 : 5,
           justifyContent: 'center',
+          ...(Platform.OS === 'web' ? { backgroundColor: 'transparent' } : {}),
           ...(Platform.OS === 'web' && webUsesTopTabBar
             ? { paddingHorizontal: 10, borderRadius: 999, marginHorizontal: 2 }
             : {}),

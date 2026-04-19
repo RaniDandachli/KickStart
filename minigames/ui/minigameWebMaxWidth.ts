@@ -3,6 +3,9 @@ import { Platform } from 'react-native';
 /** Default max width (px) for minigame playfields on desktop web. */
 export const WEB_MINIGAME_STAGE_MAX_WIDTH = 900;
 
+/** Upper bound for immersive play on ultra-wide desktop (keeps lanes readable). */
+export const WEB_IMMERSIVE_STAGE_MAX_WIDTH = 1280;
+
 /**
  * Viewports narrower than this (e.g. iPhone Safari) use the same bottom tab shell as native builds;
  * wider web uses the desktop top-tab layout.
@@ -30,4 +33,18 @@ export function minigameStageMaxWidth(phoneMax: number): number {
 export function minigameResponsiveStageWidth(sw: number): number {
   const target = Math.max(300, Math.min(sw - 24, 620));
   return minigameStageMaxWidth(target);
+}
+
+/**
+ * Full-bleed playfield width during active gameplay (practice, prize, 1v1, daily bracket).
+ * Drops the 620px phone cap and avoids {@link minigameStageMaxWidth}'s fixed 900px desktop ceiling
+ * so Tap Dash and siblings use nearly the full device / browser width.
+ */
+export function minigameImmersiveStageWidth(sw: number): number {
+  const gutter = 8;
+  const raw = Math.max(280, sw - gutter * 2);
+  if (Platform.OS === 'web' && webViewportUsesDesktopLayout()) {
+    return Math.min(raw, WEB_IMMERSIVE_STAGE_MAX_WIDTH);
+  }
+  return raw;
 }

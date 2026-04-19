@@ -3,6 +3,7 @@
  */
 
 import type { H2hGameKey } from '@/lib/homeOpenMatches';
+import { h2hBracketGameRotationForClient } from '@/lib/h2hGameRotation';
 
 export type CreditCupDefinition = {
   id: string;
@@ -61,7 +62,7 @@ export function computeCupLoseAtRound(dayKey: string, userKey: string, cupId: st
 
 export function pickCupGameKey(dayKey: string, roundIndex1Based: number, userKey: string, cupId: string): H2hGameKey {
   const h = hash32(`gamepick_cup|${cupId}|${dayKey}|${roundIndex1Based}|${userKey}`);
-  const rot: readonly H2hGameKey[] = ['tap-dash', 'tile-clash', 'ball-run'];
+  const rot = h2hBracketGameRotationForClient();
   return rot[h % rot.length]!;
 }
 

@@ -34,7 +34,7 @@ import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
-import { minigameResponsiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
@@ -431,12 +431,15 @@ export default function TapDashGame({
   const prizeCredits = usePrizeCreditsDisplay();
 
   const { width: sw, height: sh } = useWindowDimensions();
-  const laneCap = useMemo(() => minigameResponsiveStageWidth(sw), [sw]);
+  const laneCap = useMemo(() => minigameImmersiveStageWidth(sw), [sw]);
   const dialogCap = useMemo(() => minigameStageMaxWidth(360), [sw]);
-  const [laneSize, setLaneSize] = useState(() => ({
-    w: Math.min(Math.max(200, sw - 16), minigameResponsiveStageWidth(sw)),
-    h: Math.max(300, Math.min(sh * 0.82, 840)),
-  }));
+  const [laneSize, setLaneSize] = useState(() => {
+    const cap = minigameImmersiveStageWidth(sw);
+    return {
+      w: Math.max(200, cap),
+      h: Math.max(320, Math.min(sh * 0.92, sh - 72)),
+    };
+  });
 
   const laneW = laneSize.w;
   const laneH = laneSize.h;
@@ -1078,7 +1081,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(226,232,240,0.7)',
     marginTop: 2,
-    maxWidth: 160,
+    maxWidth: 280,
     textAlign: 'center',
   },
   scoreColumn: {

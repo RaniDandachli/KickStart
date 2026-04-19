@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -20,6 +21,7 @@ import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
+import { HOME_WEB_LAPTOP_MIN_WIDTH } from '@/lib/homeWebLayout';
 
 const TIER_SUB =
   `${MATCH_ENTRY_TIERS[0].shortLabel} · ${MATCH_ENTRY_TIERS[MATCH_ENTRY_TIERS.length - 1].shortLabel} · Pick a tier to match`;
@@ -122,19 +124,24 @@ export function HomeScreenWebLaptop({
   const streak =
     fightStats != null && fightStats.current_streak > 0 ? String(fightStats.current_streak) : '—';
 
+  const { width: viewportW } = useWindowDimensions();
+  const compact = viewportW < HOME_WEB_LAPTOP_MIN_WIDTH;
+  const gameCardW = compact ? 210 : 260;
+  const gameIconSize = compact ? 34 : 40;
+
   return (
     <ScrollView
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, compact && styles.scrollContentCompact]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.max}>
+      <View style={[styles.max, compact && styles.maxCompact]}>
         {/* Top bar — wordmark + wallet (tab strip above has Home / Events / Arcade / Prizes with icons) */}
-        <View style={styles.topNav}>
+        <View style={[styles.topNav, compact && styles.topNavCompact]}>
           <View style={styles.brandBlock}>
             <Text style={[styles.brandRunIt, { fontFamily: runitFont.black }]}>RUN IT</Text>
             <Text style={[styles.brandArcade, { fontFamily: runitFont.black }]}>ARCADE</Text>
           </View>
-          <View style={styles.navRight}>
+          <View style={[styles.navRight, compact && styles.navRightCompact]}>
             <Pressable
               onPress={onWalletPress}
               style={({ pressed }) => [styles.walletPill, pressed && { opacity: 0.9 }]}
@@ -152,8 +159,8 @@ export function HomeScreenWebLaptop({
         </View>
 
         {/* Live status strip */}
-        <View style={styles.liveStrip}>
-          <View style={styles.liveStripLeft}>
+        <View style={[styles.liveStrip, compact && styles.liveStripCompact]}>
+          <View style={[styles.liveStripLeft, compact && styles.liveStripLeftCompact]}>
             <View style={styles.liveDotRow}>
               <View style={[styles.dot, { backgroundColor: '#22c55e' }]} />
               <Text style={styles.liveStripTxt}>
@@ -175,50 +182,50 @@ export function HomeScreenWebLaptop({
               </Text>
             </View>
           </View>
-          <Text style={styles.liveStripReward}>
+          <Text style={[styles.liveStripReward, compact && styles.liveStripRewardCompact]}>
             {formatUsdFromCents(liveLobby?.rewardsWalletCents24h ?? 0)} rewards · 24h
           </Text>
         </View>
 
         {/* Hero */}
-        <View style={styles.heroRow}>
-          <View style={styles.heroLeft}>
+        <View style={[styles.heroRow, compact && styles.heroRowCompact]}>
+          <View style={[styles.heroLeft, compact && styles.heroLeftCompact]}>
             <View style={styles.kickerRow}>
               <View style={styles.kickerLine} />
               <Text style={styles.kicker}>SKILL-BASED COMPETITION</Text>
             </View>
-            <Text style={[styles.heroHeadline, { fontFamily: runitFont.black }]}>
+            <Text style={[styles.heroHeadline, compact && styles.heroHeadlineCompact, { fontFamily: runitFont.black }]}>
               COMPETE. WIN <Text style={styles.heroReal}>REAL</Text> MONEY.
             </Text>
-            <Text style={styles.heroSub}>
+            <Text style={[styles.heroSub, compact && styles.heroSubCompact]}>
               1v1 matchups. Tiered entry. Same games as Arcade. Prizes scale with skill level.
             </Text>
             <View style={styles.heroBtns}>
               <Pressable
                 onPress={onPlayNow}
-                style={({ pressed }) => [styles.btnPlay, pressed && { opacity: 0.92 }]}
+                style={({ pressed }) => [styles.btnPlay, compact && styles.btnPlayCompact, pressed && { opacity: 0.92 }]}
               >
                 <SafeIonicons name="play" size={18} color="#fff" />
-                <Text style={styles.btnPlayTxt}>Play Now</Text>
+                <Text style={[styles.btnPlayTxt, compact && styles.btnPlayTxtCompact]}>Play Now</Text>
               </Pressable>
               <Pressable
                 onPress={onHowItWorks}
-                style={({ pressed }) => [styles.btnGhost, pressed && { opacity: 0.92 }]}
+                style={({ pressed }) => [styles.btnGhost, compact && styles.btnGhostCompact, pressed && { opacity: 0.92 }]}
               >
-                <Text style={styles.btnGhostTxt}>How it works</Text>
+                <Text style={[styles.btnGhostTxt, compact && styles.btnGhostTxtCompact]}>How it works</Text>
               </Pressable>
             </View>
           </View>
 
           <Pressable
             onPress={onEnterDailyTournament}
-            style={({ pressed }) => [styles.tourneyCardOuter, pressed && { opacity: 0.96 }]}
+            style={({ pressed }) => [styles.tourneyCardOuter, compact && styles.tourneyCardOuterCompact, pressed && { opacity: 0.96 }]}
           >
             <LinearGradient
               colors={['#1a0b2e', '#12081f', '#0c0618']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.tourneyCard}
+              style={[styles.tourneyCard, compact && styles.tourneyCardCompact]}
             >
               <View style={styles.dailyHeadRow}>
                 <View style={styles.dailyBadge}>
@@ -227,37 +234,37 @@ export function HomeScreenWebLaptop({
                 <Text style={styles.dailyPrizeAmt}>${dailyPrizeUsd}</Text>
               </View>
               <View style={styles.countdownRow}>
-                <View style={styles.countBox}>
-                  <Text style={styles.countNum}>{hh}</Text>
+                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{hh}</Text>
                   <Text style={styles.countLbl}>HR</Text>
                 </View>
                 <Text style={styles.countSep}>:</Text>
-                <View style={styles.countBox}>
-                  <Text style={styles.countNum}>{mm}</Text>
+                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{mm}</Text>
                   <Text style={styles.countLbl}>MIN</Text>
                 </View>
                 <Text style={styles.countSep}>:</Text>
-                <View style={styles.countBox}>
-                  <Text style={styles.countNum}>{ss}</Text>
+                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{ss}</Text>
                   <Text style={styles.countLbl}>SEC</Text>
                 </View>
               </View>
-              <Text style={styles.tourneyFoot}>
+              <Text style={[styles.tourneyFoot, compact && styles.tourneyFootCompact]}>
                 {ENABLE_DAILY_FREE_TOURNAMENT ? 'Free to enter · ' : ''}Skill path · {dailyRounds}{' '}
                 rounds. New bracket at local midnight.
               </Text>
-              <View style={styles.tourneyChips}>
-                <View style={styles.miniChip}>
+              <View style={[styles.tourneyChips, compact && styles.tourneyChipsCompact]}>
+                <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
                   <SafeIonicons name="person-outline" size={12} color="#94a3b8" />
-                  <Text style={styles.miniChipTxt}>Open entry</Text>
+                  <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>Open entry</Text>
                 </View>
-                <View style={styles.miniChip}>
+                <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
                   <SafeIonicons name="time-outline" size={12} color="#94a3b8" />
-                  <Text style={styles.miniChipTxt}>No wallet needed</Text>
+                  <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>No wallet needed</Text>
                 </View>
               </View>
-              <View style={styles.enterRow}>
-                <Text style={styles.enterBtnTxt}>
+              <View style={[styles.enterRow, compact && styles.enterRowCompact]}>
+                <Text style={[styles.enterBtnTxt, compact && styles.enterBtnTxtCompact]}>
                   {ENABLE_DAILY_FREE_TOURNAMENT ? 'Enter Free →' : 'View events →'}
                 </Text>
               </View>
@@ -266,25 +273,25 @@ export function HomeScreenWebLaptop({
         </View>
 
         {/* Stat bar */}
-        <View style={styles.statBar}>
+        <View style={[styles.statBar, compact && styles.statBarCompact]}>
           <View style={styles.statBarItem}>
-            <Text style={[styles.statBarVal, { fontFamily: runitFont.black }]}>{paidOut}</Text>
-            <Text style={styles.statBarLbl}>PAID OUT · 24H</Text>
+            <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{paidOut}</Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>PAID OUT · 24H</Text>
           </View>
           <View style={styles.statBarItem}>
-            <Text style={[styles.statBarVal, { fontFamily: runitFont.black }]}>
+            <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>
               {matchesInFlight}
             </Text>
-            <Text style={styles.statBarLbl}>LIVE + QUEUED</Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>LIVE + QUEUED</Text>
           </View>
           <View style={styles.statBarItem}>
-            <Text style={[styles.statBarVal, { fontFamily: runitFont.black }]}>{activeGames}</Text>
-            <Text style={styles.statBarLbl}>ACTIVE GAMES</Text>
+            <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{activeGames}</Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>ACTIVE GAMES</Text>
           </View>
         </View>
 
         {/* Live matches */}
-        <View style={styles.sectionHead}>
+        <View style={[styles.sectionHead, compact && styles.sectionHeadCompact]}>
           <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
           <Pressable onPress={onBrowseLiveMatches} hitSlop={6}>
             <Text style={styles.sectionLink}>See all →</Text>
@@ -299,7 +306,7 @@ export function HomeScreenWebLaptop({
             const grad = h2hGradients(row.gameKey);
             const highlight = row.gameKey === 'tap-dash';
             const hostWaiting = row.activeWaiter != null;
-            const cardStyle: ViewStyle[] = [styles.gameCard];
+            const cardStyle: ViewStyle[] = [styles.gameCard, { width: gameCardW }];
             if (highlight) {
               cardStyle.push(styles.gameCardHighlight);
             }
@@ -315,9 +322,9 @@ export function HomeScreenWebLaptop({
                 onPress={() => onH2hCarouselRowPress(row)}
                 style={({ pressed }) => [cardStyle, pressed && { opacity: 0.94 }]}
               >
-                <LinearGradient colors={[grad[0], grad[1]]} style={styles.gameCardGrad}>
+                <LinearGradient colors={[grad[0], grad[1]]} style={[styles.gameCardGrad, compact && styles.gameCardGradCompact]}>
                   <View style={styles.gameCardTop}>
-                    {h2hIconFor(row.gameKey, 40)}
+                    {h2hIconFor(row.gameKey, gameIconSize)}
                     <View style={styles.gameCardTitles}>
                       <Text style={styles.gameTitle}>{row.title}</Text>
                       <Text style={styles.gameSub} numberOfLines={2}>
@@ -344,8 +351,8 @@ export function HomeScreenWebLaptop({
         </ScrollView>
 
         {/* Two columns */}
-        <View style={styles.twoCol}>
-          <View style={styles.panel}>
+        <View style={[styles.twoCol, compact && styles.twoColCompact]}>
+          <View style={[styles.panel, compact && styles.panelCompact]}>
             <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
             {ENABLE_BACKEND && uid && fightLoading ? (
               <Text style={styles.panelMuted}>Loading your stats…</Text>
@@ -387,12 +394,14 @@ export function HomeScreenWebLaptop({
           </View>
         </View>
 
-        <View style={styles.scrollHint}>
-          <View style={styles.scrollCircle}>
-            <SafeIonicons name="chevron-down" size={18} color="#94a3b8" />
+        {!compact ? (
+          <View style={styles.scrollHint}>
+            <View style={styles.scrollCircle}>
+              <SafeIonicons name="chevron-down" size={18} color="#94a3b8" />
+            </View>
           </View>
-        </View>
-        <View style={{ height: 48 }} />
+        ) : null}
+        <View style={{ height: compact ? 24 : 48 }} />
       </View>
     </ScrollView>
   );
@@ -672,7 +681,6 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   gameCard: {
-    width: 260,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -775,4 +783,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  /** Viewports narrower than `HOME_WEB_LAPTOP_MIN_WIDTH` (phone browsers, small tablets). */
+  scrollContentCompact: { paddingTop: 6, paddingBottom: 28 },
+  maxCompact: { paddingHorizontal: 14 },
+  topNavCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
+    marginBottom: 10,
+    paddingTop: 6,
+  },
+  navRightCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  liveStripCompact: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 11,
+  },
+  liveStripLeftCompact: { flex: 1, minWidth: 0 },
+  liveStripRewardCompact: { flexShrink: 0 },
+  heroRowCompact: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 16,
+  },
+  heroLeftCompact: { minWidth: 0 },
+  heroHeadlineCompact: {
+    fontSize: 26,
+    lineHeight: 31,
+    marginBottom: 8,
+  },
+  heroSubCompact: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+    maxWidth: '100%' as const,
+  },
+  btnPlayCompact: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+  },
+  btnPlayTxtCompact: { fontSize: 14 },
+  btnGhostCompact: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+  },
+  btnGhostTxtCompact: { fontSize: 14 },
+  tourneyCardOuterCompact: {
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+  },
+  tourneyCardCompact: {
+    padding: 14,
+  },
+  countBoxCompact: {
+    minWidth: 56,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  countNumCompact: { fontSize: 18 },
+  tourneyFootCompact: { fontSize: 11, marginBottom: 8, lineHeight: 15 },
+  tourneyChipsCompact: { marginBottom: 10, gap: 6 },
+  miniChipCompact: { paddingHorizontal: 8, paddingVertical: 4 },
+  miniChipTxtCompact: { fontSize: 10 },
+  enterRowCompact: { paddingVertical: 10 },
+  enterBtnTxtCompact: { fontSize: 13 },
+  statBarCompact: {
+    marginBottom: 14,
+    gap: 6,
+    paddingHorizontal: 0,
+  },
+  statBarValCompact: { fontSize: 20 },
+  statBarLblCompact: { fontSize: 9, marginTop: 2 },
+  sectionHeadCompact: { marginBottom: 8 },
+  gameCardGradCompact: { minHeight: 132, padding: 11 },
+  twoColCompact: { flexDirection: 'column', gap: 12 },
+  panelCompact: { minHeight: 0, padding: 14 },
 });

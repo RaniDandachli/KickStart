@@ -439,10 +439,6 @@ export default function ProfileScreen() {
                 <Text style={styles.pillLbl}>WALLET</Text>
                 <Text style={styles.pillVal}>{walletCentsDisplay.toLocaleString()}</Text>
               </View>
-              <View style={styles.pill}>
-                <Text style={styles.pillLbl}>GEMS</Text>
-                <Text style={styles.pillVal}>{(profile?.gems ?? 0).toLocaleString()}</Text>
-              </View>
               <View style={[styles.pill, styles.pillWide]}>
                 <Text style={styles.pillLbl}>PRIZE CR.</Text>
                 <Text style={[styles.pillVal, { color: runit.neonCyan }]}>

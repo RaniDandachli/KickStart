@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
@@ -76,7 +76,9 @@ export default function DailyFreeTournamentScreen() {
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>TOURNAMENT OF THE DAY</Text>
       <Text style={styles.prizeLine}>${dailyPrizeUsd} daily showcase · free entry · {dailyRounds} rounds today</Text>
       <Text style={styles.body}>
-        {`One entry per local day (resets at midnight). Rotating skill rounds — Tap Dash, Tile Clash, and Neon Ball Run — survive all ${dailyRounds} rounds to finish today’s path ($${dailyPrizeUsd} showcase).`}
+        {Platform.OS === 'web'
+          ? `One entry per local day (resets at midnight). On web, rounds rotate between Tap Dash and Tile Clash — survive all ${dailyRounds} matches to finish today’s path ($${dailyPrizeUsd} showcase). Use the app for Neon Ball Run and other 3D games.`
+          : `One entry per local day (resets at midnight). Rotating skill rounds — Tap Dash, Tile Clash, and Neon Ball Run — survive all ${dailyRounds} rounds to finish today’s path ($${dailyPrizeUsd} showcase).`}
       </Text>
       <Text style={styles.countdownLine}>New tournament in {resetCountdown}</Text>
       <Text style={styles.disclaimer}>

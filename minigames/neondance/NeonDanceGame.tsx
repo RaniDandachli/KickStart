@@ -33,7 +33,7 @@ import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { awardRedeemTicketsForPrizeRun, ticketsFromNeonDanceScore } from '@/lib/ticketPayouts';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
-import { minigameResponsiveStageWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameImmersiveStageWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -208,7 +208,7 @@ export default function NeonDanceGame({
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const { width: winW, height: winH } = useWindowDimensions();
-  const stageW = minigameResponsiveStageWidth(winW);
+  const stageW = minigameImmersiveStageWidth(winW);
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'paused' | 'dying' | 'over'>(() =>
     h2hSkillContest ? 'playing' : 'ready',
@@ -286,6 +286,10 @@ export default function NeonDanceGame({
     sectorsRef.current = n;
     const b = (Math.random() * n) | 0;
     ballIdxRef.current = b;
+    /** Hoops snapshot `n` at spawn — without this, rings stay 2-color while the ball can be 3+ (impossible align / wrong fail). */
+    for (const h of hoopsRef.current) {
+      h.n = n;
+    }
     setHud((h) => ({ ...h, sectors: n, ballIdx: b }));
   }, []);
 
@@ -841,8 +845,7 @@ export default function NeonDanceGame({
           d={describeSector(c, c, rOut, rIn, a0, a1)}
           fill={col}
           fillOpacity={dim}
-          stroke={Platform.OS === 'web' ? 'rgba(15,23,42,0.35)' : 'none'}
-          strokeWidth={Platform.OS === 'web' ? 1 : 0}
+          stroke="none"
         />,
       );
     }
@@ -850,7 +853,10 @@ export default function NeonDanceGame({
   };
 
   const pulseBg = 0.04 * (hud.pulseBg + Math.sin(timeMsRef.current / 240) * 0.06);
-  const hoopsForRender = hoopsRef.current;
+  /** Stable draw order: coarse zIndex from advance caused ties / flicker (esp. inner “5th” ring on web). */
+  const hoopsForRender = [...hoopsRef.current].sort(
+    (a, b) => (a.advance !== b.advance ? a.advance - b.advance : a.id - b.id),
+  );
 
   const orbitR = ringBase * 0.39 * 0.98;
   const ballX = stageCenterX + orbitR * Math.cos(ballAngleRef.current);
@@ -954,11 +960,14 @@ export default function NeonDanceGame({
                 stageCenterY={stageCenterY}
               />
 
-              {hoopsForRender.map((h) => {
+              {hoopsForRender.map((h, hoopSortIndex) => {
                 const vis = approachScale(h.advance);
                 if (vis < 0.05) return null;
-                const left = stageCenterX - (ringBase * vis) / 2;
-                const top = stageCenterY - (ringBase * vis) / 2;
+                const dimPx = ringBase * vis;
+                const hSvg = dimPx * 0.92;
+                /** Integer position only — keeps subpixel jitter low on mobile Safari; SVG matches `ringPathsFor` (`dimPx`). */
+                const left = Math.round(stageCenterX - dimPx / 2);
+                const top = Math.round(stageCenterY - dimPx / 2);
                 return (
                   <View
                     key={h.id}
@@ -967,26 +976,26 @@ export default function NeonDanceGame({
                       {
                         left,
                         top,
-                        width: ringBase * vis,
-                        height: ringBase * vis * 0.9,
-                        zIndex: Math.round(h.advance * 20),
+                        width: dimPx,
+                        height: dimPx * 0.9,
+                        zIndex: 20 + hoopSortIndex,
                         opacity: 0.55 + 0.45 * Math.min(1, h.advance + 0.2),
                       },
                     ]}
                   >
-                    <Svg width={ringBase * vis} height={ringBase * vis * 0.92}>
+                    <Svg width={dimPx} height={hSvg}>
                       {ringPathsFor(h, vis)}
                       <Circle
-                        cx={(ringBase * vis) / 2}
-                        cy={(ringBase * vis) / 2}
-                        r={ringBase * vis * 0.1}
+                        cx={dimPx / 2}
+                        cy={dimPx / 2}
+                        r={dimPx * 0.1}
                         fill="#f8fafc"
                         opacity={0.88}
                       />
                       <Circle
-                        cx={(ringBase * vis) / 2}
-                        cy={(ringBase * vis) / 2}
-                        r={ringBase * vis * 0.055}
+                        cx={dimPx / 2}
+                        cy={dimPx / 2}
+                        r={dimPx * 0.055}
                         fill="#e0f2fe"
                       />
                     </Svg>

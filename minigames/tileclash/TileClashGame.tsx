@@ -42,7 +42,7 @@ import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
-import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
 import { useAuthStore } from '@/store/authStore';
@@ -143,7 +143,7 @@ export default function TileClashGame({
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
   const { width: sw } = useWindowDimensions();
-  const stageMax = useMemo(() => minigameStageMaxWidth(10000), [sw]);
+  const stageMax = useMemo(() => minigameImmersiveStageWidth(sw), [sw]);
   const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const insets = useSafeAreaInsets();
   const [boardSize, setBoardSize] = useState({ w: Math.max(200, sw - 16), h: 0 });
