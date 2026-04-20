@@ -29,7 +29,8 @@ const CARD_H = 108;
 const COL_GAP = 36;
 const PAD_X = 14;
 const PAD_Y = 14;
-const INNER_H_BASE = 300;
+const ROW_GAP = 14;
+const INNER_H_MIN = 300;
 
 function yCenter(r: number, i: number, numRounds: number, innerTop: number, innerH: number): number {
   const n = 2 ** (numRounds - 1 - r);
@@ -42,7 +43,12 @@ export function BracketEliminationBoard({ matches, profileById, skeleton }: Prop
   if (matches.length === 0) return null;
 
   const numRounds = Math.max(...matches.map((m) => m.roundIndex)) + 1;
-  const innerH = INNER_H_BASE + Math.max(0, numRounds - 3) * 24;
+  const roundZeroMatches = Math.max(
+    1,
+    matches.filter((m) => m.roundIndex === 0).length || 2 ** Math.max(0, numRounds - 1),
+  );
+  const neededInnerH = roundZeroMatches * CARD_H + Math.max(0, roundZeroMatches - 1) * ROW_GAP;
+  const innerH = Math.max(INNER_H_MIN, neededInnerH);
   const H = innerH + PAD_Y * 2;
   const totalW = PAD_X * 2 + numRounds * CARD_W + (numRounds - 1) * COL_GAP;
 

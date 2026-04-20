@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -41,6 +42,7 @@ export default function TournamentsListScreen() {
     byId: Record<string, { won: boolean; lost: boolean }>;
   } | null>(null);
   const [cupCarouselIndex, setCupCarouselIndex] = useState(0);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
 
   useEffect(() => {
     if (CREDIT_CUPS.length === 0) {
@@ -79,107 +81,102 @@ export default function TournamentsListScreen() {
     }, [dailyUid]),
   );
 
+  const featuredEvents = [
+    {
+      id: 'daily',
+      title: 'Tournament of the Day',
+      subtitle: `${dailyRounds} rounds · $${dailyPrizeUsd} showcase · no entry fee`,
+      cta: 'Join now',
+      pill: 'FREE',
+      onPress: () => router.push('/(app)/(tabs)/tournaments/daily-free'),
+      imageSource: require('../../../../assets/how-it-works/01-home.png'),
+    },
+    {
+      id: 'friday',
+      title: 'Friday $70 Cup',
+      subtitle: '$10 entry · 8 players per wave · cash prize',
+      cta: 'Join cup',
+      pill: 'CASH',
+      onPress: () => router.push('/(app)/(tabs)/tournaments/friday-cup'),
+      imageSource: require('../../../../assets/how-it-works/03-queue.png'),
+      trophyUri:
+        'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_image-2ed0f71f-2d2b-4c0b-9362-f362d7e99f24.png',
+    },
+    {
+      id: 'solo',
+      title: 'Solo Challenges',
+      subtitle: 'Beat score targets · 50 tries/day · showcase prizes',
+      cta: 'Play now',
+      pill: 'FREE',
+      onPress: () => router.push('/(app)/(tabs)/tournaments/solo-challenges'),
+      imageSource: require('../../../../assets/how-it-works/04-tap-dash.png'),
+    },
+  ] as const;
+
+  const featured = featuredEvents[featuredIndex];
+
   return (
     <Screen>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>EVENTS</Text>
       <Text style={styles.sub}>Skill-based tournaments — admin-awarded prizes</Text>
 
-      {ENABLE_DAILY_FREE_TOURNAMENT ? (
+      <Text style={styles.sectionKicker}>FEATURED EVENTS</Text>
+      <Pressable onPress={featured.onPress} style={({ pressed }) => [styles.heroCardWrap, pressed && { opacity: 0.95 }]}>
+        <LinearGradient
+          colors={[runit.neonCyan, runit.neonPurple]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCardBorder}
+        >
+          <View style={styles.heroCardInner}>
+            <Image source={featured.imageSource} style={styles.heroImage} contentFit="cover" />
+            <LinearGradient
+              colors={['rgba(4,8,20,0.15)', 'rgba(4,8,20,0.88)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.heroOverlay}
+            />
+            <View style={styles.heroTopRow}>
+              <View style={[styles.statePill, styles.heroPill]}>
+                <Text style={styles.heroPillText}>{featured.pill}</Text>
+              </View>
+              {featured.trophyUri ? <Image source={{ uri: featured.trophyUri }} style={styles.heroTrophy} contentFit="contain" /> : null}
+            </View>
+            <View style={styles.heroBottom}>
+              <Text style={[styles.heroTitle, { fontFamily: runitFont.black }]} numberOfLines={2}>
+                {featured.title}
+              </Text>
+              <Text style={styles.heroSubtitle} numberOfLines={2}>
+                {featured.subtitle}
+              </Text>
+              {featured.id === 'daily' ? <Text style={styles.dailyResetTiny}>Resets in {dailyResetCountdown}</Text> : null}
+              <View style={styles.heroCtaRow}>
+                <Text style={styles.heroCta}>{featured.cta}</Text>
+                <SafeIonicons name="chevron-forward" size={16} color="#a5f3fc" />
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </Pressable>
+      <View style={styles.heroControls}>
         <Pressable
-          onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free')}
-          style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
+          onPress={() => setFeaturedIndex((prev) => (prev === 0 ? featuredEvents.length - 1 : prev - 1))}
+          style={({ pressed }) => [styles.heroNavBtn, pressed && { opacity: 0.85 }]}
         >
-          <LinearGradient
-            colors={[runit.neonCyan, '#7c3aed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardBorder}
-          >
-            <View style={styles.cardInner}>
-              <View style={styles.cardTop}>
-                <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                  Tournament of the Day
-                </Text>
-                <View style={[styles.statePill, { borderColor: '#39ff14' }]}>
-                  <Text style={[styles.statePillText, { color: '#39ff14' }]}>FREE</Text>
-                </View>
-              </View>
-              <View style={styles.dailyPrizeRow}>
-                <Text style={[styles.dailyPrizeDollar, { fontFamily: runitFont.black }]}>${dailyPrizeUsd}</Text>
-                <Text style={styles.dailyPrizeSub}>showcase prize</Text>
-              </View>
-              <Text style={styles.cardMetaTxt}>
-                {dailyRounds} rounds · ${dailyPrizeUsd} showcase · no entry fee
-              </Text>
-              <Text style={styles.dailyResetTiny}>Resets in {dailyResetCountdown}</Text>
-              <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
-                New bracket at local midnight — tap to enter
-              </Text>
-              <View style={styles.cardFooter}>
-                <Text style={styles.viewLink}>Enter</Text>
-                <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
-              </View>
-            </View>
-          </LinearGradient>
+          <SafeIonicons name="chevron-back" size={16} color={runit.neonCyan} />
+          <Text style={styles.heroNavTxt}>Prev</Text>
         </Pressable>
-      ) : null}
-
-      <Text style={styles.sectionKicker}>LIVE & SOLO</Text>
-      <Pressable
-        onPress={() => router.push('/(app)/(tabs)/tournaments/friday-cup')}
-        style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
-      >
-        <LinearGradient
-          colors={['#0369a1', '#22d3ee']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardBorder}
+        <Text style={styles.carouselPosition}>
+          {featuredIndex + 1} / {featuredEvents.length}
+        </Text>
+        <Pressable
+          onPress={() => setFeaturedIndex((prev) => (prev === featuredEvents.length - 1 ? 0 : prev + 1))}
+          style={({ pressed }) => [styles.heroNavBtn, pressed && { opacity: 0.85 }]}
         >
-          <View style={styles.cardInner}>
-            <View style={styles.cardTop}>
-              <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                Friday $70 Cup
-              </Text>
-              <View style={[styles.statePill, { borderColor: '#fde68a' }]}>
-                <Text style={[styles.statePillText, { color: '#fde68a' }]}>CASH</Text>
-              </View>
-            </View>
-            <Text style={styles.cardMetaTxt}>$10 entry · 8 players · 2:00 PM kickoff (local) · forfeit window 30 min</Text>
-            <View style={styles.cardFooter}>
-              <Text style={styles.viewLink}>Details</Text>
-              <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
-            </View>
-          </View>
-        </LinearGradient>
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push('/(app)/(tabs)/tournaments/solo-challenges')}
-        style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
-      >
-        <LinearGradient
-          colors={[runit.neonPurple, runit.neonPink]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardBorder}
-        >
-          <View style={styles.cardInner}>
-            <View style={styles.cardTop}>
-              <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                Solo challenges
-              </Text>
-              <View style={[styles.statePill, { borderColor: '#39ff14' }]}>
-                <Text style={[styles.statePillText, { color: '#39ff14' }]}>FREE</Text>
-              </View>
-            </View>
-            <Text style={styles.cardMetaTxt}>Beat score targets (e.g. Tap Dash 100) · 50 tries/day · showcase prizes</Text>
-            <View style={styles.cardFooter}>
-              <Text style={styles.viewLink}>Play</Text>
-              <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
-            </View>
-          </View>
-        </LinearGradient>
-      </Pressable>
+          <Text style={styles.heroNavTxt}>Next</Text>
+          <SafeIonicons name="chevron-forward" size={16} color={runit.neonCyan} />
+        </Pressable>
+      </View>
 
       {ENABLE_CREDIT_CUPS ? (
         <>
@@ -373,6 +370,60 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cupSectionSub: { color: 'rgba(148,163,184,0.88)', fontSize: 12, marginBottom: 12, lineHeight: 17 },
+  heroCardWrap: { marginBottom: 8 },
+  heroCardBorder: { borderRadius: 22, padding: 2.5 },
+  heroCardInner: {
+    borderRadius: 20,
+    backgroundColor: 'rgba(5,10,25,0.94)',
+    minHeight: 220,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroImage: { ...StyleSheet.absoluteFillObject },
+  heroOverlay: { ...StyleSheet.absoluteFillObject },
+  heroTopRow: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroPill: {
+    borderColor: 'rgba(167,243,208,0.95)',
+    backgroundColor: 'rgba(6,20,28,0.6)',
+  },
+  heroPillText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  heroTrophy: { width: 36, height: 36 },
+  heroBottom: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
+  },
+  heroTitle: { color: '#f8fafc', fontSize: 24, letterSpacing: 0.6, marginBottom: 6 },
+  heroSubtitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  heroCta: { color: '#a5f3fc', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
+  heroControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  heroNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.55)',
+    backgroundColor: 'rgba(8,18,30,0.65)',
+  },
+  heroNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   carouselControlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   carouselNavBtn: {
     flexDirection: 'row',

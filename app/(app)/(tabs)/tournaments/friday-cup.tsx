@@ -29,16 +29,26 @@ export default function FridayCupScreen() {
   const uid = useAuthStore((s) => s.user?.id);
   const tid = env.EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID;
   const qc = useQueryClient();
-  const { data: tournamentRow, refetch } = useTournament(tid);
+  const { data: tournamentRow, refetch, isLoading: tournamentLoading } = useTournament(tid);
   const [busy, setBusy] = useState(false);
 
   const kickoff = useMemo(() => nextFridayAtLocalHour(FRIDAY_CUP_START_HOUR_LOCAL), []);
+  const hasTournamentId = !!tid;
+  const hasLiveTournament = !!(tid && tournamentRow);
+  const shouldShowSetupHelp = !hasTournamentId || (!tournamentLoading && !hasLiveTournament);
 
   const onJoin = useCallback(async () => {
     if (!ENABLE_BACKEND || !tid) {
       Alert.alert(
         'Coming soon',
         'Link this screen to your live tournament by setting EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID to a row in `tournaments` ($10 entry, 8 players, single elimination).',
+      );
+      return;
+    }
+    if (!tournamentRow) {
+      Alert.alert(
+        'Cup unavailable',
+        'This Friday cup ID is set, but no matching tournament was found yet. Verify EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID and restart the app.',
       );
       return;
     }
@@ -102,15 +112,17 @@ export default function FridayCupScreen() {
         totals and payouts follow posted rules; operator fees may apply.
       </Text>
 
-      <Text style={styles.setupBox}>
-        <Text style={styles.setupTitle}>Setup (once)</Text>
-        {'\n'}1. In Supabase SQL, insert a tournament row (see <Text style={styles.mono}>supabase/scripts/seed-friday-eight-cup.example.sql</Text>)
-        with <Text style={styles.mono}>unlimited_entrants = true</Text> and <Text style={styles.mono}>bracket_pod_size = 8</Text>.
-        {'\n'}2. Copy the returned <Text style={styles.mono}>id</Text> into <Text style={styles.mono}>.env</Text> as{' '}
-        <Text style={styles.mono}>EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID</Text> and restart the app.
-        {'\n'}3. After each wave of entrants joins, call the <Text style={styles.mono}>generateBracket</Text> Edge Function (admin JWT) with
-        that tournament id — repeat for waves 2, 3, … as you fill more groups of {FRIDAY_CUP_MAX_PLAYERS}.
-      </Text>
+      {shouldShowSetupHelp ? (
+        <Text style={styles.setupBox}>
+          <Text style={styles.setupTitle}>Admin setup / troubleshoot</Text>
+          {'\n'}1. In Supabase SQL, insert a tournament row (see <Text style={styles.mono}>supabase/scripts/seed-friday-eight-cup.example.sql</Text>)
+          with <Text style={styles.mono}>unlimited_entrants = true</Text> and <Text style={styles.mono}>bracket_pod_size = 8</Text>.
+          {'\n'}2. Copy the returned <Text style={styles.mono}>id</Text> into <Text style={styles.mono}>.env</Text> as{' '}
+          <Text style={styles.mono}>EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID</Text> and restart the app.
+          {'\n'}3. After each wave of entrants joins, call the <Text style={styles.mono}>generateBracket</Text> Edge Function (admin JWT) with
+          that tournament id — repeat for waves 2, 3, … as you fill more groups of {FRIDAY_CUP_MAX_PLAYERS}.
+        </Text>
+      ) : null}
 
       {tid && tournamentRow ? (
         <View style={styles.liveCard}>
@@ -128,7 +140,11 @@ export default function FridayCupScreen() {
         <Text style={styles.muted}>No tournament UUID in env yet — paste the Supabase tournament id to enable join + live data.</Text>
       )}
 
-      <AppButton title={tid ? 'Enter ($10 wallet)' : 'Setup required'} onPress={onJoin} disabled={busy} />
+      <AppButton
+        title={hasLiveTournament ? 'Enter ($10 wallet)' : 'Cup unavailable'}
+        onPress={onJoin}
+        disabled={busy || !hasLiveTournament}
+      />
     </Screen>
   );
 }
