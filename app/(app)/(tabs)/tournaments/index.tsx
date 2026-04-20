@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,6 +40,17 @@ export default function TournamentsListScreen() {
     commitId: string | null;
     byId: Record<string, { won: boolean; lost: boolean }>;
   } | null>(null);
+  const [cupCarouselIndex, setCupCarouselIndex] = useState(0);
+
+  useEffect(() => {
+    if (CREDIT_CUPS.length === 0) {
+      setCupCarouselIndex(0);
+      return;
+    }
+    if (cupCarouselIndex >= CREDIT_CUPS.length) {
+      setCupCarouselIndex(CREDIT_CUPS.length - 1);
+    }
+  }, [cupCarouselIndex]);
 
   useFocusEffect(
     useCallback(() => {
@@ -176,7 +187,8 @@ export default function TournamentsListScreen() {
           <Text style={styles.cupSectionSub}>
             One Run It cup run per day (pick a tier) · single elimination · prize credits — most players still top up for Arcade
           </Text>
-          {CREDIT_CUPS.map((cup) => {
+          {CREDIT_CUPS.length ? (() => {
+            const cup = CREDIT_CUPS[cupCarouselIndex];
             const snap = cupBoard?.byId[cup.id];
             const wonToday = snap?.won ?? false;
             const lockedOther =
@@ -184,63 +196,95 @@ export default function TournamentsListScreen() {
             const otherName = cupBoard?.commitId ? getCreditCupById(cupBoard.commitId)?.name : undefined;
             const dim = wonToday || lockedOther;
             return (
-              <Pressable
-                key={cup.id}
-                onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
-                style={({ pressed }) => [styles.cardWrap, dim && { opacity: 0.55 }, pressed && !dim && { opacity: 0.92 }]}
-              >
-                <LinearGradient
-                  colors={cupAccentGradient(cup.accent)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cardBorder}
+              <View style={styles.cardWrap}>
+                <View style={styles.carouselControlsRow}>
+                  <Pressable
+                    onPress={() =>
+                      setCupCarouselIndex((prev) =>
+                        prev === 0 ? CREDIT_CUPS.length - 1 : prev - 1,
+                      )
+                    }
+                    style={({ pressed }) => [styles.carouselNavBtn, pressed && { opacity: 0.86 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show previous cup"
+                  >
+                    <SafeIonicons name="chevron-back" size={16} color={runit.neonCyan} />
+                    <Text style={styles.carouselNavTxt}>Prev</Text>
+                  </Pressable>
+                  <Text style={styles.carouselPosition}>
+                    {cupCarouselIndex + 1} / {CREDIT_CUPS.length}
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      setCupCarouselIndex((prev) =>
+                        prev === CREDIT_CUPS.length - 1 ? 0 : prev + 1,
+                      )
+                    }
+                    style={({ pressed }) => [styles.carouselNavBtn, pressed && { opacity: 0.86 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show next cup"
+                  >
+                    <Text style={styles.carouselNavTxt}>Next</Text>
+                    <SafeIonicons name="chevron-forward" size={16} color={runit.neonCyan} />
+                  </Pressable>
+                </View>
+                <Pressable
+                  onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
+                  style={({ pressed }) => [dim && { opacity: 0.55 }, pressed && !dim && { opacity: 0.92 }]}
                 >
-                  <View style={styles.cardInner}>
-                    <View style={styles.cardTop}>
-                      <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                        {cup.name}
-                      </Text>
-                      <View
-                        style={[
-                          styles.statePill,
-                          {
-                            borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
-                          },
-                        ]}
-                      >
-                        <Text
+                  <LinearGradient
+                    colors={cupAccentGradient(cup.accent)}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.cardBorder}
+                  >
+                    <View style={styles.cardInner}>
+                      <View style={styles.cardTop}>
+                        <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                          {cup.name}
+                        </Text>
+                        <View
                           style={[
-                            styles.statePillText,
+                            styles.statePill,
                             {
-                              color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
+                              borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
                             },
                           ]}
                         >
-                          {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
+                          <Text
+                            style={[
+                              styles.statePillText,
+                              {
+                                color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
+                              },
+                            ]}
+                          >
+                            {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.cupCreditsLine}>
+                        {cup.prizeCredits.toLocaleString()} prize credits · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds
+                      </Text>
+                      <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
+                        {wonToday
+                          ? 'Cleared today — back after midnight'
+                          : lockedOther
+                            ? `Daily run on ${otherName ?? 'another cup'}`
+                            : cup.subtitle}
+                      </Text>
+                      <View style={styles.cardFooter}>
+                        <Text style={[styles.viewLink, dim && { color: 'rgba(203,213,225,0.75)' }]}>
+                          {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter cup'}
                         </Text>
+                        <SafeIonicons name="chevron-forward" size={14} color={dim ? 'rgba(203,213,225,0.6)' : runit.neonPink} />
                       </View>
                     </View>
-                    <Text style={styles.cupCreditsLine}>
-                      {cup.prizeCredits.toLocaleString()} prize credits · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds
-                    </Text>
-                    <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
-                      {wonToday
-                        ? 'Cleared today — back after midnight'
-                        : lockedOther
-                          ? `Daily run on ${otherName ?? 'another cup'}`
-                          : cup.subtitle}
-                    </Text>
-                    <View style={styles.cardFooter}>
-                      <Text style={[styles.viewLink, dim && { color: 'rgba(203,213,225,0.75)' }]}>
-                        {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter cup'}
-                      </Text>
-                      <SafeIonicons name="chevron-forward" size={14} color={dim ? 'rgba(203,213,225,0.6)' : runit.neonPink} />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </Pressable>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             );
-          })}
+          })() : null}
         </>
       ) : null}
 
@@ -329,6 +373,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cupSectionSub: { color: 'rgba(148,163,184,0.88)', fontSize: 12, marginBottom: 12, lineHeight: 17 },
+  carouselControlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  carouselNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.55)',
+    backgroundColor: 'rgba(8,18,30,0.65)',
+  },
+  carouselNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  carouselPosition: { color: 'rgba(186,230,253,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   cupCreditsLine: { color: '#fef08a', fontSize: 15, fontWeight: '900', marginBottom: 4 },
   cardWrap: { marginBottom: 14 },
   cardBorder: { borderRadius: 16, padding: 2 },

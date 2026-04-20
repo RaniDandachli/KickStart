@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { arcade } from '@/lib/arcadeTheme';
 
-/** Starry floor + purple/orange “speed lines” — cyber-arcade vibe without image assets. */
+/** Starry floor + blue neon “speed lines” — cyber-arcade vibe without image assets. */
 const STARS: { l: `${number}%`; t: `${number}%`; o: number; s: number }[] = [
   { l: '5%', t: '8%', o: 0.4, s: 2 },
   { l: '18%', t: '22%', o: 0.25, s: 2 },
@@ -20,7 +20,7 @@ export function HomeNeonBackground() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* Motion streaks — low-opacity cones */}
       <LinearGradient
-        colors={['rgba(168,85,247,0.28)', 'transparent', 'rgba(249,115,22,0.14)']}
+        colors={['rgba(59,130,246,0.34)', 'transparent', 'rgba(34,211,238,0.18)']}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.85, y: 0.95 }}
         style={styles.streakA}
@@ -32,7 +32,7 @@ export function HomeNeonBackground() {
         style={styles.streakB}
       />
       <LinearGradient
-        colors={['rgba(236,72,153,0.18)', 'transparent']}
+        colors={['rgba(96,165,250,0.2)', 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0.3, y: 0.6 }}
         style={styles.streakC}

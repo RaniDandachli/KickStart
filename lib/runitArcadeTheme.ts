@@ -14,8 +14,8 @@ export const runit = {
   glass: 'rgba(10, 16, 36, 0.74)',
 } as const;
 
-/** Full-screen vertical gradient — matches Home tab (`index.tsx` hero). */
-export const APP_SCREEN_GRADIENT_COLORS = ['#070b18', '#0d152c', '#121f3d', '#060914'] as const;
+/** Full-screen vertical gradient — slightly more neon blue forward across all screens. */
+export const APP_SCREEN_GRADIENT_COLORS = ['#060b1a', '#0a1a3a', '#123166', '#060914'] as const;
 
 export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.35, 0.65, 1] as const;
 
@@ -26,18 +26,18 @@ export const appChromeLinePink = 'rgba(100, 170, 255, 0.4)';
 export const appTabBarBorderAccent = 'rgba(110, 175, 255, 0.42)';
 
 /**
- * Default card / control outline — soft neon pink (readable, not harsh).
+ * Default card / control outline — blue-forward accent for cleaner chrome consistency.
  */
-export const appBorderAccent = 'rgba(255, 100, 190, 0.38)';
+export const appBorderAccent = 'rgba(110, 190, 255, 0.42)';
 
-export const appBorderAccentMuted = 'rgba(255, 100, 190, 0.2)';
+export const appBorderAccentMuted = 'rgba(110, 190, 255, 0.24)';
 
-/** Second stop for thin `LinearGradient` borders (pair with `runit.neonPink`). */
-export const appChromeGradientFadePink = 'rgba(255, 100, 190, 0.28)' as const;
+/** Second stop for thin `LinearGradient` borders (pair with primary accent). */
+export const appChromeGradientFadePink = 'rgba(110, 190, 255, 0.28)' as const;
 
-/** Title emphasis — subtle pink bloom (not heavy glow). */
+/** Title emphasis — blue bloom to keep headings in the same accent family. */
 export const runitTextGlowPink = {
-  textShadowColor: 'rgba(255, 100, 190, 0.55)',
+  textShadowColor: 'rgba(110, 190, 255, 0.55)',
   textShadowOffset: { width: 0, height: 0 },
   textShadowRadius: 7,
 } as const;
