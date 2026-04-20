@@ -11,6 +11,18 @@ import { getSupabase } from '@/supabase/client';
 
 const KEY_REMOTE_ACTIVE = 'kc_remote_push_active';
 
+function normalizeWatchEntryCents(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((x) => Math.max(0, Math.floor(Number(x)))).filter((n) => !Number.isNaN(n));
+}
+
+function normalizeWatchGameKeys(raw: unknown): string[] | null {
+  if (raw === null || raw === undefined) return null;
+  if (!Array.isArray(raw)) return null;
+  const keys = raw.map((x) => String(x).trim()).filter((s) => s.length > 0);
+  return keys.length > 0 ? keys : null;
+}
+
 export type { H2hOpenSlotWatchPayload } from '@/lib/h2hOpenSlotWatch';
 
 export type RegisterExpoPushOpts = {
@@ -67,8 +79,10 @@ export async function registerExpoPushWithSupabase(uid: string, opts?: RegisterE
     };
   } else {
     pushOpenSlots = prefs.openMatchAlerts;
+    const entryCents = normalizeWatchEntryCents(prefs.openMatchWatchEntryCents);
+    const gameKeys = normalizeWatchGameKeys(prefs.openMatchWatchGameKeys);
     h2hWatch = prefs.openMatchAlerts
-      ? { enabled: true, entryCents: [] as number[], gameKeys: null as string[] | null }
+      ? { enabled: true, entryCents, gameKeys }
       : { enabled: false, entryCents: [] as number[], gameKeys: null as string[] | null };
   }
 

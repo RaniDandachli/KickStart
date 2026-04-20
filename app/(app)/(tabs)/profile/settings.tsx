@@ -1,25 +1,34 @@
 import { useRouter } from 'expo-router';
-import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 
+import { QuickMatchTierChips } from '@/components/arcade/QuickMatchTierChips';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useProfile } from '@/hooks/useProfile';
 import { refreshArcadeScheduledNotifications } from '@/lib/arcadeLocalNotifications';
 import { supportContactHref } from '@/lib/env';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
-import { isWebPushConfigured, registerWebPushForUser, unregisterWebPushForUser } from '@/lib/webPushRegister';
+import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/settingsNotificationPrefs';
+import { normalizeQuickMatchAllowedEntries } from '@/lib/quickMatchTiers';
+import { profileBlocksPaidSkillContest } from '@/lib/skillContestRegionGate';
 import { runit } from '@/lib/runitArcadeTheme';
+import { isWebPushConfigured, registerWebPushForUser, unregisterWebPushForUser } from '@/lib/webPushRegister';
 import { useAuthStore } from '@/store/authStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
+  const profileQ = useProfile(ENABLE_BACKEND && uid ? uid : undefined);
   const [pushMatch, setPushMatch] = useState(true);
   const [pushTournament, setPushTournament] = useState(true);
   const [pushDailyCredits, setPushDailyCredits] = useState(true);
   const [pushOpenMatches, setPushOpenMatches] = useState(false);
+  const [openWatchEntryCents, setOpenWatchEntryCents] = useState<number[]>([]);
+  const [openWatchGameKeys, setOpenWatchGameKeys] = useState<string[]>([]);
+  const [tierCapCents, setTierCapCents] = useState(0);
   const [prefsReady, setPrefsReady] = useState(false);
   const skipNextSave = useRef(true);
 
@@ -31,6 +40,12 @@ export default function SettingsScreen() {
       setPushTournament(p.tournamentUpdates);
       setPushDailyCredits(p.dailyCredits);
       setPushOpenMatches(p.openMatchAlerts);
+      setOpenWatchEntryCents(p.openMatchWatchEntryCents ?? []);
+      setOpenWatchGameKeys(
+        Array.isArray(p.openMatchWatchGameKeys) && p.openMatchWatchGameKeys.length > 0
+          ? [...p.openMatchWatchGameKeys]
+          : [],
+      );
       setPrefsReady(true);
     });
     return () => {
@@ -39,30 +54,72 @@ export default function SettingsScreen() {
   }, []);
 
   useEffect(() => {
+    if (!ENABLE_BACKEND || !uid) {
+      setTierCapCents(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const blocked = await profileBlocksPaidSkillContest(uid);
+      const live = profileQ.data?.wallet_cents ?? 0;
+      if (cancelled) return;
+      setTierCapCents(blocked ? 0 : live);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, profileQ.data?.wallet_cents]);
+
+  useEffect(() => {
+    if (!prefsReady || !pushOpenMatches) return;
+    setOpenWatchEntryCents((prev) => normalizeQuickMatchAllowedEntries(prev, tierCapCents));
+  }, [prefsReady, pushOpenMatches, tierCapCents]);
+
+  useEffect(() => {
     if (!prefsReady) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
     }
-    void saveNotificationPrefs({
+    const prefsPayload = {
       matchInvites: pushMatch,
       tournamentUpdates: pushTournament,
       dailyCredits: pushDailyCredits,
       openMatchAlerts: pushOpenMatches,
-    }).then(async () => {
+      openMatchWatchEntryCents: openWatchEntryCents,
+      openMatchWatchGameKeys: openWatchGameKeys.length > 0 ? openWatchGameKeys : null,
+    };
+    void saveNotificationPrefs(prefsPayload).then(async () => {
       if (uid && ENABLE_BACKEND) {
-        await registerExpoPushWithSupabase(uid);
         if (Platform.OS === 'web') {
           if (pushOpenMatches && isWebPushConfigured()) {
-            await registerWebPushForUser();
+            const wr = await registerWebPushForUser();
+            if (!wr.ok) {
+              setPushOpenMatches(false);
+              await saveNotificationPrefs({ ...prefsPayload, openMatchAlerts: false });
+              Alert.alert('Browser notifications', wr.error);
+              await registerExpoPushWithSupabase(uid);
+              void refreshArcadeScheduledNotifications();
+              return;
+            }
           } else if (!pushOpenMatches) {
             await unregisterWebPushForUser();
           }
         }
+        await registerExpoPushWithSupabase(uid);
       }
       void refreshArcadeScheduledNotifications();
     });
-  }, [prefsReady, pushMatch, pushTournament, pushDailyCredits, pushOpenMatches, uid]);
+  }, [
+    prefsReady,
+    pushMatch,
+    pushTournament,
+    pushDailyCredits,
+    pushOpenMatches,
+    openWatchEntryCents,
+    openWatchGameKeys,
+    uid,
+  ]);
 
   return (
     <Screen>
@@ -93,12 +150,54 @@ export default function SettingsScreen() {
           disabled={!prefsReady}
           onValueChange={setPushOpenMatches}
         />
+        {pushOpenMatches && prefsReady ? (
+          <View style={styles.openWatchSection}>
+            <Text style={styles.openWatchTitle}>What should we ping you about?</Text>
+            <Text style={styles.openWatchHint}>
+              <Text style={styles.openWatchHintEm}>Entry fees:</Text> leave all chips off to mean{' '}
+              <Text style={styles.openWatchHintEm}>any</Text> contest price. Otherwise we only alert when a waiter is on a tier you select.
+            </Text>
+            {ENABLE_BACKEND && uid && profileQ.isFetched && !profileQ.isError ? (
+              <QuickMatchTierChips
+                maxAffordableEntryCents={tierCapCents}
+                selected={openWatchEntryCents}
+                onChange={setOpenWatchEntryCents}
+              />
+            ) : (
+              <Text style={styles.openWatchHint}>Sign in to pick paid tiers (free tier is always available).</Text>
+            )}
+            <Text style={[styles.openWatchHint, styles.openWatchHintSpaced]}>
+              <Text style={styles.openWatchHintEm}>Games:</Text> tap to narrow. Leave none highlighted for{' '}
+              <Text style={styles.openWatchHintEm}>any</Text> minigame.
+            </Text>
+            <View style={styles.gameChipWrap}>
+              {H2H_OPEN_GAMES.map((g) => {
+                const on = openWatchGameKeys.includes(g.gameKey);
+                return (
+                  <Pressable
+                    key={g.gameKey}
+                    onPress={() => {
+                      setOpenWatchGameKeys((prev) => {
+                        const s = new Set(prev);
+                        if (s.has(g.gameKey)) s.delete(g.gameKey);
+                        else s.add(g.gameKey);
+                        return Array.from(s);
+                      });
+                    }}
+                    style={({ pressed }) => [styles.gameChip, on && styles.gameChipOn, pressed && { opacity: 0.9 }]}
+                  >
+                    <Text style={[styles.gameChipTxt, on && styles.gameChipTxtOn]}>{g.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <Text style={styles.helpText}>
           Preferences are saved on this device and on your account when you&apos;re signed in. Tournament reminders follow the schedule the
           operator sets; daily credit reminders fire after you claim for the day. Open match alerts notify you when someone is waiting in
-          queue for a contest that matches your filters (default: any tier and game). Allow notifications so these and &quot;match
-          found&quot; pings (from Keep my spot in queue on the match screen) can reach you. If push isn&apos;t available, the app may use a
-          local reminder around 10:00. You can change alerts anytime in system notification settings.
+          queue for a contest that matches the filters above (on web, allow browser notifications). &quot;Match found&quot; uses Keep my
+          spot in queue on the match screen. You can change alerts in system notification settings too.
         </Text>
       </View>
 
@@ -249,6 +348,57 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.88)',
     fontSize: 14,
     lineHeight: 21,
+  },
+  openWatchSection: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(148,163,184,0.2)',
+  },
+  openWatchTitle: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  openWatchHint: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  openWatchHintSpaced: {
+    marginTop: 14,
+  },
+  openWatchHintEm: {
+    color: '#e2e8f0',
+    fontWeight: '800',
+  },
+  gameChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gameChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  gameChipOn: {
+    borderColor: 'rgba(56,189,248,0.65)',
+    backgroundColor: 'rgba(14,116,144,0.25)',
+  },
+  gameChipTxt: {
+    color: 'rgba(203,213,225,0.95)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  gameChipTxtOn: {
+    color: '#e0f2fe',
   },
   bodyText: {
     color: 'rgba(203,213,225,0.92)',

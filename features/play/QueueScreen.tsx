@@ -95,8 +95,9 @@ export function QueueScreen({
   const queueKind = useMatchmakingStore((s) => s.queue);
   const keepSearchingWhenAway = useMatchmakingStore((s) => s.keepSearchingWhenAway);
   const setKeepSearchingWhenAway = useMatchmakingStore((s) => s.setKeepSearchingWhenAway);
-  const pingOpenQueueAlerts = useMatchmakingStore((s) => s.openSlotPingWhileSearching);
-  const setOpenSlotPingWhileSearching = useMatchmakingStore((s) => s.setOpenSlotPingWhileSearching);
+  const [pingOpenQueueAlerts, setPingOpenQueueAlerts] = useState(false);
+  /** One-time sync from server when a search starts so the Switch matches account after remount/refetch. */
+  const openPingHydratedRef = useRef(false);
   const prevPhaseRef = useRef(phase);
   const setQueuePollSnapshot = useMatchmakingStore((s) => s.setQueuePollSnapshot);
   const setMatchmakingAcceptRoute = useMatchmakingStore((s) => s.setMatchmakingAcceptRoute);
@@ -191,18 +192,32 @@ export function QueueScreen({
   );
 
   useEffect(() => {
+    if (phase !== 'searching') {
+      openPingHydratedRef.current = false;
+      return;
+    }
+    if (!ENABLE_BACKEND || userId === 'guest' || !profileQ.data || openPingHydratedRef.current) return;
+    const p = profileQ.data;
+    const w = p.h2h_open_slot_watch as { enabled?: boolean } | undefined;
+    if (p.push_notify_h2h_open_slots === true && w?.enabled === true) {
+      setPingOpenQueueAlerts(true);
+    }
+    openPingHydratedRef.current = true;
+  }, [phase, userId, profileQ.data]);
+
+  useEffect(() => {
     const prev = prevPhaseRef.current;
     if (prev === 'searching' && phase === 'idle' && ENABLE_BACKEND && userId !== 'guest') {
-      setOpenSlotPingWhileSearching(false);
+      setPingOpenQueueAlerts(false);
       void registerExpoPushWithSupabase(userId);
     }
     prevPhaseRef.current = phase;
-  }, [phase, userId, setOpenSlotPingWhileSearching]);
+  }, [phase, userId]);
 
   const onPingOpenQueueAlertsChange = useCallback(
     async (next: boolean) => {
       if (!ENABLE_BACKEND || userId === 'guest') return;
-      setOpenSlotPingWhileSearching(next);
+      setPingOpenQueueAlerts(next);
       if (!next) {
         await unregisterWebPushForUser();
         await registerExpoPushWithSupabase(userId);
@@ -227,7 +242,7 @@ export function QueueScreen({
           status = req.status;
         }
         if (status !== 'granted') {
-          setOpenSlotPingWhileSearching(false);
+          setPingOpenQueueAlerts(false);
           Alert.alert(
             'Notifications needed',
             'Turn on notifications for Run It Arcade in system settings so we can ping you when someone joins a matching queue.',
@@ -244,7 +259,7 @@ export function QueueScreen({
         if (isWebPushConfigured()) {
           const wr = await registerWebPushForUser();
           if (!wr.ok) {
-            setOpenSlotPingWhileSearching(false);
+            setPingOpenQueueAlerts(false);
             Alert.alert('Browser notifications', wr.error);
             return;
           }
@@ -253,7 +268,7 @@ export function QueueScreen({
       }
       void qc.invalidateQueries({ queryKey: queryKeys.profile(userId) });
     },
-    [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc, setOpenSlotPingWhileSearching],
+    [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc],
   );
 
   useEffect(() => {
@@ -327,7 +342,7 @@ export function QueueScreen({
         allowedEntryCents: quickMatchAllowedEntryCentsRef.current,
       };
       setQueue(mode);
-      setOpenSlotPingWhileSearching(false);
+      setPingOpenQueueAlerts(false);
       setPhase('searching');
       const snap = buildBackendQueueParams({
         mode,
@@ -374,7 +389,7 @@ export function QueueScreen({
     }
 
     setQueue(mode);
-    setOpenSlotPingWhileSearching(false);
+    setPingOpenQueueAlerts(false);
     setPhase('searching');
 
     const snap = buildBackendQueueParams({
@@ -404,7 +419,6 @@ export function QueueScreen({
     profileQ.data?.wallet_cents,
     setQueuePollSnapshot,
     pushMatchmakingAcceptRoute,
-    setOpenSlotPingWhileSearching,
   ]);
 
   const runQuickMatchResolve = useCallback(async () => {
@@ -776,7 +790,8 @@ export function QueueScreen({
                       isWebPushConfigured() ? (
                         <>
                           Uses <Text className="font-semibold text-slate-300">browser notifications</Text> (even in other tabs or apps
-                          that show system banners). Allow the prompt — we also save your filters on your account.
+                          that show system banners). Allow the prompt. Filters for games/prices also live in{' '}
+                          <Text className="font-semibold text-slate-300">Profile → Settings → Open match alerts</Text>.
                         </>
                       ) : (
                         <>
