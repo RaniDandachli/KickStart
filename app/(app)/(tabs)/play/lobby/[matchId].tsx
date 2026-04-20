@@ -140,7 +140,7 @@ export default function PreMatchLobbyScreen() {
     msQ.data.status === 'in_progress'
   ) {
     return (
-      <Screen scroll={false}>
+      <Screen scroll>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>Match in progress</Text>
         <Text style={styles.sub}>
           You already opened the skill contest — resume play, or use Arcade to leave the flow.
@@ -170,7 +170,7 @@ export default function PreMatchLobbyScreen() {
     (msQ.data.status === 'cancelled' || msQ.data.status === 'completed')
   ) {
     return (
-      <Screen scroll={false}>
+      <Screen scroll>
         <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>Lobby closed</Text>
         <Text style={styles.sub}>
           {msQ.data.status === 'cancelled'
@@ -189,7 +189,7 @@ export default function PreMatchLobbyScreen() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll>
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1 LOBBY</Text>
       <H2hLobbyStatusLine
         loading={msQ.isLoading}

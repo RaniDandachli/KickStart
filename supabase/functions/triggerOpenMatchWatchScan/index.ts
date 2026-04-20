@@ -13,7 +13,10 @@ Deno.serve(async (req) => {
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!jwt) return errorResponse('Unauthorized', 401);
+  if (!jwt) {
+    console.warn('[triggerOpenMatchWatchScan] missing bearer token');
+    return errorResponse('Unauthorized: missing bearer token', 401);
+  }
 
   const url = Deno.env.get('SUPABASE_URL')!;
   const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -30,7 +33,10 @@ Deno.serve(async (req) => {
   });
 
   const { data: userData, error: authErr } = await userClient.auth.getUser();
-  if (authErr || !userData.user) return errorResponse('Unauthorized', 401);
+  if (authErr || !userData.user) {
+    console.warn('[triggerOpenMatchWatchScan] invalid bearer token', authErr?.message ?? 'no_user');
+    return errorResponse('Unauthorized: invalid user token', 401);
+  }
 
   console.info('[triggerOpenMatchWatchScan] invoke', userData.user.id);
 
