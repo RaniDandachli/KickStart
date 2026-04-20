@@ -844,8 +844,16 @@ export function QueueScreen({
       ) : (
         <View className="items-center py-10">
           <Text className="max-w-xs text-center text-sm font-medium leading-5 text-slate-300">
-            Match ready — accept in the popup
-            {Platform.OS !== 'web' ? ' (you may also have gotten a notification if you were away).' : '.'}
+            {Platform.OS === 'web' ? (
+              <>
+                Match ready — use <Text className="font-semibold text-slate-200">Accept</Text> on the overlay above (or
+                decline there). If you don&apos;t see it, scroll up or refresh; you can also cancel below to stop searching.
+              </>
+            ) : (
+              <>
+                Match ready — accept in the popup (you may also have gotten a notification if you were away).
+              </>
+            )}
           </Text>
           <AppButton className="mt-6" title="Cancel" variant="ghost" onPress={decline} />
         </View>

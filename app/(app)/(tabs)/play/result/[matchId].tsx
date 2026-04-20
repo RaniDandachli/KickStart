@@ -24,6 +24,11 @@ import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 
+/** Clear queue / “match found” machine so the next contest doesn’t stay stuck in lobby/found. */
+function resetMatchmakingAfterMatch() {
+  useMatchmakingStore.getState().reset();
+}
+
 export default function MatchResultScreen() {
   const params = useLocalSearchParams<{
     matchId: string;
@@ -234,6 +239,7 @@ export default function MatchResultScreen() {
   }, [ENABLE_BACKEND, lost, isDraw, entryFeeWalletCents, addDemoArcadeCredits]);
 
   useEffect(() => {
+    resetMatchmakingAfterMatch();
     return () => {
       clearActiveMatch(null);
     };

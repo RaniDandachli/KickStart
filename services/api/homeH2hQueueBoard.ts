@@ -10,6 +10,8 @@ export type HomeH2hQueueBoardRow = {
   listed_prize_usd_cents: number;
   host_display_name: string;
   created_at: string;
+  /** Present after migration `00043_home_h2h_queue_board_is_self`; false when RPC not yet updated. */
+  is_self?: boolean | null;
 };
 
 export async function fetchHomeH2hQueueBoard(): Promise<HomeH2hQueueBoardRow[]> {
@@ -45,6 +47,7 @@ export function mapQueueBoardRowToWaiter(row: HomeH2hQueueBoardRow): H2hBoardWai
     postedAt: new Date(row.created_at).getTime(),
     entryFeeWalletCents: entryCents,
     listedPrizeUsdCents: prizeCents,
+    isSelf: row.is_self === true,
   };
 }
 

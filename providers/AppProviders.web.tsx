@@ -21,8 +21,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={client}>
       <AuthBootstrapper>
-        <MatchmakingQueueRunner />
         {children}
+        {/** After routes so match-found overlay / modal stacks above the app (esp. web + iOS Safari). */}
+        <MatchmakingQueueRunner />
       </AuthBootstrapper>
     </QueryClientProvider>
   );

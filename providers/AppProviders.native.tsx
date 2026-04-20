@@ -23,8 +23,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   const tree = (
     <QueryClientProvider client={client}>
       <AuthBootstrapper>
-        <MatchmakingQueueRunner />
         {children}
+        {/** After routes so match-found modal stacks above the app. */}
+        <MatchmakingQueueRunner />
       </AuthBootstrapper>
     </QueryClientProvider>
   );

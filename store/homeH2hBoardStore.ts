@@ -11,6 +11,8 @@ export type H2hBoardWaiter = {
   /** From `home_h2h_queue_board` — use for queue URLs so RPC params match the DB row exactly. */
   entryFeeWalletCents?: number;
   listedPrizeUsdCents?: number;
+  /** True when this waiting row is the signed-in user (from `home_h2h_queue_board.is_self`). */
+  isSelf?: boolean;
 };
 
 /** FIFO-ish: longest waiting first feels fair for “who’s up next”. */

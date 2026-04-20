@@ -15,6 +15,14 @@ type WatchJson = {
   gameKeys?: string[] | null;
 };
 
+function titleCaseGameSlug(gk: string): string {
+  return gk
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 function watchMatchesRow(
   row: { game_key: string | null; entry_fee_wallet_cents: number | null },
   raw: unknown,
@@ -98,13 +106,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existing) continue;
 
+      const gameLabel = gk ? titleCaseGameSlug(gk) : 'Live matches';
       eligible.push({
         uid,
         qid,
-        title: 'Open match available',
+        title: 'A spot opened that fits your alerts',
         body: gk
-          ? `Someone is in queue — $${feeUsd} · ${gk.replace(/-/g, ' ')}. Tap to join.`
-          : `Someone is in queue — $${feeUsd}. Tap to join.`,
+          ? `${gameLabel} · $${feeUsd} entry — jump in from Live matches while it's still open.`
+          : `$${feeUsd} entry is up — open Live matches and grab it before someone else does.`,
         hrefPath: '/(app)/(tabs)/play/live-matches',
       });
     }

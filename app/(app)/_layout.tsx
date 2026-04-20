@@ -1,12 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import { type Href, Redirect, Slot, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { ALLOW_GUEST_MODE } from '@/constants/featureFlags';
 import { useRealtimeScaffold } from '@/hooks/useRealtimeScaffold';
 import { useSyncSignupCountry } from '@/hooks/useSyncSignupCountry';
 import { useSupabaseCacheSync } from '@/hooks/useSupabaseCacheSync';
+import { OpenSlotInAppBanner } from '@/components/notifications/OpenSlotInAppBanner';
 import { useAuthStore } from '@/store/authStore';
 
 function navigateFromNotificationData(router: ReturnType<typeof useRouter>, data: Record<string, unknown>): void {
@@ -60,5 +61,10 @@ export default function AuthenticatedLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  return <Slot />;
+  return (
+    <View style={{ flex: 1 }}>
+      <OpenSlotInAppBanner />
+      <Slot />
+    </View>
+  );
 }
