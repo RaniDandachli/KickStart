@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
@@ -53,6 +53,7 @@ import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
 const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const webDesktopTabs = useWebUsesTopTabBar();
   const isWeb = Platform.OS === 'web';
   const router = useRouter();
@@ -240,9 +241,9 @@ export default function HomeScreen() {
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       >
-        <StatusBar style="light" />
+        <StatusBar style="light" translucent backgroundColor="transparent" />
         <HomeNeonBackground />
-        <SafeAreaView style={styles.safeLaptop} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={[styles.safeLaptop, { paddingTop: insets.top }]} edges={['left', 'right', 'bottom']}>
           <HomeScreenWebLaptop
             walletDisplay={walletDisplay}
             walletCents={walletCents}
@@ -327,11 +328,15 @@ export default function HomeScreen() {
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
     >
-      <StatusBar style="light" />
+      <StatusBar style="light" translucent backgroundColor="transparent" />
       <HomeNeonBackground />
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safe} edges={['left', 'right']}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, isWeb && styles.scrollWebDesktop]}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + 6 },
+            isWeb && styles.scrollWebDesktop,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {ENABLE_BACKEND ? (
@@ -642,7 +647,7 @@ const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
   safeLaptop: { flex: 1, maxWidth: 1280, width: '100%', alignSelf: 'center' },
-  scroll: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 92 },
   scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   homeAlertsStrip: {
     width: '100%',

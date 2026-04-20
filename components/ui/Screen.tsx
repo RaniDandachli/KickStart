@@ -19,24 +19,28 @@ export function Screen({
   /** Extra space so scrollable screens clear bottom tab bars (esp. mobile Safari + Expo web tabs). */
   const bottomPad = useMemo(() => {
     const base = Math.max(insets.bottom, 10);
-    if (Platform.OS !== 'web') return base + 28;
+    if (Platform.OS !== 'web') return base + 22;
     // Narrow web: tall glass bottom tab bar + margins (~see getAppTabBarStyle webMobileBottom).
     if (!webTopTabs) return base + 100;
     return base + 56;
   }, [insets.bottom, webTopTabs]);
 
+  const topPad = Math.max(insets.top, 0) + 2;
+
   const inner = scroll ? (
     <ScrollView
       className="flex-1"
       style={styles.scrollView}
-      contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+      contentContainerStyle={[styles.scrollContent, { paddingTop: topPad, paddingBottom: bottomPad }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       {children}
     </ScrollView>
   ) : (
-    <View className="flex-1 px-4">{children}</View>
+    <View className="flex-1 px-4" style={{ paddingTop: topPad }}>
+      {children}
+    </View>
   );
 
   return (
@@ -48,11 +52,11 @@ export function Screen({
       style={styles.flex}
     >
       <HomeNeonBackground />
-      <StatusBar style="light" />
+      <StatusBar style="light" translucent backgroundColor="transparent" />
       <SafeAreaView
         className={`flex-1 ${className ?? ''}`}
         style={styles.safeArea}
-        edges={['top', 'left', 'right']}
+        edges={['left', 'right', 'bottom']}
       >
         {inner}
       </SafeAreaView>
@@ -65,5 +69,5 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, minHeight: 0 },
   /** Lets nested flex layouts shrink so RN Web ScrollView can scroll on iOS Safari (body scroll is off). */
   scrollView: { flex: 1, minHeight: 0 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+  scrollContent: { paddingHorizontal: 16 },
 });

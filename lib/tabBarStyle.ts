@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { appTabBarBorderAccent, runit } from '@/lib/runitArcadeTheme';
 
 /** Desktop web top tab row height — exported so the corner logo aligns vertically. */
-export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 44;
+export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 36;
 
 export type TabBarSafeInsets = { top: number; bottom: number; left?: number; right?: number };
 
@@ -23,8 +23,8 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   if (useWebTopChrome) {
     const padH = Math.max(insets.left ?? 0, insets.right ?? 0, 16);
     /** Slim strip: same tone as page shows through (body / scene) — not a separate “dock”. */
-    const padTop = Math.max(insets.top, 8) + 2;
-    const padBottom = 8;
+    const padTop = Math.max(insets.top, 6) + 1;
+    const padBottom = 6;
     const contentIconAndLabel = WEB_TOP_TAB_BAR_ROW_HEIGHT_PX;
     return {
       backgroundColor: 'transparent',
@@ -46,10 +46,10 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
      * RN BottomTabBar sets a fixed `height` (~49px + inset) which clips labels under icons.
      * Our style merges last — set an explicit tall `height` so icon + title fit (iPhone Safari web).
      */
-    const padTop = 10;
-    const padBottom = 12 + safeBottom;
+    const padTop = 8;
+    const padBottom = 10 + safeBottom;
     /** Icon + 1–2 lines of label on narrow mobile web (Safari). */
-    const contentForIconAndLabel = 72;
+    const contentForIconAndLabel = 62;
     return {
       /** Gradient + blur from `tabBarBackground` (`WebTopTabBarBackdrop` variant `mobileBottomGlass`). */
       backgroundColor: 'transparent',
@@ -59,8 +59,8 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
       borderColor: 'rgba(255, 255, 255, 0.14)',
       borderRadius: 26,
       marginHorizontal: 14,
-      marginBottom: 12,
-      marginTop: 4,
+      marginBottom: 10,
+      marginTop: 2,
       paddingTop: padTop,
       paddingBottom: padBottom,
       paddingHorizontal: 4,
@@ -77,9 +77,9 @@ export function getAppTabBarStyle(insets: TabBarSafeInsets, opts?: AppTabBarOpti
   }
 
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 12) + 2;
-  const padTop = 8;
+  const padTop = 4;
   /** Same as web: default tab bar height (~49px + inset) hides labels under icons without explicit `height`. */
-  const contentIconAndLabel = 52;
+  const contentIconAndLabel = 44;
   return {
     backgroundColor: runit.bgDeep,
     borderTopWidth: 2,

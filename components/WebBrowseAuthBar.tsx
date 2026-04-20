@@ -23,9 +23,7 @@ export function WebBrowseAuthBar() {
 
   /** Desktop web: vertically center in the slim top tab strip. Narrow web: status bar only. */
   const top = webTopTabs
-    ? Math.max(insets.top, 8) +
-      2 +
-      Math.max(0, (WEB_TOP_TAB_BAR_ROW_HEIGHT_PX - 40) / 2)
+    ? Math.max(insets.top, 6) + 1 + Math.max(0, (WEB_TOP_TAB_BAR_ROW_HEIGHT_PX - 36) / 2)
     : insets.top + 8;
   const right = Math.max(insets.right, 12);
 

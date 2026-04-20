@@ -29,7 +29,7 @@ export function WebAppBrandLogo() {
   if (Platform.OS !== 'web' || !desktopTopTabs) return null;
   if (isHomeTab && isWebLaptopViewport(width)) return null;
 
-  const padTop = Math.max(insets.top, 8) + 2;
+  const padTop = Math.max(insets.top, 6) + 1;
   const top = padTop + (WEB_TOP_TAB_BAR_ROW_HEIGHT_PX - WORDMARK_ROW_H) / 2;
   return (
     <View style={[styles.corner, { top, left: Math.max(insets.left, 16) }]} pointerEvents="none">

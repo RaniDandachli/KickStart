@@ -32,7 +32,7 @@ import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 
 type IonName = ComponentProps<typeof SafeIonicons>['name'];
 
-const NATIVE_TAB_ICON = 20;
+const NATIVE_TAB_ICON = 19;
 /** Web: use SafeIonicons (SVG glyphs) — Ionicon font often paints as empty squares in the tab bar. */
 const WEB_TAB_ICON = 22;
 /** Desktop web top strip: slightly smaller icons so the row feels like a slim header, not a fat toolbar. */
@@ -204,7 +204,7 @@ export default function TabsLayout() {
             : {
                 fontWeight: '800',
                 fontSize: 10,
-                marginTop: 4,
+                marginTop: 2,
                 marginBottom: 0,
               },
         tabBarIconStyle:
@@ -215,7 +215,7 @@ export default function TabsLayout() {
               : { marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
           paddingVertical:
-            Platform.OS === 'web' && webUsesTopTabBar ? 6 : Platform.OS === 'web' ? 8 : 5,
+            Platform.OS === 'web' && webUsesTopTabBar ? 4 : Platform.OS === 'web' ? 6 : 3,
           justifyContent: 'center',
           ...(Platform.OS === 'web' ? { backgroundColor: 'transparent' } : {}),
           ...(Platform.OS === 'web' && webUsesTopTabBar
