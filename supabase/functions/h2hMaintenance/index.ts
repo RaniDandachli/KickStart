@@ -5,17 +5,26 @@ import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 /**
  * Scheduled cleanup: stale H2H lobbies + queue waiters (see migration 00023).
  * Set secret `H2H_MAINTENANCE_SECRET` in Supabase → Edge Functions → Secrets.
- * Schedule: Dashboard → Edge Functions → h2hMaintenance → Cron (e.g. every 15 minutes).
- * Invoke with header: `x-h2h-maintenance-secret: <same value>`
+ *
+ * **Schedule:** use pg_cron + pg_net (see `supabase/scripts/schedule-h2h-maintenance.example.sql`)
+ * or any cron that can POST with **apikey + Authorization Bearer + x-h2h-maintenance-secret**.
+ * Open-match pushes run only after this function runs and successfully invokes `h2hOpenMatchWatchScan`.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
 
+    console.info('[h2hMaintenance] POST', new Date().toISOString());
+
     const expected = Deno.env.get('H2H_MAINTENANCE_SECRET');
     const sent = req.headers.get('x-h2h-maintenance-secret');
-    if (!expected || sent !== expected) {
+    if (!expected) {
+      console.error('[h2hMaintenance] missing H2H_MAINTENANCE_SECRET in Edge Function secrets');
+      return errorResponse('Unauthorized', 401);
+    }
+    if (sent !== expected) {
+      console.warn('[h2hMaintenance] invalid x-h2h-maintenance-secret');
       return errorResponse('Unauthorized', 401);
     }
 
@@ -38,9 +47,11 @@ Deno.serve(async (req) => {
           'x-h2h-maintenance-secret': expected,
         },
       });
+      const scanText = await scanRes.text();
       if (!scanRes.ok) {
-        const t = await scanRes.text();
-        console.warn('[h2hMaintenance] h2hOpenMatchWatchScan non-OK', scanRes.status, t.slice(0, 200));
+        console.warn('[h2hMaintenance] h2hOpenMatchWatchScan non-OK', scanRes.status, scanText.slice(0, 400));
+      } else {
+        console.info('[h2hMaintenance] h2hOpenMatchWatchScan OK', scanRes.status, scanText.slice(0, 400));
       }
     } catch (e) {
       console.warn('[h2hMaintenance] h2hOpenMatchWatchScan invoke failed', e);

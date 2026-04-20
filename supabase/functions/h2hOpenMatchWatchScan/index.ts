@@ -54,9 +54,16 @@ Deno.serve(async (req) => {
 
   const expected = Deno.env.get('H2H_MAINTENANCE_SECRET');
   const sent = req.headers.get('x-h2h-maintenance-secret');
-  if (!expected || sent !== expected) {
+  if (!expected) {
+    console.error('[h2hOpenMatchWatchScan] missing H2H_MAINTENANCE_SECRET in Edge secrets');
     return errorResponse('Unauthorized', 401);
   }
+  if (sent !== expected) {
+    console.warn('[h2hOpenMatchWatchScan] invalid x-h2h-maintenance-secret');
+    return errorResponse('Unauthorized', 401);
+  }
+
+  console.info('[h2hOpenMatchWatchScan] start', new Date().toISOString());
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -75,7 +82,10 @@ Deno.serve(async (req) => {
 
   if (wErr) return errorResponse(wErr.message, 500);
   const rows = waiters ?? [];
-  if (rows.length === 0) return json({ ok: true, notified: 0, skipped: 'no_waiters' });
+  if (rows.length === 0) {
+    console.info('[h2hOpenMatchWatchScan] no waiting queue rows');
+    return json({ ok: true, notified: 0, skipped: 'no_waiters' });
+  }
 
   const { data: profiles, error: pErr } = await admin
     .from('profiles')
@@ -120,6 +130,10 @@ Deno.serve(async (req) => {
   }
 
   if (eligible.length === 0) {
+    console.info('[h2hOpenMatchWatchScan] no eligible watchers (filters / already logged)', {
+      queueRows: rows.length,
+      profilesWithOpenSlot: (profiles ?? []).length,
+    });
     return json({ ok: true, notified: 0, candidates: rows.length });
   }
 
@@ -216,6 +230,7 @@ Deno.serve(async (req) => {
   const notified = await insertLogsForKeys(logKeys);
 
   if (!expoOk) {
+    console.warn('[h2hOpenMatchWatchScan] expo push failed', expoErr);
     return json(
       {
         ok: false,
@@ -230,6 +245,17 @@ Deno.serve(async (req) => {
       502,
     );
   }
+
+  console.info(
+    '[h2hOpenMatchWatchScan] done',
+    JSON.stringify({
+      notified,
+      queueRows: rows.length,
+      eligible: eligible.length,
+      expoPushes: expoMessages.length,
+      webPushesAttempted: (allSubs ?? []).length,
+    }),
+  );
 
   return json({
     ok: true,

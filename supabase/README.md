@@ -129,10 +129,107 @@ curl -i --location --request POST "http://127.0.0.1:54321/functions/v1/submitMin
 
 ## H2H queue maintenance + “open queue” push alerts
 
-1. Set Edge secret **`H2H_MAINTENANCE_SECRET`** (long random string).
-2. Deploy **`h2hMaintenance`**, **`h2hOpenMatchWatchScan`**, and **`registerWebPushSubscription`** (`npm run functions:deploy:match` includes them).
-3. **Supabase → Edge Functions → `h2hMaintenance` → Cron**: schedule a **POST** every **5–15 minutes** with header **`x-h2h-maintenance-secret: <your secret>`** (same value as the secret). Each run expires stale queue rows and then calls **`h2hOpenMatchWatchScan`**, which sends **Expo push** (native) and **Web Push** (browser) when configured.
-4. Set **`EXPO_ACCESS_TOKEN`** in Edge secrets (Expo dashboard → access token) so Expo’s push API accepts your sends in production.
+Edge functions involved: **`h2hOpenMatchWatchScan`** (finds watchers + sends Expo + web push), **`triggerOpenMatchWatchScan`** (authenticated relay from the app — calls the scan with the server secret), **`h2hMaintenance`** (expires stale queue rows, then calls the scan).
+
+**App flow:** When a signed-in user successfully enters the waiting queue, the client calls **`triggerOpenMatchWatchScan`**, which runs the same scan as maintenance/webhooks. You can still add a **Database Webhook** as backup or for redundancy.
+
+### Deploy these functions (run in your project folder)
+
+Individual deploys (what you asked for):
+
+```bash
+npx supabase functions deploy h2hMaintenance
+npx supabase functions deploy h2hOpenMatchWatchScan
+npx supabase functions deploy triggerOpenMatchWatchScan
+```
+
+Or use npm scripts:
+
+```bash
+npm run functions:deploy:h2hMaintenance
+npm run functions:deploy:h2hOpenMatchWatchScan
+npm run functions:deploy:triggerOpenMatchWatchScan
+```
+
+Full H2H bundle (match session + maintenance + web push register):
+
+```bash
+npm run functions:deploy:match
+```
+
+### 1) Secrets (Dashboard → Edge Functions → Secrets)
+
+- **`H2H_MAINTENANCE_SECRET`** — long random string; you will paste the **same** value into the Database Webhook header below as **`x-h2h-maintenance-secret`**.
+
+**Two different push systems (do not mix them):**
+
+| Channel | Where it runs | What you configure |
+|--------|----------------|-------------------|
+| **Native** (Expo app on iOS/Android) | Apple / Google receive the notification via **Expo’s push service** | Edge secret **`EXPO_ACCESS_TOKEN`** from [expo.dev](https://expo.dev) → Access tokens. Users get **`expo_push_token`** on device. **Not used for browser.** |
+| **Web** (Safari / Chrome on your site) | Browser **Web Push** (standard HTTPS + service worker) | Edge secrets **`WEB_PUSH_VAPID_PUBLIC_KEY`** + **`WEB_PUSH_VAPID_PRIVATE_KEY`** (a **VAPID** key pair — see below). App env **`EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY`** = the **public** key only. **No Expo access token for web.** |
+
+**What is VAPID?** Browsers require the server to prove who is sending push notifications. **VAPID** (“Voluntary Application Server Identification”) is a **public/private key pair** you generate once (e.g. `npx web-push generate-vapid-keys`). The **public** key is shared with the browser when the user subscribes; the **private** key stays in Supabase Edge and signs each web push. It is **not** an Expo product — it is the standard way to send web pushes.
+
+- **`EXPO_ACCESS_TOKEN`** — **native pushes only** (Expo iOS/Android).
+- **`WEB_PUSH_VAPID_PUBLIC_KEY`**, **`WEB_PUSH_VAPID_PRIVATE_KEY`**, optional **`WEB_PUSH_CONTACT`**, optional **`WEB_PUSH_PUBLIC_ORIGIN`** — **web pushes only** (see Web Push subsection below).
+
+### 2) Automatic pushes when someone joins the queue (no curl — Dashboard only)
+
+This wires **Postgres → HTTP** so each time a row is written to the queue, Supabase POSTs to your scan function and matching users get notified.
+
+1. In **Supabase Dashboard**, open **Project Settings → API** and copy:
+   - **Project URL** (e.g. `https://abcdxyzcompany.supabase.co`)
+   - **anon public** key (long `eyJ…` string)
+2. **Database → Webhooks** → **Create a new hook**.
+3. **Name:** e.g. `h2h-queue-open-match-scan`
+4. **Table:** `public.h2h_queue_entries`
+5. **Events:** enable **Insert** (and **Update** too if your app sometimes sets `status = waiting` on an existing row).
+6. **Type:** HTTP Request
+7. **Method:** POST
+8. **URL:**  
+   `https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/h2hOpenMatchWatchScan`  
+   (same host as Project URL; path must be exactly `/functions/v1/h2hOpenMatchWatchScan`)
+9. **HTTP Headers** — add these rows (values from step 1 and from **`H2H_MAINTENANCE_SECRET`**):
+
+| Header name | Value |
+|-------------|--------|
+| `apikey` | Paste the **anon public** key |
+| `Authorization` | `Bearer ` + paste the **same anon key** (literally the word Bearer, space, then the key) |
+| `Content-Type` | `application/json` |
+| `x-h2h-maintenance-secret` | Exact same string as Edge secret **`H2H_MAINTENANCE_SECRET`** |
+
+10. Save. Queue a test match (or insert a waiting row): **Edge Functions → `h2hOpenMatchWatchScan` → Logs** should show `[h2hOpenMatchWatchScan] start` and a JSON result.
+
+**Note:** The scan checks all current waiters and all users with **Open match alerts** on; duplicates are prevented by **`h2h_open_slot_notify_log`**.
+
+### 3) Optional: stale queue cleanup (`h2hMaintenance`)
+
+`h2hMaintenance` expires old stale rows and then calls the scan again. If you only use the webhook above, pushes still work; maintenance is mainly for cleanup. Schedule it with **`pg_cron` + `pg_net`** using **`supabase/scripts/schedule-h2h-maintenance.example.sql`** and the same **`apikey` / Authorization / x-h2h-maintenance-secret** pattern, or call it manually when needed.
+
+### 4) Optional: manual tests (curl)
+
+If you ever need to test from a terminal:
+
+```bash
+# Replace PROJECT_REF, keys, and secret.
+curl -sS -X POST "https://PROJECT_REF.supabase.co/functions/v1/h2hMaintenance" \
+  -H "apikey: YOUR_ANON_OR_SERVICE_KEY" \
+  -H "Authorization: Bearer YOUR_ANON_OR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "x-h2h-maintenance-secret: YOUR_H2H_MAINTENANCE_SECRET" \
+  -d "{}"
+```
+
+```bash
+curl -sS -X POST "https://PROJECT_REF.supabase.co/functions/v1/h2hOpenMatchWatchScan" \
+  -H "apikey: YOUR_ANON_OR_SERVICE_KEY" \
+  -H "Authorization: Bearer YOUR_ANON_OR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "x-h2h-maintenance-secret: YOUR_H2H_MAINTENANCE_SECRET" \
+  -d "{}"
+```
+
+After deploy, **Edge Functions → Logs** for **`h2hMaintenance`** and **`h2hOpenMatchWatchScan`** should show lines like `[h2hMaintenance] POST`, `[h2hOpenMatchWatchScan] start`, and either `no waiting queue rows` or `done {…}`.
 
 ### Web Push (browser — YouTube / other tabs)
 

@@ -16,6 +16,7 @@ import {
   displayNameForProfile,
   resolveDevOpponentUserId,
 } from '@/services/api/h2hMatchSession';
+import { requestOpenMatchWatchScan } from '@/lib/requestOpenMatchWatchScan';
 import { h2hCancelQueue, h2hEnqueueOrMatch, h2hEnqueueQuickMatch } from '@/services/matchmaking/h2hQueue';
 import { getSupabase } from '@/supabase/client';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
@@ -42,6 +43,7 @@ export function MatchmakingQueueRunner() {
     queueParamsRef.current = queuePollSnapshot;
   }, [queuePollSnapshot]);
 
+  const openSlotNotifyQueueIdRef = useRef<string | null>(null);
   const queuePollAlertShownRef = useRef(false);
   const queuePollTransientFailRef = useRef(0);
   const queuePollSoftRpcFailRef = useRef(0);
@@ -138,6 +140,12 @@ export function MatchmakingQueueRunner() {
           return;
         }
         queuePollSoftRpcFailRef.current = 0;
+        if (r.ok && !r.matched && r.queue_entry_id) {
+          if (openSlotNotifyQueueIdRef.current !== r.queue_entry_id) {
+            openSlotNotifyQueueIdRef.current = r.queue_entry_id;
+            requestOpenMatchWatchScan();
+          }
+        }
         if (r.matched) {
           queuePollTransientFailRef.current = 0;
           void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });

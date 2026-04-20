@@ -1,0 +1,34 @@
+-- Example: schedule `h2hMaintenance` (which then calls `h2hOpenMatchWatchScan`).
+-- For “notify when someone queues”, prefer **Database → Webhooks** on `h2h_queue_entries`
+-- → POST `h2hOpenMatchWatchScan` (see `supabase/README.md` — no curl).
+-- Use this SQL only if you also want periodic **stale queue** cleanup via `h2hMaintenance`.
+--
+-- Prerequisites (Dashboard → Database → Extensions): enable `pg_cron` and `pg_net`.
+-- Store secrets in Vault (SQL Editor), then schedule:
+--
+--   select vault.create_secret('https://YOUR_PROJECT_REF.supabase.co', 'project_url');
+--   select vault.create_secret('YOUR_SERVICE_ROLE_KEY', 'service_role_key');
+--   select vault.create_secret('YOUR_H2H_MAINTENANCE_SECRET', 'h2h_maintenance_secret');
+--
+-- The secret value must match Edge Function secret `H2H_MAINTENANCE_SECRET`.
+-- Then run the cron.schedule block below (adjust schedule as needed).
+
+-- select cron.schedule(
+--   'h2h-maintenance-every-10-min',
+--   '*/10 * * * *',
+--   $$
+--   select net.http_post(
+--     url := (select decrypted_secret::text from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/h2hMaintenance',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'apikey', (select decrypted_secret::text from vault.decrypted_secrets where name = 'service_role_key'),
+--       'Authorization', 'Bearer ' || (select decrypted_secret::text from vault.decrypted_secrets where name = 'service_role_key'),
+--       'x-h2h-maintenance-secret', (select decrypted_secret::text from vault.decrypted_secrets where name = 'h2h_maintenance_secret')
+--     ),
+--     body := '{}'::jsonb
+--   ) as request_id;
+--   $$
+-- );
+
+-- List jobs:  select * from cron.job;
+-- Unschedule:  select cron.unschedule('h2h-maintenance-every-10-min');

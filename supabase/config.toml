@@ -401,6 +401,10 @@ verify_jwt = false
 [functions.h2hOpenMatchWatchScan]
 verify_jwt = false
 
+# App invokes with user JWT; handler validates session then forwards to h2hOpenMatchWatchScan.
+[functions.triggerOpenMatchWatchScan]
+verify_jwt = false
+
 [functions.registerWebPushSubscription]
 verify_jwt = false
 

@@ -12,9 +12,10 @@ import { supportContactHref } from '@/lib/env';
 import { registerExpoPushWithSupabase } from '@/lib/expoPushRegistration';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/settingsNotificationPrefs';
+import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { normalizeQuickMatchAllowedEntries } from '@/lib/quickMatchTiers';
 import { profileBlocksPaidSkillContest } from '@/lib/skillContestRegionGate';
-import { runit } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { isWebPushConfigured, registerWebPushForUser, unregisterWebPushForUser } from '@/lib/webPushRegister';
 import { useAuthStore } from '@/store/authStore';
 
@@ -126,7 +127,21 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <Text style={styles.screenTitle}>Settings</Text>
+      <View style={styles.headerRow}>
+        <Pressable
+          onPress={() => safeBack(router, ROUTES.profileTab)}
+          hitSlop={12}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back to You"
+        >
+          <SafeIonicons name="chevron-back" size={26} color="#e2e8f0" />
+        </Pressable>
+        <Text style={[styles.screenTitle, styles.screenTitleHeader]} numberOfLines={1}>
+          Settings
+        </Text>
+        <View style={styles.backSpacer} />
+      </View>
       <Text style={styles.screenSub}>Notifications, shipping, and support</Text>
 
       <View style={styles.card}>
@@ -293,11 +308,25 @@ function RowToggle({
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  backBtn: { width: 44, height: 44, justifyContent: 'center' },
+  backSpacer: { width: 44 },
   screenTitle: {
     color: '#f8fafc',
     fontSize: 28,
     fontWeight: '900',
     marginBottom: 6,
+  },
+  screenTitleHeader: {
+    flex: 1,
+    textAlign: 'center',
+    marginBottom: 0,
+    fontFamily: runitFont.black,
+    ...runitTextGlowPink,
   },
   screenSub: {
     color: 'rgba(203,213,225,0.9)',

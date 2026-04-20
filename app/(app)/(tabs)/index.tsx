@@ -143,7 +143,7 @@ export default function HomeScreen() {
 
   function goNotificationSettings() {
     if (needAccount) openGuestPrompt('play');
-    else router.push('/(app)/(tabs)/profile/settings' as never);
+    else pushCrossTab(router, '/(app)/(tabs)/profile/settings');
   }
 
   function browseLiveOrAuth() {
