@@ -131,21 +131,40 @@ export async function fetchTournamentBracket(tournamentId: string): Promise<{
   return { rounds: rlist, matches, pods };
 }
 
+export type BracketProfile = {
+  displayName: string;
+  avatarUrl: string | null;
+};
+
 /** Display names for bracket lines (batch). */
 export async function fetchProfileDisplayByIds(ids: string[]): Promise<Map<string, string>> {
-  const uniq = [...new Set(ids.filter(Boolean))];
+  const map = await fetchProfileBracketByIds(ids);
   const out = new Map<string, string>();
+  map.forEach((v, k) => out.set(k, v.displayName));
+  return out;
+}
+
+/** Names + avatars for tournament bracket cards. */
+export async function fetchProfileBracketByIds(ids: string[]): Promise<Map<string, BracketProfile>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  const out = new Map<string, BracketProfile>();
   if (uniq.length === 0) return out;
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, display_name')
+    .select('id, username, display_name, avatar_url')
     .in('id', uniq);
   if (error) throw error;
   for (const p of data ?? []) {
-    const row = p as { id: string; username: string; display_name: string | null };
-    const label = (row.display_name && row.display_name.trim()) || row.username || row.id.slice(0, 8);
-    out.set(row.id, label);
+    const row = p as {
+      id: string;
+      username: string;
+      display_name: string | null;
+      avatar_url: string | null;
+    };
+    const displayName = (row.display_name && row.display_name.trim()) || row.username || row.id.slice(0, 8);
+    const avatarUrl = row.avatar_url && row.avatar_url.trim() ? row.avatar_url.trim() : null;
+    out.set(row.id, { displayName, avatarUrl });
   }
   return out;
 }

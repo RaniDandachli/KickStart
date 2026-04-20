@@ -1,16 +1,27 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import { BracketTreePreview, type BracketMatchPreview } from '@/features/tournaments/BracketTreePreview';
+import { BracketEliminationBoard } from '@/features/tournaments/BracketEliminationBoard';
 import { buildEmptySingleEliminationSkeleton } from '@/features/tournaments/bracketPlaceholder';
 import { useTournamentBracket } from '@/hooks/useTournamentBracket';
-import type { BracketPlayer } from '@/utils/bracket';
+import type { TournamentBracketMatch } from '@/services/api/tournaments';
 
 type Props = {
   tournamentId: string | undefined;
   /** Used for empty wireframe column count (default 8). */
   podSize: number;
 };
+
+function toBoardMatches(matches: TournamentBracketMatch[]) {
+  return matches.map((m) => ({
+    id: m.id,
+    roundIndex: m.round_index,
+    matchIndex: m.match_index,
+    playerAId: m.player_a_id,
+    playerBId: m.player_b_id,
+    winnerId: m.winner_id,
+  }));
+}
 
 /**
  * Friday cup: always shows an 8-slot single-elimination wireframe; fills with live pods when configured.
@@ -27,13 +38,15 @@ export function FridayCupBracketSection({ tournamentId, podSize }: Props) {
     bq.data?.pods?.length &&
     bq.data.pods.some((p) => p.matches.length > 0);
 
+  const emptyProfiles = new Map();
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.sectionTitle}>Bracket</Text>
       <Text style={styles.sectionSub}>
         {showLive
           ? 'Live bracket waves update as admins generate each group of players.'
-          : 'Empty bracket — names appear after the first bracket is generated (each wave is up to ' + podSize + ' players).'}
+          : 'Preview layout — avatars and names appear after generateBracket runs for a wave.'}
       </Text>
 
       {bq.isLoading && ENABLE_BACKEND && tournamentId ? (
@@ -47,47 +60,26 @@ export function FridayCupBracketSection({ tournamentId, podSize }: Props) {
         <Text style={styles.errTxt}>Could not load bracket ({bq.error.message})</Text>
       ) : null}
 
-      {showLive && bq.data
-        ? bq.data.pods
-            .filter((p) => p.matches.length > 0)
-            .map((pod) => {
-              const labels = bq.data!.labels;
-              const r0 = pod.matches
-                .filter((m) => m.round_index === 0)
-                .sort((a, b) => a.match_index - b.match_index);
-              const players: BracketPlayer[] = [];
-              let seed = 1;
-              const seen = new Set<string>();
-              for (const m of r0) {
-                for (const pid of [m.player_a_id, m.player_b_id]) {
-                  if (pid && !seen.has(pid)) {
-                    seen.add(pid);
-                    players.push({ id: pid, seed: seed++ });
-                  }
-                }
-              }
-              const previewMatches: BracketMatchPreview[] = pod.matches.map((m) => ({
-                id: m.id,
-                roundIndex: m.round_index,
-                a: m.player_a_id ? labels.get(m.player_a_id) ?? m.player_a_id.slice(0, 8) : undefined,
-                b: m.player_b_id ? labels.get(m.player_b_id) ?? m.player_b_id.slice(0, 8) : undefined,
-                winner: m.winner_id ? labels.get(m.winner_id) : undefined,
-              }));
-              const multi = bq.data!.pods.filter((x) => x.matches.length > 0).length > 1;
-              return (
-                <View key={pod.bracketPodIndex} style={styles.podBlock}>
-                  {multi ? (
-                    <Text style={styles.podLabel}>Wave {pod.bracketPodIndex}</Text>
-                  ) : null}
-                  <BracketTreePreview hideTitle players={players} matches={previewMatches} />
-                </View>
-              );
-            })
-        : (
-            <View style={styles.skeletonCard}>
-              <BracketTreePreview hideTitle players={[]} matches={skeleton} />
-            </View>
-          )}
+      {showLive && bq.data ? (
+        bq.data.pods
+          .filter((p) => p.matches.length > 0)
+          .map((pod) => {
+            const multi = bq.data!.pods.filter((x) => x.matches.length > 0).length > 1;
+            return (
+              <View key={pod.bracketPodIndex} style={styles.podBlock}>
+                {multi ? <Text style={styles.podLabel}>Wave {pod.bracketPodIndex}</Text> : null}
+                <BracketEliminationBoard
+                  matches={toBoardMatches(pod.matches)}
+                  profileById={bq.data!.profileById}
+                />
+              </View>
+            );
+          })
+      ) : (
+        <View style={styles.skeletonCard}>
+          <BracketEliminationBoard matches={skeleton} profileById={emptyProfiles} skeleton />
+        </View>
+      )}
     </View>
   );
 }
@@ -104,7 +96,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(56,189,248,0.28)',
     backgroundColor: 'rgba(8,12,24,0.55)',
-    padding: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    overflow: 'hidden',
   },
   podBlock: { marginBottom: 14, gap: 6 },
   podLabel: { color: '#22d3ee', fontSize: 13, fontWeight: '800' },

@@ -2,9 +2,20 @@ import { useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Screen } from '@/components/ui/Screen';
-import { BracketTreePreview, type BracketMatchPreview } from '@/features/tournaments/BracketTreePreview';
+import { BracketEliminationBoard } from '@/features/tournaments/BracketEliminationBoard';
 import { useTournamentBracket } from '@/hooks/useTournamentBracket';
-import type { BracketPlayer } from '@/utils/bracket';
+import type { TournamentBracketMatch } from '@/services/api/tournaments';
+
+function toBoardMatches(matches: TournamentBracketMatch[]) {
+  return matches.map((m) => ({
+    id: m.id,
+    roundIndex: m.round_index,
+    matchIndex: m.match_index,
+    playerAId: m.player_a_id,
+    playerBId: m.player_b_id,
+    winnerId: m.winner_id,
+  }));
+}
 
 export default function BracketScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,10 +47,10 @@ export default function BracketScreen() {
     );
   }
 
-  const { matches, pods, labels } = bq.data ?? {
+  const { matches, pods, profileById } = bq.data ?? {
     matches: [],
     pods: [],
-    labels: new Map(),
+    profileById: new Map(),
   };
 
   if (!matches.length) {
@@ -68,39 +79,14 @@ export default function BracketScreen() {
         </Text>
       ) : null}
 
-      {livePods.map((pod) => {
-        const r0 = pod.matches
-          .filter((m) => m.round_index === 0)
-          .sort((a, b) => a.match_index - b.match_index);
-        const players: BracketPlayer[] = [];
-        let seed = 1;
-        const seen = new Set<string>();
-        for (const m of r0) {
-          for (const pid of [m.player_a_id, m.player_b_id]) {
-            if (pid && !seen.has(pid)) {
-              seen.add(pid);
-              players.push({ id: pid, seed: seed++ });
-            }
-          }
-        }
-
-        const previewMatches: BracketMatchPreview[] = pod.matches.map((m) => ({
-          id: m.id,
-          roundIndex: m.round_index,
-          a: m.player_a_id ? labels.get(m.player_a_id) ?? m.player_a_id.slice(0, 8) : undefined,
-          b: m.player_b_id ? labels.get(m.player_b_id) ?? m.player_b_id.slice(0, 8) : undefined,
-          winner: m.winner_id ? labels.get(m.winner_id) : undefined,
-        }));
-
-        return (
-          <View key={pod.bracketPodIndex} className={livePods.length > 1 ? 'mb-8' : ''}>
-            {livePods.length > 1 ? (
-              <Text className="mb-2 text-sm font-bold text-cyan-300">Wave {pod.bracketPodIndex}</Text>
-            ) : null}
-            <BracketTreePreview players={players} matches={previewMatches} />
-          </View>
-        );
-      })}
+      {livePods.map((pod) => (
+        <View key={pod.bracketPodIndex} className={livePods.length > 1 ? 'mb-8' : ''}>
+          {livePods.length > 1 ? (
+            <Text className="mb-2 text-sm font-bold text-cyan-300">Wave {pod.bracketPodIndex}</Text>
+          ) : null}
+          <BracketEliminationBoard matches={toBoardMatches(pod.matches)} profileById={profileById} />
+        </View>
+      ))}
     </Screen>
   );
 }
