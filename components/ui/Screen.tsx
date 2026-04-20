@@ -1,5 +1,5 @@
 import { type PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,8 @@ export function Screen({
   className,
 }: PropsWithChildren<{ scroll?: boolean; className?: string }>) {
   const insets = useSafeAreaInsets();
-  const bottomPad = Math.max(insets.bottom, 10) + 28;
+  /** Extra space so scrollable screens clear bottom tab bars (esp. mobile Safari + Expo web tabs). */
+  const bottomPad = Math.max(insets.bottom, 10) + (Platform.OS === 'web' ? 56 : 28);
 
   const inner = scroll ? (
     <ScrollView

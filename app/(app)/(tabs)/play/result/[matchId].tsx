@@ -257,7 +257,7 @@ export default function MatchResultScreen() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll>
       <Text style={[styles.bigTitle, { fontFamily: runitFont.black }, titleStyle]}>{heroTitle}</Text>
       <Text style={styles.vsLine}>Skill contest</Text>
       <Text style={styles.outcomeLine}>{outcomeLine}</Text>

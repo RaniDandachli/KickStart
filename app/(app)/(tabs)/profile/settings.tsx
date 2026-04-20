@@ -34,20 +34,24 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadNotificationPrefs().then((p) => {
-      if (cancelled) return;
-      setPushMatch(p.matchInvites);
-      setPushTournament(p.tournamentUpdates);
-      setPushDailyCredits(p.dailyCredits);
-      setPushOpenMatches(p.openMatchAlerts);
-      setOpenWatchEntryCents(p.openMatchWatchEntryCents ?? []);
-      setOpenWatchGameKeys(
-        Array.isArray(p.openMatchWatchGameKeys) && p.openMatchWatchGameKeys.length > 0
-          ? [...p.openMatchWatchGameKeys]
-          : [],
-      );
-      setPrefsReady(true);
-    });
+    void loadNotificationPrefs()
+      .then((p) => {
+        if (cancelled) return;
+        setPushMatch(p.matchInvites);
+        setPushTournament(p.tournamentUpdates);
+        setPushDailyCredits(p.dailyCredits);
+        setPushOpenMatches(p.openMatchAlerts);
+        setOpenWatchEntryCents(p.openMatchWatchEntryCents ?? []);
+        setOpenWatchGameKeys(
+          Array.isArray(p.openMatchWatchGameKeys) && p.openMatchWatchGameKeys.length > 0
+            ? [...p.openMatchWatchGameKeys]
+            : [],
+        );
+        setPrefsReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPrefsReady(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -95,12 +99,11 @@ export default function SettingsScreen() {
           if (pushOpenMatches && isWebPushConfigured()) {
             const wr = await registerWebPushForUser();
             if (!wr.ok) {
-              setPushOpenMatches(false);
-              await saveNotificationPrefs({ ...prefsPayload, openMatchAlerts: false });
-              Alert.alert('Browser notifications', wr.error);
-              await registerExpoPushWithSupabase(uid);
-              void refreshArcadeScheduledNotifications();
-              return;
+              /** Keep toggle + prefs on — account still wants alerts; browser subscribe can be retried (toggle off/on) after fixing SW / permissions / Edge deploy. */
+              Alert.alert(
+                'Browser couldn’t finish push setup',
+                `${wr.error}\n\nOpen match alerts stay on for your account. After you fix the issue (allow notifications, HTTPS, /sw.js, or sign-in), turn this off and on again to retry the browser step.`,
+              );
             }
           } else if (!pushOpenMatches) {
             await unregisterWebPushForUser();
