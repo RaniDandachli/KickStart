@@ -54,10 +54,10 @@ const COLS = 4;
 /** Abstract vertical range (game logic). */
 const LANE_H = 200;
 const TILE_H = 22;
-const HIT_TOP = 128;
-const HIT_BOTTOM = 178;
+const HIT_TOP = 120;
+const HIT_BOTTOM = 186;
 /** Extra logical px around the amber band for tap + overlap checks (float edges + “feels in” taps). */
-const TAP_BAND_PAD = 2.5;
+const TAP_BAND_PAD = 8;
 const BASE_SCROLL = 0.056;
 const SPAWN_MS = 520;
 const SPEED_BUMP = 1.12;

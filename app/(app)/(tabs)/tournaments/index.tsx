@@ -89,7 +89,8 @@ export default function TournamentsListScreen() {
       cta: 'Join now',
       pill: 'FREE',
       onPress: () => router.push('/(app)/(tabs)/tournaments/daily-free'),
-      imageSource: require('../../../../assets/how-it-works/01-home.png'),
+      imageSource: require('../../../../assets/stadium-default-bg.png'),
+      imageFit: 'cover' as const,
     },
     {
       id: 'friday',
@@ -98,7 +99,9 @@ export default function TournamentsListScreen() {
       cta: 'Join cup',
       pill: 'CASH',
       onPress: () => router.push('/(app)/(tabs)/tournaments/friday-cup'),
-      imageSource: require('../../../../assets/how-it-works/03-queue.png'),
+      imageSource:
+        'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_image-7ccd25bf-5d14-4680-b573-881de37e88ff.png',
+      imageFit: 'cover' as const,
       trophyUri:
         'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_image-2ed0f71f-2d2b-4c0b-9362-f362d7e99f24.png',
     },
@@ -109,7 +112,8 @@ export default function TournamentsListScreen() {
       cta: 'Play now',
       pill: 'FREE',
       onPress: () => router.push('/(app)/(tabs)/tournaments/solo-challenges'),
-      imageSource: require('../../../../assets/how-it-works/04-tap-dash.png'),
+      imageSource: require('../../../../assets/images/run-it-arcade-logo.png'),
+      imageFit: 'contain' as const,
     },
   ] as const;
 
@@ -129,9 +133,9 @@ export default function TournamentsListScreen() {
           style={styles.heroCardBorder}
         >
           <View style={styles.heroCardInner}>
-            <Image source={featured.imageSource} style={styles.heroImage} contentFit="cover" />
+            <Image source={featured.imageSource} style={styles.heroImage} contentFit={featured.imageFit ?? 'cover'} />
             <LinearGradient
-              colors={['rgba(4,8,20,0.15)', 'rgba(4,8,20,0.88)']}
+              colors={['rgba(4,8,20,0.08)', 'rgba(4,8,20,0.72)']}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={styles.heroOverlay}
@@ -395,7 +399,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6,20,28,0.6)',
   },
   heroPillText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  heroTrophy: { width: 36, height: 36 },
+  heroTrophy: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: 'rgba(2,6,18,0.42)',
+    borderWidth: 1,
+    borderColor: 'rgba(110,190,255,0.45)',
+    padding: 6,
+  },
   heroBottom: {
     position: 'absolute',
     left: 14,

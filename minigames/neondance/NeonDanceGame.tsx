@@ -720,20 +720,11 @@ export default function NeonDanceGame({
               scoreRef.current += pts;
               setScore(scoreRef.current);
 
-              if (
-                sectorsRef.current >= 3 &&
-                ringsPassedRef.current > 0 &&
-                ringsPassedRef.current % 9 === 0 &&
-                sectorsRef.current < 6
-              ) {
-                resetRoundColors(sectorsRef.current + 1);
-              } else {
-                let nb = (Math.random() * sectorsRef.current) | 0;
-                if (sectorsRef.current > 1) {
-                  while (nb === ballIdxRef.current) nb = (Math.random() * sectorsRef.current) | 0;
-                }
-                ballIdxRef.current = nb;
+              let nb = (Math.random() * sectorsRef.current) | 0;
+              if (sectorsRef.current > 1) {
+                while (nb === ballIdxRef.current) nb = (Math.random() * sectorsRef.current) | 0;
               }
+              ballIdxRef.current = nb;
 
               hoopsRef.current = hoops.filter((x) => x.id !== hoop.id);
               pushHoop(-queueGapForForward(forward, sectorsRef.current));
@@ -960,11 +951,10 @@ export default function NeonDanceGame({
           <View style={styles.centerBlock}>
             <Text style={styles.logoMark}>NEON DANCE</Text>
             <Text style={styles.title}>Neon Dance</Text>
-            <Text style={styles.blurb}>
-              Drag anywhere to aim. Hoops keep the same pace — it gets harder when you cycle ball color (chip) and when
-              rings gain a third color (then more), not from speeding up. After enough hoops or ~45s, rings add that third
-              slice. Wrong segment ends the run.
-            </Text>
+              <Text style={styles.blurb}>
+                Drag anywhere to aim. Hoops keep the same pace for the full run. After enough hoops or ~45s, rings shift to
+                a steady 3-color pattern and stay there. Wrong segment ends the run.
+              </Text>
             {bestLocal != null ? (
               <Text style={styles.bestLbl}>Best run · {bestLocal.toLocaleString()} pts</Text>
             ) : null}
@@ -1110,7 +1100,7 @@ export default function NeonDanceGame({
                 <View style={[styles.swatch, { backgroundColor: ballColor, shadowColor: ballColor }]} />
               </Pressable>
               <Text style={styles.hudTxt}>
-                Drag to aim · tap chip to switch color · 3+ colors appear as you survive
+                Drag to aim · tap chip to switch color · speed stays consistent all run
               </Text>
             </View>
           </View>

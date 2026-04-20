@@ -1,9 +1,8 @@
 // ─── NEON RUNNER — Engine ─────────────────────────────────────────────────
-// GD-authentic physics. Fixed stair collisions: side-hit on a block whose top
-// is reachable gets snapped up (step-up), not killed.
+// GD-authentic physics. Speed ramps with tier. Zone-change signals emitted.
 
 import { GROUND_Y, NR } from './constants';
-import { cullObstacles, generateAhead, PATTERN_SEGMENT_COUNT } from './generator';
+import { cullObstacles, generateAhead, getTier, PATTERN_SEGMENT_COUNT } from './generator';
 import { Obstacle, PlayerSim, RunState } from './types';
 
 // ─── Factory ────────────────────────────────────────────────────────────────
@@ -18,6 +17,8 @@ export function createRunState(seed: number): RunState {
     rotV: 0,
     dead: false,
     trail: [],
+    justLanded: false,
+    tier: 0,
   };
 
   const state: RunState = {
@@ -31,6 +32,9 @@ export function createRunState(seed: number): RunState {
     jumpCount: 0,
     phase: 'playing',
     seed,
+    tier: 0,
+    zoneChanged: false,
+    lastTier: 0,
   };
   generateAhead(state, player.worldX);
 
@@ -60,6 +64,10 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
 
   state.elapsed += dt;
 
+  // Clear one-frame flags
+  player.justLanded = false;
+  state.zoneChanged = false;
+
   input.jumpBufferMs = Math.max(0, input.jumpBufferMs - dt);
   input.coyoteMs = Math.max(0, input.coyoteMs - dt);
 
@@ -86,7 +94,7 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
   if (player.vy > NR.MAX_FALL_VY) player.vy = NR.MAX_FALL_VY;
   player.y += player.vy * dtNorm;
 
-  // ── Snap onto wall tops (falling onto platform) ──────────────────────────
+  // ── Snap onto wall tops ──────────────────────────────────────────────────
   snapToWallTop(state);
 
   // ── Floor clamp ──────────────────────────────────────────────────────────
@@ -110,20 +118,47 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
 
   // ── Chain jump on landing ────────────────────────────────────────────────
   const justLanded = !wasOnGround && player.onGround;
-  if (justLanded && input.jumpHeld) {
-    player.vy = NR.JUMP_V;
-    player.onGround = false;
-    player.rotV = -(Math.PI * 2) / 60;
-    input.jumpBufferMs = 0;
-    input.coyoteMs = 0;
-    state.jumpCount += 1;
+  if (justLanded) {
+    player.justLanded = true;
+    if (input.jumpHeld) {
+      player.vy = NR.JUMP_V;
+      player.onGround = false;
+      player.rotV = -(Math.PI * 2) / 60;
+      input.jumpBufferMs = 0;
+      input.coyoteMs = 0;
+      state.jumpCount += 1;
+    }
   }
 
   // ── Horizontal movement ──────────────────────────────────────────────────
   player.worldX += state.speed * dt;
   state.scroll += state.speed * dt;
 
-  // Stairs require jumps — no auto “run up” snap (see resolveStepUp removed).
+  // ── Tier + speed update ──────────────────────────────────────────────────
+  const newTier = getTier(state.scroll);
+  if (newTier !== state.tier) {
+    state.lastTier = state.tier;
+    state.tier = newTier;
+    player.tier = newTier;
+    // Zone changes on even tier boundaries (0→2→4→6)
+    if (Math.floor(newTier / 2) !== Math.floor(state.lastTier / 2)) {
+      state.zoneChanged = true;
+    }
+  }
+  // Speed ramps up with tier, capped at max
+  state.speed = Math.min(
+    NR.RUN_SPEED_MAX,
+    NR.RUN_SPEED + state.tier * NR.RUN_SPEED_PER_TIER,
+  );
+
+  // ── Trail ────────────────────────────────────────────────────────────────
+  player.trail.push({ x: player.worldX + NR.PLAYER_W / 2, y: player.y + NR.PLAYER_H / 2, age: 0 });
+  for (const tp of player.trail) tp.age += dt;
+  const TRAIL_MAX_AGE = 120;
+  while (player.trail.length > 0 && player.trail[0]!.age > TRAIL_MAX_AGE) {
+    player.trail.shift();
+  }
+  if (player.trail.length > 12) player.trail.splice(0, player.trail.length - 12);
 
   // ── World rebase ─────────────────────────────────────────────────────────
   const REBASE_X = 15_000;
@@ -132,6 +167,7 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
     player.worldX -= REBASE_SHIFT;
     state.genCursor -= REBASE_SHIFT;
     for (const o of state.obstacles) o.x -= REBASE_SHIFT;
+    for (const tp of player.trail) tp.x -= REBASE_SHIFT;
   }
 
   // ── Void fall ────────────────────────────────────────────────────────────
@@ -142,21 +178,18 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
 
   // ── Collision detection ──────────────────────────────────────────────────
   checkCollisions(state, input);
-  if (state.phase !== 'playing') {
-    // Do not generate/cull after death — avoids a huge sync spike + giant obstacle list on the death frame.
-    return;
-  }
+  if (state.phase !== 'playing') return;
 
   // ── Generation / culling ─────────────────────────────────────────────────
   generateAhead(state, player.worldX);
   cullObstacles(state.obstacles, player.worldX);
 }
 
-// ─── Snap onto wall top (falling down onto a platform) ───────────────────────
+// ─── Snap onto wall top ───────────────────────────────────────────────────────
 
 function snapToWallTop(state: RunState): void {
   const { player } = state;
-  if (player.vy < 0) return; // only snap when falling or neutral
+  if (player.vy < 0) return;
   const margin = 2;
   const px1 = player.worldX + margin;
   const px2 = player.worldX + NR.PLAYER_W - margin;
@@ -170,7 +203,6 @@ function snapToWallTop(state: RunState): void {
     const ox2 = o.x + o.w;
     if (px2 <= ox1 || px1 >= ox2) continue;
     const topY = o.y;
-    // Player feet within a snapping window above the surface
     if (py2 >= topY - 8 && py2 <= topY + 14 && py1 < topY) {
       if (!best || o.y < best.y) best = o;
     }
@@ -181,7 +213,7 @@ function snapToWallTop(state: RunState): void {
   }
 }
 
-// ─── On-ground check ─────────────────────────────────────────────────────────
+// ─── On-ground check ──────────────────────────────────────────────────────────
 
 function computeOnGround(state: RunState): boolean {
   const p = state.player;
@@ -204,7 +236,6 @@ function computeOnGround(state: RunState): boolean {
 
 function checkCollisions(state: RunState, input: InputState): void {
   const { player } = state;
-  // Inset hitbox — GD is forgiving on near-misses
   const margin = 4;
   const px1 = player.worldX + margin;
   const px2 = player.worldX + NR.PLAYER_W - margin;
@@ -226,20 +257,11 @@ function checkCollisions(state: RunState, input: InputState): void {
         const ox1 = o.x + margin;
         const ox2 = o.x + o.w - margin;
         if (!(px2 > ox1 && px1 < ox2)) break;
-
         const topY = o.y;
-
-        // Standing on top — safe
         const onTop =
-          player.vy >= 0 &&
-          py2 >= topY - 6 &&
-          py2 <= topY + 12 &&
-          py1 < topY;
+          player.vy >= 0 && py2 >= topY - 6 && py2 <= topY + 12 && py1 < topY;
         if (onTop) break;
-
-        // Inside the block body = kill (couldn't step-up, too tall)
         if (py2 > topY + margin && py1 < o.y + o.h - margin) {
-          // One last chance: if player feet are right at the top (step-up just happened)
           const playerFeetAtTop = Math.abs((player.y + NR.PLAYER_H) - topY) < 8;
           if (!playerFeetAtTop) {
             killPlayer(state);

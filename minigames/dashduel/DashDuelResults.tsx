@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -82,7 +82,14 @@ export function DashDuelResults({
               <Text style={styles.ticketsLine}>+{ticketsEarned} redeem tickets</Text>
             ) : null}
             {h2hFooter}
-            {hideRematch ? null : <AppButton title="Rematch" onPress={onRematch} />}
+            {hideRematch ? null : (
+              <>
+                <AppButton title="Rematch" onPress={onRematch} />
+                {Platform.OS === 'web' ? (
+                  <Text style={styles.webKeyHint}>Space or Enter — rematch</Text>
+                ) : null}
+              </>
+            )}
             <AppButton className="mt-3" title="Exit to menu" variant="secondary" onPress={onExit} />
           </LinearGradient>
         </ScrollView>
@@ -151,5 +158,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 16,
+  },
+  webKeyHint: {
+    marginTop: 8,
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

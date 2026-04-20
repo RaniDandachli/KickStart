@@ -272,6 +272,18 @@ export default function DashDuelScreen({
     })();
   }, [h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, router, uid]);
 
+  /** Web: after a run, Space / Enter = Rematch (same as the primary results button). H2H has no rematch. */
+  useWebGameKeyboard(Platform.OS === 'web' && phase === 'results' && !h2hSkillContest, {
+    Space: (down) => {
+      if (!down) return;
+      rematch();
+    },
+    Enter: (down) => {
+      if (!down) return;
+      rematch();
+    },
+  });
+
   const exitToMenu = useCallback(() => {
     if (h2hSkillContest) {
       router.back();

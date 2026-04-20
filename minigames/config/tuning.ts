@@ -41,8 +41,8 @@ export const TAP_DASH = {
 export const TILE_CLASH = {
   cols: 4,
   laneH: 176,
-  hitZoneTop: 128,
-  hitZoneBottom: 172,
+  hitZoneTop: 120,
+  hitZoneBottom: 186,
   tileH: 22,
   goodChance: 0.58,
   spawnEveryMs: 520,

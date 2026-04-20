@@ -34,6 +34,10 @@ export interface PlayerSim {
   rotV: number;
   dead: boolean;
   trail: TrailPoint[];
+  /** True on the frame the player just landed — cleared after one step. */
+  justLanded: boolean;
+  /** Current tier (0–8), updated each step. */
+  tier: number;
 }
 
 export interface RunState {
@@ -41,14 +45,17 @@ export interface RunState {
   obstacles: Obstacle[];
   scroll: number;
   genCursor: number;
-  /** Next index into `PATTERN_SEGMENTS` (deterministic loop). */
   nextPatternIndex: number;
   speed: number;
   elapsed: number;
-  /** Counts successful jump impulses (for server score validation). */
   jumpCount: number;
   phase: 'playing' | 'dead' | 'idle';
   seed: number;
+  /** Current difficulty tier (0–8), drives theme + speed. */
+  tier: number;
+  /** Set to true the frame a zone transition happens — for flash effect. */
+  zoneChanged: boolean;
+  lastTier: number;
 }
 
 export interface Particle {
