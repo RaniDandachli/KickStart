@@ -113,6 +113,63 @@ export default function TournamentsListScreen() {
         </Pressable>
       ) : null}
 
+      <Text style={styles.sectionKicker}>LIVE & SOLO</Text>
+      <Pressable
+        onPress={() => router.push('/(app)/(tabs)/tournaments/friday-cup')}
+        style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
+      >
+        <LinearGradient
+          colors={['#0369a1', '#22d3ee']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardBorder}
+        >
+          <View style={styles.cardInner}>
+            <View style={styles.cardTop}>
+              <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                Friday $70 Cup
+              </Text>
+              <View style={[styles.statePill, { borderColor: '#fde68a' }]}>
+                <Text style={[styles.statePillText, { color: '#fde68a' }]}>CASH</Text>
+              </View>
+            </View>
+            <Text style={styles.cardMetaTxt}>$10 entry · 8 players · 2:00 PM kickoff (local) · forfeit window 30 min</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.viewLink}>Details</Text>
+              <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
+            </View>
+          </View>
+        </LinearGradient>
+      </Pressable>
+
+      <Pressable
+        onPress={() => router.push('/(app)/(tabs)/tournaments/solo-challenges')}
+        style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.92 }]}
+      >
+        <LinearGradient
+          colors={[runit.neonPurple, runit.neonPink]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardBorder}
+        >
+          <View style={styles.cardInner}>
+            <View style={styles.cardTop}>
+              <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                Solo challenges
+              </Text>
+              <View style={[styles.statePill, { borderColor: '#39ff14' }]}>
+                <Text style={[styles.statePillText, { color: '#39ff14' }]}>FREE</Text>
+              </View>
+            </View>
+            <Text style={styles.cardMetaTxt}>Beat score targets (e.g. Tap Dash 100) · 50 tries/day · showcase prizes</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.viewLink}>Play</Text>
+              <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
+            </View>
+          </View>
+        </LinearGradient>
+      </Pressable>
+
       {ENABLE_CREDIT_CUPS ? (
         <>
           <Text style={styles.sectionKicker}>CREDIT CUPS</Text>

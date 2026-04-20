@@ -119,6 +119,12 @@ export default function DailyFreeTournamentScreen() {
         }}
       />
 
+      <AppButton
+        title="View bracket"
+        variant="secondary"
+        onPress={() => router.push('/(app)/(tabs)/tournaments/daily-free-bracket')}
+      />
+
       <GuestAuthPromptModal
         visible={guestAuthOpen}
         variant="tournaments"

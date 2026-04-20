@@ -50,6 +50,12 @@ import {
 } from '@/lib/lastMinigameScoreAttempt';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import type { SoloChallengeBundle } from '@/lib/soloChallenges';
+import {
+  getSoloTriesUsedToday,
+  SOLO_CHALLENGE_MAX_TRIES_PER_DAY,
+  tryConsumeSoloChallengeTry,
+} from '@/lib/soloChallengeTries';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
 import type { H2hSkillContestBundle, MatchFinishPayload } from '@/types/match';
 
@@ -418,10 +424,12 @@ export default function TapDashGame({
   playMode = 'practice',
   dailyTournament,
   h2hSkillContest,
+  soloChallenge,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
+  soloChallenge?: SoloChallengeBundle;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -463,12 +471,21 @@ export default function TapDashGame({
   const dailyCompleteRef = useRef(false);
   const prizeRunReservationRef = useRef<string | null>(null);
   const [lastLocalAttempt, setLastLocalAttempt] = useState<LastMinigameAttempt | null>(null);
+  const [soloTriesUsed, setSoloTriesUsed] = useState<number | null>(null);
 
   useEffect(() => {
     void loadLastMinigameAttempt().then((r) => {
       if (r?.game_type === 'tap_dash') setLastLocalAttempt(r);
     });
   }, []);
+
+  useEffect(() => {
+    if (!soloChallenge) {
+      setSoloTriesUsed(null);
+      return;
+    }
+    void getSoloTriesUsedToday(soloChallenge.challengeId).then((u) => setSoloTriesUsed(u));
+  }, [soloChallenge]);
 
   const buildH2hBody = useCallback(() => {
     const { score, durationMs, taps } = endStatsRef.current;
@@ -510,12 +527,18 @@ export default function TapDashGame({
         awardRedeemTicketsForPrizeRun(t);
       }
       setPhase('over');
-      if (!dailyTournament && !h2hSkillContest) {
+      if (soloChallenge && m.score >= soloChallenge.targetScore) {
+        Alert.alert(
+          'Target cleared',
+          `You scored ${m.score} gates (target ${soloChallenge.targetScore}). ${soloChallenge.prizeLabel} — payouts subject to eligibility and verification.`,
+        );
+      }
+      if (!dailyTournament && !h2hSkillContest && !soloChallenge) {
         setAutoSubmitSeq((n) => n + 1);
       }
       bump();
     },
-    [bump, playMode, dailyTournament, h2hSkillContest],
+    [bump, playMode, dailyTournament, h2hSkillContest, soloChallenge],
   );
 
   const step = useCallback(
@@ -612,6 +635,36 @@ export default function TapDashGame({
 
   const onTap = useCallback(() => {
     if (phase === 'ready') {
+      if (soloChallenge) {
+        void (async () => {
+          const r = await tryConsumeSoloChallengeTry(soloChallenge.challengeId);
+          if (!r.ok) {
+            if (r.rpcFailed) {
+              Alert.alert(
+                'Could not sync',
+                'Check your connection and try again. Your try count is verified on the server when you’re signed in.',
+              );
+            } else {
+              Alert.alert(
+                'Daily limit',
+                `You’ve used all ${SOLO_CHALLENGE_MAX_TRIES_PER_DAY} tries today for this challenge. New tries after local midnight.`,
+              );
+            }
+            return;
+          }
+          setSoloTriesUsed(r.usedAfter);
+          modelRef.current = createGame();
+          startTimeRef.current = Date.now();
+          modelRef.current.worldTimeMs = 0;
+          setSubmitOk(false);
+          setSubmitErr(false);
+          setPhase('playing');
+          resetMinigameHudClock(lastHudEmitRef);
+          queueFlap();
+          bump();
+        })();
+        return;
+      }
       if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
         void (async () => {
           if (ENABLE_BACKEND) {
@@ -677,6 +730,7 @@ export default function TapDashGame({
     router,
     queryClient,
     uid,
+    soloChallenge,
   ]);
 
   /** Same controls as in-play (Space / ↑): start from ready, flap while playing — web only. */
@@ -743,7 +797,7 @@ export default function TapDashGame({
     phase,
     overValue: 'over',
     runToken: autoSubmitSeq,
-    disabled: Boolean(dailyTournament || h2hSkillContest),
+    disabled: Boolean(dailyTournament || h2hSkillContest || soloChallenge),
     onSubmit: submitScore,
   });
 
@@ -898,15 +952,23 @@ export default function TapDashGame({
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintBrand}>TAP DASH</Text>
               <Text style={styles.hintMode}>
-                {h2hSkillContest
-                  ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
-                  : dailyTournament
-                    ? `Live event · vs ${dailyTournament.opponentDisplayName}`
-                    : playMode === 'prize'
-                      ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
-                      : 'Practice · free · no credits spent'}
+                {soloChallenge
+                  ? `Solo challenge · reach ${soloChallenge.targetScore} gates · ${soloChallenge.prizeLabel} showcase`
+                  : h2hSkillContest
+                    ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
+                    : dailyTournament
+                      ? `Live event · vs ${dailyTournament.opponentDisplayName}`
+                      : playMode === 'prize'
+                        ? `Prize run · ${PRIZE_RUN_ENTRY_CREDITS} credits · +1 ticket per ${TAP_DASH_POINTS_PER_TICKET} score`
+                        : 'Practice · free · no credits spent'}
               </Text>
-              <Text style={styles.hintSub}>Neon sprint · precision run</Text>
+              {soloChallenge ? (
+                <Text style={styles.hintSub}>
+                  Tries today: {soloTriesUsed ?? '…'}/{SOLO_CHALLENGE_MAX_TRIES_PER_DAY} · free entry
+                </Text>
+              ) : (
+                <Text style={styles.hintSub}>Neon sprint · precision run</Text>
+              )}
               <Text style={styles.hintBody}>
                 {Platform.OS === 'web' ? 'Tap or Space / ↑ to thrust · thread the gates' : 'Tap to thrust · thread the gates'}
               </Text>
@@ -981,14 +1043,26 @@ export default function TapDashGame({
                 onHome={() => router.replace(ROUTE_HOME)}
               />
               <Text style={styles.goTitle}>Run ended</Text>
+              {soloChallenge ? (
+                <Text style={styles.goVs} numberOfLines={2}>
+                  Challenge target: {soloChallenge.targetScore} gates · {soloChallenge.prizeLabel}
+                </Text>
+              ) : null}
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
-              {playMode === 'prize' ? (
+              {soloChallenge ? (
+                <Text style={styles.practiceNote}>
+                  {endStatsRef.current.score >= soloChallenge.targetScore
+                    ? 'Target met — eligibility for showcase prizes is verified separately.'
+                    : 'Target not met — try again while you have daily tries.'}
+                </Text>
+              ) : null}
+              {playMode === 'prize' && !soloChallenge ? (
                 <Text style={styles.goTickets}>
                   +{ticketsFromTapDashScore(endStatsRef.current.score)} redeem tickets (this run)
                 </Text>
               ) : null}
               <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
-              {playMode === 'prize' ? (
+              {soloChallenge ? null : playMode === 'prize' ? (
                 <>
                   {submitting ? (
                     <>

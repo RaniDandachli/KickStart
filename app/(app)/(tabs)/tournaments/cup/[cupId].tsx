@@ -125,6 +125,12 @@ export default function CreditCupHubScreen() {
         }}
       />
 
+      <AppButton
+        title="View bracket"
+        variant="secondary"
+        onPress={() => router.push(`/(app)/(tabs)/tournaments/cup-bracket?cupId=${encodeURIComponent(cup.id)}`)}
+      />
+
       <GuestAuthPromptModal
         visible={guestAuthOpen}
         variant="tournaments"

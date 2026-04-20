@@ -63,6 +63,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL: optionalUrlFromEnv,
   /** Web Push VAPID public key (URL-safe base64) — pair with Edge secrets WEB_PUSH_VAPID_* for open-queue browser notifications. */
   EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional().default(''),
+  /** Optional `tournaments.id` for the Friday $10 → $70 live 8-player cup (join + bracket from Supabase). */
+  EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID: optionalUuidFromEnv,
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -84,6 +86,7 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: process.env.EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL,
   EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL: process.env.EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL,
   EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: process.env.EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY,
+  EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID: process.env.EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID,
 });
 
 /**

@@ -358,6 +358,15 @@ export type MinigameScoreRow = {
   created_at: string;
 };
 
+/** Daily solo challenge run counter (`solo_challenge_consume_try`); clients may SELECT own rows only. */
+type SoloChallengeDailyAttemptRow = {
+  user_id: string;
+  challenge_id: string;
+  calendar_day: string;
+  attempts: number;
+  updated_at: string;
+};
+
 /** Supabase `Database` generic: includes `Relationships` for postgrest-js. Regenerate via CLI when schema changes. */
 export interface Database {
   public: {
@@ -397,6 +406,11 @@ export interface Database {
         Pick<MinigameScoreRow, 'user_id' | 'game_type' | 'score' | 'duration_ms' | 'taps'> &
           Partial<Pick<MinigameScoreRow, 'match_session_id'>>,
         Partial<Pick<MinigameScoreRow, 'score' | 'duration_ms' | 'taps'>>
+      >;
+      solo_challenge_daily_attempts: PublicTable<
+        SoloChallengeDailyAttemptRow,
+        never,
+        never
       >;
       user_stats: PublicTable<UserStatsRow, Partial<UserStatsRow>, Partial<UserStatsRow>>;
       leaderboard_snapshots: PublicTable<
@@ -591,6 +605,10 @@ export interface Database {
       };
       begin_minigame_prize_run: {
         Args: { p_game_type: string };
+        Returns: Json;
+      };
+      solo_challenge_consume_try: {
+        Args: { p_challenge_id: string; p_calendar_day: string };
         Returns: Json;
       };
     };

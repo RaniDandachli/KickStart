@@ -47,29 +47,39 @@ const BGM_ASSET = require('@/assets/sounds/dash-duel-neon-velocity.mp3');
 const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
 
 /**
- * Advance units / sec toward the player — constant for the whole run.
- * Difficulty comes from more hoop colors + ball color swaps only, not faster approach.
+ * Advance units / sec toward the player — base speed; 3+ sector tiers use {@link THREE_COLOR_FORWARD_MULT}
+ * so players have time to read segments and rotate / swap color.
  */
 const FORWARD_FIXED = 0.12;
+/** Slightly slower drift once 3 colored segments appear (same spin difficulty, more reaction time). */
+const THREE_COLOR_FORWARD_MULT = 0.76;
+/** When tier jumps (2→3, 3→4, …), push every hoop slightly farther down the tunnel so nothing “rams” you. */
+const TIER_UP_HOOP_BREATHE_ADV = 0.34;
 /**
  * Pass/fail when the hoop crosses this advance (slightly past 1.0 so the ring has visually
  * “arrived” at the player plane — matches `approachScale` feel and avoids felt-early deaths).
  */
 const HOOP_COLLISION_PLANE = 1.012;
-/** Minimum / maximum spacing in advance space when queueing the next hoop. */
-const HOOP_QUEUE_GAP_MIN = 0.45;
-const HOOP_QUEUE_GAP_MAX = 2.45;
+/** Minimum / maximum spacing in advance space when queueing the next hoop (2-color vs 3+). */
+const HOOP_QUEUE_GAP_MIN_2 = 0.45;
+const HOOP_QUEUE_GAP_MAX_2 = 2.45;
+const HOOP_QUEUE_GAP_MIN_3PLUS = 0.58;
+const HOOP_QUEUE_GAP_MAX_3PLUS = 2.65;
 /**
- * Target minimum real time (seconds) for a hoop to travel spawn → player at the fixed forward rate.
- * Gap scales with that rate so hoops stay spaced; forward itself never ramps.
+ * Target minimum real time (seconds) for a hoop to travel spawn → player at the current forward rate.
+ * With low `FORWARD_FIXED`, the `g` formula often hits the min gap — 3+ uses a larger min for breathing room.
  */
-const HOOP_ARRIVAL_MIN_SEC = 0.52;
+const HOOP_ARRIVAL_MIN_SEC_2 = 0.52;
+const HOOP_ARRIVAL_MIN_SEC_3PLUS = 0.78;
 
 /** Hoop spawns at advance = -gap and crosses the player at advance = 1 → travel distance (1+gap) in advance units. */
-function queueGapForForward(forward: number): number {
+function queueGapForForward(forward: number, sectorCount: number): number {
   const f = Math.max(1e-4, forward);
-  const g = f * HOOP_ARRIVAL_MIN_SEC - 1;
-  return Math.min(HOOP_QUEUE_GAP_MAX, Math.max(HOOP_QUEUE_GAP_MIN, g));
+  const minG = sectorCount >= 3 ? HOOP_QUEUE_GAP_MIN_3PLUS : HOOP_QUEUE_GAP_MIN_2;
+  const maxG = sectorCount >= 3 ? HOOP_QUEUE_GAP_MAX_3PLUS : HOOP_QUEUE_GAP_MAX_2;
+  const minSec = sectorCount >= 3 ? HOOP_ARRIVAL_MIN_SEC_3PLUS : HOOP_ARRIVAL_MIN_SEC_2;
+  const g = f * minSec - 1;
+  return Math.min(maxG, Math.max(minG, g));
 }
 const SWIPE_BAR_HEIGHT = 84;
 
@@ -293,12 +303,19 @@ export default function NeonDanceGame({
   const stageCenterY = playAreaH / 2;
 
   const resetRoundColors = useCallback((n: number) => {
+    const prevN = sectorsRef.current;
     sectorsRef.current = n;
     const b = (Math.random() * n) | 0;
     ballIdxRef.current = b;
     /** Hoops snapshot `n` at spawn — without this, rings stay 2-color while the ball can be 3+ (impossible align / wrong fail). */
     for (const h of hoopsRef.current) {
       h.n = n;
+    }
+    /** Extra space right after a tier jump so the next ring is not already in your face. */
+    if (n > prevN) {
+      for (const h of hoopsRef.current) {
+        h.advance -= TIER_UP_HOOP_BREATHE_ADV;
+      }
     }
     setHud((h) => ({ ...h, sectors: n, ballIdx: b }));
   }, []);
@@ -329,7 +346,7 @@ export default function NeonDanceGame({
     let minAdv = Math.min(...list.map((h) => h.advance));
     let guard = 0;
     while (minAdv < -0.08 && guard++ < 10) {
-      const gap = queueGapForForward(forwardQueueRef.current);
+      const gap = queueGapForForward(forwardQueueRef.current, sectorsRef.current);
       minAdv -= gap;
       pushHoop(minAdv);
     }
@@ -624,9 +641,10 @@ export default function NeonDanceGame({
   const cycleBallColor = useCallback(() => {
     if (phaseRef.current !== 'playing') return;
     const now = timeMsRef.current;
-    if (now - lastColorSwitchMsRef.current < 400) return;
-    lastColorSwitchMsRef.current = now;
     const n = sectorsRef.current;
+    /** 3+ segments: allow a quicker chip cadence so you can catch up without fighting the cooldown. */
+    if (now - lastColorSwitchMsRef.current < (n >= 3 ? 300 : 400)) return;
+    lastColorSwitchMsRef.current = now;
     if (n <= 1) return;
     ballIdxRef.current = (ballIdxRef.current + 1) % n;
     setHud((h) => ({ ...h, ballIdx: ballIdxRef.current }));
@@ -664,7 +682,8 @@ export default function NeonDanceGame({
         const dt = h / 1000;
         timeMsRef.current += h;
         const t = timeMsRef.current;
-        const forward = FORWARD_FIXED;
+        const forward =
+          FORWARD_FIXED * (sectorsRef.current >= 3 ? THREE_COLOR_FORWARD_MULT : 1);
         forwardQueueRef.current = forward;
         progressionRef.current += forward * 180 * dt;
 
@@ -717,7 +736,7 @@ export default function NeonDanceGame({
               }
 
               hoopsRef.current = hoops.filter((x) => x.id !== hoop.id);
-              pushHoop(-queueGapForForward(forward));
+              pushHoop(-queueGapForForward(forward, sectorsRef.current));
               ensureHoops();
 
               passBurstRef.current = 1;

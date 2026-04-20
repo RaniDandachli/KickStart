@@ -401,6 +401,10 @@ verify_jwt = false
 [functions.h2hOpenMatchWatchScan]
 verify_jwt = false
 
+# Cron / operator: same secret header pattern as h2hMaintenance — stub until forfeit logic is implemented.
+[functions.tournamentForfeitsCron]
+verify_jwt = false
+
 # App invokes with user JWT; handler validates session then forwards to h2hOpenMatchWatchScan.
 [functions.triggerOpenMatchWatchScan]
 verify_jwt = false

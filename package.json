@@ -15,7 +15,7 @@
     "functions:deploy": "supabase functions deploy",
     "functions:deploy:submit": "supabase functions deploy submitMinigameScore",
     "functions:deploy:stripe": "supabase functions deploy stripeWebhook && supabase functions deploy createWalletCheckoutSession && supabase functions deploy createWalletPaymentIntent && supabase functions deploy createStripeConnectLink && supabase functions deploy getStripeConnectAccount && supabase functions deploy withdrawWalletToConnect && supabase functions deploy createWhopPayoutPortalLink && supabase functions deploy withdrawWalletToWhop && supabase functions deploy createWhopCheckoutSession && supabase functions deploy whopWebhook",
-    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult && supabase functions deploy h2hMaintenance && supabase functions deploy h2hOpenMatchWatchScan && supabase functions deploy triggerOpenMatchWatchScan && supabase functions deploy registerWebPushSubscription",
+    "functions:deploy:match": "supabase functions deploy createH2hMatchSession && supabase functions deploy recordMatchResult && supabase functions deploy h2hMaintenance && supabase functions deploy h2hOpenMatchWatchScan && supabase functions deploy triggerOpenMatchWatchScan && supabase functions deploy registerWebPushSubscription && supabase functions deploy tournamentForfeitsCron",
     "functions:deploy:h2hMaintenance": "supabase functions deploy h2hMaintenance",
     "functions:deploy:h2hOpenMatchWatchScan": "supabase functions deploy h2hOpenMatchWatchScan",
     "functions:deploy:triggerOpenMatchWatchScan": "supabase functions deploy triggerOpenMatchWatchScan",
