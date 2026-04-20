@@ -12,7 +12,16 @@ export interface BracketMatchPreview {
 }
 
 /** Read-only bracket — columns from match `roundIndex` so late rounds render when DB has full tree. */
-export function BracketTreePreview({ players, matches }: { players: BracketPlayer[]; matches: BracketMatchPreview[] }) {
+export function BracketTreePreview({
+  players,
+  matches,
+  hideTitle,
+}: {
+  players: BracketPlayer[];
+  matches: BracketMatchPreview[];
+  /** Parent already shows a section heading (e.g. Friday cup). */
+  hideTitle?: boolean;
+}) {
   const fromPlayers = singleEliminationRoundCount(players.length) || 1;
   const maxFromMatches = matches.length ? Math.max(...matches.map((m) => m.roundIndex)) + 1 : 1;
   const rounds = Math.max(fromPlayers, maxFromMatches);
@@ -23,7 +32,7 @@ export function BracketTreePreview({ players, matches }: { players: BracketPlaye
 
   return (
     <View className="gap-3">
-      <Text className="text-lg font-bold text-slate-100">Bracket</Text>
+      {hideTitle ? null : <Text className="text-lg font-bold text-slate-100">Bracket</Text>}
       <View className="flex-row gap-2" style={{ flexWrap: 'wrap' }}>
         {byRound.map((ms, ri) => (
           <View key={ri} className="min-w-[140px] flex-1 gap-2">

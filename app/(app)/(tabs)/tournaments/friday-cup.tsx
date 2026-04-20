@@ -17,7 +17,9 @@ import {
   FRIDAY_CUP_ENTRY_USD,
 } from '@/lib/fridayCashCup';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { FridayCupBracketSection } from '@/features/tournaments/FridayCupBracketSection';
 import { joinTournament } from '@/services/api/tournaments';
+import { queryKeys } from '@/lib/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTournament } from '@/hooks/useTournaments';
 import { useAuthStore } from '@/store/authStore';
@@ -51,9 +53,13 @@ export default function FridayCupScreen() {
         Alert.alert('Could not join', r.error ?? 'Try again later.');
         return;
       }
-      Alert.alert('You’re in', 'Bracket updates live here once the event is generated. Be ready at kickoff.');
+      Alert.alert(
+        'You’re in',
+        'You’ll show up in a bracket wave after an admin runs generateBracket for the next group. Watch this screen for updates.',
+      );
       void refetch();
       void qc.invalidateQueries({ queryKey: ['tournaments'] });
+      if (tid) void qc.invalidateQueries({ queryKey: queryKeys.tournamentBracket(tid) });
     } finally {
       setBusy(false);
     }
@@ -81,16 +87,29 @@ export default function FridayCupScreen() {
             {kickoff.toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </Text>
           <Text style={styles.heroFine}>
-            {FRIDAY_CUP_MAX_PLAYERS} players · matches start at {FRIDAY_CUP_START_HOUR_LOCAL}:00 — if you’re scheduled and don’t show within{' '}
-            {FRIDAY_CUP_FORFEIT_GRACE_MINUTES} minutes, you forfeit and your opponent advances.
+            Each bracket wave is {FRIDAY_CUP_MAX_PLAYERS} players · signups can continue for more waves · matches start at{' '}
+            {FRIDAY_CUP_START_HOUR_LOCAL}:00 — if you’re scheduled and don’t show within {FRIDAY_CUP_FORFEIT_GRACE_MINUTES} minutes, you
+            forfeit and your opponent advances.
           </Text>
         </View>
       </LinearGradient>
 
+      <FridayCupBracketSection tournamentId={tid} podSize={FRIDAY_CUP_MAX_PLAYERS} />
+
       <Text style={styles.body}>
-        This cup is real money skill competition: you face other entrants in scheduled games. Pool totals and payouts follow the posted rules;
-        operator fees may apply. Configure the Supabase tournament row + bracket generation in the dashboard, then paste its UUID into{' '}
-        <Text style={styles.mono}>EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID</Text>.
+        Signups stay open: every {FRIDAY_CUP_MAX_PLAYERS} players who have not yet been placed can get a new bracket wave
+        (admin runs <Text style={styles.mono}>generateBracket</Text> per wave). This cup is a real-money skill competition — pool
+        totals and payouts follow posted rules; operator fees may apply.
+      </Text>
+
+      <Text style={styles.setupBox}>
+        <Text style={styles.setupTitle}>Setup (once)</Text>
+        {'\n'}1. In Supabase SQL, insert a tournament row (see <Text style={styles.mono}>supabase/scripts/seed-friday-eight-cup.example.sql</Text>)
+        with <Text style={styles.mono}>unlimited_entrants = true</Text> and <Text style={styles.mono}>bracket_pod_size = 8</Text>.
+        {'\n'}2. Copy the returned <Text style={styles.mono}>id</Text> into <Text style={styles.mono}>.env</Text> as{' '}
+        <Text style={styles.mono}>EXPO_PUBLIC_FRIDAY_CUP_TOURNAMENT_ID</Text> and restart the app.
+        {'\n'}3. After each wave of entrants joins, call the <Text style={styles.mono}>generateBracket</Text> Edge Function (admin JWT) with
+        that tournament id — repeat for waves 2, 3, … as you fill more groups of {FRIDAY_CUP_MAX_PLAYERS}.
       </Text>
 
       {tid && tournamentRow ? (
@@ -98,12 +117,15 @@ export default function FridayCupScreen() {
           <Text style={styles.liveTitle}>Live event</Text>
           <Text style={styles.liveMeta}>{tournamentRow.name}</Text>
           <Text style={styles.liveMeta}>
-            State: {tournamentRow.state} · {tournamentRow.current_player_count}/{tournamentRow.max_players} joined
+            State: {tournamentRow.state}
+            {tournamentRow.unlimited_entrants
+              ? ` · ${tournamentRow.current_player_count} joined · ${FRIDAY_CUP_MAX_PLAYERS} per bracket wave`
+              : ` · ${tournamentRow.current_player_count}/${tournamentRow.max_players} joined`}
           </Text>
-          <AppButton title="View bracket" onPress={goBracket} />
+          <AppButton title="Full-screen bracket" onPress={goBracket} />
         </View>
       ) : (
-        <Text style={styles.muted}>No tournament UUID configured — join button explains setup.</Text>
+        <Text style={styles.muted}>No tournament UUID in env yet — paste the Supabase tournament id to enable join + live data.</Text>
       )}
 
       <AppButton title={tid ? 'Enter ($10 wallet)' : 'Setup required'} onPress={onJoin} disabled={busy} />
@@ -126,6 +148,18 @@ const styles = StyleSheet.create({
   heroWhen: { color: '#ecfeff', fontSize: 20, marginBottom: 10 },
   heroFine: { color: 'rgba(226,232,240,0.9)', fontSize: 13, lineHeight: 20 },
   body: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 14 },
+  setupBox: {
+    color: 'rgba(203,213,225,0.88)',
+    fontSize: 12,
+    lineHeight: 19,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15,23,42,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+  },
+  setupTitle: { color: '#e2e8f0', fontWeight: '800', fontSize: 13 },
   mono: { fontFamily: 'monospace', fontSize: 11, color: '#a5f3fc' },
   liveCard: {
     padding: 14,

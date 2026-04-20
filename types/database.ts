@@ -111,6 +111,10 @@ export type TournamentRow = {
   prize_description: string;
   max_players: number;
   current_player_count: number;
+  /** When true, joins do not cap at max_players; brackets run in waves of bracket_pod_size (or max_players). */
+  unlimited_entrants?: boolean;
+  /** Entrants per bracket wave (e.g. 8) when unlimited_entrants is set. */
+  bracket_pod_size?: number | null;
   rules_summary: string | null;
   starts_at: string | null;
   created_at: string;
@@ -255,11 +259,13 @@ type TournamentEntryRow = {
   user_id: string;
   status: string;
   joined_at: string;
+  bracket_pod_index?: number | null;
 };
 
 export type TournamentRoundRow = {
   id: string;
   tournament_id: string;
+  bracket_pod_index: number;
   round_index: number;
   label: string;
   created_at: string;
@@ -268,6 +274,7 @@ export type TournamentRoundRow = {
 export type TournamentMatchRow = {
   id: string;
   tournament_id: string;
+  bracket_pod_index: number;
   round_id: string;
   match_index: number;
   player_a_id: string | null;

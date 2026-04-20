@@ -58,6 +58,7 @@ export async function joinTournament(tournamentId: string): Promise<JoinTourname
 export type TournamentBracketMatch = {
   id: string;
   tournament_id: string;
+  bracket_pod_index: number;
   round_id: string;
   match_index: number;
   player_a_id: string | null;
@@ -68,19 +69,29 @@ export type TournamentBracketMatch = {
   round_label: string;
 };
 
+export type TournamentBracketPod = {
+  bracketPodIndex: number;
+  rounds: TournamentRoundRow[];
+  matches: TournamentBracketMatch[];
+};
+
 /**
  * Loads rounds + matches for bracket UI (single-elimination data from `generateBracket`).
+ * Multiple `bracket_pod_index` values = parallel bracket waves (Friday cup unlimited signups).
  */
 export async function fetchTournamentBracket(tournamentId: string): Promise<{
   rounds: TournamentRoundRow[];
   matches: TournamentBracketMatch[];
+  pods: TournamentBracketPod[];
 }> {
   const supabase = getSupabase();
   const [{ data: rounds, error: e1 }, { data: rawMatches, error: e2 }] = await Promise.all([
     supabase.from('tournament_rounds').select('*').eq('tournament_id', tournamentId).order('round_index', { ascending: true }),
     supabase
       .from('tournament_matches')
-      .select('id, tournament_id, round_id, match_index, player_a_id, player_b_id, winner_id, status')
+      .select(
+        'id, tournament_id, bracket_pod_index, round_id, match_index, player_a_id, player_b_id, winner_id, status',
+      )
       .eq('tournament_id', tournamentId)
       .order('match_index', { ascending: true }),
   ]);
@@ -93,6 +104,7 @@ export async function fetchTournamentBracket(tournamentId: string): Promise<{
     return {
       id: m.id as string,
       tournament_id: m.tournament_id as string,
+      bracket_pod_index: (m.bracket_pod_index as number) ?? 1,
       round_id: m.round_id as string,
       match_index: m.match_index as number,
       player_a_id: m.player_a_id as string | null,
@@ -103,8 +115,20 @@ export async function fetchTournamentBracket(tournamentId: string): Promise<{
       round_label: tr?.label ?? '',
     };
   });
-  matches.sort((a, b) => a.round_index - b.round_index || a.match_index - b.match_index);
-  return { rounds: rlist, matches };
+  matches.sort(
+    (a, b) =>
+      a.bracket_pod_index - b.bracket_pod_index || a.round_index - b.round_index || a.match_index - b.match_index,
+  );
+
+  const podIndexes = [...new Set(matches.map((m) => m.bracket_pod_index))].sort((x, y) => x - y);
+  const pods: TournamentBracketPod[] = podIndexes.map((bracketPodIndex) => {
+    const ms = matches.filter((m) => m.bracket_pod_index === bracketPodIndex);
+    const roundIds = new Set(ms.map((m) => m.round_id));
+    const rs = rlist.filter((r) => r.bracket_pod_index === bracketPodIndex && roundIds.has(r.id));
+    return { bracketPodIndex, rounds: rs, matches: ms };
+  });
+
+  return { rounds: rlist, matches, pods };
 }
 
 /** Display names for bracket lines (batch). */

@@ -1,6 +1,7 @@
 /**
  * Builds single-elimination bracket rows: `tournament_rounds` + `tournament_matches`.
- * Admin/moderator only. Idempotent replace for the tournament’s existing bracket.
+ * Admin/moderator only. Idempotent replace for legacy (single pod) tournaments.
+ * For `unlimited_entrants` tournaments, appends a new pod without deleting prior pods.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
@@ -9,7 +10,7 @@ import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 
 const Body = z.object({
   tournament_id: z.string().uuid(),
-  /** Optional explicit seed order (must match registered users exactly when set). */
+  /** Optional explicit seed order (must match the batch of entrants exactly when set). */
   seed_user_ids: z.array(z.string().uuid()).optional(),
 });
 
@@ -55,24 +56,74 @@ Deno.serve(async (req) => {
       return errorResponse('Only single_elimination is supported for bracket generation', 422);
     }
 
-    const { data: entries, error: eErr } = await admin
-      .from('tournament_entries')
-      .select('user_id, joined_at')
-      .eq('tournament_id', tournamentId)
-      .eq('status', 'registered')
-      .order('joined_at', { ascending: true });
-    if (eErr) return errorResponse(eErr.message, 500);
-    let orderedIds = (entries ?? []).map((r: { user_id: string }) => r.user_id as string);
-    if (orderedIds.length < 2) {
-      return errorResponse('Need at least 2 registered players to generate a bracket', 422);
+    const unlimited = Boolean((tournament as { unlimited_entrants?: boolean }).unlimited_entrants);
+    const podSize = Math.max(
+      2,
+      (tournament as { bracket_pod_size?: number | null }).bracket_pod_size ??
+        (tournament as { max_players?: number }).max_players ??
+        8,
+    );
+
+    let nextPod = 1;
+    let orderedIds: string[] = [];
+
+    if (!unlimited) {
+      const { error: delM } = await admin.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+      if (delM) return errorResponse(delM.message, 500);
+      const { error: delR } = await admin.from('tournament_rounds').delete().eq('tournament_id', tournamentId);
+      if (delR) return errorResponse(delR.message, 500);
+
+      await admin
+        .from('tournament_entries')
+        .update({ bracket_pod_index: null })
+        .eq('tournament_id', tournamentId);
+
+      const { data: entries, error: eErr } = await admin
+        .from('tournament_entries')
+        .select('user_id, joined_at')
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'registered')
+        .order('joined_at', { ascending: true });
+      if (eErr) return errorResponse(eErr.message, 500);
+      orderedIds = (entries ?? []).map((r: { user_id: string }) => r.user_id as string);
+      if (orderedIds.length < 2) {
+        return errorResponse('Need at least 2 registered players to generate a bracket', 422);
+      }
+      nextPod = 1;
+    } else {
+      const { data: maxRow } = await admin
+        .from('tournament_rounds')
+        .select('bracket_pod_index')
+        .eq('tournament_id', tournamentId)
+        .order('bracket_pod_index', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      nextPod = ((maxRow as { bracket_pod_index?: number } | null)?.bracket_pod_index ?? 0) + 1;
+
+      const { data: batch, error: bErr } = await admin
+        .from('tournament_entries')
+        .select('user_id, joined_at')
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'registered')
+        .is('bracket_pod_index', null)
+        .order('joined_at', { ascending: true })
+        .limit(podSize);
+      if (bErr) return errorResponse(bErr.message, 500);
+      orderedIds = (batch ?? []).map((r: { user_id: string }) => r.user_id as string);
+      if (orderedIds.length < 2) {
+        return errorResponse(
+          `Need at least 2 registered players not yet placed in a bracket (next wave up to ${podSize})`,
+          422,
+        );
+      }
     }
 
     const seeds = parsed.data.seed_user_ids;
     if (seeds && seeds.length > 0) {
-      if (seeds.length !== orderedIds.length) return errorResponse('seed_user_ids must include every entrant', 422);
+      if (seeds.length !== orderedIds.length) return errorResponse('seed_user_ids must include every entrant in this batch', 422);
       const setE = new Set(orderedIds);
       for (const s of seeds) {
-        if (!setE.has(s)) return errorResponse('seed_user_ids must match tournament entrants', 422);
+        if (!setE.has(s)) return errorResponse('seed_user_ids must match tournament entrants in this batch', 422);
       }
       orderedIds = [...seeds];
     }
@@ -81,16 +132,13 @@ Deno.serve(async (req) => {
     const size = slots.length;
     const numRounds = Math.round(Math.log2(size));
 
-    const { error: delM } = await admin.from('tournament_matches').delete().eq('tournament_id', tournamentId);
-    if (delM) return errorResponse(delM.message, 500);
-    const { error: delR } = await admin.from('tournament_rounds').delete().eq('tournament_id', tournamentId);
-    if (delR) return errorResponse(delR.message, 500);
-
-    const roundRows: { id: string; tournament_id: string; round_index: number; label: string }[] = [];
+    const roundRows: { id: string; tournament_id: string; bracket_pod_index: number; round_index: number; label: string }[] =
+      [];
     for (let r = 0; r < numRounds; r++) {
       roundRows.push({
         id: crypto.randomUUID(),
         tournament_id: tournamentId,
+        bracket_pod_index: nextPod,
         round_index: r,
         label: roundLabel(r, numRounds),
       });
@@ -139,6 +187,7 @@ Deno.serve(async (req) => {
         matchRows.push({
           id: mid,
           tournament_id: tournamentId,
+          bracket_pod_index: nextPod,
           round_id: rid,
           match_index: i,
           player_a_id: playerA,
@@ -154,9 +203,19 @@ Deno.serve(async (req) => {
     const { error: insM } = await admin.from('tournament_matches').insert(matchRows);
     if (insM) return errorResponse(insM.message, 500);
 
+    const participantIds = [...new Set(orderedIds)];
+    const { error: upErr } = await admin
+      .from('tournament_entries')
+      .update({ bracket_pod_index: nextPod })
+      .eq('tournament_id', tournamentId)
+      .in('user_id', participantIds);
+    if (upErr) return errorResponse(upErr.message, 500);
+
     return json({
       ok: true,
       tournament_id: tournamentId,
+      bracket_pod_index: nextPod,
+      unlimited_entrants: unlimited,
       rounds_created: numRounds,
       matches_created: matchRows.length,
     });
