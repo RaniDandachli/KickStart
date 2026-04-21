@@ -60,16 +60,23 @@ function inHitZone(y: number): boolean {
 }
 
 function findTileInColumn(state: TileClashState, col: number): Tile | undefined {
-  let best: Tile | undefined;
-  let bestY = -1e9;
+  let bestGood: Tile | undefined;
+  let bestGoodY = -1e9;
+  let bestBad: Tile | undefined;
+  let bestBadY = -1e9;
   for (const t of state.tiles) {
     if (t.col !== col || !inHitZone(t.y)) continue;
-    if (t.y > bestY) {
-      bestY = t.y;
-      best = t;
+    if (t.kind === 'good') {
+      if (t.y > bestGoodY) {
+        bestGoodY = t.y;
+        bestGood = t;
+      }
+    } else if (t.y > bestBadY) {
+      bestBadY = t.y;
+      bestBad = t;
     }
   }
-  return best;
+  return bestGood ?? bestBad;
 }
 
 function timingBonus(y: number): number {

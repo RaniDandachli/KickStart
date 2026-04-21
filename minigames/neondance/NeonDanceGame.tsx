@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -9,26 +12,23 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
   useWindowDimensions,
+  View,
   type GestureResponderEvent,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
-import { useQueryClient } from '@tanstack/react-query';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
-import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
-import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
-import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { awardRedeemTicketsForPrizeRun, ticketsFromNeonDanceScore } from '@/lib/ticketPayouts';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
@@ -46,55 +46,51 @@ const BGM_ASSET = require('@/assets/sounds/dash-duel-neon-velocity.mp3');
 
 const STORAGE_BEST = '@kickclash/neon_dance_best_v2';
 
-/**
- * Advance units / sec toward the player — base speed; 3+ sector tiers use {@link THREE_COLOR_FORWARD_MULT}
- * so players have time to read segments and rotate / swap color.
- */
 const FORWARD_FIXED = 0.12;
-/** Slightly slower drift once 3 colored segments appear (same spin difficulty, more reaction time). */
 const THREE_COLOR_FORWARD_MULT = 0.76;
-/** When tier jumps (2→3, 3→4, …), push every hoop slightly farther down the tunnel so nothing “rams” you. */
-const TIER_UP_HOOP_BREATHE_ADV = 0.34;
+const TIER_UP_HOOP_BREATHE_ADV = 0.48;
+
 /**
- * Pass/fail when the hoop crosses this advance (slightly past 1.0 so the ring has visually
- * “arrived” at the player plane — matches `approachScale` feel and avoids felt-early deaths).
+ * FIX 1: Collision plane moved back to 1.0 (exactly at player plane).
+ * The old 1.012 caused hoops to "pass through" before triggering, making near-misses feel
+ * like late deaths. Exact 1.0 matches what the player sees visually.
  */
-const HOOP_COLLISION_PLANE = 1.012;
-/** Minimum / maximum spacing in advance space when queueing the next hoop (2-color vs 3+). */
-const HOOP_QUEUE_GAP_MIN_2 = 0.45;
+const HOOP_COLLISION_PLANE = 1.0;
+
+/**
+ * FIX 2: Grace window at game start — no collision fires in the first N ms.
+ * Gives the player time to see the first hoop and orient their ball color.
+ */
+const GRACE_PERIOD_MS = 2200;
+
+const HOOP_QUEUE_GAP_MIN_2 = 0.54;
 const HOOP_QUEUE_GAP_MAX_2 = 2.45;
-const HOOP_QUEUE_GAP_MIN_3PLUS = 0.58;
+const HOOP_QUEUE_GAP_MIN_3PLUS = 0.66;
 const HOOP_QUEUE_GAP_MAX_3PLUS = 2.65;
-/**
- * Target minimum real time (seconds) for a hoop to travel spawn → player at the current forward rate.
- * With low `FORWARD_FIXED`, the `g` formula often hits the min gap — 3+ uses a larger min for breathing room.
- */
 const HOOP_ARRIVAL_MIN_SEC_2 = 0.52;
 const HOOP_ARRIVAL_MIN_SEC_3PLUS = 0.78;
+/** Extra queue gap while `ringsPassed` is below this (opening stretch / ~6th–8th hoop fairness). */
+const EARLY_RING_GAP_PASS_THRESHOLD = 8;
 
-/** Hoop spawns at advance = -gap and crosses the player at advance = 1 → travel distance (1+gap) in advance units. */
-function queueGapForForward(forward: number, sectorCount: number): number {
+function queueGapForForward(forward: number, sectorCount: number, ringsPassed: number): number {
   const f = Math.max(1e-4, forward);
   const minG = sectorCount >= 3 ? HOOP_QUEUE_GAP_MIN_3PLUS : HOOP_QUEUE_GAP_MIN_2;
   const maxG = sectorCount >= 3 ? HOOP_QUEUE_GAP_MAX_3PLUS : HOOP_QUEUE_GAP_MAX_2;
   const minSec = sectorCount >= 3 ? HOOP_ARRIVAL_MIN_SEC_3PLUS : HOOP_ARRIVAL_MIN_SEC_2;
-  const g = f * minSec - 1;
-  return Math.min(maxG, Math.max(minG, g));
+  let g = Math.min(maxG, Math.max(minG, f * minSec - 1));
+  if (ringsPassed < EARLY_RING_GAP_PASS_THRESHOLD) {
+    g = Math.min(maxG, g + (sectorCount >= 3 ? 0.16 : 0.22));
+  }
+  return g;
 }
 const SWIPE_BAR_HEIGHT = 84;
 
-/** Cap FX so long runs stay smooth */
-const MAX_PARTICLES = 20;
-const PASS_PARTICLE_COUNT = 6;
-const TRAIL_MAX = 8;
-const TUNNEL_RING_COUNT = 3;
-/**
- * Throttle React re-renders to N animation frames (not physics steps — avoids multiple
- * setState in one rAF when catch-up runs several fixed steps). Keep low so hoop spin looks smooth.
- */
+const MAX_PARTICLES = 28;
+const PASS_PARTICLE_COUNT = 8;
+const TRAIL_MAX = 12;
+const TUNNEL_RING_COUNT = 6;
 const RENDER_FRAME_STRIDE = 2;
 
-/** Run It Arcade / match resolution payload (client-side; optional fields also sent to submitMinigameScore). */
 export type NeonDanceRunPayload = {
   score: number;
   ringsPassed: number;
@@ -105,6 +101,8 @@ export type NeonDanceRunPayload = {
 };
 
 const PALETTE = ['#ff2d92', '#22d3ee', '#c084fc', '#bef264', '#fb923c', '#3b82f6'];
+/** Darker glow variants for sector highlights (used in the "next sector" indicator) */
+const PALETTE_GLOW = ['#ff6bb8', '#67e8f9', '#d8b4fe', '#d9f99d', '#fdba74', '#93c5fd'];
 
 function normAngle(a: number): number {
   let x = a % (Math.PI * 2);
@@ -112,7 +110,6 @@ function normAngle(a: number): number {
   return x;
 }
 
-/** Shortest signed delta from a to b (radians). */
 function shortestDelta(a: number, b: number): number {
   const da = normAngle(a);
   const db = normAngle(b);
@@ -122,7 +119,6 @@ function shortestDelta(a: number, b: number): number {
   return d;
 }
 
-/** Which sector index (0..n-1) sits at world angle `worldAngle` on a ring rotated by `rotation`. */
 function sectorAtWorldAngle(worldAngle: number, rotation: number, n: number): number {
   if (n <= 0) return 0;
   const local = normAngle(worldAngle - rotation);
@@ -157,7 +153,6 @@ function describeSector(
   ].join(' ');
 }
 
-/** Map approach 0→1 to visual scale (hoop grows from tunnel depth toward you). */
 function approachScale(p: number): number {
   const t = Math.max(0, Math.min(1, (p + 0.12) / 1.12));
   return 0.2 + 0.8 * (t * t * (3 - 2 * t));
@@ -165,26 +160,36 @@ function approachScale(p: number): number {
 
 type Hoop = {
   id: number;
-  /** 0 = far (small), 1 = at player plane (full size). */
   advance: number;
   rot: number;
   omega: number;
   n: number;
 };
 
-type Particle = { id: number; x: number; y: number; vx: number; vy: number; life: number; color: string };
+type Particle = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+};
 
-/** Static depth rings — memoized so parent `tick` re-renders don’t rebuild this SVG subtree. */
 const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
   winW,
   playAreaH,
   stageCenterX,
   stageCenterY,
+  pulsePhase,
 }: {
   winW: number;
   playAreaH: number;
   stageCenterX: number;
   stageCenterY: number;
+  pulsePhase: number;
 }) {
   const dim = Math.min(winW, playAreaH);
   return (
@@ -194,17 +199,37 @@ const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
       height={playAreaH}
       pointerEvents="none"
     >
+      {/* Perspective grid lines to enhance depth illusion */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        const len = dim * 0.52;
+        return (
+          <Line
+            key={`grid-${i}`}
+            x1={stageCenterX}
+            y1={stageCenterY}
+            x2={stageCenterX + Math.cos(angle) * len}
+            y2={stageCenterY + Math.sin(angle) * len}
+            stroke="rgba(148,163,184,0.06)"
+            strokeWidth={1}
+          />
+        );
+      })}
+      {/* Depth rings — more rings, subtle breathing animation via pulsePhase */}
       {Array.from({ length: TUNNEL_RING_COUNT }, (_, i) => {
-        const r = 28 + i * dim * 0.13;
-        const o = 0.06 + i * 0.045;
+        const baseR = 22 + i * dim * 0.085;
+        const breathe = Math.sin(pulsePhase + i * 0.9) * 1.2;
+        const r = baseR + breathe;
+        const baseO = 0.04 + i * 0.028;
+        const o = baseO + Math.sin(pulsePhase * 1.3 + i) * 0.015;
         return (
           <Circle
             key={`tun-${i}`}
             cx={stageCenterX}
             cy={stageCenterY}
             r={r}
-            stroke="rgba(148,163,184,0.35)"
-            strokeWidth={1.5}
+            stroke="rgba(148,163,184,0.4)"
+            strokeWidth={1}
             fill="none"
             opacity={o}
           />
@@ -244,6 +269,9 @@ export default function NeonDanceGame({
     sectors: 2,
     ballIdx: 0,
     pulseBg: 0,
+    /** For the "next sector" guide indicator */
+    nextHoopSectorAtBall: -1,
+    inGrace: true,
   });
   const [ticketsEarned, setTicketsEarned] = useState(0);
   const [bestLocal, setBestLocal] = useState<number | null>(null);
@@ -253,14 +281,13 @@ export default function NeonDanceGame({
   const appliedRoute = useRef(false);
   const prizeRunReservationRef = useRef<string | null>(null);
   const routePrizeAutoStartedRef = useRef(false);
-  /** Prize run started from the ready screen without `?mode=prize` (charges + tickets still apply). */
   const manualPrizeRunRef = useRef(false);
 
   const hoopsRef = useRef<Hoop[]>([]);
   const nextHoopIdRef = useRef(1);
   const ballAngleRef = useRef(Math.PI / 2);
   const targetAngleRef = useRef(Math.PI / 2);
-  const trailRef = useRef<{ x: number; y: number }[]>([]);
+  const trailRef = useRef<{ x: number; y: number; t: number }[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const nextParticleIdRef = useRef(1);
   const timeMsRef = useRef(0);
@@ -272,10 +299,11 @@ export default function NeonDanceGame({
   const sectorsRef = useRef(2);
   const ballIdxRef = useRef(0);
   const progressionRef = useRef(0);
-  /** Last approach speed — used when queueing hoops (spacing matches fixed forward speed). */
   const forwardQueueRef = useRef(FORWARD_FIXED);
   const bgPulseRef = useRef(0);
   const passBurstRef = useRef(0);
+  /** Accumulated time for tunnel ring breathing animation */
+  const tunnelPhaseRef = useRef(0);
   const lastRunRef = useRef({
     score: 0,
     durationMs: 0,
@@ -290,7 +318,6 @@ export default function NeonDanceGame({
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const gameOverLockRef = useRef(false);
-  /** Counts rAF frames; paired with RENDER_FRAME_STRIDE so we never fire multiple setTick in one frame. */
   const visualFrameAccRef = useRef(0);
   const forcedThreeColorRef = useRef(false);
   const lastColorSwitchMsRef = useRef(0);
@@ -298,7 +325,7 @@ export default function NeonDanceGame({
 
   const playAreaH = Math.max(360, winH - 220 - SWIPE_BAR_HEIGHT - Math.min(32, insets.bottom));
   const ringBase = Math.min(stageW - 24, 320);
-  const BALL_R = Math.max(12, ringBase * 0.048);
+  const BALL_R = Math.max(13, ringBase * 0.052);
   const stageCenterX = winW / 2;
   const stageCenterY = playAreaH / 2;
 
@@ -307,22 +334,19 @@ export default function NeonDanceGame({
     sectorsRef.current = n;
     const b = (Math.random() * n) | 0;
     ballIdxRef.current = b;
-    /** Hoops snapshot `n` at spawn — without this, rings stay 2-color while the ball can be 3+ (impossible align / wrong fail). */
     for (const h of hoopsRef.current) {
       h.n = n;
     }
-    /** Extra space right after a tier jump so the next ring is not already in your face. */
     if (n > prevN) {
       for (const h of hoopsRef.current) {
         h.advance -= TIER_UP_HOOP_BREATHE_ADV;
       }
     }
-    setHud((h) => ({ ...h, sectors: n, ballIdx: b }));
+    setHud((prev) => ({ ...prev, sectors: n, ballIdx: b }));
   }, []);
 
   const pushHoop = useCallback((advance: number) => {
     const n = sectorsRef.current;
-    /** Spin (rad/s) — same statistical range for every hoop; harder tiers add segments, not faster spin. */
     const omega =
       (Math.sign(Math.random() - 0.5) || 1) * (1.28 + Math.random() * 0.48);
     hoopsRef.current.push({
@@ -337,16 +361,20 @@ export default function NeonDanceGame({
   const ensureHoops = useCallback(() => {
     const list = hoopsRef.current;
     if (list.length === 0) {
-      pushHoop(0.58);
-      pushHoop(0.1);
-      pushHoop(-0.42);
+      /**
+       * FIX 3: First hoop spawns much further away (−0.18 instead of 0.58)
+       * so the player has a solid ~8 seconds before first collision.
+       * Combined with the grace period, this guarantees time to orient.
+       */
+      pushHoop(-0.18);
+      pushHoop(-0.72);
+      pushHoop(-1.28);
       return;
     }
-    /** Walk backward from the furthest hoop; each new spawn must sit at its own depth (bug was reusing one minAdv → stacked rings + mismatched omegas = twitch). */
     let minAdv = Math.min(...list.map((h) => h.advance));
     let guard = 0;
-    while (minAdv < -0.08 && guard++ < 10) {
-      const gap = queueGapForForward(forwardQueueRef.current, sectorsRef.current);
+    while (minAdv > -0.08 && guard++ < 10) {
+      const gap = queueGapForForward(forwardQueueRef.current, sectorsRef.current, ringsPassedRef.current);
       minAdv -= gap;
       pushHoop(minAdv);
     }
@@ -371,13 +399,14 @@ export default function NeonDanceGame({
     targetAngleRef.current = Math.PI / 2;
     trailRef.current = [];
     particlesRef.current = [];
+    tunnelPhaseRef.current = 0;
     bgPulseRef.current = 0;
     passBurstRef.current = 0;
     sectorsRef.current = 2;
     const b = (Math.random() * 2) | 0;
     ballIdxRef.current = b;
     setScore(0);
-    setHud({ ringsPassed: 0, streak: 0, sectors: 2, ballIdx: b, pulseBg: 0 });
+    setHud({ ringsPassed: 0, streak: 0, sectors: 2, ballIdx: b, pulseBg: 0, nextHoopSectorAtBall: -1, inGrace: true });
     ensureHoops();
   }, [ensureHoops]);
 
@@ -602,10 +631,6 @@ export default function NeonDanceGame({
     return () => clearTimeout(t);
   }, [bestLocal, persistBest, phase, runPrizeSubmit]);
 
-  /**
-   * Touch layer covers tunnel + hint bar; `locationX/Y` are relative to that layer.
-   * Tunnel center in those coords is (winW/2, playAreaH/2) — same for taps on the bar below.
-   */
   const applyTouchFromEvent = useCallback(
     (e: GestureResponderEvent) => {
       if (phaseRef.current !== 'playing') return;
@@ -642,12 +667,11 @@ export default function NeonDanceGame({
     if (phaseRef.current !== 'playing') return;
     const now = timeMsRef.current;
     const n = sectorsRef.current;
-    /** 3+ segments: allow a quicker chip cadence so you can catch up without fighting the cooldown. */
     if (now - lastColorSwitchMsRef.current < (n >= 3 ? 300 : 400)) return;
     lastColorSwitchMsRef.current = now;
     if (n <= 1) return;
     ballIdxRef.current = (ballIdxRef.current + 1) % n;
-    setHud((h) => ({ ...h, ballIdx: ballIdxRef.current }));
+    setHud((prev) => ({ ...prev, ballIdx: ballIdxRef.current }));
     inputSamplesRef.current += 1;
     try {
       void Haptics.selectionAsync();
@@ -686,6 +710,7 @@ export default function NeonDanceGame({
           FORWARD_FIXED * (sectorsRef.current >= 3 ? THREE_COLOR_FORWARD_MULT : 1);
         forwardQueueRef.current = forward;
         progressionRef.current += forward * 180 * dt;
+        tunnelPhaseRef.current += dt * 0.8;
 
         const turn = Math.min(1, 18 * dt);
         ballAngleRef.current = normAngle(
@@ -695,7 +720,7 @@ export default function NeonDanceGame({
         const orbitR = ringBase * 0.39 * 0.98;
         const bx = stageCenterX + orbitR * Math.cos(ballAngleRef.current);
         const by = stageCenterY + orbitR * Math.sin(ballAngleRef.current);
-        trailRef.current.push({ x: bx, y: by });
+        trailRef.current.push({ x: bx, y: by, t });
         while (trailRef.current.length > TRAIL_MAX) trailRef.current.shift();
 
         if (!forcedThreeColorRef.current && sectorsRef.current === 2 && (t > 45_000 || ringsPassedRef.current >= 7)) {
@@ -703,14 +728,37 @@ export default function NeonDanceGame({
           resetRoundColors(3);
         }
 
-        hoopsRef.current = hoopsRef.current.filter((h) => h.advance < 1.45);
-
+        /**
+         * Integrate all hoops, then resolve at most one plane crossing per step (frontmost first).
+         * If two rings cross y=1 in the same 1/60s slice, evaluating both could fail the rear one
+         * unfairly ("instant" death) — the player only ever meets one ring at the focal plane.
+         */
         const hoops = hoopsRef.current;
+        const prevAdv = new Map<number, number>();
+        for (const hoop of hoops) prevAdv.set(hoop.id, hoop.advance);
         for (const hoop of hoops) {
-          const prev = hoop.advance;
           hoop.advance += forward * dt;
           hoop.rot += hoop.omega * dt;
-          if (prev < HOOP_COLLISION_PLANE && hoop.advance >= HOOP_COLLISION_PLANE) {
+        }
+
+        const crossed = hoops.filter((hoop) => {
+          const prev = prevAdv.get(hoop.id) ?? hoop.advance;
+          return prev < HOOP_COLLISION_PLANE && hoop.advance >= HOOP_COLLISION_PLANE;
+        });
+        crossed.sort((a, b) => b.advance - a.advance);
+        for (let i = 1; i < crossed.length; i++) {
+          crossed[i].advance = HOOP_COLLISION_PLANE - 0.004;
+        }
+
+        let failedThisStep = false;
+        let passedId = -1;
+
+        if (crossed.length > 0) {
+          const hoop = crossed[0];
+          /** FIX 5: Grace period — no scored collision in the first GRACE_PERIOD_MS. */
+          if (t < GRACE_PERIOD_MS) {
+            passedId = hoop.id;
+          } else {
             const idx = sectorAtWorldAngle(ballAngleRef.current, hoop.rot, hoop.n);
             if (idx === ballIdxRef.current) {
               ringsPassedRef.current += 1;
@@ -726,9 +774,7 @@ export default function NeonDanceGame({
               }
               ballIdxRef.current = nb;
 
-              hoopsRef.current = hoops.filter((x) => x.id !== hoop.id);
-              pushHoop(-queueGapForForward(forward, sectorsRef.current));
-              ensureHoops();
+              passedId = hoop.id;
 
               passBurstRef.current = 1;
               bgPulseRef.current = Math.min(1, bgPulseRef.current + 0.4);
@@ -744,34 +790,42 @@ export default function NeonDanceGame({
 
               const pid = nextParticleIdRef.current;
               for (let i = 0; i < PASS_PARTICLE_COUNT; i++) {
-                const ang = (Math.PI * 2 * i) / PASS_PARTICLE_COUNT + Math.random() * 0.35;
-                const sp = 120 + Math.random() * 170;
+                const ang = (Math.PI * 2 * i) / PASS_PARTICLE_COUNT + Math.random() * 0.5;
+                const sp = 100 + Math.random() * 200;
+                const lifespan = 0.5 + Math.random() * 0.35;
                 particlesRef.current.push({
                   id: pid + i,
                   x: bx,
                   y: by,
                   vx: Math.cos(ang) * sp,
                   vy: Math.sin(ang) * sp,
-                  life: 0.45 + Math.random() * 0.32,
+                  life: lifespan,
+                  maxLife: lifespan,
                   color: PALETTE[ballIdxRef.current % PALETTE.length],
+                  size: 3 + Math.random() * 4,
                 });
               }
               while (particlesRef.current.length > MAX_PARTICLES) particlesRef.current.shift();
               nextParticleIdRef.current = pid + PASS_PARTICLE_COUNT;
-
-              setHud({
-                ringsPassed: ringsPassedRef.current,
-                streak: streakRef.current,
-                sectors: sectorsRef.current,
-                ballIdx: ballIdxRef.current,
-                pulseBg: bgPulseRef.current,
-              });
             } else {
-              triggerFail();
-              return false;
+              failedThisStep = true;
             }
           }
         }
+
+        if (failedThisStep) {
+          triggerFail();
+          return false;
+        }
+
+        /** Remove passed/expired hoops AFTER collision logic, then queue replacements. */
+        if (passedId !== -1) {
+          hoopsRef.current = hoopsRef.current.filter((x) => x.id !== passedId);
+          pushHoop(-queueGapForForward(forward, sectorsRef.current, ringsPassedRef.current));
+          ensureHoops();
+        }
+        hoopsRef.current = hoopsRef.current.filter((h) => h.advance < 1.45);
+        ensureHoops();
 
         const parts = particlesRef.current;
         for (let i = parts.length - 1; i >= 0; i--) {
@@ -779,12 +833,37 @@ export default function NeonDanceGame({
           p.life -= dt;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-          p.vy += 380 * dt;
+          p.vx *= 0.97;
+          p.vy *= 0.97;
+          p.vy += 320 * dt;
           if (p.life <= 0) parts.splice(i, 1);
         }
 
         if (passBurstRef.current > 0) passBurstRef.current = Math.max(0, passBurstRef.current - dt * 2.2);
         bgPulseRef.current = Math.max(0, bgPulseRef.current - dt * 0.42);
+
+        /**
+         * Visual aid: compute which sector the nearest hoop has at the ball's current angle.
+         * This lets us draw a subtle "target sector" indicator.
+         */
+        const nearestHoop = hoopsRef.current.reduce<Hoop | null>((best, h) => {
+          if (h.advance < 0) return best;
+          if (!best || h.advance < best.advance) return h;
+          return best;
+        }, null);
+        const nextSector = nearestHoop
+          ? sectorAtWorldAngle(ballAngleRef.current, nearestHoop.rot, nearestHoop.n)
+          : -1;
+
+        setHud({
+          ringsPassed: ringsPassedRef.current,
+          streak: streakRef.current,
+          sectors: sectorsRef.current,
+          ballIdx: ballIdxRef.current,
+          pulseBg: bgPulseRef.current,
+          nextHoopSectorAtBall: nextSector,
+          inGrace: t < GRACE_PERIOD_MS,
+        });
 
         return true;
       });
@@ -845,46 +924,66 @@ export default function NeonDanceGame({
   }, [muted, phase]);
 
   const ballColor = PALETTE[hud.ballIdx % PALETTE.length];
+  const ballGlow = PALETTE_GLOW[hud.ballIdx % PALETTE_GLOW.length];
 
-  const ringPathsFor = (h: Hoop, scale: number) => {
+  const ringPathsFor = (h: Hoop, scale: number, isNearest: boolean) => {
     const paths = [];
     const sz = ringBase * scale;
     const c = sz / 2;
-    const rOut = sz * 0.42;
-    const rIn = sz * 0.18;
+    const rOut = sz * 0.44;
+    const rIn = sz * 0.17;
     const rr = h.rot;
     const nn = h.n;
     for (let i = 0; i < nn; i++) {
       const a0 = (i * (Math.PI * 2)) / nn + rr;
       const a1 = ((i + 1) * (Math.PI * 2)) / nn + rr;
       const col = PALETTE[i % PALETTE.length];
-      const dim = h.advance >= 0.95 ? 1 : 0.75 + h.advance * 0.25;
+      /**
+       * Visual improvement: matched sector (same as ball color) gets a brightness boost
+       * on the nearest hoop to give a subtle "this is where to aim" cue.
+       */
+      const isMatch = isNearest && i === ballIdxRef.current;
+      const baseDim = h.advance >= 0.95 ? 1 : 0.72 + h.advance * 0.28;
+      const opacity = isMatch ? Math.min(1, baseDim + 0.25) : baseDim;
       paths.push(
         <Path
           key={`${h.id}-${i}`}
           d={describeSector(c, c, rOut, rIn, a0, a1)}
           fill={col}
-          fillOpacity={dim}
-          stroke="none"
+          fillOpacity={opacity}
+          stroke={isMatch ? 'rgba(255,255,255,0.45)' : 'none'}
+          strokeWidth={isMatch ? 1.5 : 0}
         />,
       );
     }
+    /** Center dot — brighter on near hoops */
+    const centerOp = 0.7 + h.advance * 0.3;
+    paths.push(
+      <Circle key={`${h.id}-c1`} cx={c} cy={c} r={sz * 0.09} fill="rgba(255,255,255,0.9)" opacity={centerOp} />,
+      <Circle key={`${h.id}-c2`} cx={c} cy={c} r={sz * 0.05} fill="#e0f2fe" opacity={centerOp} />,
+    );
     return paths;
   };
 
   const pulseBg = 0.04 * (hud.pulseBg + Math.sin(timeMsRef.current / 240) * 0.06);
-  /** Stable draw order: coarse zIndex from advance caused ties / flicker (esp. inner “5th” ring on web). */
   const hoopsForRender = [...hoopsRef.current].sort(
     (a, b) => (a.advance !== b.advance ? a.advance - b.advance : a.id - b.id),
   );
+  /**
+   * The nearest visible hoop (advance > 0) gets the match-sector highlight treatment.
+   */
+  const nearestVisibleId = hoopsForRender.find((h) => h.advance >= 0)?.id ?? -1;
 
   const orbitR = ringBase * 0.39 * 0.98;
   const ballX = stageCenterX + orbitR * Math.cos(ballAngleRef.current);
   const ballY = stageCenterY + orbitR * Math.sin(ballAngleRef.current);
 
+  /** Grace period countdown for HUD display */
+  const graceRemainSec = Math.max(0, (GRACE_PERIOD_MS - timeMsRef.current) / 1000);
+
   return (
     <LinearGradient
-      colors={['#050508', '#0a0c14', '#12081c']}
+      colors={['#040408', '#08091200', '#100720']}
       style={styles.fill}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
@@ -895,7 +994,7 @@ export default function NeonDanceGame({
           StyleSheet.absoluteFill,
           {
             opacity: 0.4 + pulseBg,
-            backgroundColor: `rgba(34, 211, 238, ${0.03 + pulseBg * 0.06})`,
+            backgroundColor: `rgba(34, 211, 238, ${0.025 + pulseBg * 0.05})`,
           },
         ]}
       />
@@ -912,7 +1011,7 @@ export default function NeonDanceGame({
           <View style={styles.topMid}>
             <Text style={styles.scoreTop}>{score.toLocaleString()}</Text>
             <Text style={styles.subTop}>
-              hoops {hud.ringsPassed} · ×{hud.streak} · {hud.sectors} colors
+              ×{hud.streak} streak · {hud.sectors} colors · {hud.ringsPassed} hoops
             </Text>
           </View>
           <View style={styles.topRight}>
@@ -951,12 +1050,12 @@ export default function NeonDanceGame({
           <View style={styles.centerBlock}>
             <Text style={styles.logoMark}>NEON DANCE</Text>
             <Text style={styles.title}>Neon Dance</Text>
-              <Text style={styles.blurb}>
-                Drag anywhere to aim. Hoops keep the same pace for the full run. After enough hoops or ~45s, rings shift to
-                a steady 3-color pattern and stay there. Wrong segment ends the run.
-              </Text>
+            <Text style={styles.blurb}>
+              Drag anywhere to rotate. Match your ball color to the glowing sector as hoops approach.
+              Tap the color chip to switch colors. Wrong sector ends the run.
+            </Text>
             {bestLocal != null ? (
-              <Text style={styles.bestLbl}>Best run · {bestLocal.toLocaleString()} pts</Text>
+              <Text style={styles.bestLbl}>Best · {bestLocal.toLocaleString()} pts</Text>
             ) : null}
             <AppButton title="Play" onPress={startPlaying} />
             <AppButton className="mt-2" title="Prize run" variant="secondary" onPress={startManualPrizeRun} />
@@ -970,123 +1069,166 @@ export default function NeonDanceGame({
         {phase === 'playing' || phase === 'paused' || phase === 'dying' ? (
           <View style={styles.playfield}>
             <View style={styles.playfieldInner}>
-            <View style={[styles.stageClip, { height: playAreaH, width: winW }]} pointerEvents="none">
-              {/* Tunnel depth: concentric rings (memo child — not tied to `tick`) */}
-              <NeonDanceTunnelRings
-                winW={winW}
-                playAreaH={playAreaH}
-                stageCenterX={stageCenterX}
-                stageCenterY={stageCenterY}
-              />
+              <View style={[styles.stageClip, { height: playAreaH, width: winW }]} pointerEvents="none">
+                {/* Tunnel depth rings — breathe with tunnelPhaseRef */}
+                <NeonDanceTunnelRings
+                  winW={winW}
+                  playAreaH={playAreaH}
+                  stageCenterX={stageCenterX}
+                  stageCenterY={stageCenterY}
+                  pulsePhase={tunnelPhaseRef.current}
+                />
 
-              {hoopsForRender.map((h, hoopSortIndex) => {
-                const vis = approachScale(h.advance);
-                if (vis < 0.05) return null;
-                const dimPx = ringBase * vis;
-                const hSvg = dimPx * 0.92;
-                /** Integer position only — keeps subpixel jitter low on mobile Safari; SVG matches `ringPathsFor` (`dimPx`). */
-                const left = Math.round(stageCenterX - dimPx / 2);
-                const top = Math.round(stageCenterY - dimPx / 2);
-                return (
-                  <View
-                    key={h.id}
-                    style={[
-                      styles.hoopLayer,
-                      Platform.OS === 'web' && styles.hoopLayerWeb,
-                      {
-                        left,
-                        top,
-                        width: dimPx,
-                        height: dimPx * 0.9,
-                        zIndex: 20 + hoopSortIndex,
-                        opacity: 0.55 + 0.45 * Math.min(1, h.advance + 0.2),
-                      },
-                    ]}
-                  >
-                    <Svg width={dimPx} height={hSvg}>
-                      {ringPathsFor(h, vis)}
-                      <Circle
-                        cx={dimPx / 2}
-                        cy={dimPx / 2}
-                        r={dimPx * 0.1}
-                        fill="#f8fafc"
-                        opacity={0.88}
-                      />
-                      <Circle
-                        cx={dimPx / 2}
-                        cy={dimPx / 2}
-                        r={dimPx * 0.055}
-                        fill="#e0f2fe"
-                      />
-                    </Svg>
-                  </View>
-                );
-              })}
+                {hoopsForRender.map((h, hoopSortIndex) => {
+                  const vis = approachScale(h.advance);
+                  if (vis < 0.05) return null;
+                  const dimPx = ringBase * vis;
+                  const hSvg = dimPx;
+                  const left = Math.round(stageCenterX - dimPx / 2);
+                  const top = Math.round(stageCenterY - dimPx / 2);
+                  const isNearest = h.id === nearestVisibleId;
+                  /**
+                   * Visual improvement: warn zone — when a hoop is very close, add a
+                   * faint red border pulse so the player feels urgency.
+                   */
+                  const warnAlpha = h.advance > 0.82 ? (h.advance - 0.82) / 0.18 : 0;
+                  return (
+                    <View
+                      key={h.id}
+                      style={[
+                        styles.hoopLayer,
+                        Platform.OS === 'web' && styles.hoopLayerWeb,
+                        {
+                          left,
+                          top,
+                          width: dimPx,
+                          height: dimPx,
+                          zIndex: 20 + hoopSortIndex,
+                          opacity: 0.5 + 0.5 * Math.min(1, h.advance + 0.25),
+                        },
+                      ]}
+                    >
+                      <Svg width={dimPx} height={hSvg}>
+                        {ringPathsFor(h, vis, isNearest)}
+                        {/* Warning pulse ring when close */}
+                        {warnAlpha > 0 ? (
+                          <Circle
+                            cx={dimPx / 2}
+                            cy={dimPx / 2}
+                            r={dimPx * 0.445}
+                            fill="none"
+                            stroke="rgba(251,113,133,0.7)"
+                            strokeWidth={2}
+                            opacity={warnAlpha * 0.6}
+                          />
+                        ) : null}
+                      </Svg>
+                    </View>
+                  );
+                })}
 
-              <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.ballLayerAboveHoops]}>
-                <Svg style={StyleSheet.absoluteFill} width={winW} height={playAreaH} pointerEvents="none">
-                  {trailRef.current.map((pt, i) => (
+                <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.ballLayerAboveHoops]}>
+                  <Svg style={StyleSheet.absoluteFill} width={winW} height={playAreaH} pointerEvents="none">
+                    {/* Trail — fades and grows toward ball */}
+                    {trailRef.current.map((pt, i) => {
+                      const frac = i / Math.max(1, trailRef.current.length - 1);
+                      return (
+                        <Circle
+                          key={`t-${i}`}
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={2 + frac * 6}
+                          fill={ballColor}
+                          opacity={0.06 + frac * 0.28}
+                        />
+                      );
+                    })}
+                    {/* Particles — size varies */}
+                    {particlesRef.current.map((p) => {
+                      const frac = Math.max(0, p.life / p.maxLife);
+                      return (
+                        <Circle
+                          key={p.id}
+                          cx={p.x}
+                          cy={p.y}
+                          r={p.size * frac}
+                          fill={p.color}
+                          opacity={Math.max(0, frac * 1.4)}
+                        />
+                      );
+                    })}
+                    {/* Ball outer glow */}
+                    <Circle cx={ballX} cy={ballY} r={BALL_R + 10} fill={ballGlow} opacity={0.12} />
+                    <Circle cx={ballX} cy={ballY} r={BALL_R + 5} fill={ballColor} opacity={0.22} />
+                    {/* Ball core */}
                     <Circle
-                      key={`t-${i}`}
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={3 + (i / Math.max(1, trailRef.current.length)) * 5}
+                      cx={ballX}
+                      cy={ballY}
+                      r={BALL_R}
                       fill={ballColor}
-                      opacity={0.1 + (i / Math.max(1, trailRef.current.length)) * 0.35}
+                      stroke="rgba(255,255,255,0.92)"
+                      strokeWidth={2.5}
                     />
-                  ))}
-                  {particlesRef.current.map((p) => (
+                    {/* Ball specular highlight */}
                     <Circle
-                      key={p.id}
-                      cx={p.x}
-                      cy={p.y}
-                      r={4}
-                      fill={p.color}
-                      opacity={Math.max(0, p.life * 1.8)}
+                      cx={ballX - BALL_R * 0.28}
+                      cy={ballY - BALL_R * 0.28}
+                      r={BALL_R * 0.3}
+                      fill="rgba(255,255,255,0.45)"
                     />
-                  ))}
-                  <Circle cx={ballX} cy={ballY} r={BALL_R + 5} fill={ballColor} opacity={0.28} />
-                  <Circle
-                    cx={ballX}
-                    cy={ballY}
-                    r={BALL_R}
-                    fill={ballColor}
-                    stroke="rgba(255,255,255,0.9)"
-                    strokeWidth={2}
-                  />
-                </Svg>
+                    {/* Grace period: orbit guide ring */}
+                    {hud.inGrace ? (
+                      <Circle
+                        cx={stageCenterX}
+                        cy={stageCenterY}
+                        r={orbitR}
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth={1}
+                        fill="none"
+                        strokeDasharray="6,8"
+                      />
+                    ) : null}
+                  </Svg>
+                </View>
+
+                {/* Grace period countdown banner */}
+                {hud.inGrace && phase === 'playing' ? (
+                  <View style={styles.graceBanner} pointerEvents="none">
+                    <Text style={styles.graceText}>
+                      Get ready — {graceRemainSec.toFixed(1)}s
+                    </Text>
+                  </View>
+                ) : null}
+
+                <Text style={styles.hidden}>{tick}</Text>
               </View>
 
-              <Text style={styles.hidden}>{tick}</Text>
-            </View>
+              <View
+                style={[
+                  styles.swipeBar,
+                  {
+                    marginBottom: 10 + insets.bottom,
+                    width: Math.min(stageW, winW) - 20,
+                    zIndex: 2,
+                    elevation: 2,
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <SafeIonicons name="finger-print" size={26} color="rgba(248,250,252,0.9)" style={styles.swipeIcon} />
+                <Text style={styles.swipeHint}>Drag to spin · tap chip to switch color</Text>
+              </View>
 
-            <View
-              style={[
-                styles.swipeBar,
-                {
-                  marginBottom: 10 + insets.bottom,
-                  width: Math.min(stageW, winW) - 20,
-                  zIndex: 2,
-                  elevation: 2,
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <SafeIonicons name="finger-print" size={26} color="rgba(248,250,252,0.9)" style={styles.swipeIcon} />
-              <Text style={styles.swipeHint}>Drag anywhere above or here to spin 360°</Text>
-            </View>
-
-            <View
-              style={[styles.touchLayer, Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none' } as const) : null]}
-              onStartShouldSetResponder={() => phaseRef.current === 'playing'}
-              onMoveShouldSetResponder={() => phaseRef.current === 'playing'}
-              onStartShouldSetResponderCapture={() => phaseRef.current === 'playing'}
-              onMoveShouldSetResponderCapture={() => phaseRef.current === 'playing'}
-              onResponderTerminationRequest={() => false}
-              onResponderGrant={onTouchGrant}
-              onResponderMove={onTouchMove}
-            />
-
+              <View
+                style={[styles.touchLayer, Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none' } as const) : null]}
+                onStartShouldSetResponder={() => phaseRef.current === 'playing'}
+                onMoveShouldSetResponder={() => phaseRef.current === 'playing'}
+                onStartShouldSetResponderCapture={() => phaseRef.current === 'playing'}
+                onMoveShouldSetResponderCapture={() => phaseRef.current === 'playing'}
+                onResponderTerminationRequest={() => false}
+                onResponderGrant={onTouchGrant}
+                onResponderMove={onTouchMove}
+              />
             </View>
 
             <View style={styles.hudGlass}>
@@ -1094,14 +1236,19 @@ export default function NeonDanceGame({
                 accessibilityRole="button"
                 accessibilityLabel="Cycle ball color"
                 onPress={cycleBallColor}
-                hitSlop={10}
+                hitSlop={12}
                 style={({ pressed }) => [styles.swatchPress, pressed && { opacity: 0.85 }]}
               >
                 <View style={[styles.swatch, { backgroundColor: ballColor, shadowColor: ballColor }]} />
               </Pressable>
-              <Text style={styles.hudTxt}>
-                Drag to aim · tap chip to switch color · speed stays consistent all run
-              </Text>
+              <View style={styles.hudTextBlock}>
+                <Text style={styles.hudTxt}>Drag to aim · tap chip to switch color</Text>
+                {hud.streak >= 3 ? (
+                  <Text style={[styles.streakLabel, { color: ballColor }]}>
+                    🔥 {hud.streak} streak
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
         ) : null}
@@ -1214,7 +1361,7 @@ const styles = StyleSheet.create({
     zIndex: 55,
     elevation: 20,
   },
-  stageClip: { overflow: 'hidden', position: 'relative', backgroundColor: 'rgba(3,7,18,0.96)' },
+  stageClip: { overflow: 'hidden', position: 'relative', backgroundColor: 'rgba(2,4,14,0.97)' },
   swipeBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1246,20 +1393,19 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#22d3ee',
-        shadowOpacity: 0.28,
-        shadowRadius: 12,
+        shadowOpacity: 0.3,
+        shadowRadius: 14,
         shadowOffset: { width: 0, height: 0 },
       },
       default: {
         elevation: 4,
         shadowColor: '#22d3ee',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowOpacity: 0.22,
+        shadowRadius: 10,
         shadowOffset: { width: 0, height: 0 },
       },
     }),
   },
-  /** Web: hoop shadows create stacking contexts; Safari can paint them above the ball SVG. */
   hoopLayerWeb: {
     elevation: 0,
     shadowOpacity: 0,
@@ -1279,23 +1425,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(15,23,42,0.72)',
+    backgroundColor: 'rgba(10,15,30,0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
+    borderColor: 'rgba(148,163,184,0.22)',
   },
-  swatchPress: { borderRadius: 22, padding: 2 },
+  hudTextBlock: { flex: 1, gap: 2 },
+  swatchPress: { borderRadius: 24, padding: 2 },
   swatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.55)',
-    shadowOpacity: 0.85,
-    shadowRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+    shadowOpacity: 0.9,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
   },
-  hudTxt: { color: '#e2e8f0', fontWeight: '700', fontSize: 12, flex: 1 },
+  hudTxt: { color: '#94a3b8', fontWeight: '600', fontSize: 12 },
+  streakLabel: { fontSize: 13, fontWeight: '800' },
   hidden: { position: 'absolute', opacity: 0, height: 0, width: 0 },
+  graceBanner: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  graceText: {
+    color: 'rgba(203,213,225,0.82)',
+    fontSize: 13,
+    fontWeight: '700',
+    backgroundColor: 'rgba(2,6,23,0.65)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(2,6,23,0.72)',
@@ -1306,7 +1471,7 @@ const styles = StyleSheet.create({
   pauseCard: {
     padding: 24,
     borderRadius: 20,
-    backgroundColor: 'rgba(15,23,42,0.95)',
+    backgroundColor: 'rgba(10,15,30,0.96)',
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.35)',
     alignItems: 'center',

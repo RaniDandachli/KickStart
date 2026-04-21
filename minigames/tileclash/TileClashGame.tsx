@@ -92,17 +92,29 @@ function inHitOverlap(y: number): boolean {
   return y + TILE_H >= lo && y <= hi;
 }
 
+/**
+ * Resolve which tile a column tap hits. Older rows leave bad tiles scrolling behind the new
+ * row's green in the same column; picking max-y over *all* kinds made the 3rd+ tap often
+ * register the stale bad. Prefer any good in the band (frontmost good if stacked), else bad.
+ */
 function findTileInColumn(tiles: Tile[], col: number): Tile | undefined {
-  let best: Tile | undefined;
-  let bestY = -1e9;
+  let bestGood: Tile | undefined;
+  let bestGoodY = -1e9;
+  let bestBad: Tile | undefined;
+  let bestBadY = -1e9;
   for (const t of tiles) {
     if (t.col !== col || !inHitOverlap(t.y)) continue;
-    if (t.y > bestY) {
-      bestY = t.y;
-      best = t;
+    if (t.kind === 'good') {
+      if (t.y > bestGoodY) {
+        bestGoodY = t.y;
+        bestGood = t;
+      }
+    } else if (t.y > bestBadY) {
+      bestBadY = t.y;
+      bestBad = t;
     }
   }
-  return best;
+  return bestGood ?? bestBad;
 }
 
 function createGame(): GameModel {
