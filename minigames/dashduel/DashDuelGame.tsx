@@ -1,18 +1,17 @@
 // ─── NEON RUNNER — Game Screen ─────────────────────────────────────────────
-// Zone-themed visuals: each tier range shifts the entire color palette,
-// mimicking the "level progression" feel of Geometry Dash.
-// Parallax backgrounds, player trail, land particles, and zone flash.
+// Animated.Value + setValue() for world/player movement — no React re-renders
+// per frame. Performance fixes: no ground grid Views, no per-block grid lines,
+// SVG spikes are simple (no per-spike gradient IDs), zone label auto-hides.
 
 import {
   memo,
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
+  type ReactNode
 } from 'react';
 import {
   Animated,
@@ -24,10 +23,16 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Polygon, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
+import Svg, { Circle, Defs, Polygon, Stop, LinearGradient as SvgGrad } from 'react-native-svg';
 
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GROUND_Y, NR, ZONE_THEMES, getZoneTheme, type ZoneTheme } from '@/minigames/dashduel/constants';
+import {
+  GROUND_Y,
+  NR,
+  ZONE_THEMES,
+  getZoneTheme,
+  type ZoneTheme,
+} from '@/minigames/dashduel/constants';
 import { DashDuelHud } from '@/minigames/dashduel/DashDuelHud';
 import { DashDuelOpponentStrip } from '@/minigames/dashduel/DashDuelOpponentStrip';
 import {
@@ -39,6 +44,8 @@ import {
 } from '@/minigames/dashduel/engine';
 import type { Obstacle, Particle, RunState } from '@/minigames/dashduel/types';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 type Props = {
   seed: number;
@@ -53,54 +60,67 @@ type Props = {
   ) => void;
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function camX(playerWorldX: number): number {
   return playerWorldX - NR.PLAY_W * NR.PLAYER_SCREEN_X_RATIO;
 }
 
-function safeNonNegInt(n: number): number {
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.floor(n);
+function safeInt(n: number): number {
+  return !Number.isFinite(n) || n < 0 ? 0 : Math.floor(n);
 }
 
-function safeDrive(n: number): number {
+function safe(n: number): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function obstacleStableKey(o: Obstacle): string {
-  const base = `${o.kind}:${o.x.toFixed(1)}:${o.y.toFixed(1)}:${o.w.toFixed(1)}:${o.h.toFixed(1)}`;
-  return o.kind === 'ring' ? `${base}:${o.used ? 1 : 0}` : base;
+function obsKey(o: Obstacle): string {
+  const b = `${o.kind}:${Math.round(o.x)}:${Math.round(o.y)}:${Math.round(o.w)}:${Math.round(o.h)}`;
+  return o.kind === 'ring' ? `${b}:${o.used ? 1 : 0}` : b;
 }
 
-const HUD_BUMP_MIN_MS = 100;
-const MAX_RENDERED_OBSTACLES = 96;
-const PARALLAX_FAR_SPEED = 0.12;   // scrolls at 12% of world speed
-const PARALLAX_NEAR_SPEED = 0.35;  // scrolls at 35% of world speed
+const HUD_MIN_MS = 100;
+const MAX_VIS_OBS = 80;
+const PAR_FAR  = 0.08;
+const PAR_NEAR = 0.28;
 
-// ── Particle helpers ──────────────────────────────────────────────────────
+// ── Land particles ────────────────────────────────────────────────────────────
 
-function spawnLandParticles(
-  particles: Particle[],
-  worldX: number,
-  y: number,
-  theme: ZoneTheme,
-): void {
-  const count = 6;
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * (i / (count - 1)));
-    const speed = 0.8 + Math.random() * 1.4;
+function spawnLand(particles: Particle[], worldX: number, y: number): void {
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI * (i / 5);
+    const speed = 0.6 + Math.random() * 1.1;
     particles.push({
-      x: worldX + NR.PLAYER_W / 2,
-      y: y + NR.PLAYER_H,
-      vx: Math.cos(angle) * speed,
-      vy: -Math.abs(Math.sin(angle)) * speed * 0.8,
-      life: 220 + Math.random() * 80,
-      maxLife: 300,
-      radius: 1.5 + Math.random() * 1.5,
-      color: theme.playerFill,
+      x: worldX + NR.PLAYER_W / 2, y: y + NR.PLAYER_H,
+      vx: Math.cos(angle) * speed, vy: -Math.abs(Math.sin(angle)) * speed * 0.7,
+      life: 180 + Math.random() * 80, maxLife: 260,
+      radius: 1.2 + Math.random() * 1.3, color: '#39e600',
     });
   }
 }
 
+// ── Background rect data (stable per seed) ────────────────────────────────────
+
+interface BgR { x: number; y: number; w: number; h: number }
+
+function makeBgRects(seed: number, pw: number, ph: number, n: number, layer: number): BgR[] {
+  const skyH = ph * 0.80;
+  return Array.from({ length: n }, (_, i) => {
+    const r1 = ((seed * 1664525 + i * 22695477 + 1013904223 + layer * 999) >>> 0) / 0xffffffff;
+    const r2 = ((seed * 6364136  + i * 1664525  + 1442695037 + layer * 777) >>> 0) / 0xffffffff;
+    const r3 = ((seed * 1103515245 + i * 12345  + 2531011    + layer * 555) >>> 0) / 0xffffffff;
+    const r4 = ((seed * 214013    + i * 2531011  + 6364136    + layer * 333) >>> 0) / 0xffffffff;
+    return {
+      x: r3 * (pw * 1.5),
+      y: r4 * (skyH * 0.9),
+      w: pw * (0.06 + r1 * 0.20),
+      h: skyH * (0.12 + r2 * 0.55),
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundComplete }: Props) {
@@ -109,925 +129,517 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   const lh = Math.min(sw, sh);
   const insets = useSafeAreaInsets();
 
-  const HUD_H = 52;
-  const HINT_H = 28;
+  const HUD_H = 52, HINT_H = 28;
   const availW = lw - Math.max(insets.left, insets.right) * 2 - 8;
   const availH = lh - insets.top - insets.bottom - HUD_H - HINT_H;
-
-  const scaleByW = availW / NR.PLAY_W;
-  const scaleByH = availH / NR.PLAY_H;
-  const rawScale = Math.min(scaleByW, scaleByH);
+  const rawScale = Math.min(availW / NR.PLAY_W, availH / NR.PLAY_H);
   const scale = Number.isFinite(rawScale) && rawScale > 0 ? Math.max(0.1, Math.min(rawScale, 6)) : 1;
-  const playW = NR.PLAY_W * scale;
-  const playH = NR.PLAY_H * scale;
+  const PW = NR.PLAY_W * scale;
+  const PH = NR.PLAY_H * scale;
 
   // ── Engine refs ──────────────────────────────────────────────────────────
-  const stateRef = useRef<RunState | null>(null);
-  const inputRef = useRef<InputState>(createInputState());
-  const completedRef = useRef(false);
-  const abortedRef = useRef(false);
-  const lastHudBumpRef = useRef(0);
-  const lastObsCountRef = useRef(0);
-  const roundCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scaleRef = useRef(scale);
+  const stateRef   = useRef<RunState | null>(null);
+  const inputRef   = useRef<InputState>(createInputState());
+  const doneRef    = useRef(false);
+  const abortRef   = useRef(false);
+  const hudTRef    = useRef(0);
+  const lastObsN   = useRef(0);
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scaleRef   = useRef(scale);
   scaleRef.current = scale;
 
-  // Particles live outside React state for perf — rendered via canvas-style View list
   const particlesRef = useRef<Particle[]>([]);
+  const zFlashRef    = useRef(0);
+  const [zoneFlash, setZoneFlash]   = useState(false);
+  const [theme, setTheme]           = useState<ZoneTheme>(ZONE_THEMES[0]);
+  const [zoneLabel, setZoneLabel]   = useState('');
+  const zoneLblTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Zone flash state
-  const zoneFlashRef = useRef(0); // ms remaining
-  const [zoneFlashActive, setZoneFlashActive] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<ZoneTheme>(ZONE_THEMES[0]);
+  // ── Animated values ──────────────────────────────────────────────────────
+  // World translate
+  const worldTx  = useRef(new Animated.Value(0)).current;
+  // Player position & rotation
+  const playerL  = useRef(new Animated.Value(0)).current;
+  const playerT  = useRef(new Animated.Value(0)).current;
+  const playerDeg = useRef(new Animated.Value(0)).current;
+  // Parallax
+  const parFar   = useRef(new Animated.Value(0)).current;
+  const parNear  = useRef(new Animated.Value(0)).current;
 
-  const worldTxAnim = useRef(new Animated.Value(0)).current;
-  const playerLAnim = useRef(new Animated.Value(0)).current;
-  const playerTAnim = useRef(new Animated.Value(0)).current;
-  const playerWAnim = useRef(new Animated.Value(NR.PLAYER_W)).current;
-  const playerHAnim = useRef(new Animated.Value(NR.PLAYER_H)).current;
-  const playerDegAnim = useRef(new Animated.Value(0)).current;
-
-  // Parallax scroll animated values — driven from scroll
-  const parFarTxAnim = useRef(new Animated.Value(0)).current;
-  const parNearTxAnim = useRef(new Animated.Value(0)).current;
-
-  const playerRotate = useMemo(
-    () =>
-      playerDegAnim.interpolate({
-        inputRange: [-72000, 72000],
-        outputRange: ['-72000deg', '72000deg'],
-      }),
-    [playerDegAnim],
-  );
+  const playerRotate = useMemo(() =>
+    playerDeg.interpolate({ inputRange: [-72000, 72000], outputRange: ['-72000deg', '72000deg'] }),
+  [playerDeg]);
 
   const [, setTick] = useState(0);
   const [engineOn, setEngineOn] = useState(true);
-  const [stripPlayfield, setStripPlayfield] = useState(false);
+  const [strip, setStrip] = useState(false);
 
   if (stateRef.current === null) {
     stateRef.current = createRunState(seed);
     inputRef.current = createInputState();
   }
 
-  const bump = useCallback(() => setTick((t) => t + 1), []);
+  const bump = useCallback(() => setTick(t => t + 1), []);
+
+  // ── BG rects (stable) ────────────────────────────────────────────────────
+  const bgFar  = useMemo(() => makeBgRects(seed, NR.PLAY_W, NR.PLAY_H, 12, 0), [seed]);
+  const bgNear = useMemo(() => makeBgRects(seed, NR.PLAY_W, NR.PLAY_H, 8,  1), [seed]);
 
   // ── RAF loop ─────────────────────────────────────────────────────────────
-  const loop = useCallback(
-    (totalDtMs: number) => {
-      if (abortedRef.current) return;
-      const s = stateRef.current;
-      if (!s || s.phase !== 'playing' || completedRef.current) return;
+  const loop = useCallback((dtMs: number) => {
+    if (abortRef.current) return;
+    const s = stateRef.current;
+    if (!s || s.phase !== 'playing' || doneRef.current) return;
 
-      runFixedPhysicsSteps(totalDtMs, (h) => {
-        if (!s || abortedRef.current) return false;
-        stepRun(s, inputRef.current, h);
-        return s.phase === 'playing';
-      });
+    runFixedPhysicsSteps(dtMs, (h) => {
+      if (!s || abortRef.current) return false;
+      stepRun(s, inputRef.current, h);
+      return s.phase === 'playing';
+    });
 
-      const snap = stateRef.current!;
-      const sc = scaleRef.current;
-      const cx = camX(snap.player.worldX);
+    const snap = stateRef.current!;
+    const sc = scaleRef.current;
+    const cx = camX(snap.player.worldX);
 
-      worldTxAnim.setValue(safeDrive(-cx * sc));
-      playerLAnim.setValue(safeDrive(snap.player.worldX * sc));
-      playerTAnim.setValue(safeDrive(snap.player.y * sc));
-      playerWAnim.setValue(safeDrive(NR.PLAYER_W * sc));
-      playerHAnim.setValue(safeDrive(NR.PLAYER_H * sc));
-      playerDegAnim.setValue(safeDrive((snap.player.angle * 180) / Math.PI));
+    // Update Animated values (native driver NOT used — values drive layout directly)
+    worldTx.setValue(safe(-cx * sc));
+    playerL.setValue(safe(snap.player.worldX * sc));
+    playerT.setValue(safe(snap.player.y * sc));
+    playerDeg.setValue(safe((snap.player.angle * 180) / Math.PI));
+    parFar.setValue( safe(-(snap.scroll * PAR_FAR  * sc) % (NR.PLAY_W * sc * 2.5)));
+    parNear.setValue(safe(-(snap.scroll * PAR_NEAR * sc) % (NR.PLAY_W * sc * 2.5)));
 
-      // Parallax: offset moves opposite to scroll (slower than world)
-      const farOff = -(snap.scroll * PARALLAX_FAR_SPEED * sc) % (NR.PLAY_W * sc * 2);
-      const nearOff = -(snap.scroll * PARALLAX_NEAR_SPEED * sc) % (NR.PLAY_W * sc * 2);
-      parFarTxAnim.setValue(safeDrive(farOff));
-      parNearTxAnim.setValue(safeDrive(nearOff));
+    // Particles
+    if (snap.player.justLanded) spawnLand(particlesRef.current, snap.player.worldX, snap.player.y);
+    for (const p of particlesRef.current) {
+      p.x += p.vx * (dtMs / 16); p.y += p.vy * (dtMs / 16);
+      p.vy += 0.08 * (dtMs / 16); p.life -= dtMs;
+    }
+    particlesRef.current = particlesRef.current.filter(p => p.life > 0);
 
-      // Particles
-      const theme = getZoneTheme(snap.tier);
-      if (snap.player.justLanded) {
-        spawnLandParticles(particlesRef.current, snap.player.worldX, snap.player.y, theme);
-      }
-      // Advance + cull particles
-      for (const p of particlesRef.current) {
-        p.x += p.vx * (totalDtMs / 16);
-        p.y += p.vy * (totalDtMs / 16);
-        p.vy += 0.08 * (totalDtMs / 16);
-        p.life -= totalDtMs;
-      }
-      particlesRef.current = particlesRef.current.filter((p) => p.life > 0);
+    // Zone change
+    if (snap.zoneChanged) {
+      const t = getZoneTheme(snap.tier);
+      setTheme(t);
+      setZoneFlash(true);
+      setZoneLabel(t.name);
+      if (zoneLblTimer.current) clearTimeout(zoneLblTimer.current);
+      zoneLblTimer.current = setTimeout(() => {
+        setZoneFlash(false);
+        setZoneLabel('');
+        zoneLblTimer.current = null;
+      }, 1800);
+    }
 
-      // Zone flash
-      if (snap.zoneChanged) {
-        zoneFlashRef.current = 280;
-        setCurrentTheme(theme);
-        setZoneFlashActive(true);
-      }
-      if (zoneFlashRef.current > 0) {
-        zoneFlashRef.current -= totalDtMs;
-        if (zoneFlashRef.current <= 0) setZoneFlashActive(false);
-      }
+    // HUD bump (~10fps)
+    const now = performance.now();
+    const oc = snap.obstacles.length;
+    if (snap.phase === 'dead' || oc !== lastObsN.current || now - hudTRef.current > HUD_MIN_MS) {
+      lastObsN.current = oc; hudTRef.current = now;
+      bump();
+    }
 
-      const ended = snap.phase === 'dead';
-      const now = performance.now();
-      const oc = snap.obstacles.length;
-      const obsChanged = oc !== lastObsCountRef.current;
-      if (obsChanged) lastObsCountRef.current = oc;
-      if (ended || obsChanged || now - lastHudBumpRef.current >= HUD_BUMP_MIN_MS) {
-        lastHudBumpRef.current = now;
-        bump();
-      }
-
-      if (ended && !completedRef.current) {
-        completedRef.current = true;
-        setStripPlayfield(true);
-        setEngineOn(false);
-        const pts = safeNonNegInt(scoreFromState(snap));
-        const dist = safeNonNegInt(snap.scroll);
-        const dur = safeNonNegInt(Number.isFinite(snap.elapsed) ? snap.elapsed : 0);
-        const jumps = safeNonNegInt(snap.jumpCount);
-        if (roundCompleteTimerRef.current) clearTimeout(roundCompleteTimerRef.current);
-        roundCompleteTimerRef.current = setTimeout(() => {
-          roundCompleteTimerRef.current = null;
-          if (abortedRef.current) return;
-          try {
-            onRoundComplete(pts, dist, dur, jumps);
-          } catch (e) {
-            if (__DEV__) console.warn('[DashDuelGame] onRoundComplete failed', e);
-          }
-        }, 72);
-      }
-    },
-    [bump, onRoundComplete],
-  );
+    if (snap.phase === 'dead' && !doneRef.current) {
+      doneRef.current = true;
+      setStrip(true);
+      setEngineOn(false);
+      const pts = safeInt(scoreFromState(snap));
+      const dist = safeInt(snap.scroll);
+      const dur  = safeInt(snap.elapsed);
+      const jmps = safeInt(snap.jumpCount);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        if (abortRef.current) return;
+        try { onRoundComplete(pts, dist, dur, jmps); } catch {}
+      }, 72);
+    }
+  }, [bump, onRoundComplete]);
 
   useRafLoop(loop, engineOn);
 
   useEffect(() => {
-    if (roundCompleteTimerRef.current) {
-      clearTimeout(roundCompleteTimerRef.current);
-      roundCompleteTimerRef.current = null;
-    }
-    abortedRef.current = false;
-    completedRef.current = false;
-    lastHudBumpRef.current = 0;
-    lastObsCountRef.current = 0;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (zoneLblTimer.current) { clearTimeout(zoneLblTimer.current); zoneLblTimer.current = null; }
+    abortRef.current = false; doneRef.current = false;
+    hudTRef.current = 0; lastObsN.current = 0;
     particlesRef.current = [];
-    setStripPlayfield(false);
-    setCurrentTheme(ZONE_THEMES[0]);
-    setZoneFlashActive(false);
+    setStrip(false); setTheme(ZONE_THEMES[0]); setZoneFlash(false); setZoneLabel('');
     stateRef.current = createRunState(seed);
     inputRef.current = createInputState();
     setEngineOn(true);
     bump();
   }, [seed, bump]);
 
-  useEffect(
-    () => () => {
-      if (roundCompleteTimerRef.current) {
-        clearTimeout(roundCompleteTimerRef.current);
-        roundCompleteTimerRef.current = null;
-      }
-    },
-    [],
-  );
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (zoneLblTimer.current) clearTimeout(zoneLblTimer.current);
+  }, []);
 
   useLayoutEffect(() => {
-    if (stripPlayfield) return;
-    const st = stateRef.current;
-    if (!st) return;
-    const cx = camX(st.player.worldX);
+    if (strip) return;
+    const st = stateRef.current; if (!st) return;
     const sc = scale;
-    worldTxAnim.setValue(safeDrive(-cx * sc));
-    playerLAnim.setValue(safeDrive(st.player.worldX * sc));
-    playerTAnim.setValue(safeDrive(st.player.y * sc));
-    playerWAnim.setValue(safeDrive(NR.PLAYER_W * sc));
-    playerHAnim.setValue(safeDrive(NR.PLAYER_H * sc));
-    playerDegAnim.setValue(safeDrive((st.player.angle * 180) / Math.PI));
-  }, [scale, seed, stripPlayfield]);
+    const cx = camX(st.player.worldX);
+    worldTx.setValue(safe(-cx * sc));
+    playerL.setValue(safe(st.player.worldX * sc));
+    playerT.setValue(safe(st.player.y * sc));
+    playerDeg.setValue(safe((st.player.angle * 180) / Math.PI));
+  }, [scale, seed, strip]);
 
   // ── Render data ──────────────────────────────────────────────────────────
-  const s = stateRef.current!;
+  const s  = stateRef.current!;
   const cx = camX(s.player.worldX);
-  const displayScore = safeNonNegInt(scoreFromState(s));
-  const rivalDist = safeNonNegInt(s.scroll * 0.92);
-  const theme = getZoneTheme(s.tier);
+  const visLeft  = cx - 40;
+  const visRight = cx + NR.PLAY_W + 60;
 
-  const visLeft = cx - 60;
-  const visRight = cx + NR.PLAY_W + 80;
-  const visibleObstacles: Obstacle[] = [];
-  if (!stripPlayfield) {
+  const visObs: Obstacle[] = [];
+  if (!strip) {
     for (const o of s.obstacles) {
       if (o.x + o.w < visLeft || o.x > visRight) continue;
-      visibleObstacles.push(o);
-      if (visibleObstacles.length >= MAX_RENDERED_OBSTACLES) break;
+      visObs.push(o);
+      if (visObs.length >= MAX_VIS_OBS) break;
     }
   }
 
-  // Visible particles (convert world→screen)
-  const visParticles = stripPlayfield
-    ? []
-    : particlesRef.current.filter((p) => p.x > cx - 10 && p.x < cx + NR.PLAY_W + 10);
-
-  // Visible trail points
-  const trailPoints = stripPlayfield ? [] : s.player.trail;
+  const visPar = strip ? [] : particlesRef.current.filter(
+    p => p.x > cx - 10 && p.x < cx + NR.PLAY_W + 10
+  );
+  const trailPts = strip ? [] : s.player.trail;
 
   const obs = s.obstacles;
-  const tailWorld =
-    obs.length === 0
-      ? NR.PLAY_W * 3
-      : obs[obs.length - 1]!.x + obs[obs.length - 1]!.w + NR.TILE * 2;
-  const worldUnits = Math.max(NR.PLAY_W * 3, tailWorld, s.player.worldX + NR.PLAY_W * 2);
-  const worldWpx = Math.min(worldUnits * scale, 28000);
+  const worldW = Math.min(
+    Math.max(NR.PLAY_W * 3, obs.length > 0 ? obs[obs.length - 1]!.x + 200 : 0, s.player.worldX + NR.PLAY_W * 2) * scale,
+    28000,
+  );
 
-  const onJumpIn = () => {
-    inputRef.current.jumpPressedThisFrame = true;
-    inputRef.current.jumpHeld = true;
-  };
-  const onJumpOut = () => {
-    inputRef.current.jumpHeld = false;
-  };
+  const GY = GROUND_Y * scale;          // ground y in screen coords
+  const GH = (NR.PLAY_H - GROUND_Y) * scale; // ground strip height in screen coords
+  const PW_player = NR.PLAYER_W * scale;
+  const PH_player = NR.PLAYER_H * scale;
 
-  const keyboardPlayActive = engineOn && !stripPlayfield;
-  useWebGameKeyboard(keyboardPlayActive, {
-    Space: (down) => { if (down) onJumpIn(); else onJumpOut(); },
-    ArrowUp: (down) => { if (down) onJumpIn(); else onJumpOut(); },
+  const onJumpIn  = () => { inputRef.current.jumpPressedThisFrame = true; inputRef.current.jumpHeld = true; };
+  const onJumpOut = () => { inputRef.current.jumpHeld = false; };
+
+  useWebGameKeyboard(engineOn && !strip, {
+    Space:   d => { if (d) onJumpIn(); else onJumpOut(); },
+    ArrowUp: d => { if (d) onJumpIn(); else onJumpOut(); },
   });
 
   const handleExit = useCallback(() => {
-    abortedRef.current = true;
-    if (roundCompleteTimerRef.current) {
-      clearTimeout(roundCompleteTimerRef.current);
-      roundCompleteTimerRef.current = null;
-    }
+    abortRef.current = true;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     setEngineOn(false);
     onExit();
   }, [onExit]);
 
-  // Zone name display (show for ~2s after zone change)
-  const [zoneLabel, setZoneLabel] = useState('');
-  const zoneLabelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!zoneFlashActive) return;
-    setZoneLabel(currentTheme.name);
-    if (zoneLabelTimerRef.current) clearTimeout(zoneLabelTimerRef.current);
-    zoneLabelTimerRef.current = setTimeout(() => setZoneLabel(''), 2000);
-  }, [zoneFlashActive, currentTheme]);
-  useEffect(() => () => { if (zoneLabelTimerRef.current) clearTimeout(zoneLabelTimerRef.current); }, []);
-
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.sky }]}>
       <MemoHud
-        distance={safeNonNegInt(s.scroll)}
-        score={displayScore}
-        practiceLabel={practiceLabel}
-        prizeLabel={prizeLabel}
-        onBack={handleExit}
-        speedFrac={1}
+        distance={safeInt(s.scroll)} score={safeInt(scoreFromState(s))}
+        practiceLabel={practiceLabel} prizeLabel={prizeLabel}
+        onBack={handleExit} speedFrac={1}
         timeLeftMs={NR.ROUND_MS > 0 ? NR.ROUND_MS - s.elapsed : 0}
       />
-      <MemoOpponentStrip
-        p1Alive={!s.player.dead}
-        p2Alive
-        p1Dist={safeNonNegInt(s.scroll)}
-        p2Dist={rivalDist}
-        p1Flash={s.player.dead ? 1 : 0}
+      <MemoStrip
+        p1Alive={!s.player.dead} p2Alive p1Dist={safeInt(s.scroll)}
+        p2Dist={safeInt(s.scroll * 0.92)} p1Flash={s.player.dead ? 1 : 0}
       />
 
-      {stripPlayfield ? (
-        <View
-          style={[styles.fieldOuter, { width: playW, height: playH, backgroundColor: theme.sky, borderColor: theme.groundLine + '88' }]}
-          collapsable={false}
-        />
+      {/* ── Playfield ── */}
+      {strip ? (
+        <View style={[styles.field, { width: PW, height: PH, backgroundColor: theme.sky, borderColor: theme.accentColor + '55' }]} />
       ) : (
-        <View
-          style={[
-            styles.fieldOuter,
-            {
-              width: playW,
-              height: playH,
-              borderColor: theme.groundLine + '99',
-              shadowColor: theme.playerGlow,
-            },
-          ]}
-          collapsable={false}
+        <Pressable
+          style={[styles.field, { width: PW, height: PH, borderColor: theme.accentColor + '88' }]}
+          onPressIn={onJumpIn} onPressOut={onJumpOut}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPressIn={onJumpIn} onPressOut={onJumpOut}>
-            {/* Sky background */}
-            <View style={[styles.sky, { width: playW, height: playH, backgroundColor: theme.sky }]} collapsable={false}>
+          {/* Sky */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.sky }]} pointerEvents="none" />
 
-              {/* Parallax layer FAR — slow geometric shapes */}
-              <Animated.View
-                style={[styles.parallaxLayer, { transform: [{ translateX: parFarTxAnim }] }]}
-                pointerEvents="none"
-              >
-                <MemoParallaxFar theme={theme} width={playW * 2.2} height={playH} />
-              </Animated.View>
+          {/* ── Parallax far bg rectangles ── */}
+          <Animated.View style={[styles.parLayer, { transform: [{ translateX: parFar }] }]} pointerEvents="none">
+            {bgFar.map((r, i) => (
+              <View key={i} style={{
+                position: 'absolute',
+                left: r.x * scale, top: r.y * scale,
+                width: r.w * scale, height: r.h * scale,
+                backgroundColor: theme.bgRect1,
+                opacity: 0.06 + (i % 3) * 0.02,
+              }} />
+            ))}
+          </Animated.View>
 
-              {/* Parallax layer NEAR — faster silhouettes */}
-              <Animated.View
-                style={[styles.parallaxLayer, { transform: [{ translateX: parNearTxAnim }] }]}
-                pointerEvents="none"
-              >
-                <MemoParallaxNear theme={theme} width={playW * 2.2} height={playH} groundY={GROUND_Y * scale} />
-              </Animated.View>
+          {/* ── Parallax near bg rectangles ── */}
+          <Animated.View style={[styles.parLayer, { transform: [{ translateX: parNear }] }]} pointerEvents="none">
+            {bgNear.map((r, i) => (
+              <View key={i} style={{
+                position: 'absolute',
+                left: r.x * scale, top: r.y * scale,
+                width: r.w * scale, height: r.h * scale,
+                backgroundColor: theme.bgRect2,
+                opacity: 0.09 + (i % 2) * 0.03,
+              }} />
+            ))}
+          </Animated.View>
 
-              {/* Grid */}
-              <MemoGridBg width={playW} height={playH} groundY={GROUND_Y * scale} color={theme.gridLine} />
+          {/* Zone flash overlay — shown briefly on theme change */}
+          {zoneFlash && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.accentColor, opacity: 0.08 }]} pointerEvents="none" />
+          )}
 
-              {/* Zone flash overlay */}
-              {zoneFlashActive && (
-                <View
-                  style={[
-                    StyleSheet.absoluteFill,
-                    { backgroundColor: theme.groundLine, opacity: 0.12, borderRadius: 2 },
-                  ]}
-                  pointerEvents="none"
-                />
-              )}
-
-              {/* Zone label */}
-              {zoneLabel !== '' && (
-                <View style={styles.zoneLabelWrap} pointerEvents="none">
-                  <Text style={[styles.zoneLabel, { color: theme.groundLine }]}>{zoneLabel}</Text>
-                </View>
-              )}
-
-              {/* World layer */}
-              <Animated.View
-                style={[
-                  styles.world,
-                  { width: worldWpx, height: playH, transform: [{ translateX: worldTxAnim }] },
-                ]}
-                collapsable={false}
-              >
-                {/* Ground */}
-                <View
-                  style={[
-                    styles.ground,
-                    {
-                      top: GROUND_Y * scale,
-                      height: (NR.PLAY_H - GROUND_Y) * scale,
-                      width: worldWpx,
-                      backgroundColor: theme.ground,
-                      borderTopColor: theme.groundLine,
-                    },
-                  ]}
-                />
-
-                {/* Trail */}
-                {trailPoints.map((tp, i) => {
-                  const opacity = (1 - tp.age / 120) * 0.55 * (i / Math.max(trailPoints.length - 1, 1));
-                  if (opacity < 0.04) return null;
-                  const sz = Math.max(2, (NR.PLAYER_W * scale * 0.55) * (i / Math.max(trailPoints.length - 1, 1)));
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        left: tp.x * scale - sz / 2,
-                        top: tp.y * scale - sz / 2,
-                        width: sz,
-                        height: sz,
-                        borderRadius: sz / 2,
-                        backgroundColor: theme.playerFill,
-                        opacity,
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Particles */}
-                {visParticles.map((p, i) => {
-                  const opacity = Math.max(0, p.life / p.maxLife) * 0.9;
-                  const sz = Math.max(1, p.radius * scale);
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        left: p.x * scale - sz / 2,
-                        top: p.y * scale - sz / 2,
-                        width: sz,
-                        height: sz,
-                        borderRadius: sz / 2,
-                        backgroundColor: p.color,
-                        opacity,
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Obstacles */}
-                {visibleObstacles.map((o, idx) => (
-                  <MemoObstacle
-                    key={`${obstacleStableKey(o)}#${idx}`}
-                    o={o}
-                    scale={scale}
-                    playH={playH}
-                    theme={theme}
-                  />
-                ))}
-
-                {/* Player */}
-                <Animated.View
-                  style={[
-                    styles.player,
-                    {
-                      left: playerLAnim,
-                      top: playerTAnim,
-                      width: playerWAnim,
-                      height: playerHAnim,
-                      backgroundColor: theme.playerFill,
-                      borderColor: theme.playerBorder,
-                      shadowColor: theme.playerGlow,
-                      transform: [{ rotate: playerRotate }],
-                    },
-                  ]}
-                  collapsable={false}
-                >
-                  <View style={[styles.playerInner, { backgroundColor: theme.playerInner }]} />
-                </Animated.View>
-              </Animated.View>
+          {/* Zone label */}
+          {zoneLabel !== '' && (
+            <View style={styles.zoneLblWrap} pointerEvents="none">
+              <Text style={[styles.zoneLbl, { color: theme.accentColor }]}>{zoneLabel.toUpperCase()}</Text>
             </View>
-          </Pressable>
-        </View>
+          )}
+
+          {/* ── Ground — no grid Views, just a solid bar with top border ── */}
+          <View
+            style={{
+              position: 'absolute', left: 0, top: GY,
+              width: PW, height: GH,
+              backgroundColor: theme.ground,
+              borderTopWidth: 2, borderTopColor: theme.groundLine,
+            }}
+            pointerEvents="none"
+          />
+
+          {/* ── Scrolling world ── */}
+          <Animated.View
+            style={[styles.world, { width: worldW, height: PH, transform: [{ translateX: worldTx }] }]}
+            collapsable={false}
+          >
+            {/* Trail — pixel squares */}
+            {trailPts.map((tp, i) => {
+              const frac = i / Math.max(trailPts.length - 1, 1);
+              const opacity = frac * 0.6 * (1 - tp.age / 120);
+              if (opacity < 0.04) return null;
+              const sz = Math.max(2, NR.PLAYER_W * scale * 0.35 * frac);
+              return (
+                <View key={i} style={{
+                  position: 'absolute',
+                  left: tp.x * scale - sz / 2, top: tp.y * scale - sz / 2,
+                  width: sz, height: sz,
+                  backgroundColor: theme.playerOuter, opacity,
+                }} />
+              );
+            })}
+
+            {/* Land particles */}
+            {visPar.map((p, i) => {
+              const op = Math.max(0, p.life / p.maxLife) * 0.85;
+              const sz = Math.max(1, p.radius * scale);
+              return (
+                <View key={i} style={{
+                  position: 'absolute',
+                  left: p.x * scale - sz / 2, top: p.y * scale - sz / 2,
+                  width: sz, height: sz, borderRadius: sz / 2,
+                  backgroundColor: p.color, opacity: op,
+                }} />
+              );
+            })}
+
+            {/* Obstacles */}
+            {visObs.map((o, idx) => (
+              <ObstacleView
+                key={`${obsKey(o)}#${idx}`}
+                o={o} scale={scale} playH={PH} groundY={GY} theme={theme}
+              />
+            ))}
+
+            {/* ── Player ── */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                left: playerL, top: playerT,
+                width: PW_player, height: PH_player,
+                transform: [{ rotate: playerRotate }],
+              }}
+              collapsable={false}
+            >
+              {/* Outer green border */}
+              <View style={{
+                position: 'absolute', top: 0, left: 0,
+                width: PW_player, height: PH_player,
+                borderWidth: Math.max(2, scale * 2.5),
+                borderColor: theme.playerOuter,
+              }} />
+              {/* Mid square */}
+              <View style={{
+                position: 'absolute',
+                top: PH_player * 0.22, left: PW_player * 0.22,
+                width: PW_player * 0.56, height: PH_player * 0.56,
+                borderWidth: Math.max(1, scale * 1.5),
+                borderColor: theme.playerMid,
+                backgroundColor: theme.playerMid + '44',
+              }} />
+              {/* Inner cyan dot */}
+              <View style={{
+                position: 'absolute',
+                top: PH_player * 0.40, left: PW_player * 0.40,
+                width: PW_player * 0.20, height: PH_player * 0.20,
+                backgroundColor: theme.playerInner,
+              }} />
+            </Animated.View>
+          </Animated.View>
+        </Pressable>
       )}
 
-      {/* Hint */}
-      <View style={[styles.hintBlock, { marginBottom: Math.max(4, insets.bottom) }]}>
-        <Text style={[styles.tapHint, { color: theme.groundLine + 'aa' }]}>
+      <View style={[styles.hint, { marginBottom: Math.max(4, insets.bottom) }]}>
+        <Text style={[styles.hintTxt, { color: theme.accentColor + 'bb' }]}>
           {Platform.OS === 'web'
-            ? 'CLICK / SPACE / ↑ TO JUMP · HOLD TO CHAIN'
-            : 'TAP TO JUMP · HOLD TO CHAIN JUMPS'}
+            ? 'SPACE / ↑ TO JUMP · HOLD TO CHAIN'
+            : 'TAP TO JUMP · HOLD TO CHAIN'}
         </Text>
       </View>
     </View>
   );
 }
 
-// ─── Parallax Backgrounds ─────────────────────────────────────────────────────
+// ─── Obstacle renderer ────────────────────────────────────────────────────────
 
-const MemoParallaxFar = memo(function ParallaxFar({
-  theme,
-  width,
-  height,
+const ObstacleView = memo(function ObstacleView({
+  o, scale, playH, groundY, theme,
 }: {
-  theme: ZoneTheme;
-  width: number;
-  height: number;
-}) {
-  // Distant geometric silhouettes — repeat to allow infinite scroll
-  const shapes: ReactNode[] = [];
-  const count = 10;
-  const skyH = height * 0.72;
-  for (let i = 0; i < count; i++) {
-    const x = (i / count) * width;
-    const h = skyH * (0.2 + ((i * 7 + 3) % 10) / 10 * 0.35);
-    const w = width / count * 0.55;
-    shapes.push(
-      <View
-        key={i}
-        style={{
-          position: 'absolute',
-          left: x,
-          top: skyH - h,
-          width: w,
-          height: h,
-          backgroundColor: theme.parallaxColor,
-        }}
-      />,
-    );
-  }
-  return <View style={{ width, height, position: 'relative' }}>{shapes}</View>;
-});
-
-const MemoParallaxNear = memo(function ParallaxNear({
-  theme,
-  width,
-  height,
-  groundY,
-}: {
-  theme: ZoneTheme;
-  width: number;
-  height: number;
-  groundY: number;
-}) {
-  // Closer, taller silhouettes just above the ground plane
-  const shapes: ReactNode[] = [];
-  const count = 7;
-  for (let i = 0; i < count; i++) {
-    const x = (i / count) * width;
-    const h = (groundY * 0.18) + ((i * 13 + 5) % 7) * (groundY * 0.05);
-    const w = width / count * 0.65;
-    shapes.push(
-      <View
-        key={i}
-        style={{
-          position: 'absolute',
-          left: x,
-          top: groundY - h,
-          width: w,
-          height: h,
-          backgroundColor: theme.parallaxColor,
-          opacity: 1.8,
-        }}
-      />,
-    );
-  }
-  return <View style={{ width, height, position: 'relative' }}>{shapes}</View>;
-});
-
-// ─── Background Grid ──────────────────────────────────────────────────────────
-
-const MemoGridBg = memo(function GridBg({
-  width,
-  height,
-  groundY,
-  color,
-}: {
-  width: number;
-  height: number;
-  groundY: number;
-  color: string;
-}) {
-  const gridSize = 22;
-  const vLines: ReactNode[] = [];
-  const hLines: ReactNode[] = [];
-  for (let x = 0; x <= width; x += gridSize) {
-    vLines.push(
-      <View
-        key={`v${x}`}
-        style={{
-          position: 'absolute',
-          left: x,
-          top: 0,
-          width: 0.5,
-          height: groundY,
-          backgroundColor: color,
-        }}
-      />,
-    );
-  }
-  for (let y = 0; y <= groundY; y += gridSize) {
-    hLines.push(
-      <View
-        key={`h${y}`}
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: y,
-          height: 0.5,
-          width,
-          backgroundColor: color,
-        }}
-      />,
-    );
-  }
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {vLines}
-      {hLines}
-    </View>
-  );
-});
-
-// ─── Obstacle rendering ───────────────────────────────────────────────────────
-
-type ObstacleProps = { o: Obstacle; scale: number; playH: number; theme: ZoneTheme };
-
-function SpikeView({
-  left,
-  top,
-  w,
-  h,
-  pointingUp,
-  gradientId,
-  fill0,
-  fill1,
-  stroke,
-}: {
-  left: number;
-  top: number;
-  w: number;
-  h: number;
-  pointingUp: boolean;
-  gradientId: string;
-  fill0: string;
-  fill1: string;
-  stroke: string;
+  o: Obstacle; scale: number; playH: number; groundY: number; theme: ZoneTheme;
 }): ReactNode {
-  const sw = Math.max(1.2, Math.min(w, h) * 0.1);
-  const ins = Math.max(0.4, sw * 0.4);
-  const points = pointingUp
-    ? `${w / 2},${ins} ${w - ins},${h - ins} ${ins},${h - ins}`
-    : `${w / 2},${h - ins} ${ins},${ins} ${w - ins},${ins}`;
-  return (
-    <View style={{ position: 'absolute', left, top, width: w, height: h }}>
-      <Svg width={w} height={h}>
-        <Defs>
-          <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={fill0} />
-            <Stop offset="1" stopColor={fill1} />
-          </SvgLinearGradient>
-        </Defs>
-        <Polygon
-          points={points}
-          fill={`url(#${gradientId})`}
-          stroke={stroke}
-          strokeWidth={sw}
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-const MemoObstacle = memo(function ObstacleView({ o, scale, playH, theme }: ObstacleProps): ReactNode {
-  const spikeGradientId = useId().replace(/:/g, '_');
+  // Use a stable gradient ID based on obstacle position — no useId() inside memo
+  const gid = `sg${Math.round(o.x)}_${Math.round(o.y)}_${o.kind === 'ceilingSpike' ? 'd' : 'u'}`;
   const left = o.x * scale;
-  const w = Math.max(1, o.w * scale);
-  const top = o.y * scale;
-  const h = Math.max(1, o.h * scale);
+  const w    = Math.max(1, o.w * scale);
+  const top  = o.y * scale;
+  const h    = Math.max(1, o.h * scale);
 
   switch (o.kind) {
     case 'void':
       return (
-        <View
-          style={[
-            styles.voidPit,
-            {
-              left,
-              top: GROUND_Y * scale,
-              width: w,
-              height: Math.max(0, playH - GROUND_Y * scale),
-              backgroundColor: theme.voidFill,
-              borderTopColor: theme.voidLine,
-            },
-          ]}
-        />
-      );
-
-    case 'spike':
-      return (
-        <SpikeView
-          gradientId={spikeGradientId}
-          left={left}
-          top={top}
-          w={w}
-          h={h}
-          pointingUp
-          fill0={theme.spikeFill0}
-          fill1={theme.spikeFill1}
-          stroke={theme.spikeStroke}
-        />
-      );
-
-    case 'ceilingSpike':
-      return (
-        <SpikeView
-          gradientId={spikeGradientId}
-          left={left}
-          top={top}
-          w={w}
-          h={h}
-          pointingUp={false}
-          fill0={theme.spikeFill1}
-          fill1={theme.spikeFill0}
-          stroke={theme.spikeStroke}
-        />
+        <View style={{
+          position: 'absolute', left, top: groundY, width: w,
+          height: Math.max(0, playH - groundY),
+          backgroundColor: theme.voidFill,
+          borderTopWidth: 2, borderTopColor: theme.voidLine,
+        }} />
       );
 
     case 'wall':
       return (
-        <View
-          style={[
-            styles.wall,
-            {
-              left,
-              top,
-              width: w,
-              height: h,
-              backgroundColor: theme.wallFill,
-              borderColor: theme.wallBorder,
-            },
-          ]}
-        >
-          <View style={[styles.wallTopStripe, { width: w, backgroundColor: theme.wallStripe }]} />
-          {h > w * 1.2 && (
-            <View
-              style={[
-                styles.wallMidLine,
-                { top: h * 0.45, width: w, backgroundColor: theme.wallBorder + '40' },
-              ]}
-            />
-          )}
+        <View style={{
+          position: 'absolute', left, top, width: w, height: h,
+          backgroundColor: theme.wallFill,
+          borderWidth: 1.5, borderColor: theme.wallBorder,
+          overflow: 'hidden',
+        }}>
+          {/* Top highlight stripe only — no grid lines for performance */}
+          <View style={{ height: Math.max(2, scale * 2.5), backgroundColor: theme.wallStripe, width: w }} />
         </View>
       );
 
-    case 'ring': {
-      const dim = Math.max(w, h);
+    case 'spike':
+    case 'ceilingSpike': {
+      const up = o.kind === 'spike';
+      const pts = up
+        ? `${w / 2},0 ${w},${h} 0,${h}`
+        : `${w / 2},${h} 0,0 ${w},0`;
+      const sw2 = Math.max(1.5, h * 0.06);
       return (
-        <View
-          style={[
-            styles.ring,
-            {
-              left: left + (w - dim) / 2,
-              top: top + (h - dim) / 2,
-              width: dim,
-              height: dim,
-              borderRadius: dim / 2,
-              borderColor: theme.ringBorder,
-              opacity: o.used ? 0.15 : 1,
-            },
-          ]}
-        />
+        <View style={{ position: 'absolute', left, top, width: w, height: h }}>
+          <Svg width={w} height={h}>
+            <Defs>
+              <SvgGrad id={gid} x1="0" y1={up ? '0' : '1'} x2="0" y2={up ? '1' : '0'}>
+                <Stop offset="0" stopColor={theme.spikeFill0} />
+                <Stop offset="1" stopColor={theme.spikeFill1} />
+              </SvgGrad>
+            </Defs>
+            <Polygon
+              points={pts}
+              fill={`url(#${gid})`}
+              stroke={theme.spikeStroke}
+              strokeWidth={sw2}
+              strokeLinejoin="miter"
+            />
+          </Svg>
+        </View>
       );
     }
 
-    case 'crystal':
+    case 'ring': {
+      const dim = Math.max(w, h);
+      const r   = dim / 2;
+      const rcx = left + o.w * scale / 2;
+      const rcy = top  + o.h * scale / 2;
       return (
-        <View
-          style={[
-            styles.crystal,
-            {
-              left,
-              top,
-              width: w,
-              height: h,
-              backgroundColor: theme.spikeFill0 + 'e0',
-              borderColor: theme.spikeFill0,
-            },
-          ]}
-        />
+        <View style={{ position: 'absolute', left: rcx - r, top: rcy - r, width: dim, height: dim }}>
+          <Svg width={dim} height={dim}>
+            <Circle
+              cx={r} cy={r} r={r - 1.5}
+              fill="transparent"
+              stroke={o.used ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.92)'}
+              strokeWidth={2}
+              strokeDasharray={o.used ? undefined : `${r * 0.55} ${r * 0.35}`}
+            />
+            {!o.used && <Circle cx={r} cy={r} r={r * 0.22} fill="rgba(255,255,255,0.85)" />}
+          </Svg>
+        </View>
       );
-
-    case 'laser':
-      return (
-        <View
-          style={[
-            styles.laser,
-            {
-              left,
-              top,
-              width: w,
-              height: Math.max(4, h),
-              backgroundColor: theme.spikeFill1 + 'e8',
-            },
-          ]}
-        />
-      );
+    }
 
     default:
       return null;
   }
 });
 
-// ─── HUD wrappers ─────────────────────────────────────────────────────────────
+// ─── HUD / strip wrappers ─────────────────────────────────────────────────────
 
-const MemoHud = memo(function HudWrap(props: {
-  distance: number;
-  score: number;
-  practiceLabel?: string;
-  prizeLabel?: string;
-  onBack: () => void;
-  speedFrac: number;
-  timeLeftMs: number;
+const MemoHud = memo(function HudWrap(p: {
+  distance: number; score: number; practiceLabel?: string; prizeLabel?: string;
+  onBack: () => void; speedFrac: number; timeLeftMs: number;
 }) {
   return (
     <DashDuelHud
-      distance={props.distance}
-      score={props.score}
-      streak={0}
-      practiceLabel={props.practiceLabel}
-      prizeLabel={props.prizeLabel}
-      onBack={props.onBack}
-      timeLeftMs={props.timeLeftMs}
-      hideClock={NR.ROUND_MS <= 0}
-      compact
-      speedFrac={props.speedFrac}
+      distance={p.distance} score={p.score} streak={0}
+      practiceLabel={p.practiceLabel} prizeLabel={p.prizeLabel}
+      onBack={p.onBack} timeLeftMs={p.timeLeftMs}
+      hideClock={NR.ROUND_MS <= 0} compact speedFrac={p.speedFrac}
     />
   );
 });
 
-const MemoOpponentStrip = memo(function StripWrap(props: {
-  p1Alive: boolean;
-  p2Alive: boolean;
-  p1Dist: number;
-  p2Dist: number;
-  p1Flash: number;
+const MemoStrip = memo(function StripWrap(p: {
+  p1Alive: boolean; p2Alive: boolean; p1Dist: number; p2Dist: number; p1Flash: number;
 }) {
-  return <DashDuelOpponentStrip {...props} compact />;
+  return <DashDuelOpponentStrip {...p} compact />;
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1, width: '100%',
+    alignItems: 'center', justifyContent: 'center',
   },
-  fieldOuter: {
-    alignSelf: 'center',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    elevation: 14,
+  field: {
+    alignSelf: 'center', overflow: 'hidden',
+    borderWidth: 2, borderRadius: 2,
   },
-  sky: {
-    overflow: 'hidden',
-  },
-  parallaxLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
+  parLayer: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
   },
   world: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
+    position: 'absolute', left: 0, top: 0,
   },
-  ground: {
-    position: 'absolute',
-    left: 0,
-    borderTopWidth: 2,
+  zoneLblWrap: {
+    position: 'absolute', top: '16%', left: 0, right: 0,
+    alignItems: 'center', zIndex: 10, pointerEvents: 'none',
   },
-  voidPit: {
-    position: 'absolute',
-    borderTopWidth: 1.5,
+  zoneLbl: {
+    fontSize: 11, fontWeight: '800', letterSpacing: 4,
   },
-  wall: {
-    position: 'absolute',
-    borderWidth: 1.5,
-    overflow: 'hidden',
-  },
-  wallTopStripe: {
-    height: 3,
-  },
-  wallMidLine: {
-    position: 'absolute',
-    height: 1,
-  },
-  crystal: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderRadius: 2,
-  },
-  laser: {
-    position: 'absolute',
-    borderRadius: 1,
-  },
-  ring: {
-    position: 'absolute',
-    borderWidth: 3,
-    backgroundColor: 'transparent',
-  },
-  player: {
-    position: 'absolute',
-    borderRadius: 2,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.85,
-    shadowRadius: 6,
-    elevation: 10,
-  },
-  playerInner: {
-    width: '40%',
-    height: '40%',
-    borderRadius: 1,
-    opacity: 0.88,
-    transform: [{ rotate: '45deg' }],
-  },
-  hintBlock: {
-    paddingTop: 5,
-  },
-  tapHint: {
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 1.5,
-  },
-  zoneLabelWrap: {
-    position: 'absolute',
-    top: '18%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    pointerEvents: 'none',
-  },
-  zoneLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 3.5,
-    textTransform: 'uppercase',
-    opacity: 0.82,
+  hint: { paddingTop: 5 },
+  hintTxt: {
+    fontSize: 10, fontWeight: '700',
+    textAlign: 'center', letterSpacing: 1.5,
   },
 });
 

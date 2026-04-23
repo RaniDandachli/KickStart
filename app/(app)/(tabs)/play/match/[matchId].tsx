@@ -14,6 +14,7 @@ import { H2hTapDashMatch } from '@/features/play/H2hTapDashMatch';
 import { H2hTileClashMatch } from '@/features/play/H2hTileClashMatch';
 import { H2hTurboArenaMatch } from '@/features/play/H2hTurboArenaMatch';
 import { H2hNeonDanceMatch } from '@/features/play/H2hNeonDanceMatch';
+import { H2hNeonGridMatch } from '@/features/play/H2hNeonGridMatch';
 import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
@@ -250,7 +251,8 @@ export default function MatchPlayScreen() {
       serverGameKey === 'ball-run' ||
       serverGameKey === 'dash-duel' ||
       serverGameKey === 'turbo-arena' ||
-      serverGameKey === 'neon-dance');
+      serverGameKey === 'neon-dance' ||
+      serverGameKey === 'neon-grid');
 
   if (msQ.isError) {
     return (
@@ -395,6 +397,8 @@ export default function MatchPlayScreen() {
         <H2hTurboArenaMatch {...h2hProps} />
       ) : serverGameKey === 'neon-dance' ? (
         <H2hNeonDanceMatch {...h2hProps} />
+      ) : serverGameKey === 'neon-grid' ? (
+        <H2hNeonGridMatch {...h2hProps} />
       ) : (
         <H2hTapDashMatch {...h2hProps} />
       );

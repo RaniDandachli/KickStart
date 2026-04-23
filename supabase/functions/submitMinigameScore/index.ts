@@ -13,6 +13,7 @@ const NEON_POOL_POINTS_PER_TICKET = 200;
 const DASH_DUEL_POINTS_PER_TICKET = 120;
 const TURBO_ARENA_POINTS_PER_TICKET = 3;
 const NEON_DANCE_POINTS_PER_TICKET = 8;
+const NEON_GRID_POINTS_PER_TICKET = 18;
 const STACKER_JACKPOT_TICKETS = 10_000;
 /** Matches `minigames/stacker/stackerConstants.ts` STACKER_WIN_ROWS */
 const STACKER_WIN_ROWS = 26;
@@ -61,6 +62,11 @@ function prizeRunEntryAndTickets(gameType: string, score: number): { entry: numb
       return {
         entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
         tickets: Math.max(0, Math.floor(score / NEON_DANCE_POINTS_PER_TICKET)),
+      };
+    case 'neon_grid':
+      return {
+        entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS,
+        tickets: Math.max(0, Math.floor(score / NEON_GRID_POINTS_PER_TICKET)),
       };
     default:
       return { entry: DEFAULT_PRIZE_RUN_ENTRY_CREDITS, tickets: 0 };
@@ -130,6 +136,13 @@ const Body = z.discriminatedUnion('game_type', [
     survival_time_sec: z.number().min(0).max(3_600).optional(),
     winner_ready: z.boolean().optional(),
   }),
+  z.object({
+    game_type: z.literal('neon_grid'),
+    score: z.number().int().min(0).max(1_000_000),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(2_000_000),
+    match_session_id: z.string().uuid().optional(),
+  }),
 ]);
 
 /** Max pipes that can exist / be passed given spawn cadence (generous margin). */
@@ -169,6 +182,11 @@ function maxPlausibleNeonDanceScore(durationMs: number): number {
   return Math.min(1_000_000, Math.floor(durationMs * 2.4) + 25_000);
 }
 
+/** Neon Grid — rows cleared; generous cap vs session length. */
+function maxPlausibleNeonGridScore(durationMs: number): number {
+  return Math.min(1_000_000, Math.floor(durationMs / 80) + 800);
+}
+
 /** `minigame_scores.game_type` → `match_sessions.game_key` slug for H2H validation. */
 const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   tap_dash: 'tap-dash',
@@ -177,6 +195,7 @@ const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   dash_duel: 'dash-duel',
   turbo_arena: 'turbo-arena',
   neon_dance: 'neon-dance',
+  neon_grid: 'neon-grid',
 };
 
 function stdev(arr: number[]): number {
@@ -331,6 +350,12 @@ Deno.serve(async (req) => {
       }
       const maxJumps = Math.floor(duration_ms / 28) + 6000;
       if (taps > maxJumps) return errorResponse('Invalid taps for neon dance session', 422);
+    } else if (data.game_type === 'neon_grid') {
+      if (score > maxPlausibleNeonGridScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      const maxMoves = Math.floor(duration_ms / 40) + 2000;
+      if (taps > maxMoves) return errorResponse('Invalid move count for session duration', 422);
     } else {
       return errorResponse('Unsupported game_type', 422);
     }
@@ -379,6 +404,7 @@ Deno.serve(async (req) => {
         'dash_duel',
         'turbo_arena',
         'neon_dance',
+        'neon_grid',
       ]);
       if (!supportedPrize.has(gt)) {
         return errorResponse('prize_run is not supported for this game_type', 422);

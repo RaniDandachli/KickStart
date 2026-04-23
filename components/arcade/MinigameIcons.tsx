@@ -322,3 +322,27 @@ export function DashDuelGameIcon({ size = 40 }: IconProps) {
   );
 }
 
+/** Neon Grid — top-down lane grid + hop marker (Crossy-style placeholder art). */
+export function NeonGridGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  const uid = useUniqueSvgIds('ng');
+  const idFill = `${uid}_fill`;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id={idFill} x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#A78BFA" />
+            <Stop offset="100%" stopColor="#22D3EE" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#0c0a12" />
+        <Rect x="10" y="12" width="28" height="4" rx="1" fill="rgba(225,29,140,0.55)" />
+        <Rect x="10" y="20" width="28" height="4" rx="1" fill="rgba(34,211,238,0.35)" />
+        <Rect x="10" y="28" width="28" height="4" rx="1" fill="rgba(225,29,140,0.45)" />
+        <Circle cx="24" cy="38" r="5" fill={`url(#${idFill})`} />
+      </Svg>
+    </View>
+  );
+}
+

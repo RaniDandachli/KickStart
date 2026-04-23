@@ -17,6 +17,7 @@ import {
   BallRunGameIcon,
   DashDuelGameIcon,
   NeonDanceGameIcon,
+  NeonGridGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -220,6 +221,8 @@ export default function HomeScreen() {
         return <TurboArenaGameIcon size={size} />;
       case 'neon-dance':
         return <NeonDanceGameIcon size={size} />;
+      case 'neon-grid':
+        return <NeonGridGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }

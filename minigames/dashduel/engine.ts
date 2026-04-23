@@ -199,6 +199,7 @@ function snapToWallTop(state: RunState): void {
   let best: Obstacle | null = null;
   for (const o of state.obstacles) {
     if (o.kind !== 'wall') continue;
+    if (o.y <= 2) continue; // ceiling-hanging column — don't snap to its underside
     const ox1 = o.x;
     const ox2 = o.x + o.w;
     if (px2 <= ox1 || px1 >= ox2) continue;
@@ -225,6 +226,7 @@ function computeOnGround(state: RunState): boolean {
   const py2 = p.y + NR.PLAYER_H;
   for (const o of state.obstacles) {
     if (o.kind !== 'wall') continue;
+    if (o.y <= 2) continue; // ceiling column — can't stand on its underside
     const ox1 = o.x + margin;
     const ox2 = o.x + o.w - margin;
     if (px2 > ox1 && px1 < ox2 && Math.abs(py2 - o.y) < 6) return true;
@@ -257,11 +259,26 @@ function checkCollisions(state: RunState, input: InputState): void {
         const ox1 = o.x + margin;
         const ox2 = o.x + o.w - margin;
         if (!(px2 > ox1 && px1 < ox2)) break;
+
         const topY = o.y;
+        const botY = o.y + o.h;
+
+        // Ceiling-hanging column: anchored at y=0 (or very close).
+        // Kill only if player head enters the block from below.
+        const isCeilingCol = o.y <= 2;
+        if (isCeilingCol) {
+          if (py1 < botY && py2 > topY && py1 >= topY - 6) {
+            killPlayer(state);
+            return;
+          }
+          break;
+        }
+
+        // Ground-rising column: safe to land on top, deadly from sides.
         const onTop =
           player.vy >= 0 && py2 >= topY - 6 && py2 <= topY + 12 && py1 < topY;
         if (onTop) break;
-        if (py2 > topY + margin && py1 < o.y + o.h - margin) {
+        if (py2 > topY + margin && py1 < botY - margin) {
           const playerFeetAtTop = Math.abs((player.y + NR.PLAYER_H) - topY) < 8;
           if (!playerFeetAtTop) {
             killPlayer(state);

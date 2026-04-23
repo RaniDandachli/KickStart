@@ -44,6 +44,13 @@ export const H2H_OPEN_GAMES = [
     bgColors: ['#050508', '#1e1b4b', '#312e81'] as const,
     borderAccent: 'pink' as const satisfies RunitBorderAccent,
   },
+  {
+    gameKey: 'neon-grid' as const,
+    title: 'Neon Grid',
+    route: '/(app)/(tabs)/play/minigames/neon-grid',
+    bgColors: ['#0f172a', '#312e81', '#831843'] as const,
+    borderAccent: 'purple' as const satisfies RunitBorderAccent,
+  },
 ] as const;
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES)[number]['gameKey'];

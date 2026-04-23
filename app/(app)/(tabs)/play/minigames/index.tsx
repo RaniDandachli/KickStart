@@ -8,6 +8,7 @@ import {
   BallRunGameIcon,
   DashDuelGameIcon,
   NeonDanceGameIcon,
+  NeonGridGameIcon,
   StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
@@ -80,6 +81,16 @@ export default function MinigamesHubScreen() {
         borderAccent="pink"
         entryColor="rgba(248,250,252,0.9)"
         iconSlot={<NeonDanceGameIcon size={36} />}
+      />
+      <ArcadeMinigameRow
+        gameRoute="neon-grid"
+        title="Neon Grid"
+        entryLabel="Practice or prize run"
+        winLabel="PLAY"
+        bgColors={['#0f172a', '#312e81', '#831843']}
+        borderAccent="purple"
+        entryColor="rgba(248,250,252,0.9)"
+        iconSlot={<NeonGridGameIcon size={36} />}
       />
       <ArcadeMinigameRow
         gameRoute="turbo-arena"

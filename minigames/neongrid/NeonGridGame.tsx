@@ -1,3 +1,10 @@
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import {
+  MINIGAME_HUD_MS_MOTION,
+  shouldEmitMinigameHudFrame
+} from '@/minigames/core/minigameHudThrottle';
+import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
+import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Platform,
@@ -7,49 +14,177 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import { arcade } from '@/lib/arcadeTheme';
-import {
-  MINIGAME_HUD_MS_MOTION,
-  resetMinigameHudClock,
-  shouldEmitMinigameHudFrame,
-} from '@/minigames/core/minigameHudThrottle';
-import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 
-import { LANE_COUNT, SURGE_MAX } from './constants';
+import { LANE_COUNT, SURGE_MAX, VEHICLE_COLORS } from './constants';
 import {
   createGameRef,
   getDispPos,
+  getHopArc,
   stepGame,
   tryActivateSurge,
   tryHop,
-  VEHICLE_COLORS,
   type GameRef,
   type GridRow,
+  type Log,
+  type Vehicle,
 } from './engine';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
   seed: number;
-  /** Prize / H2H line shown under the title. */
   subtitle?: string;
   onExit: () => void;
   onRunComplete: (score: number, durationMs: number, tapCount: number) => void;
 };
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
+const PLAYER_Y_FRAC = 0.62;
 
-/** Player renders at this fraction from top of the playfield. */
-const PLAYER_Y_FRAC = 0.65;
+// ─── Character renderer (Spirit Fox) ─────────────────────────────────────────
+
+function SpiritFox({
+  size,
+  surgeActive,
+  bopScale,
+  flicker,
+}: {
+  size: number;
+  surgeActive: boolean;
+  bopScale: number;
+  flicker: boolean;
+}) {
+  const bodyH = Math.round(size * 0.52 * bopScale);
+  const bodyW = Math.round(size * 0.52 / bopScale);
+  const earSize = Math.round(size * 0.18);
+  const glowColor = surgeActive ? '#FF6B35' : '#FFD700';
+  const coreColor = surgeActive ? '#FFB347' : '#FFF5CC';
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: flicker ? 0.08 : 1,
+      }}
+    >
+      {/* Glow halo */}
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.88,
+          height: size * 0.88,
+          borderRadius: size * 0.44,
+          backgroundColor: glowColor + '22',
+          shadowColor: glowColor,
+          shadowOpacity: 0.9,
+          shadowRadius: surgeActive ? 22 : 14,
+          shadowOffset: { width: 0, height: 0 },
+        }}
+      />
+      {/* Ears */}
+      <View style={{ flexDirection: 'row', width: bodyW + earSize, justifyContent: 'space-between', marginBottom: -2 }}>
+        <View style={[styles.ear, { width: earSize, height: earSize, borderBottomRightRadius: earSize * 0.6, backgroundColor: glowColor }]} />
+        <View style={[styles.ear, { width: earSize, height: earSize, borderBottomLeftRadius: earSize * 0.6, backgroundColor: glowColor }]} />
+      </View>
+      {/* Body */}
+      <View
+        style={{
+          width: bodyW,
+          height: bodyH,
+          borderRadius: bodyW * 0.38,
+          backgroundColor: glowColor,
+          shadowColor: glowColor,
+          shadowOpacity: 1,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 0 },
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Inner core */}
+        <View
+          style={{
+            width: bodyW * 0.45,
+            height: bodyH * 0.45,
+            borderRadius: bodyW * 0.22,
+            backgroundColor: coreColor,
+            opacity: 0.85,
+          }}
+        />
+      </View>
+      {/* Tail */}
+      <View
+        style={{
+          width: size * 0.28,
+          height: size * 0.14,
+          borderRadius: size * 0.07,
+          backgroundColor: glowColor + 'AA',
+          marginTop: 2,
+          alignSelf: 'flex-end',
+          marginRight: size * 0.05,
+        }}
+      />
+    </View>
+  );
+}
+
+// ─── Tree renderer ────────────────────────────────────────────────────────────
+
+function Tree({ size }: { size: number }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
+      {/* Canopy */}
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.05,
+          width: size * 0.72,
+          height: size * 0.72,
+          borderRadius: size * 0.36,
+          backgroundColor: '#1A4A1A',
+          shadowColor: '#0D3A0D',
+          shadowOpacity: 0.7,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+          borderWidth: 1.5,
+          borderColor: '#2A6A2A',
+        }}
+      />
+      {/* Highlight */}
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.12,
+          left: size * 0.22,
+          width: size * 0.22,
+          height: size * 0.18,
+          borderRadius: size * 0.1,
+          backgroundColor: '#2D7A2D',
+          opacity: 0.6,
+        }}
+      />
+      {/* Trunk */}
+      <View
+        style={{
+          width: size * 0.2,
+          height: size * 0.28,
+          borderRadius: 3,
+          backgroundColor: '#5C3A1A',
+          marginBottom: 0,
+        }}
+      />
+    </View>
+  );
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
   const { width: sw, height: sh } = useWindowDimensions();
 
-  const tileSize = useMemo(() => Math.floor(Math.min(sw, 500) / LANE_COUNT), [sw]);
+  const tileSize = useMemo(() => Math.floor(Math.min(sw, 480) / LANE_COUNT), [sw]);
   const controlsH = Math.min(180, Math.max(140, sh * 0.22));
   const playfieldH = Math.max(220, sh - controlsH);
 
@@ -61,41 +196,25 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
-  // ── Game finish ────────────────────────────────────────────────────────────
-
   const finishRun = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     const g = gameRef.current;
-    const durationMs = Math.max(0, Date.now() - startTimeRef.current);
-    onRunComplete(g.score, durationMs, g.tapCount);
+    onRunComplete(g.score, Math.max(0, Date.now() - startTimeRef.current), g.tapCount);
   }, [onRunComplete]);
-
-  // ── Physics loop ───────────────────────────────────────────────────────────
 
   const step = useCallback(
     (totalDtMs: number) => {
       const g = gameRef.current;
       if (finishedRef.current) return;
-
-      runFixedPhysicsSteps(totalDtMs, (dtMs) => {
-        stepGame(g, dtMs);
-        return true;
-      });
-
-      // Once the death flash fully fades, hand off to parent
-      if (!g.alive && g.deathFlash <= 0) {
-        finishRun();
-      }
-
+      runFixedPhysicsSteps(totalDtMs, (dtMs) => { stepGame(g, dtMs); return true; });
+      if (!g.alive && g.deathFlash <= 0) finishRun();
       if (shouldEmitMinigameHudFrame(lastHudRef, MINIGAME_HUD_MS_MOTION)) bump();
     },
     [bump, finishRun],
   );
 
   useRafLoop(step, !finishedRef.current);
-
-  // ── Input ──────────────────────────────────────────────────────────────────
 
   const hop = useCallback(
     (dr: number, dc: number) => {
@@ -128,11 +247,11 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
 
   const g = gameRef.current;
   const { dispRow, dispCol } = getDispPos(g);
+  const hopArc = getHopArc(g);
 
   const playerScreenY = playfieldH * PLAYER_Y_FRAC;
   const cameraRow = dispRow;
 
-  // Visible row window
   const rowsBelow = Math.ceil(playerScreenY / tileSize) + 2;
   const rowsAbove = Math.ceil((playfieldH - playerScreenY) / tileSize) + 2;
   const visibleRows: GridRow[] = [];
@@ -146,16 +265,18 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
   }
 
   const playerPixX = dispCol * tileSize;
+  const playerPixY = playerScreenY - hopArc * tileSize;
 
-  // Death flicker
-  const deathAlpha = g.deathFlash > 0 ? Math.min(0.65, g.deathFlash / 400) : 0;
-  const playerFlicker = g.deathFlash > 0 && Math.floor(g.deathFlash / 70) % 2 === 0;
+  const deathAlpha = g.deathFlash > 0 ? Math.min(0.6, g.deathFlash / 500) : 0;
+  const playerFlicker = g.deathFlash > 0 && Math.floor(g.deathFlash / 65) % 2 === 0;
 
-  // Surge
   const surgeFill = g.surgeCharge / SURGE_MAX;
   const surgeReady = g.surgeCharge >= SURGE_MAX && !g.surgeActive;
 
   const gridW = LANE_COUNT * tileSize;
+
+  // Gradient sky — rows further forward = darker indigo
+  const skyRows = Array.from({ length: 5 }, (_, i) => i);
 
   return (
     <View style={styles.root}>
@@ -163,132 +284,198 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
       {/* ── Playfield ──────────────────────────────────────────────── */}
       <View style={[styles.playfield, { height: playfieldH }]}>
 
-        {/* Background grid lines */}
-        {Array.from({ length: LANE_COUNT + 1 }, (_, i) => (
-          <View key={`gv${i}`} style={[styles.gridV, { left: i * tileSize }]} />
-        ))}
+        {/* Sky gradient backdrop */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: '#0D1B2A',
+              // Warm horizon glow at bottom
+            },
+          ]}
+          pointerEvents="none"
+        />
 
         {/* Rendered rows */}
         {visibleRows.map((row) => {
           const ry = rowScreenY(row.rowId);
           if (ry + tileSize < -tileSize || ry > playfieldH + tileSize) return null;
 
-          const isTraffic = row.kind === 'traffic';
-          const firstV = row.vehicles[0];
-          const movesRight = firstV && firstV.speed > 0;
-          const rowBg = isTraffic
-            ? movesRight
-              ? 'rgba(34,211,238,0.055)'
-              : 'rgba(232,121,249,0.055)'
-            : 'transparent';
+          // Row background
+          let rowBg: string;
+          let rowBorder: string;
+          if (row.kind === 'safe') {
+            const alt = row.rowId % 2 === 0;
+            rowBg = alt ? '#1A3A1A' : '#1E4020';
+            rowBorder = '#2A5A2A';
+          } else if (row.kind === 'road') {
+            const alt = row.rowId % 2 === 0;
+            rowBg = alt ? '#1A130C' : '#1E160E';
+            rowBorder = '#2A1E10';
+          } else {
+            // river
+            const alt = row.rowId % 2 === 0;
+            rowBg = alt ? '#0A2035' : '#0C2840';
+            rowBorder = '#0A3A65';
+          }
 
           return (
             <View
               key={row.rowId}
-              style={[styles.row, { top: ry, height: tileSize, width: gridW, backgroundColor: rowBg }]}
+              style={[
+                styles.row,
+                {
+                  top: ry,
+                  height: tileSize,
+                  width: gridW,
+                  backgroundColor: rowBg,
+                  borderBottomColor: rowBorder,
+                },
+              ]}
             >
-              {/* Direction indicator stripe */}
-              {isTraffic && (
-                <View
-                  style={[
-                    styles.dirStripe,
-                    { backgroundColor: movesRight ? 'rgba(34,211,238,0.55)' : 'rgba(232,121,249,0.55)' },
-                  ]}
-                />
+              {/* Road markings */}
+              {row.kind === 'road' && (
+                <>
+                  {/* Center dashed line */}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      top: tileSize / 2 - 1,
+                      height: 2,
+                      opacity: 0.18,
+                      backgroundColor: '#FFD700',
+                    }}
+                  />
+                  {/* Edge kerbs */}
+                  <View style={[styles.kerb, { top: 0 }]} />
+                  <View style={[styles.kerb, { bottom: 0 }]} />
+                </>
               )}
 
-              {/* Vehicles */}
-              {row.vehicles.map((v) => {
+              {/* River ripple stripes */}
+              {row.kind === 'river' && (
+                <>
+                  <View style={[styles.ripple, { top: tileSize * 0.22 }]} />
+                  <View style={[styles.ripple, { top: tileSize * 0.62 }]} />
+                </>
+              )}
+
+              {/* Safe row grass texture stripes */}
+              {row.kind === 'safe' && row.rowId % 3 === 0 && (
+                <View style={styles.grassStripe} />
+              )}
+
+              {/* Vehicles (road) */}
+              {row.kind === 'road' && row.vehicles.map((v) => {
                 const vx = v.col * tileSize;
-                const vw = v.width * tileSize - 5;
+                const vw = v.width * tileSize - 6;
                 if (vx + vw < -tileSize || vx > gridW + tileSize) return null;
                 const color = VEHICLE_COLORS[v.colorIdx % VEHICLE_COLORS.length]!;
                 const goRight = v.speed > 0;
+                return <CarSprite key={v.id} v={v} tileSize={tileSize} color={color} goRight={goRight} />;
+              })}
+
+              {/* Logs (river) */}
+              {row.kind === 'river' && row.logs.map((l) => {
+                const lx = l.col * tileSize;
+                const lw = l.width * tileSize - 4;
+                if (lx + lw < -tileSize || lx > gridW + tileSize) return null;
+                return <LogSprite key={l.id} log={l} tileSize={tileSize} />;
+              })}
+
+              {/* Trees (safe) */}
+              {row.kind === 'safe' && row.treeMask.map((isTree, col) => {
+                if (!isTree) return null;
                 return (
                   <View
-                    key={v.id}
-                    style={[
-                      styles.vehicle,
-                      {
-                        left: vx + 2,
-                        width: vw,
-                        height: tileSize - 8,
-                        top: 4,
-                        backgroundColor: color + '28',
-                        borderColor: color,
-                        shadowColor: color,
-                      },
-                    ]}
+                    key={col}
+                    style={{
+                      position: 'absolute',
+                      left: col * tileSize,
+                      top: 0,
+                      width: tileSize,
+                      height: tileSize,
+                      zIndex: 4,
+                    }}
                   >
-                    {/* Leading edge glow bar */}
-                    <View
-                      style={[
-                        styles.vehicleLead,
-                        {
-                          [goRight ? 'right' : 'left']: 0,
-                          backgroundColor: color,
-                          shadowColor: color,
-                        },
-                      ]}
-                    />
-                    {/* Windshield glint */}
-                    <View style={styles.vehicleGlass} />
+                    <Tree size={tileSize} />
                   </View>
                 );
               })}
 
-              {/* ⚡ Surge node */}
+              {/* Spirit energy node */}
               {row.surgeNodeCol !== null && !row.surgeCollected && (
                 <View
                   style={[
-                    styles.surgeNode,
+                    styles.spiritNode,
                     {
-                      left: row.surgeNodeCol * tileSize + tileSize * 0.5 - 12,
-                      top: tileSize * 0.5 - 12,
+                      left: row.surgeNodeCol * tileSize + tileSize * 0.5 - 14,
+                      top: tileSize * 0.5 - 14,
                     },
                   ]}
                 >
-                  <Text style={styles.surgeNodeGlyph}>⚡</Text>
+                  <View style={styles.spiritNodeInner} />
+                  <Text style={styles.spiritNodeGlyph}>✦</Text>
                 </View>
               )}
 
-              {/* Row separator */}
-              <View style={styles.rowSep} />
+              {/* Row bottom border */}
+              <View style={[styles.rowSep, { borderBottomColor: rowBorder }]} />
             </View>
           );
         })}
 
-        {/* Player cube */}
+        {/* Player — Spirit Fox */}
         <View
           style={[
-            styles.player,
+            styles.playerWrap,
             {
-              left: playerPixX + 5,
-              top: playerScreenY + 5,
-              width: tileSize - 10,
-              height: tileSize - 10,
-              opacity: playerFlicker ? 0.1 : 1,
-              borderColor: g.surgeActive ? arcade.gold : '#22D3EE',
-              shadowColor: g.surgeActive ? arcade.gold : '#22D3EE',
-              shadowRadius: g.surgeActive ? 18 : 11,
-              backgroundColor: g.surgeActive ? 'rgba(250,204,21,0.2)' : 'rgba(34,211,238,0.16)',
+              left: playerPixX,
+              top: playerPixY,
+              width: tileSize,
+              height: tileSize,
             },
           ]}
         >
-          <View style={[styles.playerCore, { backgroundColor: g.surgeActive ? arcade.gold : '#22D3EE' }]} />
+          <SpiritFox
+            size={tileSize}
+            surgeActive={g.surgeActive}
+            bopScale={g.bopScale}
+            flicker={playerFlicker}
+          />
         </View>
 
-        {/* Surge active banner */}
+        {/* Shadow under player (grounded) */}
+        {!g.hopping && (
+          <View
+            style={[
+              styles.playerShadow,
+              {
+                left: playerPixX + tileSize * 0.2,
+                top: playerScreenY + tileSize * 0.82,
+                width: tileSize * 0.6,
+                opacity: 0.35,
+              },
+            ]}
+          />
+        )}
+
+        {/* Surge spirit-time banner */}
         {g.surgeActive && (
-          <View style={styles.surgeBanner} pointerEvents="none">
-            <Text style={styles.surgeBannerTxt}>⚡ TIME FREEZE</Text>
+          <View style={styles.spiritBanner} pointerEvents="none">
+            <Text style={styles.spiritBannerTxt}>✦  SPIRIT TIME  ✦</Text>
           </View>
         )}
 
-        {/* Death flash red overlay */}
+        {/* Death overlay */}
         {deathAlpha > 0 && (
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(239,68,68,${deathAlpha.toFixed(2)})`, zIndex: 8 }]}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: `rgba(220,50,50,${deathAlpha.toFixed(2)})`, zIndex: 8 },
+            ]}
             pointerEvents="none"
           />
         )}
@@ -297,27 +484,27 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
         <View style={styles.hud} pointerEvents="none">
           <View>
             <Text style={styles.scoreNum}>{g.score}</Text>
-            <Text style={styles.scoreLbl}>TILES</Text>
+            <Text style={styles.scoreLbl}>STEPS</Text>
           </View>
 
           <View style={styles.hudMid}>
-            <Text style={styles.hudTitle}>NEON GRID</Text>
+            <Text style={styles.hudTitle}>SPIRIT CROSS</Text>
             {subtitle ? <Text style={styles.hudSub} numberOfLines={1}>{subtitle}</Text> : null}
           </View>
 
           <View style={styles.hudRight}>
-            <Text style={styles.surgeLbl}>SURGE</Text>
-            <View style={styles.surgeMeterTrack}>
+            <Text style={styles.spiritLbl}>SPIRIT</Text>
+            <View style={styles.spiritMeterTrack}>
               <View
                 style={[
-                  styles.surgeMeterFill,
+                  styles.spiritMeterFill,
                   {
                     width: `${Math.round(surgeFill * 100)}%` as any,
                     backgroundColor: surgeReady
-                      ? arcade.gold
+                      ? '#FF6B35'
                       : g.surgeActive
-                        ? '#22D3EE'
-                        : '#4ade80',
+                        ? '#FFB347'
+                        : '#FFD700',
                   },
                 ]}
               />
@@ -327,8 +514,11 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
 
         {/* Back button */}
         <Pressable onPress={onExit} hitSlop={14} style={styles.backBtn}>
-          <SafeIonicons name="chevron-back" size={22} color={arcade.gold} />
+          <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
         </Pressable>
+
+        {/* Ambient vignette */}
+        <View style={styles.vignette} pointerEvents="none" />
       </View>
 
       {/* ── Controls ───────────────────────────────────────────────── */}
@@ -348,26 +538,117 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
           </View>
         </View>
 
-        {/* Surge button */}
+        {/* Spirit button */}
         <Pressable
           onPress={activateSurge}
           style={({ pressed }) => [
-            styles.surgeBtn,
-            surgeReady && styles.surgeBtnReady,
-            g.surgeActive && styles.surgeBtnActive,
-            pressed && styles.surgeBtnPressed,
+            styles.spiritBtn,
+            surgeReady && styles.spiritBtnReady,
+            g.surgeActive && styles.spiritBtnActive,
+            pressed && styles.spiritBtnPressed,
           ]}
         >
-          <Text style={[styles.surgeBtnGlyph, surgeReady && { color: arcade.gold }]}>⚡</Text>
-          <Text style={[styles.surgeBtnLabel, surgeReady && { color: arcade.gold }]}>
-            {g.surgeActive ? 'ACTIVE' : surgeReady ? 'SURGE!' : 'SURGE'}
+          <Text style={[styles.spiritBtnGlyph, surgeReady && { color: '#FF6B35' }]}>✦</Text>
+          <Text style={[styles.spiritBtnLabel, surgeReady && { color: '#FF6B35' }]}>
+            {g.surgeActive ? 'ACTIVE' : surgeReady ? 'SPIRIT!' : 'SPIRIT'}
           </Text>
         </Pressable>
 
         {Platform.OS === 'web' ? (
-          <Text style={styles.webHint}>{'WASD\nSpc=⚡'}</Text>
+          <Text style={styles.webHint}>{'WASD / ↑↓←→\nSpace = ✦'}</Text>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+// ─── Car sprite ───────────────────────────────────────────────────────────────
+
+function CarSprite({
+  v,
+  tileSize,
+  color,
+  goRight,
+}: {
+  v: Vehicle;
+  tileSize: number;
+  color: string;
+  goRight: boolean;
+}) {
+  const vx = v.col * tileSize;
+  const vw = v.width * tileSize - 6;
+  const isLong = v.width >= 2;
+
+  return (
+    <View
+      style={[
+        styles.car,
+        {
+          left: vx + 3,
+          width: vw,
+          height: tileSize - 10,
+          top: 5,
+          backgroundColor: color + '30',
+          borderColor: color,
+          shadowColor: color,
+        },
+      ]}
+    >
+      {/* Headlights / taillights */}
+      <View
+        style={[
+          styles.carLight,
+          { [goRight ? 'right' : 'left']: 3, backgroundColor: color },
+        ]}
+      />
+      {/* Windshield */}
+      {isLong && (
+        <View
+          style={[
+            styles.carWindshield,
+            {
+              [goRight ? 'left' : 'right']: vw * 0.28,
+              width: vw * 0.28,
+            },
+          ]}
+        />
+      )}
+      {/* Roof line */}
+      <View style={[styles.carRoof, { width: isLong ? vw * 0.55 : vw * 0.65 }]} />
+    </View>
+  );
+}
+
+// ─── Log sprite ───────────────────────────────────────────────────────────────
+
+function LogSprite({ log, tileSize }: { log: Log; tileSize: number }) {
+  const lx = log.col * tileSize;
+  const lw = log.width * tileSize - 4;
+
+  return (
+    <View
+      style={[
+        styles.log,
+        {
+          left: lx + 2,
+          width: lw,
+          height: tileSize - 12,
+          top: 6,
+        },
+      ]}
+    >
+      {/* Wood grain lines */}
+      {Array.from({ length: Math.max(1, Math.floor(lw / 14)) }, (_, i) => (
+        <View
+          key={i}
+          style={[
+            styles.logGrain,
+            { left: 8 + i * 14, height: tileSize - 18 },
+          ]}
+        />
+      ))}
+      {/* Highlight edge */}
+      <View style={styles.logHighlight} />
     </View>
   );
 }
@@ -381,7 +662,7 @@ function DBtn({ icon, onPress }: { icon: string; onPress: () => void }) {
       hitSlop={4}
       style={({ pressed }) => [styles.dBtn, pressed && styles.dBtnActive]}
     >
-      <SafeIonicons name={icon as any} size={20} color="#22D3EE" />
+      <SafeIonicons name={icon as any} size={20} color="#FFD700" />
     </Pressable>
   );
 }
@@ -389,23 +670,13 @@ function DBtn({ icon, onPress }: { icon: string; onPress: () => void }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#030712' },
+  root: { flex: 1, backgroundColor: '#070D14' },
 
-  // Playfield
   playfield: {
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: '#030712',
+    backgroundColor: '#0D1B2A',
     position: 'relative',
-  },
-
-  gridV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: 'rgba(56,189,248,0.055)',
-    zIndex: 0,
   },
 
   row: {
@@ -413,15 +684,36 @@ const styles = StyleSheet.create({
     left: 0,
     overflow: 'hidden',
     zIndex: 1,
+    borderBottomWidth: 1,
   },
 
-  dirStripe: {
+  kerb: {
     position: 'absolute',
     left: 0,
-    top: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#E8E0CC',
+    opacity: 0.08,
+  },
+
+  ripple: {
+    position: 'absolute',
+    left: '8%',
+    right: '8%',
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: '#4A90D9',
+    opacity: 0.22,
+  },
+
+  grassStripe: {
+    position: 'absolute',
     bottom: 0,
-    width: 3,
-    zIndex: 2,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#3A7A3A',
+    opacity: 0.25,
   },
 
   rowSep: {
@@ -430,92 +722,158 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(56,189,248,0.055)',
+    borderBottomWidth: 1,
   },
 
-  vehicle: {
+  // Car
+  car: {
     position: 'absolute',
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1.5,
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.85,
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 7,
-    elevation: 5,
+    shadowRadius: 6,
+    elevation: 4,
     zIndex: 3,
     overflow: 'hidden',
   },
-
-  vehicleLead: {
+  carLight: {
     position: 'absolute',
     top: 2,
     bottom: 2,
-    width: 4,
+    width: 5,
     borderRadius: 2,
     shadowOpacity: 1,
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 5,
+    shadowRadius: 4,
+    shadowColor: '#FFFFFF',
   },
-
-  vehicleGlass: {
+  carWindshield: {
     position: 'absolute',
     top: 3,
-    left: 8,
-    right: 8,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(200,230,255,0.3)',
+  },
+  carRoof: {
+    position: 'absolute',
+    top: 2,
+    left: 10,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
 
-  surgeNode: {
+  // Log
+  log: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#6B4F1A',
+    borderWidth: 1.5,
+    borderColor: '#8B6914',
+    shadowColor: '#3A2A08',
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    zIndex: 3,
+    overflow: 'hidden',
+  },
+  logGrain: {
+    position: 'absolute',
+    top: 2,
+    width: 1.5,
+    borderRadius: 1,
+    backgroundColor: '#4A3410',
+    opacity: 0.55,
+  },
+  logHighlight: {
+    position: 'absolute',
+    top: 2,
+    left: 4,
+    right: 4,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#C49A2A',
+    opacity: 0.35,
+  },
+
+  // Spirit node
+  spiritNode: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 4,
+    zIndex: 5,
   },
-
-  surgeNodeGlyph: {
-    fontSize: 16,
-    lineHeight: 20,
-  },
-
-  // Player
-  player: {
+  spiritNodeInner: {
     position: 'absolute',
-    borderRadius: 7,
-    borderWidth: 2,
-    shadowOpacity: 1,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFD700',
+    opacity: 0.18,
+    shadowColor: '#FFD700',
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
-    zIndex: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  spiritNodeGlyph: {
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#FFE566',
+    textShadowColor: '#FFD700',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
   },
 
-  playerCore: {
-    width: 6,
+  // Ear helper
+  ear: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
+
+  // Player wrapper
+  playerWrap: {
+    position: 'absolute',
+    zIndex: 10,
+  },
+  playerShadow: {
+    position: 'absolute',
     height: 6,
     borderRadius: 3,
-    opacity: 0.9,
+    backgroundColor: '#000000',
+    zIndex: 9,
   },
 
-  surgeBanner: {
+  // Spirit time banner
+  spiritBanner: {
     position: 'absolute',
-    top: 50,
+    top: 48,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 20,
+  } as any,
+  spiritBannerTxt: {
+    color: '#FFB347',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 5,
+    opacity: 0.9,
+    textShadowColor: '#FF6B35',
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+
+  // Vignette
+  vignette: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 7,
+    // Simulated vignette with semi-transparent edges
+    borderWidth: 32,
+    borderColor: 'rgba(7,13,20,0.45)',
+    borderRadius: 4,
     pointerEvents: 'none',
   } as any,
-
-  surgeBannerTxt: {
-    color: '#22D3EE',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 4,
-    opacity: 0.85,
-  },
 
   // HUD
   hud: {
@@ -528,63 +886,54 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 30,
   },
-
   scoreNum: {
-    color: '#22D3EE',
+    color: '#FFD700',
     fontSize: 26,
     fontWeight: '900',
     lineHeight: 28,
-    textShadowColor: '#22D3EE',
-    textShadowRadius: 8,
+    textShadowColor: '#FF8C00',
+    textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
-
   scoreLbl: {
-    color: 'rgba(148,163,184,0.8)',
+    color: 'rgba(200,180,130,0.8)',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 2,
   },
-
   hudMid: { alignItems: 'center', flex: 1 },
-
   hudTitle: {
-    color: 'rgba(226,232,240,0.55)',
+    color: 'rgba(255,215,0,0.55)',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 3,
     marginTop: 5,
   },
-
   hudSub: {
-    color: 'rgba(148,163,184,0.65)',
+    color: 'rgba(200,180,130,0.65)',
     fontSize: 9,
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 1,
   },
-
   hudRight: { alignItems: 'flex-end' },
-
-  surgeLbl: {
-    color: 'rgba(148,163,184,0.8)',
+  spiritLbl: {
+    color: 'rgba(200,180,130,0.8)',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 2,
   },
-
-  surgeMeterTrack: {
+  spiritMeterTrack: {
     marginTop: 4,
     width: 58,
     height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(51,65,85,0.85)',
+    backgroundColor: 'rgba(40,30,15,0.85)',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(100,116,139,0.3)',
+    borderColor: 'rgba(180,140,60,0.3)',
   },
-
-  surgeMeterFill: {
+  spiritMeterFill: {
     height: '100%',
     borderRadius: 3,
   },
@@ -606,12 +955,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#060d18',
+    backgroundColor: '#0A1018',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(34,211,238,0.08)',
+    borderTopColor: 'rgba(255,215,0,0.08)',
   },
 
-  // D-pad
   dpad: { gap: 4 },
   dpadRow: { flexDirection: 'row', gap: 4 },
   dpadSpacer: { width: 44, height: 44 },
@@ -620,59 +968,52 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: 'rgba(10,22,40,0.95)',
+    backgroundColor: 'rgba(20,16,8,0.95)',
     borderWidth: 1.5,
-    borderColor: 'rgba(34,211,238,0.25)',
+    borderColor: 'rgba(255,215,0,0.22)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   dBtnActive: {
-    backgroundColor: 'rgba(34,211,238,0.12)',
-    borderColor: 'rgba(34,211,238,0.7)',
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderColor: 'rgba(255,180,0,0.7)',
   },
 
-  // Surge button
-  surgeBtn: {
+  spiritBtn: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(10,22,40,0.95)',
+    backgroundColor: 'rgba(20,16,8,0.95)',
     borderWidth: 2,
-    borderColor: 'rgba(74,222,128,0.28)',
+    borderColor: 'rgba(255,215,0,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 2,
   },
-
-  surgeBtnReady: {
-    borderColor: arcade.gold,
-    backgroundColor: 'rgba(250,204,21,0.08)',
-    shadowColor: arcade.gold,
+  spiritBtnReady: {
+    borderColor: '#FF6B35',
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    shadowColor: '#FF6B35',
     shadowOpacity: 0.65,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
     elevation: 8,
   },
-
-  surgeBtnActive: {
-    borderColor: '#22D3EE',
-    backgroundColor: 'rgba(34,211,238,0.1)',
+  spiritBtnActive: {
+    borderColor: '#FFB347',
+    backgroundColor: 'rgba(255,179,71,0.1)',
   },
-
-  surgeBtnPressed: { opacity: 0.65 },
-
-  surgeBtnGlyph: { fontSize: 22, color: '#4ade80', lineHeight: 26 },
-
-  surgeBtnLabel: {
-    color: '#4ade80',
+  spiritBtnPressed: { opacity: 0.65 },
+  spiritBtnGlyph: { fontSize: 22, color: '#FFD700', lineHeight: 26 },
+  spiritBtnLabel: {
+    color: '#FFD700',
     fontSize: 8,
     fontWeight: '900',
     letterSpacing: 1.5,
   },
 
   webHint: {
-    color: 'rgba(100,116,139,0.75)',
+    color: 'rgba(160,140,100,0.75)',
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',

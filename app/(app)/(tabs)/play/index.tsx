@@ -1,10 +1,9 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useNavigation, useRouter } from 'expo-router';
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
-import { ArcadeCabinetIntro } from '@/components/arcade/ArcadeCabinetIntro';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
 import { ArcadeGrantBanner } from '@/components/arcade/ArcadeGrantBanner';
 import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
@@ -18,6 +17,7 @@ import {
   BallRunGameIcon,
   DashDuelGameIcon,
   NeonDanceGameIcon,
+  NeonGridGameIcon,
   StackerGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
@@ -34,13 +34,9 @@ import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/ru
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 
-/** Once per JS session (until app reload) — avoids replaying cabinet every time you open the Arcade tab. */
-let arcadeCabinetIntroPlayedThisSession = false;
-
 export default function PlayHubScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const [showCabinetIntro, setShowCabinetIntro] = useState(() => !arcadeCabinetIntroPlayedThisSession);
   const [soloPlayGate, setSoloPlayGate] = useState(false);
   const [arcadeHowItWorksOpen, setArcadeHowItWorksOpen] = useState(false);
   const [guestPrompt, setGuestPrompt] = useState<GuestAuthPromptVariant | null>(null);
@@ -54,11 +50,6 @@ export default function PlayHubScreen() {
   const profileQ = useProfile(uid);
   const demoPrizeCredits = usePrizeCreditsDisplay();
   useRestoreBottomTabBarOnFocus();
-
-  const onCabinetIntroDone = useCallback(() => {
-    arcadeCabinetIntroPlayedThisSession = true;
-    setShowCabinetIntro(false);
-  }, []);
 
   const prizeBalanceLabel = !ENABLE_BACKEND
     ? `${demoPrizeCredits.toLocaleString()} prize credits`
@@ -208,6 +199,18 @@ export default function PlayHubScreen() {
         <ArcadeMinigameRow
           emphasized
           compact
+          gameRoute="neon-grid"
+          title="Neon Grid"
+          entryLabel="Practice or prize run"
+          winLabel="PLAY"
+          bgColors={['#0f172a', '#312e81', '#831843']}
+          borderAccent="purple"
+          entryColor="rgba(248,250,252,0.9)"
+          iconSlot={<NeonGridGameIcon size={36} />}
+        />
+        <ArcadeMinigameRow
+          emphasized
+          compact
           gameRoute="turbo-arena"
           title="Turbo Arena"
           entryLabel="Practice or prize run"
@@ -260,7 +263,6 @@ export default function PlayHubScreen() {
           Arcade: earn Arcade Credits vs AI. Home: 1v1 skill contests with tier prizes paid by Run It.
         </Text>
       </ArcadeFloor>
-      {showCabinetIntro ? <ArcadeCabinetIntro onComplete={onCabinetIntroDone} /> : null}
       <ArcadeHowItWorksModal visible={arcadeHowItWorksOpen} onClose={() => setArcadeHowItWorksOpen(false)} />
       <GuestAuthPromptModal
         visible={guestPrompt != null}

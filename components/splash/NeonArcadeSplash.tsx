@@ -1,18 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
-import { Image, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   interpolate,
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-
-import { WebRunItArcadeWordmark } from '@/components/web/WebRunItArcadeWordmark';
 import {
   APP_SCREEN_GRADIENT_COLORS,
   APP_SCREEN_GRADIENT_LOCATIONS,
@@ -34,8 +32,8 @@ export function NeonArcadeSplash({ onComplete }: Props) {
   const progress = useSharedValue(0);
 
   const isWeb = Platform.OS === 'web';
-  const rawLogo = Math.min(w * 0.78, h * 0.5);
-  const logoSize = isWeb ? Math.min(rawLogo, 260) : rawLogo;
+  const rawLogo = Math.min(w * 0.92, h * 0.72);
+  const logoSize = isWeb ? Math.min(rawLogo, 440) : rawLogo;
   const ringSize = w * 1.12;
 
   useEffect(() => {
@@ -58,36 +56,25 @@ export function NeonArcadeSplash({ onComplete }: Props) {
     };
   }, [h]);
 
-  const borderStyle = useAnimatedStyle(() => {
-    const op = interpolate(progress.value, [0.08, 0.32], [0, 1], Extrapolation.CLAMP);
-    const scale = interpolate(progress.value, [0.08, 0.32], [0.94, 1], Extrapolation.CLAMP);
-    return { opacity: op, transform: [{ scale }] };
-  });
-
-  const logoOpacity = useDerivedValue(() => {
+  const logoStyle = useAnimatedStyle(() => {
     const p = progress.value;
-    if (p < 0.16) return interpolate(p, [0, 0.16], [0, 1], Extrapolation.CLAMP);
-    if (p < 0.42) {
-      const t = (p - 0.16) / 0.26;
-      return 0.55 + 0.45 * Math.abs(Math.sin(t * Math.PI * 11));
-    }
-    return 1;
+    const opacity = interpolate(p, [0, 0.08, 0.16, 0.22, 1], [0, 1, 0.8, 1, 1], Extrapolation.CLAMP);
+    const scale = interpolate(p, [0, 0.14, 0.32, 1], [0.86, 1.06, 1, 1], Extrapolation.CLAMP);
+    return { opacity, transform: [{ scale }] };
   });
-
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-  }));
 
   const cyanGlowStyle = useAnimatedStyle(() => {
     const p = progress.value;
-    const pulse = interpolate(p, [0.32, 0.5, 0.68], [0, 1, 0], Extrapolation.CLAMP);
-    return { opacity: 0.35 * pulse };
+    const pulseA = interpolate(p, [0.1, 0.26, 0.4], [0, 1, 0], Extrapolation.CLAMP);
+    const pulseB = interpolate(p, [0.46, 0.62, 0.78], [0, 1, 0], Extrapolation.CLAMP);
+    return { opacity: 0.34 * Math.max(pulseA, pulseB) };
   });
 
-  const bounceStyle = useAnimatedStyle(() => {
+  const magentaGlowStyle = useAnimatedStyle(() => {
     const p = progress.value;
-    const s = interpolate(p, [0.44, 0.52, 0.62], [0.94, 1.06, 1], Extrapolation.CLAMP);
-    return { transform: [{ scale: s }] };
+    const pulseA = interpolate(p, [0.22, 0.38, 0.52], [0, 1, 0], Extrapolation.CLAMP);
+    const pulseB = interpolate(p, [0.68, 0.84, 1], [0, 1, 0], Extrapolation.CLAMP);
+    return { opacity: 0.3 * Math.max(pulseA, pulseB) };
   });
 
   const particlesStyle = useAnimatedStyle(() => ({
@@ -101,20 +88,25 @@ export function NeonArcadeSplash({ onComplete }: Props) {
     return { opacity: op, transform: [{ scale }] };
   });
 
-  const webTaglineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.2, 0.4], [0, 1], Extrapolation.CLAMP),
-    transform: [
-      {
-        translateY: interpolate(progress.value, [0.2, 0.45], [12, 0], Extrapolation.CLAMP),
-      },
-    ],
-  }));
+  const lightningStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    const flashA = interpolate(p, [0.12, 0.18, 0.26], [0, 1, 0], Extrapolation.CLAMP);
+    const flashB = interpolate(p, [0.42, 0.48, 0.56], [0, 1, 0], Extrapolation.CLAMP);
+    const flashC = interpolate(p, [0.74, 0.8, 0.9], [0, 1, 0], Extrapolation.CLAMP);
+    return {
+      opacity: 0.88 * Math.max(flashA, flashB, flashC),
+    };
+  });
 
-  const webSublineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.32, 0.52], [0, 0.92], Extrapolation.CLAMP),
-  }));
+  const boltColorStyle = useAnimatedStyle(() => {
+    const c = interpolateColor(progress.value, [0, 0.5, 1], ['#6ee7ff', '#60a5fa', '#f472b6']);
+    return { backgroundColor: c };
+  });
 
   const LOGO = require('../../assets/images/run-it-arcade-icon.png');
+  const USER_LOGO_WEB_URI =
+    'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_ligth-88f8d384-eded-4b9f-948a-7fadad744a41.png';
+  const logoSource = isWeb ? { uri: USER_LOGO_WEB_URI } : LOGO;
 
   return (
     <View style={[styles.root, isWeb && styles.rootWeb]} pointerEvents="auto">
@@ -159,36 +151,35 @@ export function NeonArcadeSplash({ onComplete }: Props) {
         />
       </Animated.View>
 
+      <Animated.View style={[styles.lightningLayer, lightningStyle]} pointerEvents="none">
+        {LIGHTNING_BOLTS.map((bolt) => (
+          <Animated.View
+            key={bolt.id}
+            style={[
+              styles.lightningBolt,
+              boltColorStyle,
+              {
+                width: bolt.w,
+                height: bolt.h,
+                left: `${bolt.x}%`,
+                top: `${bolt.y}%`,
+                transform: [{ rotate: `${bolt.r}deg` }],
+              },
+            ]}
+          />
+        ))}
+      </Animated.View>
+
       <View style={styles.center}>
-        <Animated.View style={[styles.borderGlow, borderStyle]}>
-          <LinearGradient
-            colors={[runit.neonPink, '#a090ff', runit.neonPink]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.borderGrad}
-          >
-            <View style={[styles.borderInner, { width: logoSize + 8, height: logoSize + 8 }]}>
-              <Animated.View style={[StyleSheet.absoluteFill, cyanGlowStyle]} pointerEvents="none">
-                <View style={styles.cyanGlowFill} />
-              </Animated.View>
-
-              <Animated.View style={[styles.logoWrap, bounceStyle]}>
-                <Animated.View style={logoStyle}>
-                  <Image source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
-                </Animated.View>
-              </Animated.View>
-            </View>
-          </LinearGradient>
+        <Animated.View style={[styles.logoAura, cyanGlowStyle]} pointerEvents="none">
+          <View style={styles.cyanGlowFill} />
         </Animated.View>
-
-        {isWeb ? (
-          <Animated.View style={[styles.webTaglineBlock, webTaglineStyle]}>
-            <WebRunItArcadeWordmark size="splash" layout="inline" style={styles.webWordmark} />
-            <Animated.View style={webSublineStyle}>
-              <Text style={styles.webSubtitle}>Skill contests · Events · Prizes</Text>
-            </Animated.View>
-          </Animated.View>
-        ) : null}
+        <Animated.View style={[styles.logoAuraMagenta, magentaGlowStyle]} pointerEvents="none">
+          <View style={styles.magentaGlowFill} />
+        </Animated.View>
+        <Animated.View style={logoStyle}>
+          <Image source={logoSource} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
+        </Animated.View>
       </View>
 
       <Animated.View style={[styles.particles, particlesStyle]} pointerEvents="none">
@@ -224,6 +215,15 @@ const PARTICLE_SEEDS = [
   { x: 28, y: 38, a: 0.55 },
   { x: 74, y: 32, a: 0.55 },
 ];
+
+const LIGHTNING_BOLTS = [
+  { id: 'a', x: 18, y: 19, w: 2, h: 210, r: -36 },
+  { id: 'b', x: 74, y: 15, w: 2, h: 235, r: 34 },
+  { id: 'c', x: 14, y: 58, w: 2, h: 190, r: -52 },
+  { id: 'd', x: 79, y: 56, w: 2, h: 190, r: 50 },
+  { id: 'e', x: 46, y: 6, w: 2, h: 175, r: -2 },
+  { id: 'f', x: 49, y: 73, w: 2, h: 160, r: -174 },
+] as const;
 
 const styles = StyleSheet.create({
   root: {
@@ -262,59 +262,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 2,
   },
-  webTaglineBlock: {
-    marginTop: 28,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    maxWidth: 520,
-  },
-  webWordmark: {
-    alignSelf: 'center',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  webSubtitle: {
-    marginTop: 10,
-    color: 'rgba(148, 163, 184, 0.95)',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textAlign: 'center',
-  },
-  borderGlow: {
-    borderRadius: 22,
-    padding: 2,
-    shadowColor: runit.neonPink,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.85,
-    shadowRadius: 24,
-    ...(Platform.OS === 'android' ? { elevation: 18 } : {}),
-  },
-  borderGrad: {
-    borderRadius: 20,
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  borderInner: {
-    position: 'relative',
-    borderRadius: 18,
-    backgroundColor: 'rgba(10, 6, 24, 0.94)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-  },
   cyanGlowFill: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 16,
-    backgroundColor: 'rgba(64, 233, 255, 0.14)',
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(56, 189, 248, 0.24)',
     shadowColor: runit.neonCyan,
     shadowOpacity: 1,
-    shadowRadius: 40,
+    shadowRadius: 56,
   },
-  logoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  magentaGlowFill: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(236, 72, 153, 0.2)',
+    shadowColor: runit.neonPink,
+    shadowOpacity: 1,
+    shadowRadius: 48,
+  },
+  logoAura: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+  },
+  logoAuraMagenta: {
+    position: 'absolute',
+    width: 460,
+    height: 460,
+    transform: [{ translateY: 14 }],
   },
   particles: {
     ...StyleSheet.absoluteFillObject,
@@ -336,5 +311,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 26, 140, 0.45)',
     backgroundColor: 'transparent',
     zIndex: 0,
+  },
+  lightningLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  lightningBolt: {
+    position: 'absolute',
+    borderRadius: 8,
+    shadowColor: '#60a5fa',
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
   },
 });

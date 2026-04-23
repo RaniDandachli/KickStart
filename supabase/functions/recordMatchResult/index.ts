@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
         if (gk === 'dash-duel') return 'dash_duel';
         if (gk === 'turbo-arena') return 'turbo_arena';
         if (gk === 'neon-dance') return 'neon_dance';
+        if (gk === 'neon-grid') return 'neon_grid';
         return null;
       })();
       if (!forfeitBy && skillGameType) {
