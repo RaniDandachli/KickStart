@@ -328,7 +328,7 @@ export function HomeScreenWebLaptop({
             onPress={onEnterDailyTournament}
             style={({ pressed }) => [styles.tourneyCardOuter, compact && styles.tourneyCardOuterCompact, pressed && { opacity: 0.96 }]}
           >
-            <View style={styles.tourneyStack}>
+            <View style={[styles.tourneyStack, compact && styles.tourneyStackMinH]}>
               <Image
                 source={tournamentOfTheDayHeroSource}
                 style={styles.tourneyBgImg}
@@ -355,7 +355,11 @@ export function HomeScreenWebLaptop({
                   <Text style={styles.tourneyMegaGold}>DAY</Text>
                 </Text>
                 <View style={styles.tourneyLockupRow}>
-                  <Image source={runItArcadeLogoSource} style={styles.tourneyLockup} contentFit="contain" />
+                  <Image
+                    source={runItArcadeLogoSource}
+                    style={[styles.tourneyLockup, compact && styles.tourneyLockupCompact]}
+                    contentFit="contain"
+                  />
                 </View>
                 <View style={styles.tourneyPrizeRow}>
                   <Text style={styles.tourneyPrizeSub}>Showcase prize</Text>
@@ -417,23 +421,23 @@ export function HomeScreenWebLaptop({
 
         {/* Stat bar — 4-up like reference dashboard */}
         <View style={[styles.statBar, compact && styles.statBarCompact]}>
-          <View style={styles.statBarItem}>
+          <View style={[styles.statBarItem, compact && styles.statBarItemCompact]}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{paidOut}</Text>
             <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>PAID OUT · 24H</Text>
           </View>
-          <View style={styles.statBarItem}>
+          <View style={[styles.statBarItem, compact && styles.statBarItemCompact]}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>
               {matchesLiveOnly}
             </Text>
             <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>LIVE MATCHES</Text>
           </View>
-          <View style={styles.statBarItem}>
+          <View style={[styles.statBarItem, compact && styles.statBarItemCompact]}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>
               {playersOnlineDisplay}
             </Text>
             <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>PLAYERS ONLINE</Text>
           </View>
-          <View style={styles.statBarItem}>
+          <View style={[styles.statBarItem, compact && styles.statBarItemCompact]}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{activeGames}</Text>
             <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>IN QUEUE + GAMES</Text>
           </View>
@@ -539,60 +543,122 @@ export function HomeScreenWebLaptop({
           })}
         </ScrollView>
 
-        {/* Your stats + leaderboards */}
-        <View style={[styles.threeCol, compact && styles.threeColCompact]}>
-          <View style={[styles.panel, compact && styles.panelCompact]}>
-            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
-            {ENABLE_BACKEND && uid && fightLoading ? (
-              <Text style={styles.panelMuted}>Loading your stats…</Text>
-            ) : (
-              <>
-                <StatLine label="Total matches" value={uid ? totalMatches : '—'} valueGreen={false} />
-                <StatLine label="Win rate" value={uid ? winRate : '—'} valueGreen={false} />
-                <StatLine
-                  label="Cash wallet"
-                  value={uid ? formatUsdFromCents(walletCents) : '—'}
-                  valueGreen={!!uid}
-                />
-                <StatLine label="Current streak" value={uid ? streak : '—'} valueGreen={false} />
-              </>
-            )}
-          </View>
-          <View style={styles.panel}>
-            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>TOP EARNERS · 24H</Text>
-            {topEarners.map((r, i) => (
-              <View key={`${r.username}-${r.created_at}`} style={styles.leaderRow}>
-                <Text style={[styles.leaderRank, { color: RANK_COLORS[i % RANK_COLORS.length] }]}>{i + 1}</Text>
-                <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i) }]}>
-                  <Text style={styles.leaderAvTxt}>{initialsFromUsername(r.username)}</Text>
-                </View>
-                <Text style={styles.leaderName} numberOfLines={1}>
-                  {r.username}
+        {/* Your stats + leaderboards — narrow web: stats full width, earners + recent side-by-side */}
+        {compact ? (
+          <View style={styles.compactStatsLeaderboards}>
+            <View style={[styles.panel, styles.panelCompact, styles.compactPanelFull]}>
+              <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
+              {ENABLE_BACKEND && uid && fightLoading ? (
+                <Text style={styles.panelMuted}>Loading your stats…</Text>
+              ) : (
+                <>
+                  <StatLine label="Total matches" value={uid ? totalMatches : '—'} valueGreen={false} />
+                  <StatLine label="Win rate" value={uid ? winRate : '—'} valueGreen={false} />
+                  <StatLine
+                    label="Cash wallet"
+                    value={uid ? formatUsdFromCents(walletCents) : '—'}
+                    valueGreen={!!uid}
+                  />
+                  <StatLine label="Current streak" value={uid ? streak : '—'} valueGreen={false} />
+                </>
+              )}
+            </View>
+            <View style={styles.compactLeaderPair}>
+              <View style={[styles.panel, styles.panelCompact, styles.compactPanelHalf]}>
+                <Text style={[styles.panelTitle, styles.panelTitleCompact, { fontFamily: runitFont.black }]}>
+                  TOP EARNERS · 24H
                 </Text>
-                <Text style={styles.leaderAmt}>+{formatUsdFromCents(r.cents)}</Text>
+                {topEarners.map((r, i) => (
+                  <View key={`${r.username}-${r.created_at}`} style={styles.leaderRow}>
+                    <Text style={[styles.leaderRank, { color: RANK_COLORS[i % RANK_COLORS.length] }]}>{i + 1}</Text>
+                    <View style={[styles.leaderAvatar, styles.leaderAvatarCompact, { backgroundColor: avatarColor(i) }]}>
+                      <Text style={styles.leaderAvTxt}>{initialsFromUsername(r.username)}</Text>
+                    </View>
+                    <Text style={styles.leaderName} numberOfLines={1}>
+                      {r.username}
+                    </Text>
+                    <Text style={styles.leaderAmt}>+{formatUsdFromCents(r.cents)}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-          <View style={styles.panel}>
-            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>RECENT WINS</Text>
-            {FAKE_RECENT_WINNER_LINES.map((w, i) => (
-              <View key={`${w.name}-${i}`} style={styles.recentRow}>
-                <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i + 2) }]}>
-                  <Text style={styles.leaderAvTxt}>{initialsFromUsername(w.name)}</Text>
-                </View>
-                <View style={styles.recentMid}>
-                  <Text style={styles.recentName} numberOfLines={1}>
-                    {w.name}
-                  </Text>
-                  <Text style={styles.recentSub} numberOfLines={1}>
-                    {w.game} · {w.ago}
-                  </Text>
-                </View>
-                <Text style={styles.recentWin}>+{formatUsdFromCents(w.amountCents)}</Text>
+              <View style={[styles.panel, styles.panelCompact, styles.compactPanelHalf]}>
+                <Text style={[styles.panelTitle, styles.panelTitleCompact, { fontFamily: runitFont.black }]}>
+                  RECENT WINS
+                </Text>
+                {FAKE_RECENT_WINNER_LINES.map((w, i) => (
+                  <View key={`${w.name}-${i}`} style={styles.recentRow}>
+                    <View style={[styles.leaderAvatar, styles.leaderAvatarCompact, { backgroundColor: avatarColor(i + 2) }]}>
+                      <Text style={styles.leaderAvTxt}>{initialsFromUsername(w.name)}</Text>
+                    </View>
+                    <View style={styles.recentMid}>
+                      <Text style={styles.recentName} numberOfLines={1}>
+                        {w.name}
+                      </Text>
+                      <Text style={styles.recentSub} numberOfLines={1}>
+                        {w.game} · {w.ago}
+                      </Text>
+                    </View>
+                    <Text style={styles.recentWin}>+{formatUsdFromCents(w.amountCents)}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.threeCol}>
+            <View style={styles.panel}>
+              <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
+              {ENABLE_BACKEND && uid && fightLoading ? (
+                <Text style={styles.panelMuted}>Loading your stats…</Text>
+              ) : (
+                <>
+                  <StatLine label="Total matches" value={uid ? totalMatches : '—'} valueGreen={false} />
+                  <StatLine label="Win rate" value={uid ? winRate : '—'} valueGreen={false} />
+                  <StatLine
+                    label="Cash wallet"
+                    value={uid ? formatUsdFromCents(walletCents) : '—'}
+                    valueGreen={!!uid}
+                  />
+                  <StatLine label="Current streak" value={uid ? streak : '—'} valueGreen={false} />
+                </>
+              )}
+            </View>
+            <View style={styles.panel}>
+              <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>TOP EARNERS · 24H</Text>
+              {topEarners.map((r, i) => (
+                <View key={`${r.username}-${r.created_at}`} style={styles.leaderRow}>
+                  <Text style={[styles.leaderRank, { color: RANK_COLORS[i % RANK_COLORS.length] }]}>{i + 1}</Text>
+                  <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i) }]}>
+                    <Text style={styles.leaderAvTxt}>{initialsFromUsername(r.username)}</Text>
+                  </View>
+                  <Text style={styles.leaderName} numberOfLines={1}>
+                    {r.username}
+                  </Text>
+                  <Text style={styles.leaderAmt}>+{formatUsdFromCents(r.cents)}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.panel}>
+              <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>RECENT WINS</Text>
+              {FAKE_RECENT_WINNER_LINES.map((w, i) => (
+                <View key={`${w.name}-${i}`} style={styles.recentRow}>
+                  <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i + 2) }]}>
+                    <Text style={styles.leaderAvTxt}>{initialsFromUsername(w.name)}</Text>
+                  </View>
+                  <View style={styles.recentMid}>
+                    <Text style={styles.recentName} numberOfLines={1}>
+                      {w.name}
+                    </Text>
+                    <Text style={styles.recentSub} numberOfLines={1}>
+                      {w.game} · {w.ago}
+                    </Text>
+                  </View>
+                  <Text style={styles.recentWin}>+{formatUsdFromCents(w.amountCents)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {!compact ? (
           <View style={styles.scrollHint}>
@@ -668,8 +734,8 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     paddingHorizontal: 20,
   },
-  /** Web mobile: logo lockup in header (replaces "RUN iT DASH" text). */
-  compactWebLogo: { width: 176, height: 54, maxWidth: '78%' as const },
+  /** Web mobile: header wordmark — one row with wallet/actions; reads at a glance. */
+  compactWebLogo: { width: 204, height: 62, maxWidth: '58%' as const },
   perkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   perkPill: {
     flexDirection: 'row',
@@ -690,9 +756,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
     gap: 16,
-    paddingTop: 10,
+    paddingTop: 8,
     marginHorizontal: -4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderTopWidth: 0,
     backgroundColor: 'transparent',
   },
@@ -734,8 +800,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarLetter: { color: '#f8fafc', fontSize: 14, fontWeight: '900' },
-  brandBlock: { minWidth: 0, flexShrink: 1 },
-  brandBlockCompact: { maxWidth: '52%' as const },
+  brandBlock: { minWidth: 0, flexShrink: 1, justifyContent: 'center' as const },
+  brandBlockCompact: { flex: 1, minWidth: 0, marginRight: 4 },
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
   navIconBtn: {
     width: 40,
@@ -777,7 +843,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.15)',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 28,
+    marginBottom: 22,
   },
   liveStripLeft: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
   liveDotRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -791,6 +857,8 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 32,
   },
+  /** Tourney block sits above the marketing hero on narrow web (see `heroRowCompact`). */
+  tourneyStackMinH: { minHeight: 200 },
   heroLeftWrap: {
     flex: 1,
     minWidth: 0,
@@ -897,6 +965,7 @@ const styles = StyleSheet.create({
   tourneyMegaGold: { color: BRAND_GOLD },
   tourneyLockupRow: { alignItems: 'center' as const, marginBottom: 8 },
   tourneyLockup: { width: 152, height: 46 },
+  tourneyLockupCompact: { width: 124, height: 38 },
   tourneyPrizeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -985,6 +1054,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statBarItem: { flexBasis: '22%', flexGrow: 1, minWidth: 120, alignItems: 'center' },
+  /** 2×2 grid on phone web — no orphaned numbers, labels stay under values. */
+  statBarItemCompact: {
+    flexBasis: '48%',
+    maxWidth: '48%',
+    minWidth: 0,
+    flexGrow: 0,
+  },
   statBarVal: { color: '#f8fafc', fontSize: 28, fontWeight: '900' },
   statBarLbl: {
     color: 'rgba(148,163,184,0.85)',
@@ -1098,7 +1174,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     alignItems: 'stretch',
   },
-  threeColCompact: { flexDirection: 'column' },
+  compactStatsLeaderboards: { width: '100%' as const, marginTop: 4, gap: 10 },
+  compactLeaderPair: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  compactPanelFull: { width: '100%' as const },
+  compactPanelHalf: { flex: 1, minWidth: 0, minHeight: 0 },
+  panelTitleCompact: { fontSize: 10, marginBottom: 8, letterSpacing: 0.6 },
+  leaderAvatarCompact: { width: 30, height: 30, borderRadius: 15 },
   panel: {
     flex: 1,
     minWidth: 200,
@@ -1171,37 +1252,41 @@ const styles = StyleSheet.create({
   },
 
   /** Viewports narrower than `HOME_WEB_LAPTOP_MIN_WIDTH` (phone browsers, small tablets). */
-  scrollContentCompact: { paddingTop: 6, paddingBottom: 28 },
+  scrollContentCompact: { paddingTop: 0, paddingBottom: 24 },
   maxCompact: { paddingHorizontal: 12, maxWidth: '100%' as const },
   topNavCompact: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 10,
-    paddingTop: 6,
+    marginBottom: 8,
+    paddingTop: 2,
   },
   navRightCompact: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     flexWrap: 'wrap',
-    gap: 8,
+    rowGap: 4,
+    columnGap: 6,
   },
   liveStripCompact: {
-    marginBottom: 12,
+    marginBottom: 10,
     paddingVertical: 8,
     paddingHorizontal: 11,
   },
   liveStripLeftCompact: { flex: 1, minWidth: 0 },
   liveStripRewardCompact: { flexShrink: 0 },
+  /** DOM order is hero then tourney; reverse column puts Tournament of the Day first without duplicating nodes. */
   heroRowCompact: {
-    flexDirection: 'column',
+    flexDirection: 'column-reverse',
     gap: 12,
     marginBottom: 16,
   },
   heroLeftWrapCompact: {
     width: '100%' as const,
     flexBasis: 'auto' as const,
+    minHeight: 220,
   },
   heroLeftCompact: { minWidth: 0 },
   heroHeadlineCompact: {
