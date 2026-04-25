@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import { Image, ImageBackground, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   Extrapolation,
@@ -26,11 +27,13 @@ type Props = {
  * Cinematic splash — full-bleed **explosion** key art, dark vignette, crown logo reveal (scale + glow).
  */
 export function NeonArcadeSplash({ onComplete }: Props) {
-  const { width: w } = useWindowDimensions();
+  const { width: w, height: h } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const progress = useSharedValue(0);
 
   const isWeb = Platform.OS === 'web';
-  const logoMax = isWeb ? Math.min(w * 0.55, 320) : Math.min(w * 0.72, 340);
+  const shortSide = Math.min(w, h);
+  const logoMax = isWeb ? Math.min(w * 0.48, 300) : Math.min(shortSide * 0.6, 300);
 
   useEffect(() => {
     progress.value = withSequence(
@@ -83,7 +86,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
       <ImageBackground
         source={HERO}
         style={StyleSheet.absoluteFill}
-        resizeMode="cover"
+        resizeMode={isWeb ? 'cover' : 'contain'}
         accessibilityLabel=""
       >
         <LinearGradient
@@ -122,8 +125,24 @@ export function NeonArcadeSplash({ onComplete }: Props) {
         />
       ) : null}
 
-      <View style={styles.center}>
-        <Animated.View style={[styles.goldHalo, goldHaloStyle]} pointerEvents="none" />
+      <View
+        style={[
+          styles.center,
+          {
+            paddingTop: insets.top + 12,
+            paddingBottom: Math.max(insets.bottom, 20) + 20,
+            paddingHorizontal: 16,
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.goldHalo,
+            { width: Math.min(480, shortSide * 1.05), height: Math.min(480, shortSide * 1.05) },
+            goldHaloStyle,
+          ]}
+          pointerEvents="none"
+        />
         <Animated.View style={logoStyle}>
           <Image
             source={runItArcadeLogoSource}
@@ -173,12 +192,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 4,
-    paddingBottom: 32,
+    maxWidth: '100%' as const,
   },
   goldHalo: {
     position: 'absolute',
-    width: 480,
-    height: 480,
     borderRadius: 999,
     backgroundColor: 'rgba(250, 204, 21, 0.12)',
     shadowColor: runit.gold,

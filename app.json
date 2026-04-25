@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/images/run-it-arcade-splash-hero.png",
-      "resizeMode": "cover",
+      "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "ios": {

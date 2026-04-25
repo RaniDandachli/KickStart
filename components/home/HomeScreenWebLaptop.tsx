@@ -22,7 +22,7 @@ import type { ProfileFightStats } from '@/services/api/profileFightStats';
 import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
-import { tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
+import { runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
 import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
 import {
@@ -132,6 +132,14 @@ export function HomeScreenWebLaptop({
   const activeGames = h2hCarouselRows.length;
   const avLetter = (userInitial || 'P').replace(/\s/g, '').slice(0, 1).toUpperCase() || 'P';
 
+  const totdProgress = useMemo(() => {
+    const h = dailyDayKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const entered = 96 + (h % 90);
+    const cap = 256;
+    const pct = (entered / cap) * 100;
+    return { entered, cap, pct: Math.min(100, Math.max(8, pct)) };
+  }, [dailyDayKey]);
+
   const [fakeEarnerFrame, setFakeEarnerFrame] = useState(0);
 
   useEffect(() => {
@@ -180,7 +188,12 @@ export function HomeScreenWebLaptop({
         <View style={[styles.topNav, compact && styles.topNavCompact]}>
           <View style={[styles.brandBlock, compact && styles.brandBlockCompact]}>
             {compact ? (
-              <Text style={[styles.dashKicker, { fontFamily: runitFont.black }]}>RUN iT DASH</Text>
+              <Image
+                source={runItArcadeLogoSource}
+                style={styles.compactWebLogo}
+                contentFit="contain"
+                accessibilityLabel="Run It Arcade"
+              />
             ) : null}
           </View>
           <View style={[styles.navRight, compact && styles.navRightCompact]}>
@@ -283,13 +296,14 @@ export function HomeScreenWebLaptop({
                 onPress={onPlayNow}
                 style={({ pressed }) => [styles.btnPlay, compact && styles.btnPlayCompact, pressed && { opacity: 0.92 }]}
               >
-                <SafeIonicons name="play" size={18} color="#fff" />
-                <Text style={[styles.btnPlayTxt, compact && styles.btnPlayTxtCompact]}>Play Now</Text>
+                <SafeIonicons name="flash" size={18} color="#fff" />
+                <Text style={[styles.btnPlayTxt, compact && styles.btnPlayTxtCompact]}>Play now</Text>
               </Pressable>
               <Pressable
                 onPress={onHowItWorks}
                 style={({ pressed }) => [styles.btnGhost, compact && styles.btnGhostCompact, pressed && { opacity: 0.92 }]}
               >
+                <SafeIonicons name="play-circle" size={18} color="rgba(167,139,250,0.95)" />
                 <Text style={[styles.btnGhostTxt, compact && styles.btnGhostTxtCompact]}>How it works</Text>
               </Pressable>
             </View>
@@ -313,47 +327,74 @@ export function HomeScreenWebLaptop({
                 style={StyleSheet.absoluteFill}
               />
               <View style={[styles.tourneyCard, compact && styles.tourneyCardCompact]}>
-              <View style={styles.dailyHeadRow}>
-                <View style={styles.dailyBadge}>
-                  <Text style={styles.dailyBadgeTxt}>DAILY TOURNAMENT</Text>
+                <View style={styles.tourneyKickerRow}>
+                  <View style={styles.kickerLine} />
+                  <Text style={styles.tourneyKickerLabel}>DAILY TOURNAMENT</Text>
                 </View>
-                <Text style={styles.dailyPrizeAmt}>${dailyPrizeUsd}</Text>
-              </View>
-              <View style={styles.countdownRow}>
-                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
-                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{hh}</Text>
-                  <Text style={styles.countLbl}>HR</Text>
-                </View>
-                <Text style={styles.countSep}>:</Text>
-                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
-                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{mm}</Text>
-                  <Text style={styles.countLbl}>MIN</Text>
-                </View>
-                <Text style={styles.countSep}>:</Text>
-                <View style={[styles.countBox, compact && styles.countBoxCompact]}>
-                  <Text style={[styles.countNum, compact && styles.countNumCompact]}>{ss}</Text>
-                  <Text style={styles.countLbl}>SEC</Text>
-                </View>
-              </View>
-              <Text style={[styles.tourneyFoot, compact && styles.tourneyFootCompact]}>
-                {ENABLE_DAILY_FREE_TOURNAMENT ? 'Free to enter · ' : ''}Skill path · {dailyRounds}{' '}
-                rounds. New bracket at local midnight.
-              </Text>
-              <View style={[styles.tourneyChips, compact && styles.tourneyChipsCompact]}>
-                <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
-                  <SafeIonicons name="person-outline" size={12} color="#94a3b8" />
-                  <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>Open entry</Text>
-                </View>
-                <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
-                  <SafeIonicons name="time-outline" size={12} color="#94a3b8" />
-                  <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>No wallet needed</Text>
-                </View>
-              </View>
-              <View style={[styles.enterRow, compact && styles.enterRowCompact]}>
-                <Text style={[styles.enterBtnTxt, compact && styles.enterBtnTxtCompact]}>
-                  {ENABLE_DAILY_FREE_TOURNAMENT ? 'Enter Free →' : 'View events →'}
+                <Text
+                  style={[styles.tourneyMega, compact && styles.tourneyMegaCompact, { fontFamily: runitFont.black }]}
+                  numberOfLines={3}
+                >
+                  <Text style={styles.tourneyMegaDim}>TOURNAMENT </Text>
+                  <Text style={styles.tourneyMegaPink}>OF THE </Text>
+                  <Text style={styles.tourneyMegaGold}>DAY</Text>
                 </Text>
-              </View>
+                <View style={styles.tourneyLockupRow}>
+                  <Image source={runItArcadeLogoSource} style={styles.tourneyLockup} contentFit="contain" />
+                </View>
+                <View style={styles.tourneyPrizeRow}>
+                  <Text style={styles.tourneyPrizeSub}>Showcase prize</Text>
+                  <Text style={styles.dailyPrizeAmt}>${dailyPrizeUsd}</Text>
+                </View>
+                <View style={styles.countdownRow}>
+                  <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                    <Text style={[styles.countNum, compact && styles.countNumCompact]}>{hh}</Text>
+                    <Text style={styles.countLbl}>HR</Text>
+                  </View>
+                  <Text style={styles.countSep}>:</Text>
+                  <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                    <Text style={[styles.countNum, compact && styles.countNumCompact]}>{mm}</Text>
+                    <Text style={styles.countLbl}>MIN</Text>
+                  </View>
+                  <Text style={styles.countSep}>:</Text>
+                  <View style={[styles.countBox, compact && styles.countBoxCompact]}>
+                    <Text style={[styles.countNum, compact && styles.countNumCompact]}>{ss}</Text>
+                    <Text style={styles.countLbl}>SEC</Text>
+                  </View>
+                </View>
+                <Text style={[styles.tourneyFoot, compact && styles.tourneyFootCompact]}>
+                  {ENABLE_DAILY_FREE_TOURNAMENT ? 'Free to enter · ' : ''}Skill path · {dailyRounds} rounds. New
+                  bracket at local midnight.
+                </Text>
+                <View style={[styles.tourneyChips, compact && styles.tourneyChipsCompact]}>
+                  <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
+                    <SafeIonicons name="flash" size={12} color={BRAND_GOLD} />
+                    <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>Open entry</Text>
+                  </View>
+                  <View style={[styles.miniChip, compact && styles.miniChipCompact]}>
+                    <SafeIonicons name="flash" size={12} color={BRAND_GOLD} />
+                    <Text style={[styles.miniChipTxt, compact && styles.miniChipTxtCompact]}>No wallet needed</Text>
+                  </View>
+                </View>
+                <LinearGradient
+                  colors={['#4c1d95', '#6B21A8', '#7e22ce']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={[styles.tourneyCta, compact && styles.tourneyCtaCompact]}
+                >
+                  <SafeIonicons name="flash" size={18} color="#fff" />
+                  <Text style={styles.tourneyCtaTxt}>
+                    {ENABLE_DAILY_FREE_TOURNAMENT ? 'Enter free →' : 'View events →'}
+                  </Text>
+                </LinearGradient>
+                <View style={styles.tourneyProgressBlock}>
+                  <View style={styles.tourneyProgressTrack}>
+                    <View style={[styles.tourneyProgressFill, { width: `${Math.round(totdProgress.pct)}%` }]} />
+                  </View>
+                  <Text style={styles.tourneyProgressMeta}>
+                    {totdProgress.entered} / {totdProgress.cap} entered
+                  </Text>
+                </View>
               </View>
             </View>
           </Pressable>
@@ -593,24 +634,27 @@ const styles = StyleSheet.create({
   dashboardRow: {
     flexDirection: 'row',
     width: '100%',
-    maxWidth: 1400,
-    minHeight: 480,
+    maxWidth: 1440,
+    minHeight: 400,
     alignSelf: 'center',
+    alignItems: 'stretch' as const,
   },
   mainColumn: {
     flex: 1,
     minWidth: 0,
-    paddingTop: 8,
-    paddingRight: 28,
-    paddingLeft: 12,
-    paddingBottom: 24,
+    maxWidth: 1120,
+    paddingTop: 6,
+    paddingRight: 24,
+    paddingLeft: 8,
+    paddingBottom: 20,
   },
   max: {
     width: '100%',
     maxWidth: 1200,
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
   },
-  dashKicker: { color: 'rgba(226,232,240,0.9)', fontSize: 12, letterSpacing: 1.2 },
+  /** Web mobile: logo lockup in header (replaces "RUN iT DASH" text). */
+  compactWebLogo: { width: 176, height: 54, maxWidth: '78%' as const },
   perkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   perkPill: {
     flexDirection: 'row',
@@ -729,10 +773,10 @@ const styles = StyleSheet.create({
   heroRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 28,
-    marginBottom: 36,
+    gap: 20,
+    marginBottom: 32,
   },
-  heroLeft: { flex: 1, minWidth: 280, justifyContent: 'center' },
+  heroLeft: { flex: 1, minWidth: 0, flexBasis: 0, justifyContent: 'center' },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   kickerLine: { width: 28, height: 2, backgroundColor: runit.neonPink, borderRadius: 1 },
   kicker: {
@@ -770,8 +814,12 @@ const styles = StyleSheet.create({
   },
   btnPlayTxt: { color: '#fff', fontSize: 15, fontWeight: '800' },
   btnGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(248,250,252,0.35)',
+    borderColor: 'rgba(139,92,246,0.6)',
+    backgroundColor: 'rgba(2,0,6,0.35)',
     borderRadius: 999,
     paddingVertical: 14,
     paddingHorizontal: 22,
@@ -781,19 +829,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative' as const,
-    minHeight: 260,
+    minHeight: 300,
   },
   tourneyBgImg: {
     ...StyleSheet.absoluteFillObject,
   },
+  /** Right column: same flex basis as `heroLeft` (mirrors first hero). */
   tourneyCardOuter: {
-    width: 380,
-    maxWidth: '42%',
+    flex: 1,
+    minWidth: 0,
+    flexBasis: 0,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.4)',
-    alignSelf: 'center',
+    borderColor: 'rgba(139,92,246,0.55)',
+    alignSelf: 'stretch',
   },
   tourneyCard: {
     padding: 20,
@@ -801,33 +851,57 @@ const styles = StyleSheet.create({
     zIndex: 2,
     backgroundColor: 'transparent',
   },
-  dailyHeadRow: {
+  tourneyKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  tourneyKickerLabel: {
+    color: runit.neonPink,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  tourneyMega: { fontSize: 26, lineHeight: 30, marginBottom: 8, textAlign: 'left' as const },
+  tourneyMegaCompact: { fontSize: 22, lineHeight: 26 },
+  tourneyMegaDim: { color: 'rgba(241,245,249,0.9)' },
+  tourneyMegaPink: { color: runit.neonPink },
+  tourneyMegaGold: { color: BRAND_GOLD },
+  tourneyLockupRow: { alignItems: 'center' as const, marginBottom: 8 },
+  tourneyLockup: { width: 152, height: 46 },
+  tourneyPrizeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  dailyBadge: {
-    backgroundColor: 'rgba(225,29,140,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,0,110,0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  dailyBadgeTxt: {
-    color: runit.neonPink,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
+  tourneyPrizeSub: { color: 'rgba(148,163,184,0.9)', fontSize: 12, fontWeight: '700' },
   dailyPrizeAmt: {
     color: '#4ade80',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
+  tourneyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  tourneyCtaCompact: { paddingVertical: 12 },
+  tourneyCtaTxt: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  tourneyProgressBlock: { gap: 6 },
+  tourneyProgressTrack: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(15,23,42,0.85)',
+    overflow: 'hidden' as const,
+  },
+  tourneyProgressFill: {
+    height: '100%' as const,
+    borderRadius: 4,
+    backgroundColor: 'rgba(167,85,250,0.95)',
+  },
+  tourneyProgressMeta: { color: 'rgba(203,213,225,0.9)', fontSize: 11, fontWeight: '700' },
   countdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -870,14 +944,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.2)',
   },
   miniChipTxt: { color: 'rgba(203,213,225,0.9)', fontSize: 11, fontWeight: '600' },
-  enterRow: {
-    borderWidth: 1,
-    borderColor: 'rgba(248,250,252,0.35)',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  enterBtnTxt: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
   statBar: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1074,7 +1140,7 @@ const styles = StyleSheet.create({
 
   /** Viewports narrower than `HOME_WEB_LAPTOP_MIN_WIDTH` (phone browsers, small tablets). */
   scrollContentCompact: { paddingTop: 6, paddingBottom: 28 },
-  maxCompact: { paddingHorizontal: 14 },
+  maxCompact: { paddingHorizontal: 12, maxWidth: '100%' as const },
   topNavCompact: {
     flexDirection: 'column',
     alignItems: 'stretch',
@@ -1141,8 +1207,6 @@ const styles = StyleSheet.create({
   tourneyChipsCompact: { marginBottom: 10, gap: 6 },
   miniChipCompact: { paddingHorizontal: 8, paddingVertical: 4 },
   miniChipTxtCompact: { fontSize: 10 },
-  enterRowCompact: { paddingVertical: 10 },
-  enterBtnTxtCompact: { fontSize: 13 },
   statBarCompact: {
     marginBottom: 14,
     gap: 6,

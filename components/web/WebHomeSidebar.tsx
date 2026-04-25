@@ -73,7 +73,7 @@ export function WebHomeSidebar() {
 
 const styles = StyleSheet.create({
   rail: {
-    width: 220,
+    width: 248,
     flexShrink: 0,
     paddingTop: 8,
     paddingBottom: 20,
@@ -90,7 +90,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,215,0,0.2)',
   },
-  logoImg: { width: 200, height: 72, marginBottom: 6 },
+  /** Larger crest — primary brand lockup for laptop dashboard. */
+  logoImg: { width: 256, height: 96, marginBottom: 8 },
   brandName: {
     color: '#f8fafc',
     fontSize: 13,
