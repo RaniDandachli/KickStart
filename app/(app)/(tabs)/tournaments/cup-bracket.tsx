@@ -54,7 +54,7 @@ export default function CupBracketScreen() {
       <Screen>
         <Text style={styles.off}>Cup not found.</Text>
         <Pressable onPress={() => router.back()} style={styles.backRow}>
-          <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+          <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
           <Text style={styles.backTxt}>Back</Text>
         </Pressable>
       </Screen>
@@ -64,7 +64,7 @@ export default function CupBracketScreen() {
   return (
     <Screen scroll>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backRow}>
-        <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+        <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
         <Text style={styles.backTxt}>Back</Text>
       </Pressable>
 
@@ -80,7 +80,7 @@ export default function CupBracketScreen() {
 
 const styles = StyleSheet.create({
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  backTxt: { color: '#22d3ee', fontSize: 14, fontWeight: '700' },
+  backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
   h1: { color: runit.neonPink, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginBottom: 8 },
   lede: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 16 },
   off: { color: 'rgba(148,163,184,0.9)', marginBottom: 12 },

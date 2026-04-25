@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.55)',
   },
   gameChipOn: {
-    borderColor: 'rgba(56,189,248,0.65)',
+    borderColor: 'rgba(255,215,0,0.65)',
     backgroundColor: 'rgba(14,116,144,0.25)',
   },
   gameChipTxt: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   gameChipTxtOn: {
-    color: '#e0f2fe',
+    color: '#FFF8E1',
   },
   bodyText: {
     color: 'rgba(203,213,225,0.92)',

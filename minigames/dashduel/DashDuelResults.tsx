@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'rgba(15,23,42,0.85)',
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
   },
   topExitLabel: {
     color: '#F8FAFC',
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  card: { borderRadius: 16, padding: 22, borderWidth: 1, borderColor: 'rgba(34,211,238,0.35)' },
+  card: { borderRadius: 16, padding: 22, borderWidth: 1, borderColor: 'rgba(255,215,0,0.35)' },
   kicker: {
     color: 'rgba(148,163,184,0.95)',
     fontSize: 11,

@@ -60,7 +60,7 @@ function ballColor(id: number): string {
   if (id === 0) return '#f8fafc';
   if (id === 8) return '#0f172a';
   const solids = ['#fbbf24', '#3b82f6', '#dc2626', '#7c3aed', '#ea580c', '#059669', '#be123c'];
-  const stripes = ['#facc15', '#60a5fa', '#f87171', '#a78bfa', '#fb923c', '#34d399', '#f472b6'];
+  const stripes = ['#facc15', '#60a5fa', '#f87171', '#a78bfa', '#fb923c', '#FFD700', '#f472b6'];
   if (id >= 1 && id <= 7) return solids[id - 1]!;
   return stripes[id - 9] ?? '#94a3b8';
 }
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    color: '#5eead4',
+    color: '#FFD700',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.98)',
     gap: 10,
   },
-  modalTitle: { color: '#5eead4', fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  modalTitle: { color: '#FFD700', fontSize: 22, fontWeight: '900', textAlign: 'center' },
   modalScore: { color: '#f8fafc', fontSize: 20, fontWeight: '800', textAlign: 'center' },
   modalTickets: { color: '#fde047', fontSize: 15, fontWeight: '800', textAlign: 'center' },
   practiceNote: { color: '#94a3b8', fontSize: 13, textAlign: 'center' },

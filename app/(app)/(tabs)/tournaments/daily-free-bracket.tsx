@@ -57,7 +57,7 @@ export default function DailyFreeBracketScreen() {
   return (
     <Screen scroll>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backRow}>
-        <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+        <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
         <Text style={styles.backTxt}>Back</Text>
       </Pressable>
 
@@ -87,7 +87,7 @@ export default function DailyFreeBracketScreen() {
 
 const styles = StyleSheet.create({
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  backTxt: { color: '#22d3ee', fontSize: 14, fontWeight: '700' },
+  backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
   h1: { color: runit.neonPink, fontSize: 22, fontWeight: '900', letterSpacing: 1.2, marginBottom: 8 },
   lede: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 16 },
   note: { flexDirection: 'row', gap: 10, marginTop: 20, padding: 12, borderRadius: 12, backgroundColor: 'rgba(15,23,42,0.65)' },

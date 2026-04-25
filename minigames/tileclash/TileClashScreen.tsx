@@ -197,7 +197,7 @@ export default function TileClashScreen() {
               ) : null}
             </View>
             <View className="items-center">
-              <Text className="mb-1 text-xs font-bold text-sky-800">AI</Text>
+              <Text className="mb-1 text-xs font-bold text-amber-900">AI</Text>
               {snap ? (
                 <TileBoard
                   state={snap}

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
-export type RunitBorderAccent = 'pink' | 'cyan' | 'purple';
+export type RunitBorderAccent = 'pink' | 'gold' | 'purple';
 
 interface Props {
   title: string;
@@ -26,7 +26,7 @@ interface Props {
 
 const borderGrad: Record<RunitBorderAccent, readonly [string, string]> = {
   pink: [runit.neonPink, runit.neonPurple],
-  cyan: [runit.neonCyan, 'rgba(0,240,255,0.25)'],
+  gold: [runit.gold, 'rgba(255,215,0,0.28)'],
   purple: [runit.neonPurple, runit.neonPink],
 };
 
@@ -44,7 +44,7 @@ export function ArcadeGameRow({
   compact = false,
 }: Props) {
   const b = borderGrad[borderAccent];
-  const titleGlow = borderAccent === 'cyan' ? runitTextGlowCyan : runitTextGlowPink;
+  const titleGlow = borderAccent === 'gold' ? runitTextGlowCyan : runitTextGlowPink;
   const borderExtra = emphasized ? styles.borderWrapHot : undefined;
   const borderCompact = compact ? styles.borderWrapCompact : undefined;
   const cardExtra = emphasized ? styles.cardHot : undefined;

@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(56,189,248,0.06)',
+    backgroundColor: 'rgba(255,215,0,0.06)',
   },
   tower: { flex: 1, width: '100%', position: 'relative' },
   stackCol: { flex: 1, width: '100%', position: 'relative' },

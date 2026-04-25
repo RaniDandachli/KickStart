@@ -475,7 +475,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
                 borderColor: theme.playerMid,
                 backgroundColor: theme.playerMid + '44',
               }} />
-              {/* Inner cyan dot */}
+              {/* Inner brand gold center */}
               <View style={{
                 position: 'absolute',
                 top: PH_player * 0.40, left: PW_player * 0.40,

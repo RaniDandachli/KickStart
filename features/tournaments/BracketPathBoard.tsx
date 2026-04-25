@@ -32,7 +32,7 @@ function CardFace({
           isLive
             ? ['#0e7490', '#155e75', '#0c4a6e']
             : won
-              ? ['#0d9488', '#0f766e', '#134e4a']
+              ? ['#5B21B6', '#A855F7', '#FFD700']
               : ['#1e3a5f', '#172554', '#0f172a']
         }
         start={{ x: 0, y: 0 }}
@@ -86,7 +86,7 @@ const Connector = memo(function Connector({ tall }: { tall: boolean }) {
         />
         <Path
           d={d}
-          stroke="#22d3ee"
+          stroke="#FFD700"
           strokeWidth={2}
           fill="none"
           strokeLinecap="round"
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
     ...Platform.select({
       web: { boxShadow: '0 12px 36px rgba(0,0,0,0.45)' } as object,
       default: {
@@ -199,14 +199,14 @@ const styles = StyleSheet.create({
   liveBadge: {
     marginTop: 8,
     alignSelf: 'center',
-    backgroundColor: 'rgba(34,211,238,0.2)',
+    backgroundColor: 'rgba(255,215,0,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.5)',
+    borderColor: 'rgba(255,215,0,0.5)',
   },
-  liveBadgeTxt: { color: '#67e8f9', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  liveBadgeTxt: { color: '#FFD700', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   connWrap: { width: 44, height: 100, marginHorizontal: -4, justifyContent: 'center' },
   trophyCol: { width: 120, alignItems: 'center', marginLeft: 8 },
   trophyCard: {

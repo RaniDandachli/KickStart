@@ -215,13 +215,13 @@ function SvgStreetRacer({
         cy={carY - T * 0.12}
         rx={T * 0.34}
         ry={T * 0.14}
-        fill={COLORS.cyanBoost}
+        fill={COLORS.goldBoost}
         fillOpacity={0.12}
       />
       <Path
         d={`M ${cx - T * 0.32} ${carY - T * 0.02} Q ${cx} ${carY - T * 0.38} ${cx + T * 0.32} ${carY - T * 0.02}`}
         fill="none"
-        stroke={COLORS.cyanBoost}
+        stroke={COLORS.goldBoost}
         strokeWidth={2.5}
         strokeOpacity={0.45}
         strokeLinecap="round"
@@ -234,9 +234,9 @@ function SvgStreetRacer({
           <Polygon
             key={i}
             points={`${cx},${tipY} ${cx - chevHalf * 0.72},${baseY} ${cx + chevHalf * 0.72},${baseY}`}
-            fill={COLORS.cyanBoost}
+            fill={COLORS.goldBoost}
             fillOpacity={0.28 + i * 0.15}
-            stroke={COLORS.cyanBoost}
+            stroke={COLORS.goldBoost}
             strokeOpacity={0.55}
             strokeWidth={1.2}
           />
@@ -658,7 +658,7 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
 
                 {row.kind === 'river' && (
                   <>
-                    <Path d={`M 8 ${tileSize * 0.5} Q ${gridW * 0.5} ${tileSize * 0.46} ${gridW - 8} ${tileSize * 0.5}`} stroke="rgba(56,189,248,0.07)" strokeWidth={1.25} fill="none" strokeLinecap="round" />
+                    <Path d={`M 8 ${tileSize * 0.5} Q ${gridW * 0.5} ${tileSize * 0.46} ${gridW - 8} ${tileSize * 0.5}`} stroke="rgba(255,215,0,0.07)" strokeWidth={1.25} fill="none" strokeLinecap="round" />
                   </>
                 )}
 

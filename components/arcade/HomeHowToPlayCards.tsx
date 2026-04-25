@@ -6,7 +6,7 @@ import { runit, runitFont } from '@/lib/runitArcadeTheme';
 
 /** Shared deep panel — same family as H2H rows / hero */
 const PANEL = ['#070b18', '#0d152c', '#162442'] as const;
-const CYAN = '#22d3ee';
+const BRAND_GOLD = '#FFD700';
 
 type Props = {
   onQuickMatch: () => void;
@@ -14,7 +14,7 @@ type Props = {
   onChooseContest: () => void;
 };
 
-/** Compact mode cards — plum/magenta/cyan only (matches Run It Arcade shell) */
+/** Compact mode cards — purple + gold (Run It Arcade shell) */
 export function HomeHowToPlayCards({ onQuickMatch, onBrowseLive, onChooseContest }: Props) {
   return (
     <View style={styles.wrap}>
@@ -27,7 +27,7 @@ export function HomeHowToPlayCards({ onQuickMatch, onBrowseLive, onChooseContest
         style={({ pressed }) => [styles.cardOuter, pressed && styles.cardPressed]}
       >
         <LinearGradient
-          colors={['rgba(34,211,238,0.55)', runit.neonPurple]}
+          colors={['rgba(255,215,0,0.55)', runit.neonPurple]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={styles.cardBorderGlow}
@@ -35,7 +35,7 @@ export function HomeHowToPlayCards({ onQuickMatch, onBrowseLive, onChooseContest
           <LinearGradient colors={[...PANEL]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardInner}>
             <View style={styles.cardRow}>
               <View style={[styles.iconBox, styles.iconBoxQuick]}>
-                <SafeIonicons name="flash" size={20} color={CYAN} />
+                <SafeIonicons name="flash" size={20} color={BRAND_GOLD} />
               </View>
               <View style={styles.textCol}>
                 <Text style={[styles.cardTitle, { fontFamily: runitFont.black }]}>Quick match</Text>
@@ -45,7 +45,7 @@ export function HomeHowToPlayCards({ onQuickMatch, onBrowseLive, onChooseContest
             </View>
             <View style={styles.ctaRow}>
               <LinearGradient
-                colors={['rgba(34,211,238,0.9)', runit.neonPurple]}
+                colors={['rgba(255,215,0,0.9)', runit.neonPurple]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
                 style={styles.ctaPill}
@@ -169,8 +169,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   iconBoxQuick: {
-    backgroundColor: 'rgba(34,211,238,0.1)',
-    borderColor: 'rgba(34,211,238,0.28)',
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderColor: 'rgba(255,215,0,0.28)',
   },
   iconBoxLive: {
     backgroundColor: 'rgba(255,0,110,0.12)',

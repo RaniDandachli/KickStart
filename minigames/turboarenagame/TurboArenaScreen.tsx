@@ -841,7 +841,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
               onPress={goBack}
               style={styles.backBtn}
             >
-              <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+              <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
             </Pressable>
             <Text style={styles.topBarTitle}>Turbo Arena</Text>
             <View style={styles.backBtnPlaceholder} />
@@ -903,7 +903,7 @@ export default function TurboArenaScreen({ playMode = 'practice' }: Props) {
                 onPress={goBack}
                 style={styles.hudBackBtn}
               >
-                <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+                <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
               </Pressable>
               <View style={styles.matchHudHud}>
                 <MiniGameHUD

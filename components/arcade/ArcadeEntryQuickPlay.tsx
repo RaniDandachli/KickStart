@@ -35,7 +35,7 @@ export function ArcadeEntryQuickPlay() {
           style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}
         >
           <LinearGradient
-            colors={['#0d9488', '#14b8a6', '#0f766e']}
+            colors={['#6B21A8', '#D97706', '#FFD700']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.card}

@@ -122,7 +122,7 @@ export default function PlayHubScreen() {
                 onPress={onAddMoneyPress}
                 style={({ pressed }) => [styles.prizeZeroChip, styles.prizeZeroChipGhost, pressed && { opacity: 0.88 }]}
               >
-                <Text style={[styles.prizeZeroChipTxt, { color: '#5eead4' }]}>Add funds</Text>
+                <Text style={[styles.prizeZeroChipTxt, { color: '#FFD700' }]}>Add funds</Text>
               </Pressable>
             </View>
           </View>
@@ -168,7 +168,7 @@ export default function PlayHubScreen() {
           entryLabel="Practice or prize run"
           winLabel="PLAY"
           bgColors={['#020617', '#0c4a6e', '#164e63']}
-          borderAccent="cyan"
+          borderAccent="gold"
           titleColor="#e2e8f0"
           entryColor="rgba(148,163,184,0.95)"
           iconSlot={<DashDuelGameIcon size={36} />}
@@ -231,7 +231,7 @@ export default function PlayHubScreen() {
           entryLabel="Practice or prize run"
           winLabel="PLAY"
           bgColors={['#020617', '#0c4a6e', '#7c2d12']}
-          borderAccent="cyan"
+          borderAccent="gold"
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<TurboArenaGameIcon size={36} />}
         />
@@ -405,6 +405,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(167,139,250,0.55)',
   },
-  prizeZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(45,212,191,0.45)' },
+  prizeZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(255,215,0,0.45)' },
   prizeZeroChipTxt: { color: '#fff', fontWeight: '800', fontSize: 12 },
 });

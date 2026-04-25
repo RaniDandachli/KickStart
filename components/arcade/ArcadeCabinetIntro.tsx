@@ -103,7 +103,7 @@ export function ArcadeCabinetIntro({ onComplete }: Props) {
       <View style={styles.crtWrap} pointerEvents="none">
         <Animated.View style={[styles.crtGlow, crtPulse]}>
           <LinearGradient
-            colors={['#22d3ee', '#e879f9', '#f472b6']}
+            colors={['#FFD700', '#e879f9', '#f472b6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFillObject}
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: arcade.white,
     letterSpacing: 10,
-    textShadowColor: '#22d3ee',
+    textShadowColor: '#FFD700',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 16,
     zIndex: 2,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: 'rgba(34,211,238,0.45)',
+    borderColor: 'rgba(255,215,0,0.45)',
     alignItems: 'center',
   },
   marqueeRow: {

@@ -9,7 +9,7 @@ type Props = {
 export function LoadingState({ message, size = 'large' }: Props) {
   return (
     <View style={styles.wrap} accessibilityRole="progressbar" accessibilityLabel={message}>
-      <ActivityIndicator size={size} color="#34d399" />
+      <ActivityIndicator size={size} color="#FFD700" />
       <Text style={styles.txt}>{message}</Text>
     </View>
   );

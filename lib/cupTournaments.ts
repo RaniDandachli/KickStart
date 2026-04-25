@@ -10,13 +10,13 @@ export type CreditCupDefinition = {
   name: string;
   subtitle: string;
   prizeCredits: 1000 | 2000 | 3000 | 4000 | 5000;
-  accent: 'cyan' | 'purple' | 'pink' | 'amber' | 'emerald';
+  accent: 'gold' | 'purple' | 'pink' | 'amber' | 'emerald';
 };
 
 /** Ordered tiers — win all rounds in a run to earn prize credits (server-granted when backend on). */
 export const CREDIT_CUPS: readonly CreditCupDefinition[] = [
   { id: 'cup-1000', name: 'Bronze Cup', subtitle: '10 rounds · single elimination', prizeCredits: 1000, accent: 'amber' },
-  { id: 'cup-2000', name: 'Silver Cup', subtitle: '10 rounds · single elimination', prizeCredits: 2000, accent: 'cyan' },
+  { id: 'cup-2000', name: 'Silver Cup', subtitle: '10 rounds · single elimination', prizeCredits: 2000, accent: 'gold' },
   { id: 'cup-3000', name: 'Gold Cup', subtitle: '10 rounds · single elimination', prizeCredits: 3000, accent: 'emerald' },
   { id: 'cup-4000', name: 'Platinum Cup', subtitle: '10 rounds · single elimination', prizeCredits: 4000, accent: 'purple' },
   { id: 'cup-5000', name: 'Champion Cup', subtitle: '10 rounds · single elimination', prizeCredits: 5000, accent: 'pink' },

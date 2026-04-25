@@ -277,7 +277,7 @@ export default function StripeConnectScreen() {
             disabled={busy || !uid}
             style={({ pressed }) => [styles.ctaOuter, pressed && !busy && { opacity: 0.9 }]}
           >
-            <LinearGradient colors={['#0369a1', '#0ea5e9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaGrad}>
+            <LinearGradient colors={['#6B21A8', '#A855F7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaGrad}>
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
@@ -444,9 +444,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(14,165,233,0.08)',
+    backgroundColor: 'rgba(255,215,0,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.25)',
+    borderColor: 'rgba(255,215,0,0.25)',
   },
   callout: {
     flexDirection: 'row',

@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: appBorderAccent,
   },
-  walletZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(34,211,238,0.45)' },
+  walletZeroChipGhost: { backgroundColor: 'transparent', borderColor: 'rgba(255,215,0,0.45)' },
   walletZeroChipTxt: { color: '#fff', fontWeight: '800', fontSize: 12 },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   pill: {

@@ -59,7 +59,7 @@ export default function MinigamesHubScreen() {
         entryLabel="Practice or prize run"
         winLabel="PLAY"
         bgColors={['#020617', '#0c4a6e', '#164e63']}
-        borderAccent="cyan"
+        borderAccent="gold"
         titleColor="#e2e8f0"
         entryColor="rgba(148,163,184,0.95)"
         iconSlot={<DashDuelGameIcon size={36} />}
@@ -112,7 +112,7 @@ export default function MinigamesHubScreen() {
         entryLabel="Practice or prize run"
         winLabel="PLAY"
         bgColors={['#020617', '#0c4a6e', '#7c2d12']}
-        borderAccent="cyan"
+        borderAccent="gold"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TurboArenaGameIcon size={36} />}
       />

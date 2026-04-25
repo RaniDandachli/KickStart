@@ -126,7 +126,7 @@ export function BallRunGameIcon({ size = 40 }: IconProps) {
       <Svg width={s} height={s} viewBox="0 0 48 48">
         <Defs>
           <SvgLinearGradient id={idPath} x1="50%" y1="0%" x2="50%" y2="100%">
-            <Stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+            <Stop offset="0%" stopColor="#C4B5FD" stopOpacity="0.35" />
             <Stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.95" />
           </SvgLinearGradient>
           <SvgLinearGradient id={idBall} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -139,7 +139,7 @@ export function BallRunGameIcon({ size = 40 }: IconProps) {
         <Path d="M 10 14 L 24 8 L 38 14 L 38 38 L 10 38 Z" fill={`url(#${idPath})`} opacity={0.9} />
         <Path
           d="M 14 18 L 24 14 L 34 18"
-          stroke="rgba(34,211,238,0.5)"
+          stroke="rgba(255,215,0,0.5)"
           strokeWidth="1"
           fill="none"
         />
@@ -175,7 +175,7 @@ export function TurboArenaGameIcon({ size = 40 }: IconProps) {
           </SvgLinearGradient>
         </Defs>
         <Rect x="4" y="4" width="40" height="40" rx="10" fill={`url(#${idBg})`} />
-        <Ellipse cx="24" cy="30" rx="14" ry="5" fill="rgba(34,211,238,0.15)" />
+        <Ellipse cx="24" cy="30" rx="14" ry="5" fill="rgba(255,215,0,0.15)" />
         <Circle cx="28" cy="22" r="7" fill={`url(#${idBall})`} />
         <Path
           d="M 10 32 L 22 28 L 34 30 L 36 34 L 8 36 Z"
@@ -314,9 +314,9 @@ export function DashDuelGameIcon({ size = 40 }: IconProps) {
           strokeWidth="1"
         />
         <Rect x="10" y="34" width="28" height="3" rx="1" fill="rgba(52,211,153,0.45)" />
-        <Rect x="12" y="36" width="6" height="2" rx="0.5" fill="rgba(34,211,238,0.5)" />
-        <Rect x="22" y="36" width="6" height="2" rx="0.5" fill="rgba(34,211,238,0.5)" />
-        <Rect x="30" y="36" width="6" height="2" rx="0.5" fill="rgba(34,211,238,0.5)" />
+        <Rect x="12" y="36" width="6" height="2" rx="0.5" fill="rgba(255,215,0,0.5)" />
+        <Rect x="22" y="36" width="6" height="2" rx="0.5" fill="rgba(255,215,0,0.5)" />
+        <Rect x="30" y="36" width="6" height="2" rx="0.5" fill="rgba(255,215,0,0.5)" />
       </Svg>
     </View>
   );
@@ -338,7 +338,7 @@ export function NeonGridGameIcon({ size = 40 }: IconProps) {
         </Defs>
         <Rect x="4" y="4" width="40" height="40" rx="10" fill="#0c0a12" />
         <Rect x="10" y="12" width="28" height="4" rx="1" fill="rgba(225,29,140,0.55)" />
-        <Rect x="10" y="20" width="28" height="4" rx="1" fill="rgba(34,211,238,0.35)" />
+        <Rect x="10" y="20" width="28" height="4" rx="1" fill="rgba(255,215,0,0.35)" />
         <Rect x="10" y="28" width="28" height="4" rx="1" fill="rgba(225,29,140,0.45)" />
         <Circle cx="24" cy="38" r="5" fill={`url(#${idFill})`} />
       </Svg>

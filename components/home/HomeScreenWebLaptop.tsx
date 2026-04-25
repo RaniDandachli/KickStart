@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Pressable,
@@ -22,12 +22,17 @@ import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
+import {
+  DEFAULT_ONLINE_PLAYERS,
+  FAKE_TOP_EARNER_FRAMES,
+  FAKE_TOP_EARNERS_ROTATION_MS,
+} from '@/lib/homeSocialDemo';
 import { HOME_WEB_LAPTOP_MIN_WIDTH } from '@/lib/homeWebLayout';
 
 const TIER_SUB =
   `${MATCH_ENTRY_TIERS[0].shortLabel} · ${MATCH_ENTRY_TIERS[MATCH_ENTRY_TIERS.length - 1].shortLabel} · Pick a tier to match`;
 
-const RANK_COLORS = ['#fbbf24', '#38bdf8', '#2dd4bf', '#f472b6'];
+const RANK_COLORS = ['#fbbf24', '#C4B5FD', '#FFD700', '#f472b6'];
 
 function formatPaidOut24h(cents: number): string {
   const usd = cents / 100;
@@ -45,7 +50,7 @@ function initialsFromUsername(username: string): string {
 }
 
 function avatarColor(i: number): string {
-  const palette = ['#7c3aed', '#2563eb', '#0d9488', '#db2777', '#ea580c'];
+  const palette = ['#7c3aed', '#2563eb', '#B45309', '#db2777', '#ea580c'];
   return palette[i % palette.length];
 }
 
@@ -103,14 +108,41 @@ export function HomeScreenWebLaptop({
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(dailyDayKey);
   const dailyRounds = getDailyTournamentRounds(dailyDayKey);
 
+  const playersOnlineDisplay = useMemo(() => {
+    if (liveLobby == null) return DEFAULT_ONLINE_PLAYERS;
+    if (liveLobby.playersOnline > 0) return liveLobby.playersOnline;
+    return DEFAULT_ONLINE_PLAYERS;
+  }, [liveLobby]);
+
   const paidOut = liveLobby ? formatPaidOut24h(liveLobby.rewardsWalletCents24h) : '$0';
   const matchesInFlight = liveLobby ? liveLobby.matchesLive + liveLobby.matchesQueued : 0;
   const activeGames = h2hCarouselRows.length;
 
+  const [fakeEarnerFrame, setFakeEarnerFrame] = useState(0);
+  const useFakeTopEarners = recentRewards.length === 0;
+
+  useEffect(() => {
+    if (!useFakeTopEarners) return;
+    const n = FAKE_TOP_EARNER_FRAMES.length;
+    const id = setInterval(
+      () => setFakeEarnerFrame((f) => (f + 1) % n),
+      FAKE_TOP_EARNERS_ROTATION_MS,
+    );
+    return () => clearInterval(id);
+  }, [useFakeTopEarners]);
+
   const topEarners = useMemo(() => {
-    const sorted = [...recentRewards].sort((a, b) => b.cents - a.cents);
-    return sorted.slice(0, 4);
-  }, [recentRewards]);
+    if (recentRewards.length > 0) {
+      const sorted = [...recentRewards].sort((a, b) => b.cents - a.cents);
+      return sorted.slice(0, 4);
+    }
+    const frame = FAKE_TOP_EARNER_FRAMES[fakeEarnerFrame % FAKE_TOP_EARNER_FRAMES.length] ?? [];
+    return frame.map((row, i) => ({
+      username: row.username,
+      cents: row.cents,
+      created_at: `demo:frame${fakeEarnerFrame}:row${i}`,
+    }));
+  }, [recentRewards, fakeEarnerFrame]);
 
   const countdownParts = dailyResetCountdownHms.split(':');
   const hh = countdownParts[0] ?? '00';
@@ -177,7 +209,7 @@ export function HomeScreenWebLaptop({
             <View style={styles.liveDotRow}>
               <View style={[styles.dot, { backgroundColor: '#22c55e' }]} />
               <Text style={styles.liveStripTxt}>
-                {liveLobby?.playersOnline ?? 0} online
+                {playersOnlineDisplay} online
               </Text>
             </View>
             <Text style={styles.liveSep}>·</Text>

@@ -21,7 +21,7 @@ function escapeHtmlAttr(s: string): string {
 }
 
 const HEADER_BG = '#1e1033';
-const ACCENT = '#22d3ee';
+const ACCENT = '#FFD700';
 
 export function buildWelcomeEmailHtml(p: WelcomeEmailParams): string {
   const brand = (p.brandName ?? 'Run It Arcade').trim() || 'Run It Arcade';

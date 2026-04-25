@@ -185,7 +185,7 @@ export const TURBO = {
       ball.vx += nx * kp;
       ball.vy += ny * kp - 1.35;
       spawnParticles(particles, ball.x, ball.y, '#ffffff', 10, 5, false);
-      spawnParticles(particles, ball.x, ball.y, car.flipped ? '#00ccff' : '#ff6600', 8, 4, true);
+      spawnParticles(particles, ball.x, ball.y, car.flipped ? '#FFD700' : '#ff6600', 8, 4, true);
       hit = true;
     }
 
@@ -638,7 +638,7 @@ export const TURBO = {
         state.particles,
         TURBO.worldW / 2,
         TURBO.worldH / 2,
-        scorer === 1 ? '#ff6600' : '#00ccff',
+        scorer === 1 ? '#ff6600' : '#FFD700',
         20,
         6,
         true,

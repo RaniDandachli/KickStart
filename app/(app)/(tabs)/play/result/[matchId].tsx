@@ -271,7 +271,7 @@ export default function MatchResultScreen() {
 
       {ENABLE_BACKEND && recordSubmitting && !recordError ? (
         <View style={styles.recordPending}>
-          <ActivityIndicator color="#5eead4" />
+          <ActivityIndicator color="#FFD700" />
           <Text style={styles.recordPendingText}>Recording result and prizes on the server…</Text>
         </View>
       ) : null}

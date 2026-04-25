@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { AppButton } from '@/components/ui/AppButton';
@@ -16,6 +17,7 @@ import {
   nextFridayAtLocalHour,
   FRIDAY_CUP_ENTRY_USD,
 } from '@/lib/fridayCashCup';
+import { fridayCupBannerSource } from '@/lib/brandLogo';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { FridayCupBracketSection } from '@/features/tournaments/FridayCupBracketSection';
 import { joinTournament } from '@/services/api/tournaments';
@@ -83,14 +85,18 @@ export default function FridayCupScreen() {
   return (
     <Screen scroll>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backRow}>
-        <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+        <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
         <Text style={styles.backTxt}>Events</Text>
       </Pressable>
+
+      <View style={styles.bannerWrap} accessibilityLabel="Friday Cup">
+        <Image source={fridayCupBannerSource} style={styles.bannerImage} contentFit="cover" />
+      </View>
 
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>{FRIDAY_CUP_NAME.toUpperCase()}</Text>
       <Text style={styles.sub}>Real head-to-head · single elimination · ${FRIDAY_CUP_ENTRY_USD} entry · ${FRIDAY_CUP_PRIZE_POOL_USD} prize pool</Text>
 
-      <LinearGradient colors={[runit.neonCyan, '#0369a1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBorder}>
+      <LinearGradient colors={[runit.neonCyan, '#6B21A8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBorder}>
         <View style={styles.heroInner}>
           <Text style={styles.heroLine}>Next kickoff (local time)</Text>
           <Text style={[styles.heroWhen, { fontFamily: runitFont.bold }]}>
@@ -151,7 +157,16 @@ export default function FridayCupScreen() {
 
 const styles = StyleSheet.create({
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  backTxt: { color: '#22d3ee', fontSize: 14, fontWeight: '700' },
+  backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
+  bannerWrap: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.4)',
+  },
+  bannerImage: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#0c0618' },
   title: { color: runit.neonPink, fontSize: 22, fontWeight: '900', letterSpacing: 1, marginBottom: 6 },
   sub: { color: 'rgba(203,213,225,0.95)', fontSize: 14, fontWeight: '700', marginBottom: 14 },
   heroBorder: { borderRadius: 16, padding: 2, marginBottom: 16 },
@@ -176,13 +191,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.25)',
   },
   setupTitle: { color: '#e2e8f0', fontWeight: '800', fontSize: 13 },
-  mono: { fontFamily: 'monospace', fontSize: 11, color: '#a5f3fc' },
+  mono: { fontFamily: 'monospace', fontSize: 11, color: '#FFE082' },
   liveCard: {
     padding: 14,
     borderRadius: 12,
     backgroundColor: 'rgba(15,23,42,0.75)',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
     marginBottom: 14,
     gap: 8,
   },

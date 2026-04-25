@@ -210,7 +210,7 @@ export default function PreMatchLobbyScreen() {
               label="You"
               name={selfDisplayName}
               sub="Ready"
-              accent="cyan"
+              accent="gold"
             />
             <Text style={styles.vs}>VS</Text>
             <PlayerCard
@@ -278,9 +278,9 @@ function PlayerCard({
   label: string;
   name: string;
   sub: string;
-  accent: 'cyan' | 'pink';
+  accent: 'gold' | 'pink';
 }) {
-  const glow = accent === 'cyan' ? runitTextGlowCyan : runitTextGlowPink;
+  const glow = accent === 'gold' ? runitTextGlowCyan : runitTextGlowPink;
   return (
     <View style={styles.pCard}>
       <Text style={styles.pLbl}>{label}</Text>

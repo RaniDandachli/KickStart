@@ -1,65 +1,67 @@
 /**
- * RuniT Arcade — palette aligned with the KickClash wordmark:
- * deep navy field, electric blue highlights, soft neon pink accents, cool white text.
- * (Keeps token names like `neonCyan` for compatibility — value reads as logo blue.)
+ * Run It Arcade — **purple** + **gold** (#FFD700) on **black / white** — no turquoise/cyan in chrome.
+ * Token `neonCyan` is kept for import compatibility; value is **gold** (replaces old cyan accents).
  */
 export const runit = {
-  neonPink: '#ff5cb8',
-  neonCyan: '#5cb4ff',
-  /** Blue–violet bridge for gradients (pairs pink + blue without heavy purple). */
-  neonPurple: '#6b8cff',
-  /** Base screen — blue-black, calmer than pure purple. */
-  bgDeep: '#070b18',
-  bgPanel: 'rgba(14, 22, 44, 0.92)',
-  glass: 'rgba(10, 16, 36, 0.74)',
+  /** Hot accent — orchid / fuchsia (pairs with purple CTAs). */
+  neonPink: '#E879F9',
+  /** Gold highlight (legacy name `neonCyan` — was turquoise; now brand gold / pale gold). */
+  neonCyan: '#FFD700',
+  /** Primary brand purple — neon tube, borders, key UI. */
+  neonPurple: '#A855F7',
+  /** Deeper jewel violet — crowns, dark fills. */
+  purpleDeep: '#6B21A8',
+  /** Primary brand gold (replaces all turquoise in shell UI). */
+  gold: '#FFD700',
+  goldBright: '#FFEB3B',
+  /** Pale gold for soft fills / text on dark. */
+  goldSoft: '#FFF3B0',
+  /** Base screen — true black with a hint of violet. */
+  bgDeep: '#050208',
+  bgPanel: 'rgba(24, 10, 40, 0.94)',
+  glass: 'rgba(10, 6, 20, 0.78)',
 } as const;
 
-/** Full-screen vertical gradient — slightly more neon blue forward across all screens. */
-export const APP_SCREEN_GRADIENT_COLORS = ['#060b1a', '#0a1a3a', '#123166', '#060914'] as const;
+/** Full-screen vertical gradient — black → deep violet (cinematic, esports). */
+export const APP_SCREEN_GRADIENT_COLORS = ['#020103', '#0c0518', '#1a0a2e', '#0a0612'] as const;
 
-export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.35, 0.65, 1] as const;
+export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.32, 0.65, 1] as const;
 
-/** Section dividers — soft electric blue rim. */
-export const appChromeLinePink = 'rgba(100, 170, 255, 0.4)';
+/** Section dividers & tab chrome — neon purple rim. */
+export const appChromeLinePink = 'rgba(168, 85, 247, 0.45)';
 
-/** Tab bar and floating chrome borders — blue-forward, pairs with pink CTAs. */
-export const appTabBarBorderAccent = 'rgba(110, 175, 255, 0.42)';
+export const appTabBarBorderAccent = 'rgba(192, 132, 252, 0.4)';
 
-/**
- * Default card / control outline — blue-forward accent for cleaner chrome consistency.
- */
-export const appBorderAccent = 'rgba(110, 190, 255, 0.42)';
+export const appBorderAccent = 'rgba(192, 132, 252, 0.45)';
 
-export const appBorderAccentMuted = 'rgba(110, 190, 255, 0.24)';
+export const appBorderAccentMuted = 'rgba(168, 85, 247, 0.22)';
 
-/** Second stop for thin `LinearGradient` borders (pair with primary accent). */
-export const appChromeGradientFadePink = 'rgba(110, 190, 255, 0.28)' as const;
+export const appChromeGradientFadePink = 'rgba(192, 132, 252, 0.32)' as const;
 
-/** Title emphasis — blue bloom to keep headings in the same accent family. */
+/** Title emphasis — soft purple bloom. */
 export const runitTextGlowPink = {
-  textShadowColor: 'rgba(110, 190, 255, 0.55)',
+  textShadowColor: 'rgba(192, 132, 252, 0.55)',
   textShadowOffset: { width: 0, height: 0 },
-  textShadowRadius: 7,
+  textShadowRadius: 8,
 } as const;
 
-/** Blue title emphasis — matches `neonCyan` (electric blue). */
+/** Gold title glow (legacy export name; no cyan). */
 export const runitTextGlowCyan = {
-  textShadowColor: 'rgba(110, 190, 255, 0.5)',
+  textShadowColor: 'rgba(255, 215, 0, 0.45)',
   textShadowOffset: { width: 0, height: 0 },
-  textShadowRadius: 7,
+  textShadowRadius: 8,
 } as const;
 
-/** Cards / pressed buttons — soft pink bloom */
 export const runitGlowPinkSoft = {
-  shadowColor: 'rgba(255, 100, 190, 0.38)',
+  shadowColor: 'rgba(192, 132, 252, 0.42)',
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 1,
-  shadowRadius: 12,
+  shadowRadius: 14,
   elevation: 8,
 } as const;
 
 export const runitGlowCyanSoft = {
-  shadowColor: 'rgba(100, 185, 255, 0.32)',
+  shadowColor: 'rgba(255, 215, 0, 0.35)',
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 1,
   shadowRadius: 12,

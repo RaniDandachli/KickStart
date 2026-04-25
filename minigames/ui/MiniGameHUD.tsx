@@ -64,9 +64,9 @@ export function MiniGameHUD({
           <Text className="text-[10px] font-black uppercase tracking-widest text-amber-200">Time</Text>
           <Text className="font-mono text-2xl font-black text-white">{formatTime(timeLeftMs)}</Text>
         </View>
-        <View className="min-w-[88px] items-end rounded-2xl border-2 border-cyan-400 bg-cyan-950/80 px-3 py-2">
-          <Text className="text-[10px] font-black uppercase tracking-wide text-cyan-200">{labelP2}</Text>
-          <Text className="text-2xl font-black text-cyan-200">{Math.round(scoreP2)}</Text>
+        <View className="min-w-[88px] items-end rounded-2xl border-2 border-amber-400 bg-amber-950/80 px-3 py-2">
+          <Text className="text-[10px] font-black uppercase tracking-wide text-amber-200">{labelP2}</Text>
+          <Text className="text-2xl font-black text-amber-200">{Math.round(scoreP2)}</Text>
         </View>
       </View>
     </View>
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(74,4,78,0.55)',
   },
   compactSideRight: {
-    borderColor: 'rgba(34,211,238,0.55)',
+    borderColor: 'rgba(255,215,0,0.55)',
     backgroundColor: 'rgba(6,40,50,0.55)',
     alignItems: 'flex-end',
   },
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   compactScoreCyan: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#67e8f9',
+    color: '#FFD700',
     lineHeight: 22,
   },
   compactCenter: {

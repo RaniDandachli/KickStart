@@ -47,12 +47,11 @@ import {
     runit,
     runitFont,
 } from '@/lib/runitArcadeTheme';
+import { runItArcadeLogoSource } from '@/lib/brandLogo';
 import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
-
-const WEB_BRAND_LOGO = require('@/assets/images/run-it-arcade-logo.png');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -362,10 +361,10 @@ export default function HomeScreen() {
           {isWeb && !webDesktopTabs ? (
             <View style={styles.webLogoNarrowRow}>
               <Image
-                source={WEB_BRAND_LOGO}
+                source={runItArcadeLogoSource}
                 style={styles.webLogoNarrowImg}
                 contentFit="contain"
-                accessibilityLabel="Run iT Arcade"
+                accessibilityLabel="Run It Arcade"
               />
             </View>
           ) : null}
@@ -386,7 +385,7 @@ export default function HomeScreen() {
               style={({ pressed }) => [styles.addMoneyHeroBtn, pressed && { opacity: 0.92 }]}
             >
               <LinearGradient
-                colors={['#0d9488', '#14b8a6', '#2dd4bf']}
+                colors={['#B45309', '#D97706', '#FFD700']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.addMoneyHeroGrad}
@@ -670,7 +669,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
     backgroundColor: 'rgba(15,23,42,0.55)',
   },
   homeAlertsStripTxt: {
@@ -687,7 +686,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 2,
   },
-  webLogoNarrowImg: { width: 104, height: 30, alignSelf: 'flex-start' },
+  webLogoNarrowImg: { width: 168, height: 56, alignSelf: 'flex-start' },
   addMoneyHeroBtn: { marginBottom: 10 },
   addMoneyHeroGrad: {
     borderRadius: 12,

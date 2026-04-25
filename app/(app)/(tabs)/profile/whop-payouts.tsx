@@ -287,9 +287,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(14,165,233,0.08)',
+    backgroundColor: 'rgba(255,215,0,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.25)',
+    borderColor: 'rgba(255,215,0,0.25)',
   },
   meta: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 19, marginBottom: 14 },
   emailNote: {

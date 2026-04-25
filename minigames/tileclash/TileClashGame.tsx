@@ -587,7 +587,7 @@ export default function TileClashGame({
               <View style={styles.rulesBlock} pointerEvents="none">
                 <Text style={styles.rulesTitle}>How to play</Text>
                 <Text style={styles.rulesBody}>
-                  • Each row has one pale / cyan-edged tile — that&apos;s the only safe tap. Gray tiles end your run.{'\n'}
+                  • Each row has one pale / gold-edge safe tile — that&apos;s the only safe tap. Gray tiles end your run.{'\n'}
                   • Tap that tile&apos;s column when it overlaps the horizontal amber band (middle of the board).{'\n'}
                   • Too early? Nothing happens — wait until the pale tile lines up with the band; don&apos;t spam the blue
                   lanes randomly.{'\n'}

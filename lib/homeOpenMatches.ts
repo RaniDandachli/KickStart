@@ -22,7 +22,7 @@ export const H2H_OPEN_GAMES_ALL = [
     title: 'Dash Duel',
     route: '/(app)/(tabs)/play/minigames/dash-duel',
     bgColors: ['#020617', '#0c4a6e', '#164e63'] as const,
-    borderAccent: 'cyan' as const satisfies RunitBorderAccent,
+    borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'ball-run' as const,
@@ -36,7 +36,7 @@ export const H2H_OPEN_GAMES_ALL = [
     title: 'Turbo Arena',
     route: '/(app)/(tabs)/play/minigames/turbo-arena',
     bgColors: ['#020617', '#0c4a6e', '#7c2d12'] as const,
-    borderAccent: 'cyan' as const satisfies RunitBorderAccent,
+    borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'neon-dance' as const,

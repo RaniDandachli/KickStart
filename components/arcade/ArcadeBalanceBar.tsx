@@ -22,7 +22,7 @@ export function ArcadeBalanceBar({ balanceLabel = '12,456 PRIZE CREDITS', onAddP
           {balanceLabel.toUpperCase()}
         </Text>
         <Pressable onPress={onAddPress} accessibilityRole="button" style={({ pressed }) => [styles.addWrap, pressed && styles.addPressed]}>
-          <LinearGradient colors={[runit.neonCyan, '#0891b2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
+          <LinearGradient colors={[runit.neonCyan, '#CA8A04']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
             <Text style={styles.addText}>+</Text>
           </LinearGradient>
         </Pressable>

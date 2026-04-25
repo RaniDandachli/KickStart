@@ -32,7 +32,7 @@ export default function BracketScreen() {
   if (bq.isLoading) {
     return (
       <Screen>
-        <ActivityIndicator color="#22d3ee" />
+        <ActivityIndicator color="#FFD700" />
         <Text className="mt-3 text-sm text-slate-400">Loading bracket…</Text>
       </Screen>
     );
@@ -82,7 +82,7 @@ export default function BracketScreen() {
       {livePods.map((pod) => (
         <View key={pod.bracketPodIndex} className={livePods.length > 1 ? 'mb-8' : ''}>
           {livePods.length > 1 ? (
-            <Text className="mb-2 text-sm font-bold text-cyan-300">Wave {pod.bracketPodIndex}</Text>
+            <Text className="mb-2 text-sm font-bold text-amber-300">Wave {pod.bracketPodIndex}</Text>
           ) : null}
           <BracketEliminationBoard matches={toBoardMatches(pod.matches)} profileById={profileById} />
         </View>

@@ -236,16 +236,16 @@ const PRESETS_CENTS = [500, 1000, 2500, 5000] as const;
 
 type DepositStep = 'amount' | 'payment';
 
-/** VAZA-inspired wallet shell: cyan headers, lime deposit CTA, teal panels (see design pass on Shop). */
+/** Wallet shell: gold accents + purple panels (no turquoise). */
 const W = {
-  cyan: '#22d3ee',
-  cyanMuted: 'rgba(34,211,238,0.85)',
+  cyan: '#FFD700',
+  cyanMuted: 'rgba(255,215,0,0.85)',
   lime: '#4ade80',
   limeGrad: ['#4ade80', '#22c55e'] as const,
   panel: 'rgba(15,23,42,0.92)',
-  panelBorder: 'rgba(56,189,248,0.22)',
-  statBlock: '#0e7490',
-  statBlockBorder: 'rgba(34,211,238,0.35)',
+  panelBorder: 'rgba(255,215,0,0.22)',
+  statBlock: '#5B21B6',
+  statBlockBorder: 'rgba(255,215,0,0.35)',
 };
 
 export default function AddFundsScreen() {
@@ -1262,7 +1262,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
     alignItems: 'center',
   },
-  btnWithdrawTxt: { color: '#5eead4', fontWeight: '800', fontSize: 12, letterSpacing: 0.6 },
+  btnWithdrawTxt: { color: '#FFD700', fontWeight: '800', fontSize: 12, letterSpacing: 0.6 },
   btnGhostSm: {
     alignSelf: 'flex-start',
     marginTop: 4,
@@ -1270,7 +1270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
   },
   btnGhostSmTxt: { color: W.cyanMuted, fontWeight: '800', fontSize: 12 },
   statSectionLbl: {
@@ -1317,14 +1317,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.2)',
+    borderColor: 'rgba(255,215,0,0.2)',
     backgroundColor: 'rgba(15,23,42,0.55)',
     alignItems: 'center',
   },
   tabOn: {
-    borderColor: 'rgba(34,211,238,0.45)',
+    borderColor: 'rgba(255,215,0,0.45)',
     backgroundColor: 'rgba(15,23,42,0.95)',
-    shadowColor: 'rgba(34,211,238,0.25)',
+    shadowColor: 'rgba(255,215,0,0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -1337,11 +1337,11 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
     backgroundColor: 'rgba(8,47,73,0.35)',
   },
   walletFeeTitle: {
-    color: '#e0f2fe',
+    color: '#FFF8E1',
     fontSize: 13,
     fontWeight: '900',
     marginBottom: 8,
@@ -1526,7 +1526,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10,14,28,0.98)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.28)',
+    borderColor: 'rgba(255,215,0,0.28)',
     paddingVertical: 16,
     paddingHorizontal: 16,
     maxHeight: 560,
@@ -1557,7 +1557,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sheetPresetOn: {
-    borderColor: 'rgba(34,211,238,0.75)',
+    borderColor: 'rgba(255,215,0,0.75)',
     backgroundColor: 'rgba(8,47,73,0.5)',
   },
   sheetPresetTxt: { color: '#e2e8f0', fontWeight: '800', fontSize: 14 },
@@ -1583,7 +1583,7 @@ const styles = StyleSheet.create({
   sheetFeeMini: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.22)',
+    borderColor: 'rgba(255,215,0,0.22)',
     backgroundColor: 'rgba(8,47,73,0.28)',
     padding: 12,
     marginBottom: 12,
@@ -1623,7 +1623,7 @@ const styles = StyleSheet.create({
   sheetSecondary: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.4)',
+    borderColor: 'rgba(255,215,0,0.4)',
     paddingVertical: 13,
     alignItems: 'center',
     marginBottom: 8,

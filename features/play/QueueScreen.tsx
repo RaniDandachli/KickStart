@@ -781,10 +781,10 @@ export function QueueScreen({
             </View>
           ) : null}
           {ENABLE_BACKEND && userId !== 'guest' ? (
-            <View className="mt-4 w-full max-w-sm rounded-xl border border-sky-500/35 bg-slate-950/55 px-3 py-3">
+            <View className="mt-4 w-full max-w-sm rounded-xl border border-amber-500/35 bg-slate-950/55 px-3 py-3">
               <View className="flex-row items-start justify-between gap-3">
                 <View className="min-w-0 flex-1 pr-1">
-                  <Text className="text-sm font-black text-sky-100">Ping me for open queues</Text>
+                  <Text className="text-sm font-black text-amber-100">Ping me for open queues</Text>
                   <Text className="mt-1 text-[11px] leading-4 text-slate-400">
                     {Platform.OS === 'web' ? (
                       isWebPushConfigured() ? (
@@ -811,7 +811,7 @@ export function QueueScreen({
                   accessibilityLabel="Notify when someone queues for a matching contest"
                   value={pingOpenQueueAlerts}
                   onValueChange={(v) => void onPingOpenQueueAlertsChange(v)}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: 'rgba(56,189,248,0.85)' }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: 'rgba(255,215,0,0.85)' }}
                   thumbColor={pingOpenQueueAlerts ? '#f8fafc' : '#94a3b8'}
                   ios_backgroundColor="rgba(255,255,255,0.2)"
                 />

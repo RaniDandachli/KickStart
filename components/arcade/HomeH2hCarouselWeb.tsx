@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   dotIdle: { width: 14 },
   dotActive: {
     width: 28,
-    backgroundColor: 'rgba(34,211,238,0.85)',
+    backgroundColor: 'rgba(255,215,0,0.85)',
     shadowColor: runit.neonCyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,

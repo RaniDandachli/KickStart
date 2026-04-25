@@ -1,11 +1,14 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
+import { runItArcadeLogoSource } from '@/lib/brandLogo';
+import { DEFAULT_ONLINE_PLAYERS } from '@/lib/homeSocialDemo';
 import { arcade } from '@/lib/arcadeTheme';
-import { appBorderAccentMuted, appChromeLinePink, runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, appChromeLinePink, runit, runitFont } from '@/lib/runitArcadeTheme';
 
 const WINNER_ROTATION_MS = 3800;
 /** How often lobby stats nudge (feels “live”). */
@@ -52,8 +55,8 @@ const RECENT_WINNERS_LOOP = [
 ] as const;
 
 const TIER_PANEL_STYLES = [
-  { rotate: '-3deg', colors: ['#0f766e', '#14b8a6', '#5eead4'] as const, shadow: '#2dd4bf', iconColor: '#ecfdf5' },
-  { rotate: '2deg', colors: ['#1e40af', '#2563eb', '#38bdf8'] as const, shadow: '#38bdf8', iconColor: '#eff6ff' },
+  { rotate: '-3deg', colors: ['#6B21A8', '#D97706', '#FFD700'] as const, shadow: '#FFD700', iconColor: '#fffbeb' },
+  { rotate: '2deg', colors: ['#1e40af', '#2563eb', '#C4B5FD'] as const, shadow: '#C4B5FD', iconColor: '#eff6ff' },
   { rotate: '-2deg', colors: ['#7c3aed', '#8b5cf6', '#a78bfa'] as const, shadow: '#a78bfa', iconColor: '#f5f3ff' },
   { rotate: '3deg', colors: ['#86198f', '#c026d3', '#e879f9'] as const, shadow: '#e879f9', iconColor: '#fdf4ff' },
   { rotate: '-2deg', colors: ['#b45309', '#d97706', '#fbbf24'] as const, shadow: '#fbbf24', iconColor: '#fffbeb' },
@@ -87,13 +90,13 @@ type Props = {
   children?: ReactNode;
 };
 
-/** Reference UI: electric cyan for ARCADE + “How it works” link */
-const REF_CYAN = '#22d3ee';
+/** Gold accent for “How it works” + logo rule (replaces old turquoise). */
+const REF_GOLD = '#FFD700';
 
 export function HomePlayHero({
   matchesLive = 43,
   prizesAwardedDemoUsd = 3910,
-  playersBattling = 3870,
+  playersBattling = DEFAULT_ONLINE_PLAYERS,
   matchesStarting = 23,
   liveLobby = null,
   walletDisplay = '$12.40',
@@ -111,7 +114,7 @@ export function HomePlayHero({
 
   const [statLive, setStatLive] = useState(() => clamp(matchesLive + randInt(-3, 3), 28, 58));
   const [statStarting, setStatStarting] = useState(() => clamp(matchesStarting + randInt(-4, 4), 14, 52));
-  const [statOnline, setStatOnline] = useState(() => clamp(playersBattling + randInt(-55, 55), 3050, 5150));
+  const [statOnline, setStatOnline] = useState(() => clamp(playersBattling + randInt(-2, 2), 12, 24));
   const [statRewardsUsd, setStatRewardsUsd] = useState(() =>
     clamp(prizesAwardedDemoUsd + randInt(-80, 80), 3320, 4980),
   );
@@ -200,7 +203,9 @@ export function HomePlayHero({
     return `${w.name} earned $${w.amount} reward · ${w.mins} min ago`;
   }, [liveTickerDigest, winnerIdx]);
 
-  const displayOnline = showLiveNumbers ? liveLobby!.playersOnline : statOnline;
+  const displayOnline = showLiveNumbers
+    ? (liveLobby!.playersOnline > 0 ? liveLobby!.playersOnline : DEFAULT_ONLINE_PLAYERS)
+    : statOnline;
   const displayRewardsLabel = showLiveNumbers
     ? formatRewardsFromWalletCents24h(liveLobby!.rewardsWalletCents24h)
     : `$${(statRewardsUsd / 1000).toFixed(1)}k`;
@@ -249,25 +254,22 @@ export function HomePlayHero({
 
       <View style={styles.logoFrame}>
         <LinearGradient
-          colors={['rgba(34,211,238,0.35)', 'rgba(236,72,153,0.25)']}
+          colors={['rgba(255,215,0,0.35)', 'rgba(236,72,153,0.25)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.logoFrameGrad}
         />
         <View style={styles.logoInner}>
-          <Text style={[styles.brandRunit, { fontFamily: runitFont.black }, runitTextGlowPink]}>RUN IT</Text>
-          <Text
-            style={[
-              styles.brandArcade,
-              { fontFamily: runitFont.black },
-              compactHome ? styles.brandArcadeCyanRef : runitTextGlowCyan,
-            ]}
-          >
-            ARCADE
-          </Text>
-          <View style={[styles.logoRule, compactHome && styles.logoRuleCyan]} />
+          <Image
+            source={runItArcadeLogoSource}
+            style={styles.brandLogoImg}
+            contentFit="contain"
+            accessibilityLabel="Run It Arcade"
+            accessibilityRole="image"
+          />
+          <View style={[styles.logoRule, compactHome && styles.logoRuleGold]} />
           <Text style={styles.brandHome}>HOME</Text>
-          <Text style={[styles.brandTag, compactHome && styles.brandTagCyan]}>1v1 skill contests · prizes set by tier · same games as Arcade</Text>
+          <Text style={[styles.brandTag, compactHome && styles.brandTagGold]}>1v1 skill contests · prizes set by tier · same games as Arcade</Text>
         </View>
       </View>
 
@@ -279,7 +281,7 @@ export function HomePlayHero({
             onPress={onQuickMatch}
             style={({ pressed }) => [styles.quickOuter, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
           >
-            <LinearGradient colors={['#0369a1', '#0ea5e9', '#38bdf8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
+            <LinearGradient colors={['#6B21A8', '#A855F7', '#C4B5FD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
               <SafeIonicons name="flash" size={26} color="#FFFBEB" />
               <Text style={styles.quickTitle}>QUICK MATCH</Text>
             </LinearGradient>
@@ -294,8 +296,8 @@ export function HomePlayHero({
           accessibilityLabel="How head-to-head works"
           style={({ pressed }) => [styles.howItWorksRow, pressed && { opacity: 0.88 }]}
         >
-          <SafeIonicons name="information-circle-outline" size={18} color={compactHome ? REF_CYAN : 'rgba(167,139,250,0.95)'} />
-          <Text style={[styles.howItWorksText, compactHome && styles.howItWorksTextCyan]}>How head-to-head works</Text>
+          <SafeIonicons name="information-circle-outline" size={18} color={compactHome ? REF_GOLD : 'rgba(167,139,250,0.95)'} />
+          <Text style={[styles.howItWorksText, compactHome && styles.howItWorksTextGold]}>How head-to-head works</Text>
         </Pressable>
       ) : null}
 
@@ -516,29 +518,14 @@ const styles = StyleSheet.create({
   logoInner: {
     backgroundColor: 'rgba(6,13,24,0.92)',
     borderRadius: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
-  brandRunit: {
-    color: runit.neonPink,
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-  },
-  brandArcade: {
-    color: runit.neonCyan,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 6,
-    marginTop: -3,
-  },
-  /** Neon cyan “ARCADE” + glow (reference screenshot) */
-  brandArcadeCyanRef: {
-    color: REF_CYAN,
-    textShadowColor: 'rgba(34, 211, 238, 0.85)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
+  brandLogoImg: {
+    width: '100%',
+    maxWidth: 360,
+    height: 74,
   },
   brandHome: {
     marginTop: 5,
@@ -553,11 +540,11 @@ const styles = StyleSheet.create({
     height: 1,
     width: '40%',
     borderRadius: 1,
-    backgroundColor: 'rgba(34,211,238,0.45)',
+    backgroundColor: 'rgba(255,215,0,0.45)',
   },
-  logoRuleCyan: {
-    backgroundColor: 'rgba(34,211,238,0.75)',
-    shadowColor: REF_CYAN,
+  logoRuleGold: {
+    backgroundColor: 'rgba(255,215,0,0.75)',
+    shadowColor: REF_GOLD,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 6,
@@ -570,16 +557,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 14,
   },
-  brandTagCyan: {
-    color: 'rgba(125, 211, 252, 0.95)',
+  brandTagGold: {
+    color: 'rgba(255, 236, 179, 0.95)',
   },
   quickOuter: {
     borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 8,
     borderWidth: 3,
-    borderColor: 'rgba(56,189,248,0.85)',
-    shadowColor: '#38bdf8',
+    borderColor: 'rgba(255,215,0,0.75)',
+    shadowColor: '#FFD700',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.55,
     shadowRadius: 18,
@@ -627,9 +614,9 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     textDecorationColor: 'rgba(167,139,250,0.45)',
   },
-  howItWorksTextCyan: {
-    color: REF_CYAN,
-    textDecorationColor: 'rgba(34,211,238,0.55)',
+  howItWorksTextGold: {
+    color: REF_GOLD,
+    textDecorationColor: 'rgba(255,215,0,0.55)',
   },
   statsPanel: {
     borderRadius: 12,

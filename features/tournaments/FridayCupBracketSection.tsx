@@ -51,7 +51,7 @@ export function FridayCupBracketSection({ tournamentId, podSize }: Props) {
 
       {bq.isLoading && ENABLE_BACKEND && tournamentId ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator color="#22d3ee" size="small" />
+          <ActivityIndicator color="#FFD700" size="small" />
           <Text style={styles.loadingTxt}>Loading bracket…</Text>
         </View>
       ) : null}
@@ -94,12 +94,12 @@ const styles = StyleSheet.create({
   skeletonCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.28)',
+    borderColor: 'rgba(255,215,0,0.28)',
     backgroundColor: 'rgba(8,12,24,0.55)',
     paddingVertical: 10,
     paddingHorizontal: 4,
     overflow: 'hidden',
   },
   podBlock: { marginBottom: 14, gap: 6 },
-  podLabel: { color: '#22d3ee', fontSize: 13, fontWeight: '800' },
+  podLabel: { color: '#FFD700', fontSize: 13, fontWeight: '800' },
 });

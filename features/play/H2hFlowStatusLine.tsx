@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(52, 211, 153, 0.25)',
   },
-  dot: { color: '#34d399', fontSize: 10, marginTop: 3 },
+  dot: { color: '#FFD700', fontSize: 10, marginTop: 3 },
   txt: {
     flex: 1,
     color: 'rgba(226, 232, 240, 0.95)',

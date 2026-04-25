@@ -31,10 +31,10 @@ import {
 } from '@/lib/marketingPromoContent';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 
-/** VAZA-adjacent accents for promo chrome (lime + teal). */
+/** VAZA-adjacent accents for promo chrome (lime + brand gold). */
 const PROMO_LIME = '#bef264';
 const PROMO_GREEN = '#4ade80';
-const PROMO_TEAL = '#2dd4bf';
+const PROMO_GOLD = '#FFD700';
 
 function GameIconForPromo({ id, size }: { id: string; size: number }) {
   switch (id) {
@@ -93,7 +93,7 @@ export default function MarketingPromoScreen() {
         onPress={() => router.back()}
         style={({ pressed }) => [styles.backRow, pressed && { opacity: 0.85 }]}
       >
-        <SafeIonicons name="chevron-back" size={22} color={PROMO_TEAL} />
+        <SafeIonicons name="chevron-back" size={22} color={PROMO_GOLD} />
         <Text style={styles.backTxt}>Settings</Text>
       </Pressable>
 
@@ -167,7 +167,7 @@ export default function MarketingPromoScreen() {
           </Pressable>
           <Pressable onPress={goNextSlide} style={({ pressed }) => [pressed && { opacity: 0.92 }]}>
             <LinearGradient
-              colors={[PROMO_LIME, PROMO_TEAL]}
+              colors={[PROMO_LIME, PROMO_GOLD]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.nextCta}
@@ -214,7 +214,7 @@ export default function MarketingPromoScreen() {
       <Text style={styles.sectionLabel}>{DAILY_TOURNAMENT_PROMO.title}</Text>
       <View style={styles.dailyCard}>
         <LinearGradient
-          colors={['rgba(250,204,21,0.35)', 'rgba(45,212,191,0.25)', 'rgba(255,0,110,0.2)']}
+          colors={['rgba(250,204,21,0.35)', 'rgba(168,85,247,0.28)', 'rgba(255,0,110,0.2)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.dailyBorder}
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 10,
   },
-  backTxt: { color: PROMO_TEAL, fontSize: 15, fontWeight: '700' },
+  backTxt: { color: PROMO_GOLD, fontSize: 15, fontWeight: '700' },
   internalBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(45,212,191,0.35)',
+    borderColor: 'rgba(255,215,0,0.35)',
   },
   slideCardInner: {
     borderRadius: 19,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   slideKicker: {
-    color: PROMO_TEAL,
+    color: PROMO_GOLD,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 2,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   dotsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { height: 8, borderRadius: 4 },
-  dotActive: { width: 28, backgroundColor: PROMO_TEAL },
+  dotActive: { width: 28, backgroundColor: PROMO_GOLD },
   dotInactive: { width: 8, backgroundColor: 'rgba(148,163,184,0.35)' },
   pagerNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconPill: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dailyKicker: {
-    color: PROMO_TEAL,
+    color: PROMO_GOLD,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,

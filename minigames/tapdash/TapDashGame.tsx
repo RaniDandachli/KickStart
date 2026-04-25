@@ -239,10 +239,10 @@ function NeonGateColumn({
   g0: number;
   g1: number;
   playH: number;
-  tint: 'cyan' | 'violet' | 'emerald';
+  tint: 'gold' | 'violet' | 'emerald';
 }) {
   const palettes = {
-    cyan: ['#22D3EE', '#06B6D4', '#0E7490'] as const,
+    gold: ['#FFD700', '#D97706', '#B45309'] as const,
     violet: ['#A78BFA', '#8B5CF6', '#5B21B6'] as const,
     emerald: ['#34D399', '#10B981', '#047857'] as const,
   };
@@ -804,7 +804,7 @@ export default function TapDashGame({
   const m = modelRef.current;
   const orbSize = ORB_VIS_R * scale * 2;
   const scrollPx = (m.worldTimeMs * 0.024) % 200;
-  const tintAt = (id: number) => (['cyan', 'violet', 'emerald'] as const)[id % 3];
+  const tintAt = (id: number) => (['gold', 'violet', 'emerald'] as const)[id % 3];
 
   const dailyPayload =
     dailyTournament && phase === 'over'
@@ -938,7 +938,7 @@ export default function TapDashGame({
             </View>
 
                 <LinearGradient
-                  colors={['rgba(34,211,238,0.12)', 'transparent', 'rgba(167,139,250,0.1)']}
+                  colors={['rgba(255,215,0,0.12)', 'transparent', 'rgba(167,139,250,0.1)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[StyleSheet.absoluteFill, styles.vignette]}
@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: -0.5,
-    textShadowColor: 'rgba(34, 211, 238, 0.55)',
+    textShadowColor: 'rgba(255, 215, 0, 0.55)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
   },
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(34, 211, 238, 0.25)',
+    borderColor: 'rgba(255, 215, 0, 0.25)',
     shadowColor: '#22D3EE',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
@@ -1304,7 +1304,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 4,
     marginBottom: 6,
-    textShadowColor: 'rgba(34, 211, 238, 0.6)',
+    textShadowColor: 'rgba(255, 215, 0, 0.6)',
     textShadowRadius: 14,
   },
   hintMode: {
@@ -1349,7 +1349,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(34, 211, 238, 0.35)',
+    borderColor: 'rgba(255, 215, 0, 0.35)',
     backgroundColor: 'rgba(10, 15, 28, 0.98)',
     shadowColor: '#22D3EE',
     shadowOpacity: 0.12,

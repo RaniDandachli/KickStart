@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.25)',
+    borderColor: 'rgba(255,215,0,0.25)',
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 10 },
   av: {

@@ -69,7 +69,7 @@ export default function DailyFreeTournamentScreen() {
         onPress={() => router.back()}
         style={styles.backRow}
       >
-        <SafeIonicons name="chevron-back" size={22} color="#22d3ee" />
+        <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
         <Text style={styles.backTxt}>Events</Text>
       </Pressable>
 
@@ -136,7 +136,7 @@ export default function DailyFreeTournamentScreen() {
 
 const styles = StyleSheet.create({
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  backTxt: { color: '#22d3ee', fontSize: 14, fontWeight: '700' },
+  backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
   title: { color: runit.neonPink, fontSize: 24, fontWeight: '900', letterSpacing: 2, marginBottom: 8 },
   prizeLine: { color: 'rgba(203,213,225,0.95)', fontSize: 15, fontWeight: '800', marginBottom: 10 },
   body: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 12 },

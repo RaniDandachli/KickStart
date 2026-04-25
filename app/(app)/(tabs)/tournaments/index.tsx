@@ -15,6 +15,7 @@ import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useTournaments } from '@/hooks/useTournaments';
 import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
 import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
+import { fridayCupBannerSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { appChromeGradientFadePink, runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -89,7 +90,7 @@ export default function TournamentsListScreen() {
       cta: 'Join now',
       pill: 'FREE',
       onPress: () => router.push('/(app)/(tabs)/tournaments/daily-free'),
-      imageSource: require('../../../../assets/stadium-default-bg.png'),
+      imageSource: tournamentOfTheDayHeroSource,
       imageFit: 'cover' as const,
     },
     {
@@ -99,11 +100,8 @@ export default function TournamentsListScreen() {
       cta: 'Join cup',
       pill: 'CASH',
       onPress: () => router.push('/(app)/(tabs)/tournaments/friday-cup'),
-      imageSource:
-        'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_image-7ccd25bf-5d14-4680-b573-881de37e88ff.png',
+      imageSource: fridayCupBannerSource,
       imageFit: 'cover' as const,
-      trophyUri:
-        'file:///C:/Users/rania/.cursor/projects/c-Users-rania-KickClash/assets/c__Users_rania_AppData_Roaming_Cursor_User_workspaceStorage_fa0437850cf66277d34d95c04ef67442_images_image-2ed0f71f-2d2b-4c0b-9362-f362d7e99f24.png',
     },
     {
       id: 'solo',
@@ -112,7 +110,7 @@ export default function TournamentsListScreen() {
       cta: 'Play now',
       pill: 'FREE',
       onPress: () => router.push('/(app)/(tabs)/tournaments/solo-challenges'),
-      imageSource: require('../../../../assets/images/run-it-arcade-logo.png'),
+      imageSource: runItArcadeLogoSource,
       imageFit: 'contain' as const,
     },
   ] as const;
@@ -144,7 +142,6 @@ export default function TournamentsListScreen() {
               <View style={[styles.statePill, styles.heroPill]}>
                 <Text style={styles.heroPillText}>{featured.pill}</Text>
               </View>
-              {featured.trophyUri ? <Image source={{ uri: featured.trophyUri }} style={styles.heroTrophy} contentFit="contain" /> : null}
             </View>
             <View style={styles.heroBottom}>
               <Text style={[styles.heroTitle, { fontFamily: runitFont.black }]} numberOfLines={2}>
@@ -156,7 +153,7 @@ export default function TournamentsListScreen() {
               {featured.id === 'daily' ? <Text style={styles.dailyResetTiny}>Resets in {dailyResetCountdown}</Text> : null}
               <View style={styles.heroCtaRow}>
                 <Text style={styles.heroCta}>{featured.cta}</Text>
-                <SafeIonicons name="chevron-forward" size={16} color="#a5f3fc" />
+                <SafeIonicons name="chevron-forward" size={16} color="#FFE082" />
               </View>
             </View>
           </View>
@@ -340,8 +337,8 @@ export default function TournamentsListScreen() {
 
 function cupAccentGradient(accent: (typeof CREDIT_CUPS)[number]['accent']): readonly [string, string] {
   switch (accent) {
-    case 'cyan':
-      return ['#0e7490', '#06b6d4'] as const;
+    case 'gold':
+      return ['#5B21B6', '#FFD700'] as const;
     case 'purple':
       return ['#6b21a8', '#a855f7'] as const;
     case 'pink':
@@ -349,7 +346,7 @@ function cupAccentGradient(accent: (typeof CREDIT_CUPS)[number]['accent']): read
     case 'amber':
       return ['#b45309', '#fbbf24'] as const;
     case 'emerald':
-      return ['#047857', '#34d399'] as const;
+      return ['#047857', '#FFD700'] as const;
     default:
       return [runit.neonPink, appChromeGradientFadePink] as const;
   }
@@ -391,7 +388,7 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   heroPill: {
@@ -399,15 +396,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6,20,28,0.6)',
   },
   heroPillText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  heroTrophy: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: 'rgba(2,6,18,0.42)',
-    borderWidth: 1,
-    borderColor: 'rgba(110,190,255,0.45)',
-    padding: 6,
-  },
   heroBottom: {
     position: 'absolute',
     left: 14,
@@ -417,7 +405,7 @@ const styles = StyleSheet.create({
   heroTitle: { color: '#f8fafc', fontSize: 24, letterSpacing: 0.6, marginBottom: 6 },
   heroSubtitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '700', marginBottom: 8 },
   heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heroCta: { color: '#a5f3fc', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
+  heroCta: { color: '#FFE082', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
   heroControls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,7 +420,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.55)',
+    borderColor: 'rgba(255,215,0,0.55)',
     backgroundColor: 'rgba(8,18,30,0.65)',
   },
   heroNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
@@ -445,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.55)',
+    borderColor: 'rgba(255,215,0,0.55)',
     backgroundColor: 'rgba(8,18,30,0.65)',
   },
   carouselNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },

@@ -205,9 +205,9 @@ export default function TapDashScreen() {
               {snap ? <LaneView state={snap} who={1} scale={scale} laneW={laneW} laneH={laneH} /> : null}
               <Text className="bg-emerald-100 py-1 text-center text-xs font-bold text-emerald-900">You · tap</Text>
             </Pressable>
-            <View className="overflow-hidden rounded-2xl border-2 border-sky-300" style={{ width: laneW }}>
+            <View className="overflow-hidden rounded-2xl border-2 border-amber-400" style={{ width: laneW }}>
               {snap ? <LaneView state={snap} who={2} scale={scale} laneW={laneW} laneH={laneH} /> : null}
-              <Text className="bg-sky-100 py-1 text-center text-xs font-bold text-sky-900">AI</Text>
+              <Text className="bg-amber-100 py-1 text-center text-xs font-bold text-amber-950">AI</Text>
             </View>
           </View>
           <Text className="pb-2 text-center text-xs font-medium text-violet-700" key={uiTick}>

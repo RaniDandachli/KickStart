@@ -170,7 +170,7 @@ export function GuestAuthPromptModal({ visible, variant, onClose }: Props) {
 
             <Pressable onPress={goSignUp} style={({ pressed }) => [styles.primaryOuter, pressed && { opacity: 0.92 }]}>
               <LinearGradient
-                colors={['#22d3ee', '#06b6d4', '#0891b2']}
+                colors={['#FFD700', '#EAB308', '#CA8A04']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryGrad}
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagline: {
-    color: '#22d3ee',
+    color: '#FFD700',
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   legalLink: {
-    color: '#67e8f9',
+    color: '#FFD700',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },

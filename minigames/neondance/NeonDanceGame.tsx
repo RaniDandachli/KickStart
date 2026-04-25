@@ -100,9 +100,9 @@ export type NeonDanceRunPayload = {
   winnerReady: true;
 };
 
-const PALETTE = ['#ff2d92', '#22d3ee', '#c084fc', '#bef264', '#fb923c', '#3b82f6'];
+const PALETTE = ['#ff2d92', '#FFD700', '#c084fc', '#bef264', '#fb923c', '#3b82f6'];
 /** Darker glow variants for sector highlights (used in the "next sector" indicator) */
-const PALETTE_GLOW = ['#ff6bb8', '#67e8f9', '#d8b4fe', '#d9f99d', '#fdba74', '#93c5fd'];
+const PALETTE_GLOW = ['#ff6bb8', '#ffe082', '#d8b4fe', '#d9f99d', '#fdba74', '#c4b5fd'];
 
 function normAngle(a: number): number {
   let x = a % (Math.PI * 2);
@@ -938,7 +938,7 @@ export default function NeonDanceGame({
     const centerOp = 0.7 + h.advance * 0.3;
     paths.push(
       <Circle key={`${h.id}-c1`} cx={c} cy={c} r={sz * 0.09} fill="rgba(255,255,255,0.9)" opacity={centerOp} />,
-      <Circle key={`${h.id}-c2`} cx={c} cy={c} r={sz * 0.05} fill="#e0f2fe" opacity={centerOp} />,
+      <Circle key={`${h.id}-c2`} cx={c} cy={c} r={sz * 0.05} fill="#FFF8E1" opacity={centerOp} />,
     );
     return paths;
   };
@@ -972,7 +972,7 @@ export default function NeonDanceGame({
           StyleSheet.absoluteFill,
           {
             opacity: 0.4 + pulseBg,
-            backgroundColor: `rgba(34, 211, 238, ${0.025 + pulseBg * 0.05})`,
+            backgroundColor: `rgba(255, 215, 0, ${0.025 + pulseBg * 0.05})`,
           },
         ]}
       />
@@ -1316,7 +1316,7 @@ const styles = StyleSheet.create({
   scoreTop: { color: '#f8fafc', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
   centerBlock: { paddingHorizontal: 20, paddingTop: 12, gap: 10 },
   logoMark: {
-    color: 'rgba(34,211,238,0.9)',
+    color: 'rgba(255,215,0,0.9)',
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 4,
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.35)',
     marginTop: 4,
     alignSelf: 'center',
-    shadowColor: '#22d3ee',
+    shadowColor: '#FFD700',
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -1368,14 +1368,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     ...Platform.select({
       ios: {
-        shadowColor: '#22d3ee',
+        shadowColor: '#FFD700',
         shadowOpacity: 0.3,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 0 },
       },
       default: {
         elevation: 4,
-        shadowColor: '#22d3ee',
+        shadowColor: '#FFD700',
         shadowOpacity: 0.22,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 0 },
@@ -1460,5 +1460,5 @@ const styles = StyleSheet.create({
   overScore: { color: '#fde68a', fontSize: 22, fontWeight: '900' },
   statLine: { color: 'rgba(203,213,225,0.95)', fontSize: 15, fontWeight: '700' },
   overSub: { color: 'rgba(203,213,225,0.92)', fontSize: 14 },
-  tickets: { color: '#5eead4', fontWeight: '800' },
+  tickets: { color: '#FFD700', fontWeight: '800' },
 });

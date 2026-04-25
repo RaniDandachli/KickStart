@@ -337,7 +337,7 @@ export default function DashDuelScreen({
               <View
                 style={{ flex: isLandscapeLayout ? 1 : undefined, maxWidth: minigameStageMaxWidth(420), width: '100%' }}
               >
-                <Text className="mb-2 text-center text-3xl font-black text-cyan-300">Dash Duel</Text>
+                <Text className="mb-2 text-center text-3xl font-black text-amber-300">Dash Duel</Text>
                 <Text className="mb-2 text-center text-sm font-semibold text-slate-400">
                   Neon runner · tap to jump · procedural course
                 </Text>

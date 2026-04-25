@@ -444,7 +444,7 @@ export function NeonShipGame({ seed, subtitle, skipStartOverlay, onExit, onRunCo
               {/* Top fin */}
               <Path d={topFinPath} fill="#7c3aed" stroke="#a78bfa" strokeWidth={0.8} />
               {/* Main body */}
-              <Path d={bodyPath} fill="#22d3ee" stroke="#a5f3fc" strokeWidth={1} />
+              <Path d={bodyPath} fill="#FFD700" stroke="#FFE082" strokeWidth={1} />
               {/* Body highlight stripe */}
               <Path
                 d={`M${rx + rw - 5},${ry + 4} L${rx + 7},${ry + 6}`}
@@ -460,7 +460,7 @@ export function NeonShipGame({ seed, subtitle, skipStartOverlay, onExit, onRunCo
                 rx={5}
                 ry={4}
                 fill="#164e63"
-                stroke="#67e8f9"
+                stroke="#FFD700"
                 strokeWidth={1}
               />
               <Ellipse

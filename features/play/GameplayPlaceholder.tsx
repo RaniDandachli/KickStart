@@ -126,7 +126,7 @@ export function GameplayPlaceholder({
       <View className="flex-row justify-between gap-3">
         <Card className="flex-1 items-center">
           <Text className="text-xs text-slate-500">You</Text>
-          <Text className="text-4xl font-bold text-sky-600">{scoreSelf}</Text>
+          <Text className="text-4xl font-bold text-amber-600">{scoreSelf}</Text>
           <AppButton title="+Goal" variant="secondary" onPress={() => setScoreSelf((s) => s + 1)} />
         </Card>
         <Card className="flex-1 items-center">

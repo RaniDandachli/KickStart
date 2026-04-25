@@ -33,7 +33,7 @@ const STEPS: StepDef[] = [
     title: 'We match you',
     body: 'We pair you with someone on the same game and tier. Quick Match helps you jump in faster when lots of players are searching.',
     icon: 'people-outline',
-    frameColors: ['rgba(14,165,233,0.4)', 'rgba(12,74,110,0.92)'],
+    frameColors: ['rgba(255,215,0,0.35)', 'rgba(59,7,100,0.92)'],
     iconTint: '#7dd3fc',
   },
   {
@@ -146,7 +146,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
               {last ? (
                 <Pressable onPress={onClose} style={({ pressed }) => [styles.nextOuter, pressed && { opacity: 0.92 }]}>
                   <LinearGradient
-                    colors={['#34d399', '#14b8a6', '#0d9488']}
+                    colors={['#FFD700', '#D97706', '#B45309']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.nextGrad}
@@ -163,7 +163,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
                   accessibilityLabel="Next step"
                 >
                   <LinearGradient
-                    colors={['#34d399', '#14b8a6', '#0d9488']}
+                    colors={['#FFD700', '#D97706', '#B45309']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.nextGrad}

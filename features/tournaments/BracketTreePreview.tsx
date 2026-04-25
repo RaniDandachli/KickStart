@@ -36,7 +36,7 @@ export function BracketTreePreview({
       <View className="flex-row gap-2" style={{ flexWrap: 'wrap' }}>
         {byRound.map((ms, ri) => (
           <View key={ri} className="min-w-[140px] flex-1 gap-2">
-            <Text className="text-center text-xs font-semibold text-neon-cyan">
+            <Text className="text-center text-xs font-semibold text-neon-amber">
               {roundLabel(ri, rounds)}
             </Text>
             {ms.length === 0 ? (

@@ -8,8 +8,8 @@
     "scheme": "runit",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/images/run-it-arcade-icon.png",
-      "resizeMode": "contain",
+      "image": "./assets/images/run-it-arcade-splash-hero.png",
+      "resizeMode": "cover",
       "backgroundColor": "#000000"
     },
     "ios": {
@@ -49,7 +49,7 @@
       [
         "expo-notifications",
         {
-          "color": "#ff006e"
+          "color": "#A855F7"
         }
       ],
       "expo-localization"

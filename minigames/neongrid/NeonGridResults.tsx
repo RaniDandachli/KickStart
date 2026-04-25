@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ticketTxt: {
-    color: '#5eead4',
+    color: '#FFD700',
     fontSize: 14,
     fontWeight: '900',
   },
