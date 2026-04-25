@@ -22,7 +22,7 @@ import type { ProfileFightStats } from '@/services/api/profileFightStats';
 import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
-import { runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
+import { competeWinCashHeroSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
 import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
 import {
@@ -265,47 +265,62 @@ export function HomeScreenWebLaptop({
 
         {/* Hero */}
         <View style={[styles.heroRow, compact && styles.heroRowCompact]}>
-          <View style={[styles.heroLeft, compact && styles.heroLeftCompact]}>
-            <View style={styles.kickerRow}>
-              <View style={styles.kickerLine} />
-              <Text style={styles.kicker}>SKILL-BASED COMPETITION</Text>
-            </View>
-            <Text style={[styles.heroHeadline, compact && styles.heroHeadlineCompact, { fontFamily: runitFont.black }]}>
-              COMPETE. WIN <Text style={styles.heroReal}>REAL CASH</Text>.{' '}
-              <Text style={styles.heroInstant}>INSTANTLY.</Text>
-            </Text>
-            <View style={styles.perkRow}>
-              <View style={styles.perkPill}>
-                <SafeIonicons name="people" size={12} color={BRAND_GOLD} />
-                <Text style={styles.perkPillTxt}>Real players</Text>
+          <View style={[styles.heroLeftWrap, compact && styles.heroLeftWrapCompact]}>
+            <Image
+              source={competeWinCashHeroSource}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              accessibilityIgnoresInvertColors
+            />
+            <LinearGradient
+              colors={['rgba(4,0,10,0.88)', 'rgba(12,0,28,0.5)', 'rgba(6,0,14,0.35)']}
+              locations={[0, 0.45, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={[styles.heroLeft, compact && styles.heroLeftCompact]}>
+              <View style={styles.kickerRow}>
+                <View style={styles.kickerLine} />
+                <Text style={styles.kicker}>SKILL-BASED COMPETITION</Text>
               </View>
-              <View style={styles.perkPill}>
-                <SafeIonicons name="trophy" size={12} color={BRAND_GOLD} />
-                <Text style={styles.perkPillTxt}>Real prizes</Text>
+              <Text style={[styles.heroHeadline, compact && styles.heroHeadlineCompact, { fontFamily: runitFont.black }]}>
+                COMPETE. WIN <Text style={styles.heroReal}>REAL CASH</Text>.{' '}
+                <Text style={styles.heroInstant}>INSTANTLY.</Text>
+              </Text>
+              <View style={styles.perkRow}>
+                <View style={styles.perkPill}>
+                  <SafeIonicons name="people" size={12} color={BRAND_GOLD} />
+                  <Text style={styles.perkPillTxt}>Real players</Text>
+                </View>
+                <View style={styles.perkPill}>
+                  <SafeIonicons name="trophy" size={12} color={BRAND_GOLD} />
+                  <Text style={styles.perkPillTxt}>Real prizes</Text>
+                </View>
+                <View style={styles.perkPill}>
+                  <SafeIonicons name="flash" size={12} color={BRAND_GOLD} />
+                  <Text style={styles.perkPillTxt}>Real fast</Text>
+                </View>
               </View>
-              <View style={styles.perkPill}>
-                <SafeIonicons name="flash" size={12} color={BRAND_GOLD} />
-                <Text style={styles.perkPillTxt}>Real fast</Text>
+              <Text style={[styles.heroSub, compact && styles.heroSubCompact]}>
+                1v1 matchups. Tiered entry. Same games as Arcade. Prizes scale with skill level.
+              </Text>
+              <View style={styles.heroBtns}>
+                <Pressable
+                  onPress={onPlayNow}
+                  style={({ pressed }) => [styles.btnPlay, compact && styles.btnPlayCompact, pressed && { opacity: 0.92 }]}
+                >
+                  <SafeIonicons name="flash" size={18} color="#fff" />
+                  <Text style={[styles.btnPlayTxt, compact && styles.btnPlayTxtCompact]}>Play now</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onHowItWorks}
+                  style={({ pressed }) => [styles.btnGhost, compact && styles.btnGhostCompact, pressed && { opacity: 0.92 }]}
+                >
+                  <SafeIonicons name="play-circle" size={18} color="rgba(167,139,250,0.95)" />
+                  <Text style={[styles.btnGhostTxt, compact && styles.btnGhostTxtCompact]}>How it works</Text>
+                </Pressable>
               </View>
-            </View>
-            <Text style={[styles.heroSub, compact && styles.heroSubCompact]}>
-              1v1 matchups. Tiered entry. Same games as Arcade. Prizes scale with skill level.
-            </Text>
-            <View style={styles.heroBtns}>
-              <Pressable
-                onPress={onPlayNow}
-                style={({ pressed }) => [styles.btnPlay, compact && styles.btnPlayCompact, pressed && { opacity: 0.92 }]}
-              >
-                <SafeIonicons name="flash" size={18} color="#fff" />
-                <Text style={[styles.btnPlayTxt, compact && styles.btnPlayTxtCompact]}>Play now</Text>
-              </Pressable>
-              <Pressable
-                onPress={onHowItWorks}
-                style={({ pressed }) => [styles.btnGhost, compact && styles.btnGhostCompact, pressed && { opacity: 0.92 }]}
-              >
-                <SafeIonicons name="play-circle" size={18} color="rgba(167,139,250,0.95)" />
-                <Text style={[styles.btnGhostTxt, compact && styles.btnGhostTxtCompact]}>How it works</Text>
-              </Pressable>
             </View>
           </View>
 
@@ -776,7 +791,24 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 32,
   },
-  heroLeft: { flex: 1, minWidth: 0, flexBasis: 0, justifyContent: 'center' },
+  heroLeftWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexBasis: 0,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative' as const,
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.4)',
+  },
+  heroLeft: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+  },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   kickerLine: { width: 28, height: 2, backgroundColor: runit.neonPink, borderRadius: 1 },
   kicker: {
@@ -1166,6 +1198,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 12,
     marginBottom: 16,
+  },
+  heroLeftWrapCompact: {
+    width: '100%' as const,
+    flexBasis: 'auto' as const,
   },
   heroLeftCompact: { minWidth: 0 },
   heroHeadlineCompact: {

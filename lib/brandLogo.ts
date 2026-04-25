@@ -13,5 +13,8 @@ export const TOURNAMENT_OF_THE_DAY_HERO_URI =
 
 export const tournamentOfTheDayHeroSource = { uri: TOURNAMENT_OF_THE_DAY_HERO_URI } as const;
 
+/** Web home hero: arena + trophy art behind "COMPETE. WIN REAL CASH." */
+export const competeWinCashHeroSource = require('@/assets/images/hero-compete-win-cash-arena.png');
+
 /** Friday Cup promotional banner (Events carousel + `friday-cup` screen). */
 export const fridayCupBannerSource = require('@/assets/images/friday-cup-banner.png');
