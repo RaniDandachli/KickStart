@@ -207,6 +207,31 @@ export default function HomeScreen() {
     }
   }
 
+  function goTournamentEvents() {
+    if (needAccount) openGuestPrompt('play');
+    else pushCrossTab(router, '/(app)/(tabs)/tournaments');
+  }
+
+  function goArcadeTab() {
+    if (needAccount) openGuestPrompt('play');
+    else pushCrossTab(router, '/(app)/(tabs)/play');
+  }
+
+  function goPrizesTab() {
+    if (needAccount) openGuestPrompt('play');
+    else pushCrossTab(router, '/(app)/(tabs)/prizes');
+  }
+
+  function goInviteFriends() {
+    if (needAccount) openGuestPrompt('play');
+    else pushCrossTab(router, '/(app)/(tabs)/profile/marketing');
+  }
+
+  function goProfileTab() {
+    if (needAccount) openGuestPrompt('play');
+    else pushCrossTab(router, '/(app)/(tabs)/profile');
+  }
+
   function h2hIconFor(gameKey: H2hGameKey, size: number) {
     switch (gameKey) {
       case 'tap-dash':
@@ -259,12 +284,18 @@ export default function HomeScreen() {
             uid={uid}
             dailyDayKey={todaysKey}
             dailyResetCountdownHms={dailyResetCountdown}
+            userInitial={displayName.slice(0, 1).toUpperCase()}
             onWalletPress={goWalletShop}
             onAddMoney={goAddMoney}
             onPlayNow={openPlayNowOrAuth}
             onHowItWorks={() => setHowItWorksOpen(true)}
             onEnterDailyTournament={goDailyTournament}
             onBrowseLiveMatches={browseLiveOrAuth}
+            onJoinTournamentEvents={goTournamentEvents}
+            onOpenArcade={goArcadeTab}
+            onOpenPrizes={goPrizesTab}
+            onInviteFriends={goInviteFriends}
+            onOpenProfile={goProfileTab}
             onNotificationsPress={goNotificationSettings}
             h2hCarouselRows={h2hCarouselRows}
             onH2hCarouselRowPress={openH2hCarouselRow}

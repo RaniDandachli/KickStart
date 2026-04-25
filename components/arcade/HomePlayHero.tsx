@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
+
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
 import { DEFAULT_ONLINE_PLAYERS } from '@/lib/homeSocialDemo';
@@ -114,7 +116,7 @@ export function HomePlayHero({
 
   const [statLive, setStatLive] = useState(() => clamp(matchesLive + randInt(-3, 3), 28, 58));
   const [statStarting, setStatStarting] = useState(() => clamp(matchesStarting + randInt(-4, 4), 14, 52));
-  const [statOnline, setStatOnline] = useState(() => clamp(playersBattling + randInt(-2, 2), 12, 24));
+  const onlineFloat = useFloatingOnlineCount(3400);
   const [statRewardsUsd, setStatRewardsUsd] = useState(() =>
     clamp(prizesAwardedDemoUsd + randInt(-80, 80), 3320, 4980),
   );
@@ -169,7 +171,6 @@ export function HomePlayHero({
     const id = setInterval(() => {
       setStatLive((v) => clamp(v + randInt(-2, 2), 28, 62));
       setStatStarting((v) => clamp(v + randInt(-2, 2), 12, 58));
-      setStatOnline((v) => clamp(v + randInt(-35, 48), 2980, 5280));
       setStatRewardsUsd((v) => clamp(v + randInt(-48, 72), 3180, 5050));
       const w = ['10m', '15m', '30m', '1h', '24h'] as const;
       if (Math.random() < 0.35) setRewardWindow(w[randInt(0, w.length - 1)]);
@@ -203,9 +204,8 @@ export function HomePlayHero({
     return `${w.name} earned $${w.amount} reward · ${w.mins} min ago`;
   }, [liveTickerDigest, winnerIdx]);
 
-  const displayOnline = showLiveNumbers
-    ? (liveLobby!.playersOnline > 0 ? liveLobby!.playersOnline : DEFAULT_ONLINE_PLAYERS)
-    : statOnline;
+  /** Social-proof “online” — always 10–37 with gentle random drift (not raw RPC). */
+  const displayOnline = onlineFloat;
   const displayRewardsLabel = showLiveNumbers
     ? formatRewardsFromWalletCents24h(liveLobby!.rewardsWalletCents24h)
     : `$${(statRewardsUsd / 1000).toFixed(1)}k`;

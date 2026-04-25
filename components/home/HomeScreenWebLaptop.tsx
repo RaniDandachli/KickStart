@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Pressable,
@@ -13,7 +14,7 @@ import {
 
 import type { H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import { WebRunItArcadeWordmark } from '@/components/web/WebRunItArcadeWordmark';
+import { WebHomeSidebar } from '@/components/web/WebHomeSidebar';
 import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import type { HomeLobbyRecentReward } from '@/services/api/homeLobby';
@@ -21,9 +22,11 @@ import type { ProfileFightStats } from '@/services/api/profileFightStats';
 import { type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
+import { tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
+import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
 import {
-  DEFAULT_ONLINE_PLAYERS,
+  FAKE_RECENT_WINNER_LINES,
   FAKE_TOP_EARNER_FRAMES,
   FAKE_TOP_EARNERS_ROTATION_MS,
 } from '@/lib/homeSocialDemo';
@@ -32,6 +35,7 @@ import { HOME_WEB_LAPTOP_MIN_WIDTH } from '@/lib/homeWebLayout';
 const TIER_SUB =
   `${MATCH_ENTRY_TIERS[0].shortLabel} · ${MATCH_ENTRY_TIERS[MATCH_ENTRY_TIERS.length - 1].shortLabel} · Pick a tier to match`;
 
+const BRAND_GOLD = '#FFD700';
 const RANK_COLORS = ['#fbbf24', '#C4B5FD', '#FFD700', '#f472b6'];
 
 function formatPaidOut24h(cents: number): string {
@@ -75,6 +79,13 @@ export type HomeScreenWebLaptopProps = {
   onHowItWorks: () => void;
   onEnterDailyTournament: () => void;
   onBrowseLiveMatches: () => void;
+  onJoinTournamentEvents: () => void;
+  onOpenArcade: () => void;
+  onOpenPrizes: () => void;
+  onInviteFriends: () => void;
+  onOpenProfile: () => void;
+  /** First letter for header avatar. */
+  userInitial: string;
   /** Opens notification / alert settings (e.g. Profile → Settings). */
   onNotificationsPress?: () => void;
   h2hCarouselRows: H2hCarouselRow[];
@@ -87,7 +98,7 @@ export function HomeScreenWebLaptop({
   walletDisplay,
   walletCents,
   liveLobby,
-  recentRewards,
+  recentRewards: _recentRewardsReserved,
   fightStats,
   fightLoading,
   uid,
@@ -99,6 +110,12 @@ export function HomeScreenWebLaptop({
   onHowItWorks,
   onEnterDailyTournament,
   onBrowseLiveMatches,
+  onJoinTournamentEvents,
+  onOpenArcade,
+  onOpenPrizes,
+  onInviteFriends,
+  onOpenProfile,
+  userInitial,
   onNotificationsPress,
   h2hCarouselRows,
   onH2hCarouselRowPress,
@@ -108,41 +125,33 @@ export function HomeScreenWebLaptop({
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(dailyDayKey);
   const dailyRounds = getDailyTournamentRounds(dailyDayKey);
 
-  const playersOnlineDisplay = useMemo(() => {
-    if (liveLobby == null) return DEFAULT_ONLINE_PLAYERS;
-    if (liveLobby.playersOnline > 0) return liveLobby.playersOnline;
-    return DEFAULT_ONLINE_PLAYERS;
-  }, [liveLobby]);
+  const playersOnlineDisplay = useFloatingOnlineCount(3200);
 
   const paidOut = liveLobby ? formatPaidOut24h(liveLobby.rewardsWalletCents24h) : '$0';
-  const matchesInFlight = liveLobby ? liveLobby.matchesLive + liveLobby.matchesQueued : 0;
+  const matchesLiveOnly = liveLobby?.matchesLive ?? 0;
   const activeGames = h2hCarouselRows.length;
+  const avLetter = (userInitial || 'P').replace(/\s/g, '').slice(0, 1).toUpperCase() || 'P';
 
   const [fakeEarnerFrame, setFakeEarnerFrame] = useState(0);
-  const useFakeTopEarners = recentRewards.length === 0;
 
   useEffect(() => {
-    if (!useFakeTopEarners) return;
     const n = FAKE_TOP_EARNER_FRAMES.length;
     const id = setInterval(
       () => setFakeEarnerFrame((f) => (f + 1) % n),
       FAKE_TOP_EARNERS_ROTATION_MS,
     );
     return () => clearInterval(id);
-  }, [useFakeTopEarners]);
+  }, []);
 
+  /** Social-proof board — always show human-looking demo names (RPC rows are often test noise). */
   const topEarners = useMemo(() => {
-    if (recentRewards.length > 0) {
-      const sorted = [...recentRewards].sort((a, b) => b.cents - a.cents);
-      return sorted.slice(0, 4);
-    }
     const frame = FAKE_TOP_EARNER_FRAMES[fakeEarnerFrame % FAKE_TOP_EARNER_FRAMES.length] ?? [];
     return frame.map((row, i) => ({
       username: row.username,
       cents: row.cents,
       created_at: `demo:frame${fakeEarnerFrame}:row${i}`,
     }));
-  }, [recentRewards, fakeEarnerFrame]);
+  }, [fakeEarnerFrame]);
 
   const countdownParts = dailyResetCountdownHms.split(':');
   const hh = countdownParts[0] ?? '00';
@@ -165,27 +174,28 @@ export function HomeScreenWebLaptop({
   const gameCardW = compact ? 210 : 260;
   const gameIconSize = compact ? 34 : 40;
 
-  return (
-    <ScrollView
-      contentContainerStyle={[styles.scrollContent, compact && styles.scrollContentCompact]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.max, compact && styles.maxCompact]}>
-        {/* Top bar — wordmark + wallet (tab strip above has Home / Events / Arcade / Prizes with icons) */}
+  const main = (
+    <>
+        {/* Top bar — dashboard: wallet, alerts, +, avatar (laptop: sidebar has logo) */}
         <View style={[styles.topNav, compact && styles.topNavCompact]}>
           <View style={[styles.brandBlock, compact && styles.brandBlockCompact]}>
-            <WebRunItArcadeWordmark size="hero" layout="inline" />
+            {compact ? (
+              <Text style={[styles.dashKicker, { fontFamily: runitFont.black }]}>RUN iT DASH</Text>
+            ) : null}
           </View>
           <View style={[styles.navRight, compact && styles.navRightCompact]}>
             {onNotificationsPress ? (
-              <Pressable
-                onPress={onNotificationsPress}
-                accessibilityRole="button"
-                accessibilityLabel="Notification and alert settings"
-                style={({ pressed }) => [styles.navIconBtn, pressed && { opacity: 0.88 }]}
-              >
-                <SafeIonicons name="notifications-outline" size={20} color="#e2e8f0" />
-              </Pressable>
+              <View style={styles.bellWrap}>
+                <Pressable
+                  onPress={onNotificationsPress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Notification and alert settings"
+                  style={({ pressed }) => [styles.navIconBtn, pressed && { opacity: 0.88 }]}
+                >
+                  <SafeIonicons name="notifications-outline" size={20} color="#e2e8f0" />
+                </Pressable>
+                <View style={styles.bellDot} />
+              </View>
             ) : null}
             <Pressable
               onPress={onWalletPress}
@@ -196,9 +206,17 @@ export function HomeScreenWebLaptop({
             </Pressable>
             <Pressable
               onPress={onAddMoney}
-              style={({ pressed }) => [styles.addMoneyOutline, pressed && { opacity: 0.9 }]}
+              style={({ pressed }) => [styles.addMoneyPlus, pressed && { opacity: 0.9 }]}
             >
-              <Text style={styles.addMoneyOutlineTxt}>+ Add Money</Text>
+              <SafeIonicons name="add" size={22} color="#0c0618" />
+            </Pressable>
+            <Pressable
+              onPress={onOpenProfile}
+              style={({ pressed }) => [styles.avatarRing, pressed && { opacity: 0.9 }]}
+            >
+              <View style={styles.avatarInner}>
+                <Text style={styles.avatarLetter}>{avLetter}</Text>
+              </View>
             </Pressable>
           </View>
         </View>
@@ -240,8 +258,23 @@ export function HomeScreenWebLaptop({
               <Text style={styles.kicker}>SKILL-BASED COMPETITION</Text>
             </View>
             <Text style={[styles.heroHeadline, compact && styles.heroHeadlineCompact, { fontFamily: runitFont.black }]}>
-              COMPETE. WIN <Text style={styles.heroReal}>REAL</Text> MONEY.
+              COMPETE. WIN <Text style={styles.heroReal}>REAL CASH</Text>.{' '}
+              <Text style={styles.heroInstant}>INSTANTLY.</Text>
             </Text>
+            <View style={styles.perkRow}>
+              <View style={styles.perkPill}>
+                <SafeIonicons name="people" size={12} color={BRAND_GOLD} />
+                <Text style={styles.perkPillTxt}>Real players</Text>
+              </View>
+              <View style={styles.perkPill}>
+                <SafeIonicons name="trophy" size={12} color={BRAND_GOLD} />
+                <Text style={styles.perkPillTxt}>Real prizes</Text>
+              </View>
+              <View style={styles.perkPill}>
+                <SafeIonicons name="flash" size={12} color={BRAND_GOLD} />
+                <Text style={styles.perkPillTxt}>Real fast</Text>
+              </View>
+            </View>
             <Text style={[styles.heroSub, compact && styles.heroSubCompact]}>
               1v1 matchups. Tiered entry. Same games as Arcade. Prizes scale with skill level.
             </Text>
@@ -266,12 +299,20 @@ export function HomeScreenWebLaptop({
             onPress={onEnterDailyTournament}
             style={({ pressed }) => [styles.tourneyCardOuter, compact && styles.tourneyCardOuterCompact, pressed && { opacity: 0.96 }]}
           >
-            <LinearGradient
-              colors={['#1a0b2e', '#12081f', '#0c0618']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.tourneyCard, compact && styles.tourneyCardCompact]}
-            >
+            <View style={styles.tourneyStack}>
+              <Image
+                source={tournamentOfTheDayHeroSource}
+                style={styles.tourneyBgImg}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors
+              />
+              <LinearGradient
+                colors={['rgba(3,0,6,0.4)', 'rgba(12,4,20,0.9)', 'rgba(4,0,8,0.95)']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[styles.tourneyCard, compact && styles.tourneyCardCompact]}>
               <View style={styles.dailyHeadRow}>
                 <View style={styles.dailyBadge}>
                   <Text style={styles.dailyBadgeTxt}>DAILY TOURNAMENT</Text>
@@ -313,11 +354,12 @@ export function HomeScreenWebLaptop({
                   {ENABLE_DAILY_FREE_TOURNAMENT ? 'Enter Free →' : 'View events →'}
                 </Text>
               </View>
-            </LinearGradient>
+              </View>
+            </View>
           </Pressable>
         </View>
 
-        {/* Stat bar */}
+        {/* Stat bar — 4-up like reference dashboard */}
         <View style={[styles.statBar, compact && styles.statBarCompact]}>
           <View style={styles.statBarItem}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{paidOut}</Text>
@@ -325,19 +367,60 @@ export function HomeScreenWebLaptop({
           </View>
           <View style={styles.statBarItem}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>
-              {matchesInFlight}
+              {matchesLiveOnly}
             </Text>
-            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>LIVE + QUEUED</Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>LIVE MATCHES</Text>
+          </View>
+          <View style={styles.statBarItem}>
+            <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>
+              {playersOnlineDisplay}
+            </Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>PLAYERS ONLINE</Text>
           </View>
           <View style={styles.statBarItem}>
             <Text style={[styles.statBarVal, compact && styles.statBarValCompact, { fontFamily: runitFont.black }]}>{activeGames}</Text>
-            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>ACTIVE GAMES</Text>
+            <Text style={[styles.statBarLbl, compact && styles.statBarLblCompact]}>IN QUEUE + GAMES</Text>
           </View>
         </View>
 
-        {/* Live matches */}
+        {/* Quick actions */}
+        <View style={[styles.quickRow, compact && styles.quickRowCompact]}>
+          <Pressable
+            onPress={onPlayNow}
+            style={({ pressed }) => [styles.quickBtn, styles.quickPlay, pressed && { opacity: 0.92 }]}
+          >
+            <SafeIonicons name="play" size={16} color="#fff" />
+            <Text style={styles.quickBtnTxt}>Play now</Text>
+          </Pressable>
+          <Pressable
+            onPress={onJoinTournamentEvents}
+            style={({ pressed }) => [styles.quickBtn, styles.quickMagenta, pressed && { opacity: 0.92 }]}
+          >
+            <SafeIonicons name="trophy" size={16} color="#fff" />
+            <Text style={styles.quickBtnTxt}>Tournaments</Text>
+          </Pressable>
+          <Pressable
+            onPress={onAddMoney}
+            style={({ pressed }) => [styles.quickBtn, styles.quickBlue, pressed && { opacity: 0.92 }]}
+          >
+            <SafeIonicons name="wallet-outline" size={16} color="#e2e8f0" />
+            <Text style={styles.quickBtnTxt}>Add funds</Text>
+          </Pressable>
+          <Pressable
+            onPress={onInviteFriends}
+            style={({ pressed }) => [styles.quickBtn, styles.quickGold, pressed && { opacity: 0.92 }]}
+          >
+            <SafeIonicons name="share-social" size={16} color="#0c0618" />
+            <Text style={[styles.quickBtnTxt, styles.quickBtnTxtDark]}>Invite friends</Text>
+          </Pressable>
+        </View>
+
+        {/* Trending / queue games */}
         <View style={[styles.sectionHead, compact && styles.sectionHeadCompact]}>
-          <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>LIVE MATCHES</Text>
+          <View>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>TRENDING GAMES</Text>
+            <Text style={styles.sectionSub}>1v1 queues · same games as the Arcade</Text>
+          </View>
           <Pressable onPress={onBrowseLiveMatches} hitSlop={6}>
             <Text style={styles.sectionLink}>See all →</Text>
           </Pressable>
@@ -353,7 +436,7 @@ export function HomeScreenWebLaptop({
             const hostWaiting = row.activeWaiter != null;
             const cardStyle: ViewStyle[] = [styles.gameCard, { width: gameCardW }];
             if (highlight) {
-              cardStyle.push(styles.gameCardHighlight);
+              cardStyle.push(styles.gameCardHot);
             }
             const subLine = hostWaiting
               ? `${row.activeWaiter!.hostLabel} waiting · ${row.activeWaiter!.postedMinutesAgo}m · ${row.activeWaiter!.tierShortLabel} tier`
@@ -368,6 +451,11 @@ export function HomeScreenWebLaptop({
                 style={({ pressed }) => [cardStyle, pressed && { opacity: 0.94 }]}
               >
                 <LinearGradient colors={[grad[0], grad[1]]} style={[styles.gameCardGrad, compact && styles.gameCardGradCompact]}>
+                  {highlight ? (
+                    <View style={styles.gameHotPill}>
+                      <Text style={styles.gameHotPillTxt}>HOT</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.gameCardTop}>
                     {h2hIconFor(row.gameKey, gameIconSize)}
                     <View style={styles.gameCardTitles}>
@@ -380,7 +468,7 @@ export function HomeScreenWebLaptop({
                   <View style={styles.gameCardBottom}>
                     {highlight && !hostWaiting ? (
                       <View style={styles.priceDash}>
-                        <SafeIonicons name="flash" size={18} color="#4ade80" />
+                        <SafeIonicons name="flash" size={18} color={BRAND_GOLD} />
                       </View>
                     ) : (
                       <Text style={styles.priceTxt}>{formatUsdFromCents(entryCents)}</Text>
@@ -395,8 +483,8 @@ export function HomeScreenWebLaptop({
           })}
         </ScrollView>
 
-        {/* Two columns */}
-        <View style={[styles.twoCol, compact && styles.twoColCompact]}>
+        {/* Your stats + leaderboards */}
+        <View style={[styles.threeCol, compact && styles.threeColCompact]}>
           <View style={[styles.panel, compact && styles.panelCompact]}>
             <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>YOUR STATS</Text>
             {ENABLE_BACKEND && uid && fightLoading ? (
@@ -415,27 +503,38 @@ export function HomeScreenWebLaptop({
             )}
           </View>
           <View style={styles.panel}>
-            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>
-              TOP EARNERS · 24H
-            </Text>
-            {topEarners.length === 0 ? (
-              <Text style={styles.panelMuted}>No recent payouts yet. Be the first on the board.</Text>
-            ) : (
-              topEarners.map((r, i) => (
-                <View key={`${r.username}-${r.created_at}`} style={styles.leaderRow}>
-                  <Text style={[styles.leaderRank, { color: RANK_COLORS[i % RANK_COLORS.length] }]}>
-                    {i + 1}
-                  </Text>
-                  <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i) }]}>
-                    <Text style={styles.leaderAvTxt}>{initialsFromUsername(r.username)}</Text>
-                  </View>
-                  <Text style={styles.leaderName} numberOfLines={1}>
-                    {r.username}
-                  </Text>
-                  <Text style={styles.leaderAmt}>+{formatUsdFromCents(r.cents)}</Text>
+            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>TOP EARNERS · 24H</Text>
+            {topEarners.map((r, i) => (
+              <View key={`${r.username}-${r.created_at}`} style={styles.leaderRow}>
+                <Text style={[styles.leaderRank, { color: RANK_COLORS[i % RANK_COLORS.length] }]}>{i + 1}</Text>
+                <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i) }]}>
+                  <Text style={styles.leaderAvTxt}>{initialsFromUsername(r.username)}</Text>
                 </View>
-              ))
-            )}
+                <Text style={styles.leaderName} numberOfLines={1}>
+                  {r.username}
+                </Text>
+                <Text style={styles.leaderAmt}>+{formatUsdFromCents(r.cents)}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.panel}>
+            <Text style={[styles.panelTitle, { fontFamily: runitFont.black }]}>RECENT WINS</Text>
+            {FAKE_RECENT_WINNER_LINES.map((w, i) => (
+              <View key={`${w.name}-${i}`} style={styles.recentRow}>
+                <View style={[styles.leaderAvatar, { backgroundColor: avatarColor(i + 2) }]}>
+                  <Text style={styles.leaderAvTxt}>{initialsFromUsername(w.name)}</Text>
+                </View>
+                <View style={styles.recentMid}>
+                  <Text style={styles.recentName} numberOfLines={1}>
+                    {w.name}
+                  </Text>
+                  <Text style={styles.recentSub} numberOfLines={1}>
+                    {w.game} · {w.ago}
+                  </Text>
+                </View>
+                <Text style={styles.recentWin}>+{formatUsdFromCents(w.amountCents)}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -447,7 +546,22 @@ export function HomeScreenWebLaptop({
           </View>
         ) : null}
         <View style={{ height: compact ? 24 : 48 }} />
-      </View>
+    </>
+  );
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.scrollContent, compact && styles.scrollContentCompact]}
+      showsVerticalScrollIndicator={false}
+    >
+      {!compact ? (
+        <View style={styles.dashboardRow}>
+          <WebHomeSidebar />
+          <View style={styles.mainColumn}>{main}</View>
+        </View>
+      ) : (
+        <View style={[styles.max, styles.maxCompact]}>{main}</View>
+      )}
     </ScrollView>
   );
 }
@@ -473,13 +587,44 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 48,
     paddingTop: 12,
-    alignItems: 'center',
+    alignItems: 'stretch',
+  },
+  /** Laptop + sidebar */
+  dashboardRow: {
+    flexDirection: 'row',
+    width: '100%',
+    maxWidth: 1400,
+    minHeight: 480,
+    alignSelf: 'center',
+  },
+  mainColumn: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 8,
+    paddingRight: 28,
+    paddingLeft: 12,
+    paddingBottom: 24,
   },
   max: {
     width: '100%',
     maxWidth: 1200,
     paddingHorizontal: 32,
   },
+  dashKicker: { color: 'rgba(226,232,240,0.9)', fontSize: 12, letterSpacing: 1.2 },
+  perkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  perkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.3)',
+  },
+  perkPillTxt: { color: 'rgba(254,243,199,0.95)', fontSize: 11, fontWeight: '800' },
+  heroInstant: { color: BRAND_GOLD },
   topNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -487,13 +632,49 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     gap: 16,
     paddingTop: 10,
-    marginHorizontal: -8,
+    marginHorizontal: -4,
     paddingHorizontal: 8,
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(139,92,246,0.75)',
-    backgroundColor: 'rgba(6,2,14,0.35)',
-    borderRadius: 12,
+    borderTopWidth: 0,
+    backgroundColor: 'transparent',
   },
+  bellWrap: { position: 'relative' as const },
+  bellDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f43f5e',
+  },
+  addMoneyPlus: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND_GOLD,
+    borderWidth: 1,
+    borderColor: 'rgba(255,224,100,0.5)',
+  },
+  avatarRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255,215,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(45,0,32,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLetter: { color: '#f8fafc', fontSize: 14, fontWeight: '900' },
   brandBlock: { minWidth: 0, flexShrink: 1 },
   brandBlockCompact: { maxWidth: '52%' as const },
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
@@ -580,9 +761,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    backgroundColor: 'rgba(91,33,182,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(248,250,252,0.2)',
+    borderColor: 'rgba(167,139,250,0.4)',
     borderRadius: 999,
     paddingVertical: 14,
     paddingHorizontal: 22,
@@ -596,18 +777,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   btnGhostTxt: { color: '#f8fafc', fontSize: 15, fontWeight: '800' },
+  tourneyStack: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative' as const,
+    minHeight: 260,
+  },
+  tourneyBgImg: {
+    ...StyleSheet.absoluteFillObject,
+  },
   tourneyCardOuter: {
     width: 380,
     maxWidth: '42%',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.35)',
+    borderColor: 'rgba(255,215,0,0.4)',
     alignSelf: 'center',
   },
   tourneyCard: {
     padding: 20,
-    borderRadius: 18,
+    position: 'relative' as const,
+    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   dailyHeadRow: {
     flexDirection: 'row',
@@ -688,12 +880,13 @@ const styles = StyleSheet.create({
   enterBtnTxt: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
   statBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 36,
-    paddingHorizontal: 8,
-    gap: 16,
+    marginBottom: 24,
+    paddingHorizontal: 4,
+    gap: 12,
   },
-  statBarItem: { flex: 1, alignItems: 'center' },
+  statBarItem: { flexBasis: '22%', flexGrow: 1, minWidth: 120, alignItems: 'center' },
   statBarVal: { color: '#f8fafc', fontSize: 28, fontWeight: '900' },
   statBarLbl: {
     color: 'rgba(148,163,184,0.85)',
@@ -707,6 +900,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
+    gap: 12,
   },
   sectionTitle: {
     color: 'rgba(226,232,240,0.95)',
@@ -714,11 +908,34 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 2,
   },
+  sectionSub: { color: 'rgba(148,163,184,0.9)', fontSize: 12, fontWeight: '600', marginTop: 2 },
   sectionLink: {
-    color: runit.neonCyan,
+    color: BRAND_GOLD,
     fontSize: 13,
     fontWeight: '800',
   },
+  quickRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 28,
+  },
+  quickRowCompact: { gap: 8, marginBottom: 18 },
+  quickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minWidth: 120,
+  },
+  quickPlay: { backgroundColor: 'rgba(91,33,182,0.85)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)' },
+  quickMagenta: { backgroundColor: 'rgba(190,24,93,0.8)', borderWidth: 1, borderColor: 'rgba(244,114,182,0.4)' },
+  quickBlue: { backgroundColor: 'rgba(30,58,138,0.85)', borderWidth: 1, borderColor: 'rgba(129,140,248,0.4)' },
+  quickGold: { backgroundColor: BRAND_GOLD, borderWidth: 1, borderColor: 'rgba(255,236,150,0.6)' },
+  quickBtnTxt: { color: '#f8fafc', fontSize: 13, fontWeight: '900' },
+  quickBtnTxtDark: { color: '#0c0618' },
   liveCardsScroll: {
     gap: 14,
     paddingBottom: 8,
@@ -730,19 +947,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.2)',
   },
-  gameCardHighlight: {
+  gameCardHot: {
     borderWidth: 2,
-    borderColor: 'rgba(225,29,140,0.75)',
-    shadowColor: 'rgba(255,0,110,0.45)',
+    borderColor: 'rgba(255,215,0,0.75)',
+    shadowColor: 'rgba(255,215,0,0.35)',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
+    shadowOpacity: 0.85,
     shadowRadius: 16,
     elevation: 8,
   },
+  gameHotPill: {
+    position: 'absolute' as const,
+    top: 8,
+    right: 8,
+    zIndex: 2,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  gameHotPillTxt: { color: BRAND_GOLD, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   gameCardGrad: {
     padding: 14,
     minHeight: 168,
     justifyContent: 'space-between',
+    position: 'relative' as const,
   },
   gameCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   gameCardTitles: { flex: 1, minWidth: 0 },
@@ -764,14 +993,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   findOppTxt: { color: '#e2e8f0', fontSize: 12, fontWeight: '800' },
-  twoCol: {
+  threeCol: {
     flexDirection: 'row',
-    gap: 20,
+    flexWrap: 'wrap',
+    gap: 16,
     marginTop: 8,
     alignItems: 'stretch',
   },
+  threeColCompact: { flexDirection: 'column' },
   panel: {
     flex: 1,
+    minWidth: 200,
     backgroundColor: 'rgba(8,4,18,0.72)',
     borderRadius: 16,
     borderWidth: 1,
@@ -779,6 +1011,18 @@ const styles = StyleSheet.create({
     padding: 18,
     minHeight: 200,
   },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(148,163,184,0.15)',
+  },
+  recentMid: { flex: 1, minWidth: 0 },
+  recentName: { color: 'rgba(203,213,225,0.95)', fontSize: 13, fontWeight: '700' },
+  recentSub: { color: 'rgba(148,163,184,0.9)', fontSize: 11, marginTop: 2, fontWeight: '600' },
+  recentWin: { color: '#4ade80', fontSize: 13, fontWeight: '800' },
   panelTitle: {
     color: 'rgba(226,232,240,0.95)',
     fontSize: 12,
@@ -908,6 +1152,5 @@ const styles = StyleSheet.create({
   statBarLblCompact: { fontSize: 9, marginTop: 2 },
   sectionHeadCompact: { marginBottom: 8 },
   gameCardGradCompact: { minHeight: 132, padding: 11 },
-  twoColCompact: { flexDirection: 'column', gap: 12 },
   panelCompact: { minHeight: 0, padding: 14 },
 });

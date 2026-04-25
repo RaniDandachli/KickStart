@@ -7,8 +7,9 @@ export const H2H_OPEN_GAMES_ALL = [
     gameKey: 'tap-dash' as const,
     title: 'Tap Dash',
     route: '/(app)/(tabs)/play/minigames/tap-dash',
-    bgColors: ['#1e1b4b', '#312e81', '#4c1d95'] as const,
-    borderAccent: 'pink' as const satisfies RunitBorderAccent,
+    /** Purple + brand gold (web hero cards — not teal). */
+    bgColors: ['#0c0618', '#4c1d95', '#a16207'] as const,
+    borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'tile-clash' as const,
