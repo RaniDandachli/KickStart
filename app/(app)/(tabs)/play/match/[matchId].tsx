@@ -1,6 +1,6 @@
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { usePreventRemove } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, InteractionManager, Text, View } from 'react-native';
 
@@ -10,19 +10,20 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { GameplayPlaceholder } from '@/features/play/GameplayPlaceholder';
 import { H2hBallRunMatch } from '@/features/play/H2hBallRunMatch';
 import { H2hDashDuelMatch } from '@/features/play/H2hDashDuelMatch';
+import { H2hNeonDanceMatch } from '@/features/play/H2hNeonDanceMatch';
+import { H2hNeonGridMatch } from '@/features/play/H2hNeonGridMatch';
+import { H2hNeonShipMatch } from '@/features/play/H2hNeonShipMatch';
 import { H2hTapDashMatch } from '@/features/play/H2hTapDashMatch';
 import { H2hTileClashMatch } from '@/features/play/H2hTileClashMatch';
 import { H2hTurboArenaMatch } from '@/features/play/H2hTurboArenaMatch';
-import { H2hNeonDanceMatch } from '@/features/play/H2hNeonDanceMatch';
-import { H2hNeonGridMatch } from '@/features/play/H2hNeonGridMatch';
 import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
 import { displayNameForProfile, h2hEnterMatchPlayRpc } from '@/services/api/h2hMatchSession';
-import type { HeadToHeadMatchSession, MatchFinishPayload } from '@/types/match';
-import type { QueueKind } from '@/store/matchmakingStore';
 import { useAuthStore } from '@/store/authStore';
+import type { QueueKind } from '@/store/matchmakingStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
+import type { HeadToHeadMatchSession, MatchFinishPayload } from '@/types/match';
 
 export default function MatchPlayScreen() {
   const params = useLocalSearchParams<{ matchId: string | string[] }>();
@@ -252,7 +253,8 @@ export default function MatchPlayScreen() {
       serverGameKey === 'dash-duel' ||
       serverGameKey === 'turbo-arena' ||
       serverGameKey === 'neon-dance' ||
-      serverGameKey === 'neon-grid');
+      serverGameKey === 'neon-grid' ||
+      serverGameKey === 'neon-ship');
 
   if (msQ.isError) {
     return (
@@ -399,6 +401,8 @@ export default function MatchPlayScreen() {
         <H2hNeonDanceMatch {...h2hProps} />
       ) : serverGameKey === 'neon-grid' ? (
         <H2hNeonGridMatch {...h2hProps} />
+      ) : serverGameKey === 'neon-ship' ? (
+        <H2hNeonShipMatch {...h2hProps} />
       ) : (
         <H2hTapDashMatch {...h2hProps} />
       );

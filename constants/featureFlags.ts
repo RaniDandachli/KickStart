@@ -30,3 +30,10 @@ export const ENABLE_DAILY_FREE_TOURNAMENT = true;
 
 /** Single-elimination credit cups (1000–5000 prize_credits; same flow as daily bracket). */
 export const ENABLE_CREDIT_CUPS = true;
+
+/**
+ * Void Glider (neon ship). When false, the minigame is vaulted: hidden from Arcade rows and H2H game
+ * pickers; the route redirects to Play. Match flows + backend stay wired for in-flight games.
+ * Set to true to unvault.
+ */
+export const SHOW_NEON_SHIP_MINIGAME = false;

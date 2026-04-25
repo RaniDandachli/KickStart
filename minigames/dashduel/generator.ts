@@ -1,36 +1,24 @@
 // ─── NEON RUNNER — Pattern Generator ──────────────────────────────────────
 //
-// PHYSICS (Speed 1 = 0.185 px/ms at 60fps ≈ 2.96 px/frame):
-//   Jump arc: JUMP_V=-5.6, GRAVITY=0.32
-//   Apex at frame ~17.5 → height ≈ 49px (~2 tiles)
-//   Full airtime ~35 frames → horiz dist ≈ 103px ≈ 4.3 tiles
+// PHYSICS REFERENCE:
+//   PLAY_H=160, GROUND_Y=128 (PLAY_H - GROUND_H=32), PLAYER_H=18, TILE=24
+//   Jump apex ≈ 49px above ground → max clearable block height = 2T (48px)
+//   A 3T (72px) block is UNJUMPABLE — never place standalone
+//   Horizontal jump distance at Speed 1 ≈ 103px
 //
-// GD OBSTACLE RULES (from actual level research):
-//   Single spike (1T=24px wide): one clean jump
-//   Double spike (2T=48px): one jump still clears (arc is wider than spike)
-//   Triple spike (3T=72px): one FULL jump barely clears — hardest "raw" obstacle
-//   4+ spikes in a row: IMPOSSIBLE without orb — never place bare
-//   1T gap: easy jump
-//   2T gap: hold jump needed
-//   3T+ gap: needs orb
-//   All obstacles placed with BREATH spacing so player sees them ~0.5s ahead
-//
-// LEVEL SEQUENCE (from GD research):
-//
-// ZONE 0 "Circuit Rush" ≈ Stereo Madness:
-//   Long flat open → 1 spike → blocks → 4-step stair → flat → alternating
-//   high/low blocks → 2 spikes → flat → triple spike (rare) → mountain stair
-//
-// ZONE 1 "Void Garden" ≈ Back On Track:
-//   Block column walls with gaps → platform sequences → jump pads (orbs) →
-//   more spike patterns
-//
-// ZONE 2 "Neon Abyss" ≈ Polargeist:
-//   Orbs introduced → orb over gap → orb before 4-spike → descending cols
-//   → ceiling hazards begin
-//
-// ZONE 3 "Pulse Inferno" ≈ Dry Out+:
-//   Tread-spike stairs → hard corridors → dense rhythm patterns
+// FAIRNESS RULES enforced in every segment:
+//   • No standalone block taller than 2T (48px)
+//   • stairsDown ONLY used after stairsUp (player must already be elevated)
+//   • Ceiling clearance: GROUND_Y - hangH >= PLAYER_H + 8 = 26px minimum
+//     → max hang = GROUND_Y - 26 = 102px  (using 70px max = safe)
+//   • Ceiling spike clearance: dropY + SH <= GROUND_Y - PLAYER_H - 8
+//     → spike bottom <= 102  → with SH=24 and dropY=5: bottom=29 ✓ (safe to walk under)
+//     → if player jumps apex=GROUND_Y-49=79: spike bottom must be > 79
+//     → dropY must be > 79 - SH = 55 for player to jump safely under
+//     → use dropY=60 for "duck under" sections where jumping is fine too
+//   • No orb placed inside or above a ceiling obstacle
+//   • 4-spike bare = impossible; only place with orb before it
+//   • All segments start/end with B=108px breathing room
 
 import { GROUND_Y, NR } from './constants';
 import type { Obstacle } from './types';
@@ -40,168 +28,180 @@ export interface PlacedSegment {
   width: number;
 }
 
-const T = NR.TILE; // 24px
+const T  = NR.TILE;   // 24px
+const SW = T;         // spike width = full tile
+const SH = T;         // spike height = full tile
+const PH = NR.PLAYER_H; // 18px
 
-// ── GD spike: full tile width (equilateral triangle aesthetic) ─────────────
-const SW = T;   // 24px wide — same as a tile
-const SH = T;   // 24px tall
+// Breathing room (at 0.185px/ms, B=108px ≈ 584ms ≈ 1 full jump)
+const B  = 108;
+const BS = 72;   // tight breath for late game
+const AS = 52;   // after-spike clearance
 
-// ── Spacing constants (tuned to physics) ──────────────────────────────────
-// At 0.185 px/ms: 108px ≈ 584ms ≈ exactly 1 jump duration
-// Player needs to SEE the obstacle before it arrives.
-const B  = 108;  // standard breath — 1 full jump cycle
-const BS = 72;   // short breath — late game tight sections
-const AS = 56;   // after-spike landing clearance
+// Ceiling hang limits
+// Player head when standing = GROUND_Y - PH = 110
+// Player head at apex = GROUND_Y - PH - 49 = 61
+// Safe ceiling hang (player can walk AND jump under): hangH <= 60
+const CEIL_SAFE = 60;    // player can freely jump under this
+// Forced duck hang (player must NOT jump): hangH > 100 — removed, too hard to signal
+// We'll only use CEIL_SAFE ceiling blocks so jumping under is always fine
 
 // ─────────────────────────────────────────────────────────────────────────
 // PRIMITIVE BUILDERS
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Ground spike(s). Full tile wide, sitting on floor. */
+/** Ground spike(s). */
 function sp(x: number, n = 1): Obstacle[] {
   return Array.from({ length: n }, (_, i) => ({
     kind: 'spike' as const,
-    x: x + i * SW,
-    y: GROUND_Y - SH,
-    w: SW,
-    h: SH,
+    x: x + i * SW, y: GROUND_Y - SH, w: SW, h: SH,
   }));
 }
 
-/** Ceiling spike(s) hanging from dropY downward. */
-function csp(x: number, dropY: number, n = 1): Obstacle[] {
+/** Ceiling spike(s). dropY = distance from top of screen. */
+function csp(x: number, n = 1): Obstacle[] {
+  // Drop just far enough that player can jump under them
+  // Bottom of spike = dropY + SH. Player apex top = 61.
+  // For player to safely jump under: dropY > 61 → use dropY=64
   return Array.from({ length: n }, (_, i) => ({
     kind: 'ceilingSpike' as const,
-    x: x + i * SW,
-    y: dropY,
-    w: SW,
-    h: SH,
+    x: x + i * SW, y: 64, w: SW, h: SH,
   }));
 }
 
-/** Ground void gap. */
+/** Ground gap. */
 function gap(x: number, w: number): Obstacle {
   return { kind: 'void', x, y: GROUND_Y, w, h: NR.GROUND_H };
 }
 
-/** Block rising from ground. h = height above floor. */
+/** Ground-rising block. h = height above floor. MAX safe = T*2 (48px). */
 function blk(x: number, w: number, h: number): Obstacle {
-  return { kind: 'wall', x, y: GROUND_Y - h, w, h };
+  // Clamp to max jumpable height
+  const safeH = Math.min(h, T * 2);
+  return { kind: 'wall', x, y: GROUND_Y - safeH, w, h: safeH };
 }
 
-/** Block hanging from ceiling. h = how far down from y=0. */
-function cblk(x: number, w: number, h: number): Obstacle {
-  return { kind: 'wall', x, y: 0, w, h };
+/** Ceiling-hanging block. h = how far it hangs down. MAX = CEIL_SAFE. */
+function cblk(x: number, w: number): Obstacle {
+  // Always use CEIL_SAFE so player can freely jump under it
+  return { kind: 'wall', x, y: 0, w, h: CEIL_SAFE };
 }
 
-/** Jump orb. yHead = pixels above the player head when standing. */
+/** Jump orb. yHead = pixels above player head when standing. */
 function orb(x: number, yHead: number): Obstacle {
-  const sz = Math.round(T * 0.8);
+  const sz = Math.round(T * 0.82);
   return {
     kind: 'ring',
     x: x - sz / 2,
-    y: GROUND_Y - NR.PLAYER_H - yHead - sz / 2,
-    w: sz,
-    h: sz,
+    y: GROUND_Y - PH - yHead - sz / 2,
+    w: sz, h: sz,
   };
 }
 
-// ── Stair helpers ──────────────────────────────────────────────────────────
+// ── Stair builders ──────────────────────────────────────────────────────────
 
-function stairsUp(obs: Obstacle[], x: number, n: number, treadSpikes?: boolean[]): number {
-  for (let i = 0; i < n; i++) {
+/** Ascending stairs: step i has height T*(i+1). Max step = 2T (safe). */
+function stairsUp(
+  obs: Obstacle[], x: number, n: number,
+  treadSpikes?: boolean[],
+): number {
+  // Cap at 2 steps to keep max height at 2T (48px) = jumpable
+  const steps = Math.min(n, 2);
+  for (let i = 0; i < steps; i++) {
     const h = T * (i + 1);
     obs.push(blk(x, T, h));
     if (treadSpikes?.[i]) {
-      // Spike on back edge of tread — land on front, then must hop
       obs.push({ kind: 'spike', x: x + T - SW, y: GROUND_Y - h - SH, w: SW, h: SH });
     }
-    x += T + 4; // 4px gap between steps — tight but canonical GD
+    x += T + 4;
   }
   return x;
 }
 
-function stairsDown(obs: Obstacle[], x: number, n: number): number {
-  for (let i = n; i >= 1; i--) {
-    obs.push(blk(x, T, T * i));
+/**
+ * Descending stairs: starts from the height the player is already AT.
+ * startH = height of first (leftmost) column. Goes down to T.
+ * ONLY valid after stairsUp — player must be elevated already.
+ */
+function stairsDown(
+  obs: Obstacle[], x: number, startH: number,
+): number {
+  for (let h = startH; h >= T; h -= T) {
+    obs.push(blk(x, T, h));
     x += T + 4;
   }
   return x;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// SEGMENTS — Every obstacle position hand-validated against physics
-// Format: all positions absolute from x0, width = total footprint
+// SEGMENTS
 // ─────────────────────────────────────────────────────────────────────────
 
-// ── ZONE 0 (Stereo Madness) ───────────────────────────────────────────────
+// ── ZONE 0 — Circuit Rush (≈ Stereo Madness) ─────────────────────────────
+// Ordered to introduce mechanics one at a time, exactly like SM.
 
-/** Long opening flat — like SM's actual intro. */
-const z0_intro = (x0: number): PlacedSegment =>
-  ({ obstacles: [], width: B + 200 + B });
+const z0_intro = (_: number): PlacedSegment =>
+  ({ obstacles: [], width: B + 220 + B });
 
-/** Short rest breath. */
-const z0_rest = (x0: number): PlacedSegment =>
-  ({ obstacles: [], width: B });
+const z0_rest = (_: number): PlacedSegment =>
+  ({ obstacles: [], width: B + 60 });
 
-/** Single spike — SM's very first obstacle. */
 const z0_s1 = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: sp(x, 1), width: B + SW + B };
 };
 
-/** Double spike — still one clean jump. */
 const z0_s2 = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: sp(x, 2), width: B + SW * 2 + B };
 };
 
-/** Triple spike — SM's hardest "raw" obstacle, appears rarely. */
+// Triple spike — SM's hardest raw obstacle. One full jump clears 3T width.
 const z0_s3 = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: sp(x, 3), width: B + SW * 3 + B };
 };
 
-/** 1T small gap. */
 const z0_gap1 = (x0: number): PlacedSegment => {
   const x = x0 + B;
-  return { obstacles: [gap(x, T * 1.1)], width: B + T * 1.1 + B };
+  const w = T * 1.2;
+  return { obstacles: [gap(x, w)], width: B + w + B };
 };
 
-/** 2T gap — hold jump needed. */
 const z0_gap2 = (x0: number): PlacedSegment => {
   const x = x0 + B;
-  return { obstacles: [gap(x, T * 2.0)], width: B + T * 2 + B };
+  const w = T * 2.0;
+  return { obstacles: [gap(x, w)], width: B + w + B };
 };
 
-/** 1T tall block — SM classic, jump over or onto. */
+// 1T block — jump over it.
 const z0_blk1 = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: [blk(x, T, T)], width: B + T + B };
 };
 
-/** Wide low platform (2T × 1T). */
+// Wide 2T platform.
 const z0_blk2 = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: [blk(x, T * 2, T)], width: B + T * 2 + B };
 };
 
-/** Tall block 2H — needs full arc. */
+// 2T tall block — needs full arc to clear.
 const z0_blk2h = (x0: number): PlacedSegment => {
   const x = x0 + B;
   return { obstacles: [blk(x, T, T * 2)], width: B + T + B };
 };
 
-/** SM classic: block immediately followed by spike. */
+// Block then spike — land on block, hop over spike.
 const z0_blkSpk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
   obs.push(blk(x, T, T));
-  obs.push(...sp(x + T + 20, 1));
-  return { obstacles: obs, width: B + T + 20 + SW + B };
+  obs.push(...sp(x + T + 22, 1));
+  return { obstacles: obs, width: B + T + 22 + SW + B };
 };
 
-/** Spike then block. */
+// Spike then block.
 const z0_spkBlk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
@@ -210,110 +210,94 @@ const z0_spkBlk = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: B + SW + AS + T + B };
 };
 
-/** Spike then gap — two rhythm jumps. */
+// Spike then gap.
 const z0_spkGap = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
   obs.push(...sp(x, 1));
-  obs.push(gap(x + SW + AS, T * 1.1));
-  return { obstacles: obs, width: B + SW + AS + T * 1.1 + B };
+  obs.push(gap(x + SW + AS, T * 1.2));
+  return { obstacles: obs, width: B + SW + AS + T * 1.2 + B };
 };
 
-/**
- * SM core rhythm section: 1 spike → gap → 2 spikes.
- * This is the actual repeating pattern from Stereo Madness.
- */
+// SM core rhythm: spike → gap → double spike.
 const z0_smRhythm = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
   obs.push(...sp(x, 1)); x += SW + AS;
-  obs.push(gap(x, T * 1.1)); x += T * 1.1 + AS;
+  obs.push(gap(x, T * 1.2)); x += T * 1.2 + AS;
   obs.push(...sp(x, 2)); x += SW * 2;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/**
- * SM iconic 4-step ascending staircase.
- * Exact from research: "jump on all four steps".
- */
+// SM 4-step staircase. Steps: 1T, 2T (capped). Player hops up two steps.
+// In SM the stair has 4 physical steps but the jump mechanic means you hop
+// every tile. We do 2 rising steps (1T → 2T) then flat, readable.
 const z0_stair4 = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  x = stairsUp(obs, x, 4);
+  // Step 1 (1T), Step 2 (2T), then two flat 2T blocks to run across the top
+  obs.push(blk(x, T, T));  x += T + 4;
+  obs.push(blk(x, T, T * 2)); x += T + 4;
+  obs.push(blk(x, T, T * 2)); x += T + 4;
+  // Step down: 1T block then flat ground
+  obs.push(blk(x, T, T)); x += T + 4;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** 3-step stair with spike at entry (like SM's stair variant). */
-const z0_stair3spk = (x0: number): PlacedSegment => {
+// 2-step stair up with spike entry.
+const z0_stair2spk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
   obs.push(...sp(x, 1)); x += SW + AS;
-  x = stairsUp(obs, x, 3);
+  x = stairsUp(obs, x, 2);
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Up-down mountain (3 up → 3 down). SM section 2. */
+// Up-down mountain: 1T up → 2T up → 2T down → 1T down.
 const z0_mountain = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  x = stairsUp(obs, x, 3);
-  x = stairsDown(obs, x, 3);
+  obs.push(blk(x, T, T));   x += T + 4;
+  obs.push(blk(x, T, T*2)); x += T + 4;
+  obs.push(blk(x, T, T*2)); x += T + 4;
+  obs.push(blk(x, T, T));   x += T + 4;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/**
- * SM alternating high-low section:
- * tall block → spike → low block → spike.
- * "watch alternating high and low block sections"
- */
+// Alternating tall-low: 2T block → spike → 1T block → 2 spikes.
 const z0_altHiLo = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(blk(x, T, T * 2)); x += T + 20;
+  obs.push(blk(x, T, T * 2)); x += T + 22;
   obs.push(...sp(x, 1)); x += SW + AS;
-  obs.push(blk(x, T, T)); x += T + 20;
+  obs.push(blk(x, T, T)); x += T + 22;
   obs.push(...sp(x, 2)); x += SW * 2;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** SM block then 2 spikes. */
+// Block then 2 spikes.
 const z0_blk2spk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
   obs.push(blk(x, T, T));
-  obs.push(...sp(x + T + 18, 2));
-  return { obstacles: obs, width: B + T + 18 + SW * 2 + B };
+  obs.push(...sp(x + T + 20, 2));
+  return { obstacles: obs, width: B + T + 20 + SW * 2 + B };
 };
 
-// ── ZONE 1 (Back On Track) ────────────────────────────────────────────────
+// ── ZONE 1 — Void Garden (≈ Back On Track) ───────────────────────────────
 
-/**
- * BOT block column walls: 3 tall columns with gaps.
- * "three block columns" from BOT research.
- */
+// BOT-style column walls: 3 columns max 2T tall with wide gaps.
+// Gaps of 40px are jumpable (player jump dist ≈ 103px).
 const z1_colWalls = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(blk(x, T, T * 2)); x += T + 40;
-  obs.push(blk(x, T, T * 3)); x += T + 40;
+  obs.push(blk(x, T, T * 2)); x += T + 44;
+  obs.push(blk(x, T, T));     x += T + 44;
   obs.push(blk(x, T, T * 2)); x += T;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/**
- * BOT descending staircase — "a line of descending blocks".
- * Player hops down each step.
- */
-const z1_descend4 = (x0: number): PlacedSegment => {
-  const obs: Obstacle[] = [];
-  let x = x0 + B;
-  x = stairsDown(obs, x, 4);
-  return { obstacles: obs, width: x + B - x0 };
-};
-
-/**
- * BOT platform chain — "four adjacent narrow platforms".
- */
+// Platform chain: 4 platforms at 1T height.
 const z1_platforms = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
@@ -324,19 +308,22 @@ const z1_platforms = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Double mountain. */
+// Double mountain.
 const z1_dblMtn = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  x = stairsUp(obs, x, 2);
-  x = stairsDown(obs, x, 2);
-  x += 28;
-  x = stairsUp(obs, x, 2);
-  x = stairsDown(obs, x, 2);
+  // Mountain 1
+  obs.push(blk(x, T, T)); x += T + 4;
+  obs.push(blk(x, T, T*2)); x += T + 4;
+  obs.push(blk(x, T, T)); x += T + 28;
+  // Mountain 2
+  obs.push(blk(x, T, T)); x += T + 4;
+  obs.push(blk(x, T, T*2)); x += T + 4;
+  obs.push(blk(x, T, T)); x += T;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** 2 spikes then tall block. */
+// 2 spikes then 2T tall block — spikes force a jump, block is after landing.
 const z1_2spkBlk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
@@ -345,45 +332,36 @@ const z1_2spkBlk = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: B + SW * 2 + AS + T + B };
 };
 
-/** Block platform with spike near far end — land, see spike, hop. */
+// Platform with spike on back edge — land on front half, then hop spike.
 const z1_platTrap = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
+  // 3T wide platform at 1T height
   obs.push(blk(x, T * 3, T));
-  obs.push(...sp(x + T * 2, 1));
+  // Spike ON TOP of the platform — place it at platform-top y
+  obs.push({
+    kind: 'spike',
+    x: x + T * 2,
+    y: GROUND_Y - T - SH,  // sits on top of the 1T platform
+    w: SW, h: SH,
+  });
   return { obstacles: obs, width: B + T * 3 + B };
 };
 
-/** Tall block run — 3 separate tall blocks. */
+// 3 tall (2T) blocks with generous spacing.
 const z1_tallRun = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
   for (let i = 0; i < 3; i++) {
     obs.push(blk(x, T, T * 2));
-    x += T + AS;
+    x += T + 72; // generous landing clearance after 2T jump
   }
   return { obstacles: obs, width: x + B - x0 };
 };
 
-// ── ZONE 2 (Polargeist) ───────────────────────────────────────────────────
+// ── ZONE 2 — Neon Abyss (≈ Polargeist) ──────────────────────────────────
 
-/**
- * Polargeist signature: orb BEFORE a big spike cluster.
- * The orb gives a double-jump that clears what looks impossible.
- * Research: "the first jump uses an orb to help you get across the seemingly
- *  impossibly quadruple spike"
- */
-const z2_orbSpike4 = (x0: number): PlacedSegment => {
-  const obs: Obstacle[] = [];
-  let x = x0 + B;
-  obs.push(orb(x, T * 1.4));     // orb — hit it on approach
-  x += T * 2 + 8;
-  obs.push(...sp(x, 4));          // 4 spikes — cleared by double-jump
-  x += SW * 4;
-  return { obstacles: obs, width: x + B - x0 };
-};
-
-/** Orb over a gap — the basic Polargeist orb tutorial. */
+// Orb over a 2T gap — learn orb mechanic safely.
 const z2_orbGap = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
@@ -394,7 +372,19 @@ const z2_orbGap = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Orb above 2 spikes. */
+// Orb before 4 spikes — the Polargeist signature moment.
+// Orb is placed with plenty of runway (T*3 before spikes) so player can see it.
+const z2_orbSpike4 = (x0: number): PlacedSegment => {
+  const obs: Obstacle[] = [];
+  let x = x0 + B;
+  obs.push(orb(x + T, T * 1.4)); // orb with T of runway before it
+  x += T * 3 + 12;               // generous space after orb before spikes
+  obs.push(...sp(x, 4));
+  x += SW * 4;
+  return { obstacles: obs, width: x + B - x0 };
+};
+
+// Orb above 2 spikes — simpler orb use.
 const z2_orbSpk2 = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   const x = x0 + B;
@@ -403,74 +393,71 @@ const z2_orbSpk2 = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: B + SW * 2 + B };
 };
 
-/** Polargeist orb chain — 3 orbs at varied heights. */
+// Orb chain — 3 orbs at varied heights (no hazards, pure orb practice).
 const z2_orbChain = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(orb(x, T * 1.0)); x += T * 2.5;
-  obs.push(orb(x, T * 2.0)); x += T * 2.5;
+  obs.push(orb(x, T * 1.0)); x += T * 2.6;
+  obs.push(orb(x, T * 1.8)); x += T * 2.6;
   obs.push(orb(x, T * 1.0)); x += T;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Polargeist descending column maze. */
+// Descending column maze — starts at 2T and descends (safe: 2T max).
 const z2_descCols = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  for (let h = 4; h >= 1; h--) {
-    obs.push(blk(x, T, T * h));
-    x += T + 36;
-  }
+  // 2T → 1T → 1T → gap: player hops down
+  obs.push(blk(x, T, T * 2)); x += T + 44;
+  obs.push(blk(x, T, T));     x += T + 44;
+  obs.push(blk(x, T, T));     x += T;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Ceiling spike strip — 4 tiles, player runs under. */
+// Ceiling spike strip — dropY=64, so bottom=88. Player apex top=61. Safe to jump under.
 const z2_ceilStrip = (x0: number): PlacedSegment => {
-  const obs: Obstacle[] = [];
   const x = x0 + B;
-  obs.push(...csp(x, 5, 4));
-  return { obstacles: obs, width: B + SW * 4 + B };
+  return { obstacles: csp(x, 4), width: B + SW * 4 + B };
 };
 
-/** Ceiling spike + floor spike — narrow corridor. */
+// Ceiling spike + floor spike — player can freely jump through.
+// Ceil spike bottom = 88. Floor spike top = GROUND_Y-SH = 104.
+// Player at apex: top=61, bottom=79. Fits between 88 and 104 with room. ✓
 const z2_corridor = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(...csp(x, 5, 3));
+  obs.push(...csp(x, 3));
   obs.push(...sp(x + SW, 1));
   x += SW * 3;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/**
- * Ceiling-hanging block column — like the hanging blocks in screenshots.
- * Hangs down 55% of sky height — leaves ~T*2 clearance for player to walk under.
- */
+// Ceiling column — hangs CEIL_SAFE=60px down. Player can jump under.
+// Col bottom = 60. Player apex top = 61. Barely fits — player can walk under freely.
 const z2_ceilCol = (x0: number): PlacedSegment => {
-  const h = Math.floor(GROUND_Y * 0.55);
   const x = x0 + B;
-  return { obstacles: [cblk(x, T, h)], width: B + T + B };
+  return { obstacles: [cblk(x, T)], width: B + T + B };
 };
 
-/** Two ceiling columns alternating depth. */
+// Two ceiling cols — same safe hang depth.
 const z2_ceilCol2 = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.50))); x += T + 52;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.62))); x += T;
+  obs.push(cblk(x, T)); x += T + 56;
+  obs.push(cblk(x, T)); x += T;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Ceiling col then ground spike. */
+// Ceiling col then ground spike.
 const z2_ceilColSpk = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.52))); x += T + 28;
+  obs.push(cblk(x, T)); x += T + 30;
   obs.push(...sp(x, 1)); x += SW;
   return { obstacles: obs, width: x + B - x0 };
 };
 
-/** Orb over 3T gap. */
+// Orb over a wider 3T gap.
 const z2_orbGap3 = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + B;
@@ -481,149 +468,143 @@ const z2_orbGap3 = (x0: number): PlacedSegment => {
   return { obstacles: obs, width: x + B - x0 };
 };
 
-// ── ZONE 3 (Dry Out+) ─────────────────────────────────────────────────────
+// ── ZONE 3 — Pulse Inferno (≈ Dry Out+) ─────────────────────────────────
 
-/** Stair with tread spike on step 2. */
+// Stair up with spike on 2nd tread. Fixed: only 2 steps (max 2T).
 const z3_stairTread = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  x = stairsUp(obs, x, 3, [false, true, false]);
+  x = stairsUp(obs, x, 2, [false, true]);
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** 4-step stair with alternating tread spikes. */
-const z3_stairTreadAlt = (x0: number): PlacedSegment => {
+// Mountain with tread spike at peak. Fixed: 1T→2T→2T→1T with spike on 2T tread.
+const z3_mtnTread = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  x = stairsUp(obs, x, 4, [true, false, true, false]);
+  obs.push(blk(x, T, T)); x += T + 4;
+  // 2T tread with spike on back edge
+  obs.push(blk(x, T, T*2));
+  obs.push({ kind: 'spike', x: x + T - SW, y: GROUND_Y - T*2 - SH, w: SW, h: SH });
+  x += T + 4;
+  obs.push(blk(x, T, T*2)); x += T + 4;
+  obs.push(blk(x, T, T));   x += T;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Hard corridor: 6 ceiling spikes + 2 floor spikes timed. */
+// Hard corridor: ceiling spikes + 2 floor spikes (player must time jumps).
+// Ceil spike bottom=88. Floor spike at positions 1 and 4.
+// Player jumps spike 1, must come back down before ceil, then jumps spike 4. Fair.
 const z3_hardCorridor = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  obs.push(...csp(x, 5, 6));
-  obs.push(...sp(x + SW * 1, 1));
-  obs.push(...sp(x + SW * 4, 1));
-  x += SW * 6;
+  obs.push(...csp(x, 5));       // 5 ceiling spikes
+  obs.push(...sp(x + SW, 1));   // floor spike under position 1
+  obs.push(...sp(x + SW * 3, 1)); // floor spike at position 3
+  x += SW * 5;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Gap-spike-gap-spike rhythm. */
+// Gap → spike → gap → spike rhythm.
 const z3_gapSpkWave = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  obs.push(gap(x, T * 1.1)); x += T * 1.1 + 18;
-  obs.push(...sp(x, 1)); x += SW + 18;
-  obs.push(gap(x, T * 1.1)); x += T * 1.1 + 18;
+  obs.push(gap(x, T * 1.2)); x += T * 1.2 + 20;
+  obs.push(...sp(x, 1)); x += SW + 20;
+  obs.push(gap(x, T * 1.2)); x += T * 1.2 + 20;
   obs.push(...sp(x, 1)); x += SW;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Triple gap chain. */
+// Triple gap chain.
 const z3_tripleGap = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
   for (let i = 0; i < 3; i++) {
-    obs.push(gap(x, T * 1.1));
-    x += T * 1.1 + 18;
+    obs.push(gap(x, T * 1.2));
+    x += T * 1.2 + 20;
   }
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Mountain with tread spike at peak. */
-const z3_mtnTread = (x0: number): PlacedSegment => {
-  const obs: Obstacle[] = [];
-  let x = x0 + BS;
-  x = stairsUp(obs, x, 3, [false, true, false]);
-  x = stairsDown(obs, x, 3);
-  return { obstacles: obs, width: x + BS - x0 };
-};
-
-/** Orb chain over a long pit. */
+// Orb chain over a long pit.
 const z3_orbPit = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
   const gw = T * 5.5;
   obs.push(gap(x, gw));
-  obs.push(orb(x + T * 0.7, T * 1.0));
-  obs.push(orb(x + T * 2.6, T * 2.1));
-  obs.push(orb(x + T * 4.3, T * 1.0));
+  obs.push(orb(x + T * 0.8, T * 1.0));
+  obs.push(orb(x + T * 2.7, T * 2.0));
+  obs.push(orb(x + T * 4.4, T * 1.0));
   x += gw;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Ceiling col row — 3 hanging blocks at alternating depths. */
+// Ceiling col row — 3 cols, all CEIL_SAFE depth.
 const z3_ceilColRow = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  [GROUND_Y * 0.48, GROUND_Y * 0.60, GROUND_Y * 0.50].forEach(h => {
-    obs.push(cblk(x, T, Math.floor(h)));
-    x += T + 44;
-  });
+  for (let i = 0; i < 3; i++) {
+    obs.push(cblk(x, T));
+    x += T + 48;
+  }
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Ceiling cols interleaved with ground spikes. */
+// Ceiling cols + ground spikes interleaved.
 const z3_ceilColsSpks = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.54))); x += T + 28;
-  obs.push(...sp(x, 1)); x += SW + 28;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.50))); x += T + 28;
+  obs.push(cblk(x, T)); x += T + 30;
+  obs.push(...sp(x, 1)); x += SW + 30;
+  obs.push(cblk(x, T)); x += T + 30;
   obs.push(...sp(x, 1)); x += SW;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
-/** Orb4spike variant + ceiling col. */
-const z3_orbSpk4Ceil = (x0: number): PlacedSegment => {
+// Orb + 3 spikes (not 4 — safer for zone 3).
+const z3_orbSpk3 = (x0: number): PlacedSegment => {
   const obs: Obstacle[] = [];
   let x = x0 + BS;
-  obs.push(cblk(x, T, Math.floor(GROUND_Y * 0.52)));
-  obs.push(orb(x + T / 2, T * 1.5));
-  x += T + 48;
+  obs.push(orb(x + T, T * 1.4)); // clear telegraph
+  x += T * 3;
   obs.push(...sp(x, 3)); x += SW * 3;
   return { obstacles: obs, width: x + BS - x0 };
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// ZONE POOLS
+// POOLS
 // ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Zone 0 — ordered exactly like Stereo Madness cube section progression.
- * Tiers 0–1 play through this strictly in order so each mechanic is introduced.
- */
+// Zone 0 — strictly ordered (Stereo Madness progression)
 const Z0: readonly ((x: number) => PlacedSegment)[] = [
-  z0_intro,      // 0 long open run-in
-  z0_s1,         // 1 first spike
-  z0_blk1,       // 2 first block
-  z0_s2,         // 3 double spike
-  z0_s1,         // 4 repeat single
-  z0_gap1,       // 5 first gap
-  z0_rest,       // 6 short rest
-  z0_blk2,       // 7 wide platform
-  z0_blkSpk,     // 8 block + spike
-  z0_stair4,     // 9 THE SM staircase
+  z0_intro,      // 0  long run-in
+  z0_s1,         // 1  first spike
+  z0_blk1,       // 2  first block
+  z0_s2,         // 3  double spike
+  z0_s1,         // 4  single again
+  z0_gap1,       // 5  first gap
+  z0_rest,       // 6  rest
+  z0_blk2,       // 7  wide platform
+  z0_blkSpk,     // 8  block+spike combo
+  z0_stair4,     // 9  THE staircase
   z0_rest,       // 10 rest
-  z0_spkGap,     // 11 spike → gap rhythm
-  z0_smRhythm,   // 12 SM core rhythm
-  z0_altHiLo,    // 13 alternating high-low
+  z0_spkGap,     // 11 spike→gap
+  z0_smRhythm,   // 12 SM rhythm
+  z0_altHiLo,    // 13 high-low alternation
   z0_blk2h,      // 14 tall block
   z0_s2,         // 15
-  z0_stair3spk,  // 16 stair with entry spike
+  z0_stair2spk,  // 16 stair with entry spike
   z0_mountain,   // 17 up-down mountain
   z0_rest,       // 18
-  z0_s3,         // 19 triple spike — SM's hardest raw obstacle
-  z0_blk2spk,    // 20 block then 2 spikes
+  z0_s3,         // 19 triple spike
+  z0_blk2spk,    // 20 block then spikes
   z0_spkBlk,     // 21 spike then block
 ];
 
-/** Zone 1 — Back On Track style. */
+// Zone 1 — Back On Track style
 const Z1: readonly ((x: number) => PlacedSegment)[] = [
   z1_colWalls,
-  z1_descend4,
   z1_platforms,
   z1_dblMtn,
   z1_2spkBlk,
@@ -637,7 +618,7 @@ const Z1: readonly ((x: number) => PlacedSegment)[] = [
   z0_rest,
 ];
 
-/** Zone 2 — Polargeist style. */
+// Zone 2 — Polargeist style
 const Z2: readonly ((x: number) => PlacedSegment)[] = [
   z2_orbGap,
   z2_orbSpike4,
@@ -655,18 +636,17 @@ const Z2: readonly ((x: number) => PlacedSegment)[] = [
   z0_rest,
 ];
 
-/** Zone 3 — Dry Out+ style. */
+// Zone 3 — Dry Out+ style
 const Z3: readonly ((x: number) => PlacedSegment)[] = [
   z3_stairTread,
-  z3_stairTreadAlt,
+  z3_mtnTread,
   z3_hardCorridor,
   z3_gapSpkWave,
   z3_tripleGap,
-  z3_mtnTread,
   z3_orbPit,
   z3_ceilColRow,
   z3_ceilColsSpks,
-  z3_orbSpk4Ceil,
+  z3_orbSpk3,
   z2_orbSpike4,
   z2_ceilCol2,
   z0_rest,
@@ -692,28 +672,17 @@ function pick<T>(pool: readonly T[], seq: number, seed: number): T {
 
 function pickFn(scroll: number, seq: number, seed: number): (x: number) => PlacedSegment {
   const tier = getTier(scroll);
-
-  // Tiers 0–1: strictly sequential through Z0 — every mechanic taught in order
   if (tier <= 1) return Z0[seq % Z0.length]!;
-
-  // Tiers 2–3: mostly Z1, sprinkle Z0 rest/rhythm
   if (tier <= 3) {
     const r = ((seq * 1664525 + seed * 1013904223) >>> 0) % 10;
-    if (r < 2) return Z0[seq % Z0.length]!;
-    return pick(Z1, seq, seed);
+    return r < 2 ? Z0[seq % Z0.length]! : pick(Z1, seq, seed);
   }
-
-  // Tiers 4–5: mostly Z2, some Z1
   if (tier <= 5) {
     const r = ((seq * 2246822519 + seed * 2654435761) >>> 0) % 10;
-    if (r < 2) return pick(Z1, seq, seed);
-    return pick(Z2, seq, seed);
+    return r < 2 ? pick(Z1, seq, seed) : pick(Z2, seq, seed);
   }
-
-  // Tiers 6+: mostly Z3, some Z2
   const r = ((seq * 1664525 + seed * 22695477) >>> 0) % 5;
-  if (r < 1) return pick(Z2, seq, seed);
-  return pick(Z3, seq, seed);
+  return r < 1 ? pick(Z2, seq, seed) : pick(Z3, seq, seed);
 }
 
 export interface GenerationState {

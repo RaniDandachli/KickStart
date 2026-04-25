@@ -4,18 +4,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import {
-  BallRunGameIcon,
-  DashDuelGameIcon,
-  NeonDanceGameIcon,
-  NeonGridGameIcon,
-  TapDashGameIcon,
-  TileClashGameIcon,
-  TurboArenaGameIcon,
+    BallRunGameIcon,
+    DashDuelGameIcon,
+    NeonDanceGameIcon,
+    NeonGridGameIcon,
+    NeonShipGameIcon,
+    TapDashGameIcon,
+    TileClashGameIcon,
+    TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
 import { Screen } from '@/components/ui/Screen';
+import { arcade } from '@/lib/arcadeTheme';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
-import { arcade } from '@/lib/arcadeTheme';
 import { runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type Props = {
@@ -39,6 +40,8 @@ function gameIcon(gameKey: (typeof H2H_OPEN_GAMES)[number]['gameKey'], size: num
       return <NeonDanceGameIcon size={size} />;
     case 'neon-grid':
       return <NeonGridGameIcon size={size} />;
+    case 'neon-ship':
+      return <NeonShipGameIcon size={size} />;
     default:
       return <TapDashGameIcon size={size} />;
   }

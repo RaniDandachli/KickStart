@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 
-import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
+import type { H2hGameKey } from '@/lib/homeOpenMatches';
 
 export type H2hBoardWaiter = {
   id: string;
-  gameKey: (typeof H2H_OPEN_GAMES)[number]['gameKey'];
+  gameKey: H2hGameKey;
   tierIndex: number;
   hostLabel: string;
   postedAt: number;

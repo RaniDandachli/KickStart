@@ -1,52 +1,45 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS } from '@/minigames/neonship/constants';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from './constants';
 
 type Props = { onStart: () => void; onBack: () => void };
 
-export function NeonGridLobby({ onStart, onBack }: Props) {
+export function NeonShipLobby({ onStart, onBack }: Props) {
   return (
-    <LinearGradient colors={[COLORS.skyBottom, COLORS.skyTop]} style={styles.wrap}>
+    <View style={styles.wrap}>
       <View style={styles.bgGlow} pointerEvents="none" />
 
       <Pressable style={styles.back} onPress={onBack} hitSlop={12}>
-        <SafeIonicons name="chevron-back" size={26} color="rgba(196,181,253,0.9)" />
+        <SafeIonicons name="chevron-back" size={26} color="rgba(232,121,249,0.85)" />
       </Pressable>
 
       <View style={styles.header}>
-        <Text style={styles.icon}>✦</Text>
-        <Text style={styles.titleLine}>STREET</Text>
-        <Text style={styles.titleDash}>DASH</Text>
+        <Text style={styles.icon}>🚀</Text>
+        <Text style={styles.title}>Void Glider</Text>
         <Text style={styles.sub}>
-          Three-lane night run — dodge traffic, ride the river logs, grab coins.{'\n'}
-          One hit and you’re done.
+          Constant forward flight through a shifting neon corridor.{'\n'}
+          Hold thrust to climb — release to fall. One scrape and you are done.
         </Text>
       </View>
 
       <View style={styles.rulesCard}>
-        <RuleRow icon="🚶" color="#94A3B8" label="Sidewalk" desc="Safe tiles — planters and barriers block lanes." />
+        <RuleRow icon="⬆️" color={COLORS.shipFill} label="Thrust" desc="Hold (or Space) to push upward against gravity." />
         <View style={styles.ruleDivider} />
-        <RuleRow icon="🚗" color={COLORS.surgeOrange} label="Road" desc="Cars move fast — find the gaps." />
+        <RuleRow icon="▦" color={COLORS.blockEdge} label="Corridor" desc="Stay between the purple slabs — they shrink the lane over time." />
         <View style={styles.ruleDivider} />
-        <RuleRow icon="🌊" color="#2980B9" label="River" desc="Land on logs to cross. Touch water = done." />
+        <RuleRow icon="▲" color={COLORS.spike} label="Spikes" desc="Pink triangles jut into the corridor from walls — dodge them." />
         <View style={styles.ruleDivider} />
-        <RuleRow icon="✦" color={COLORS.hudGold} label="Coins" desc="Charge your Spirit boost for slow-mo escapes." />
+        <RuleRow icon="✦" color="#f472b6" label="Distance" desc="Your score is how far you glide before a crash." />
       </View>
 
-      <Pressable
-        onPress={onStart}
-        style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.8 }]}
-      >
-        <Text style={styles.startTxt}>Ready to cross</Text>
+      <Pressable onPress={onStart} style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.85 }]}>
+        <Text style={styles.startTxt}>Launch run</Text>
       </Pressable>
 
       {Platform.OS === 'web' ? (
-        <Text style={styles.hint}>Space — start · WASD / arrows or swipe — move · Space mid-game — boost</Text>
-      ) : (
-        <Text style={styles.hint}>Swipe on the street to move · tap Boost when Spirit is full</Text>
-      )}
-    </LinearGradient>
+        <Text style={styles.hint}>Space — start · Hold Space in-game — thrust up</Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -63,10 +56,15 @@ function RuleRow({
 }) {
   return (
     <View style={styles.ruleRow}>
-      <View style={[styles.ruleIconWrap, {
-        borderColor: color + '44',
-        backgroundColor: color + '16',
-      }]}>
+      <View
+        style={[
+          styles.ruleIconWrap,
+          {
+            borderColor: color + '44',
+            backgroundColor: color + '16',
+          },
+        ]}
+      >
         <Text style={styles.ruleIcon}>{icon}</Text>
       </View>
       <View style={styles.ruleText}>
@@ -94,8 +92,8 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: COLORS.neonPurple,
-    opacity: 0.12,
+    backgroundColor: COLORS.blockEdge,
+    opacity: 0.06,
   },
   back: {
     position: 'absolute',
@@ -104,33 +102,20 @@ const styles = StyleSheet.create({
     zIndex: 2,
     padding: 8,
   },
-
   header: {
     alignItems: 'center',
     marginBottom: 8,
   },
   icon: {
     fontSize: 36,
-    color: COLORS.spiritGold,
-    textShadowColor: COLORS.spiritGlow,
-    textShadowRadius: 18,
-    textShadowOffset: { width: 0, height: 0 },
     marginBottom: 8,
   },
-  titleLine: {
-    color: '#F8FAFC',
-    fontSize: 22,
+  title: {
+    color: COLORS.hud,
+    fontSize: 30,
     fontWeight: '900',
-    letterSpacing: 6,
-  },
-  titleDash: {
-    color: COLORS.neonPurple,
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 8,
+    letterSpacing: 1,
     marginBottom: 10,
-    textShadowColor: 'rgba(192,132,252,0.5)',
-    textShadowRadius: 12,
   },
   sub: {
     color: COLORS.hudMuted,
@@ -139,12 +124,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-
   rulesCard: {
     borderRadius: 16,
-    backgroundColor: 'rgba(12,10,22,0.92)',
+    backgroundColor: 'rgba(10,4,20,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(147,51,234,0.35)',
+    borderColor: 'rgba(232,121,249,0.22)',
     padding: 8,
     flex: 1,
     marginVertical: 16,
@@ -152,7 +136,7 @@ const styles = StyleSheet.create({
   },
   ruleDivider: {
     height: 1,
-    backgroundColor: 'rgba(147,51,234,0.15)',
+    backgroundColor: 'rgba(232,121,249,0.12)',
     marginHorizontal: 4,
   },
   ruleRow: {
@@ -179,34 +163,32 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   ruleDesc: {
-    color: 'rgba(160,140,100,0.8)',
+    color: 'rgba(200,180,220,0.78)',
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 16,
   },
-
   startBtn: {
     height: 54,
     borderRadius: 27,
-    backgroundColor: COLORS.neonPurple,
+    backgroundColor: COLORS.blockEdge,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.55,
+    shadowColor: COLORS.blockEdge,
+    shadowOpacity: 0.45,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 4 },
     elevation: 7,
   },
   startTxt: {
-    color: '#0A0A0A',
+    color: '#1a0524',
     fontSize: 17,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-
   hint: {
     textAlign: 'center',
-    color: 'rgba(196,181,253,0.55)',
+    color: 'rgba(200,180,220,0.55)',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 8,

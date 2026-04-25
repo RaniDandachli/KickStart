@@ -1,13 +1,13 @@
 import { useId } from 'react';
 import { View } from 'react-native';
 import Svg, {
-  Circle,
-  Defs,
-  Ellipse,
-  LinearGradient as SvgLinearGradient,
-  Path,
-  Rect,
-  Stop,
+    Circle,
+    Defs,
+    Ellipse,
+    Path,
+    Rect,
+    Stop,
+    LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
 
 type IconProps = {
@@ -341,6 +341,40 @@ export function NeonGridGameIcon({ size = 40 }: IconProps) {
         <Rect x="10" y="20" width="28" height="4" rx="1" fill="rgba(34,211,238,0.35)" />
         <Rect x="10" y="28" width="28" height="4" rx="1" fill="rgba(225,29,140,0.45)" />
         <Circle cx="24" cy="38" r="5" fill={`url(#${idFill})`} />
+      </Svg>
+    </View>
+  );
+}
+
+/** Void Glider — neon ship in a tight corridor (endless flyer). */
+export function NeonShipGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  const uid = useUniqueSvgIds('ns');
+  const idShip = `${uid}_ship`;
+  const idTrail = `${uid}_trail`;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id={idShip} x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#22D3EE" />
+            <Stop offset="100%" stopColor="#A78BFA" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id={idTrail} x1="100%" y1="50%" x2="0%" y2="50%">
+            <Stop offset="0%" stopColor="#E879F9" stopOpacity="0" />
+            <Stop offset="100%" stopColor="#E879F9" stopOpacity="0.85" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#12081f" />
+        <Rect x="8" y="10" width="32" height="6" rx="1" fill="#4c1d95" stroke="#e879f9" strokeWidth="0.6" />
+        <Rect x="8" y="32" width="32" height="6" rx="1" fill="#4c1d95" stroke="#e879f9" strokeWidth="0.6" />
+        <Rect x="6" y="22" width="10" height="4" rx="1" fill={`url(#${idTrail})`} />
+        <Path
+          d="M 22 24 L 34 20 L 34 28 Z"
+          fill={`url(#${idShip})`}
+          stroke="rgba(255,255,255,0.4)"
+          strokeWidth="0.8"
+        />
       </Svg>
     </View>
   );

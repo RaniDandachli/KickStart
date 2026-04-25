@@ -14,23 +14,24 @@ import { ArcadeQuickMatch } from '@/components/arcade/ArcadeQuickMatch';
 import { ArcadeRewardsGuide } from '@/components/arcade/ArcadeRewardsGuide';
 import { ArcadeStatsRow } from '@/components/arcade/ArcadeStatsRow';
 import {
-  BallRunGameIcon,
-  DashDuelGameIcon,
-  NeonDanceGameIcon,
-  NeonGridGameIcon,
-  StackerGameIcon,
-  TapDashGameIcon,
-  TileClashGameIcon,
-  TurboArenaGameIcon,
+    BallRunGameIcon,
+    DashDuelGameIcon,
+    NeonDanceGameIcon,
+    NeonGridGameIcon,
+    NeonShipGameIcon,
+    StackerGameIcon,
+    TapDashGameIcon,
+    TileClashGameIcon,
+    TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
-import { BackendModeBanner } from '@/components/BackendModeBanner';
 import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { BackendModeBanner } from '@/components/BackendModeBanner';
+import { ENABLE_BACKEND, SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { pushCrossTab } from '@/lib/appNavigation';
-import { presentAddMoneyChooser } from '@/lib/shopNavigation';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { presentAddMoneyChooser } from '@/lib/shopNavigation';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 import { useAuthStore } from '@/store/authStore';
 
@@ -200,7 +201,7 @@ export default function PlayHubScreen() {
           emphasized
           compact
           gameRoute="neon-grid"
-          title="Neon Grid"
+          title="Street Dash"
           entryLabel="Practice or prize run"
           winLabel="PLAY"
           bgColors={['#0f172a', '#312e81', '#831843']}
@@ -208,6 +209,20 @@ export default function PlayHubScreen() {
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<NeonGridGameIcon size={36} />}
         />
+        {SHOW_NEON_SHIP_MINIGAME ? (
+          <ArcadeMinigameRow
+            emphasized
+            compact
+            gameRoute="neon-ship"
+            title="Void Glider"
+            entryLabel="Practice or prize run"
+            winLabel="PLAY"
+            bgColors={['#1a0a2e', '#4c1d95', '#0f0220']}
+            borderAccent="pink"
+            entryColor="rgba(248,250,252,0.9)"
+            iconSlot={<NeonShipGameIcon size={36} />}
+          />
+        ) : null}
         <ArcadeMinigameRow
           emphasized
           compact

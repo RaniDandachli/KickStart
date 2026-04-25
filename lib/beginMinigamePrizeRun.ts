@@ -10,6 +10,7 @@ export const PRIZE_RUN_GAME_TYPES = [
   'turbo_arena',
   'neon_dance',
   'neon_grid',
+  'neon_ship',
 ] as const;
 
 export type PrizeRunGameType = (typeof PRIZE_RUN_GAME_TYPES)[number];

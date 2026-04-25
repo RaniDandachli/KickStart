@@ -1,12 +1,12 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import {
-  MINIGAME_HUD_MS_MOTION,
-  shouldEmitMinigameHudFrame
-} from '@/minigames/core/minigameHudThrottle';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,8 +14,17 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, {
+  Circle,
+  Ellipse,
+  G,
+  Path,
+  Polygon,
+  Rect,
+} from 'react-native-svg';
 
-import { LANE_COUNT, SURGE_MAX, VEHICLE_COLORS } from './constants';
+import { COLORS, LANE_COUNT, SURGE_MAX, VEHICLE_COLORS } from './constants';
 import {
   createGameRef,
   getDispPos,
@@ -30,7 +39,6 @@ import {
 } from './engine';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-
 type Props = {
   seed: number;
   subtitle?: string;
@@ -38,200 +46,394 @@ type Props = {
   onRunComplete: (score: number, durationMs: number, tapCount: number) => void;
 };
 
-const PLAYER_Y_FRAC = 0.62;
+const PLAYER_Y_FRAC = 0.60;
+const HUD_H = 56;
+/** BEST / OBJECTIVE / DISTANCE strip — fixed so playfield math stays stable. */
+const STATS_RIBBON_H = 76;
+/** 1 = default scale; lower values zoom out (more rows visible). */
+const PLAYFIELD_ZOOM = 1;
+/** Extra rows past cull bounds to reduce pop-in at row edges. */
+const ROW_VIEW_BUFFER = 2;
+const BEST_SCORE_KEY = 'kc_street_dash_best_blocks_v1';
+/** Finger must travel this far (dp) before a swipe counts as a move. */
+const SWIPE_ACTIVATE_PX = 14;
+const SWIPE_COMMIT_PX = 30;
 
-// ─── Character renderer (Spirit Fox) ─────────────────────────────────────────
-
-function SpiritFox({
-  size,
-  surgeActive,
-  bopScale,
-  flicker,
-}: {
-  size: number;
-  surgeActive: boolean;
-  bopScale: number;
-  flicker: boolean;
-}) {
-  const bodyH = Math.round(size * 0.52 * bopScale);
-  const bodyW = Math.round(size * 0.52 / bopScale);
-  const earSize = Math.round(size * 0.18);
-  const glowColor = surgeActive ? '#FF6B35' : '#FFD700';
-  const coreColor = surgeActive ? '#FFB347' : '#FFF5CC';
+// ─── SVG Car ──────────────────────────────────────────────────────────────────
+function SvgCar({ v, T, isLong }: { v: Vehicle; T: number; isLong: boolean }) {
+  const C = VEHICLE_COLORS[v.colorIdx % VEHICLE_COLORS.length]!;
+  const goR = v.speed > 0;
+  const W = v.width * T - 6;
+  const H = T - 12;
+  // Body proportions
+  const bodyR = 6;
+  const roofW = isLong ? W * 0.52 : W * 0.6;
+  const roofH = H * 0.48;
+  const roofX = isLong ? (goR ? W * 0.11 : W * 0.37) : (W - roofW) / 2;
+  const roofY = H * 0.05;
+  const wsW = roofW * (isLong ? 0.32 : 0.48);
+  const wsX = goR ? roofX + 4 : roofX + roofW - wsW - 4;
+  // Wheel positions
+  const wR = Math.max(4, T * 0.12);
+  const w1x = W * 0.2;
+  const w2x = W * 0.78;
+  const wy = H - wR * 0.3;
+  // Headlight
+  const lightX = goR ? W - 5 : 5;
+  const lightY1 = H * 0.28;
+  const lightY2 = H * 0.68;
 
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: flicker ? 0.08 : 1,
-      }}
-    >
-      {/* Glow halo */}
-      <View
-        style={{
-          position: 'absolute',
-          width: size * 0.88,
-          height: size * 0.88,
-          borderRadius: size * 0.44,
-          backgroundColor: glowColor + '22',
-          shadowColor: glowColor,
-          shadowOpacity: 0.9,
-          shadowRadius: surgeActive ? 22 : 14,
-          shadowOffset: { width: 0, height: 0 },
-        }}
-      />
-      {/* Ears */}
-      <View style={{ flexDirection: 'row', width: bodyW + earSize, justifyContent: 'space-between', marginBottom: -2 }}>
-        <View style={[styles.ear, { width: earSize, height: earSize, borderBottomRightRadius: earSize * 0.6, backgroundColor: glowColor }]} />
-        <View style={[styles.ear, { width: earSize, height: earSize, borderBottomLeftRadius: earSize * 0.6, backgroundColor: glowColor }]} />
-      </View>
-      {/* Body */}
-      <View
-        style={{
-          width: bodyW,
-          height: bodyH,
-          borderRadius: bodyW * 0.38,
-          backgroundColor: glowColor,
-          shadowColor: glowColor,
-          shadowOpacity: 1,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 0 },
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {/* Inner core */}
-        <View
-          style={{
-            width: bodyW * 0.45,
-            height: bodyH * 0.45,
-            borderRadius: bodyW * 0.22,
-            backgroundColor: coreColor,
-            opacity: 0.85,
-          }}
-        />
-      </View>
-      {/* Tail */}
-      <View
-        style={{
-          width: size * 0.28,
-          height: size * 0.14,
-          borderRadius: size * 0.07,
-          backgroundColor: glowColor + 'AA',
-          marginTop: 2,
-          alignSelf: 'flex-end',
-          marginRight: size * 0.05,
-        }}
-      />
-    </View>
+    <G>
+      {/* Drop shadow */}
+      <Rect x={3} y={3} width={W} height={H} rx={bodyR} fill="rgba(0,0,0,0.2)" />
+      {/* 3D side face */}
+      <Rect x={2} y={2} width={W} height={H} rx={bodyR} fill={C.roof} />
+      {/* Top face (body) */}
+      <Rect x={0} y={0} width={W} height={H} rx={bodyR} fill={C.body} stroke="rgba(0,0,0,0.55)" strokeWidth={2} />
+      {/* Roof cabin shadow */}
+      <Rect x={roofX + 2} y={roofY + 2} width={roofW} height={roofH} rx={4} fill="rgba(0,0,0,0.25)" />
+      {/* Roof cabin */}
+      <Rect x={roofX} y={roofY} width={roofW} height={roofH} rx={4} fill={C.roof} stroke="rgba(0,0,0,0.45)" strokeWidth={1.5} />
+      {/* Windshield */}
+      <Rect x={wsX} y={roofY + roofH * 0.12} width={wsW} height={roofH * 0.72} rx={2} fill="rgba(200,240,255,0.55)" stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
+      {/* Roof highlight stripe */}
+      <Rect x={roofX + 4} y={roofY + 3} width={roofW - 8} height={3} rx={1.5} fill="rgba(255,255,255,0.18)" />
+      {/* Body highlight stripe */}
+      <Rect x={6} y={4} width={W - 12} height={3} rx={1.5} fill="rgba(255,255,255,0.12)" />
+      {/* Headlights */}
+      <Ellipse cx={lightX} cy={lightY1} rx={4} ry={3.5} fill={goR ? '#FFFAB4' : '#FF8888'} />
+      <Ellipse cx={lightX} cy={lightY2} rx={4} ry={3.5} fill={goR ? '#FFFAB4' : '#FF8888'} />
+      {/* Taillights */}
+      <Ellipse cx={goR ? 5 : W - 5} cy={lightY1} rx={3} ry={2.5} fill="#DC2626" opacity={0.92} />
+      <Ellipse cx={goR ? 5 : W - 5} cy={lightY2} rx={3} ry={2.5} fill="#DC2626" opacity={0.92} />
+      {/* Wheels */}
+      <Circle cx={w1x} cy={wy} r={wR} fill="#1A1A1A" stroke="rgba(0,0,0,0.6)" strokeWidth={1.5} />
+      <Circle cx={w1x} cy={wy} r={wR * 0.45} fill="#555" />
+      <Circle cx={w2x} cy={wy} r={wR} fill="#1A1A1A" stroke="rgba(0,0,0,0.6)" strokeWidth={1.5} />
+      <Circle cx={w2x} cy={wy} r={wR * 0.45} fill="#555" />
+    </G>
   );
 }
 
-// ─── Tree renderer ────────────────────────────────────────────────────────────
+// ─── SVG Log ──────────────────────────────────────────────────────────────────
+function SvgLog({ log, T }: { log: Log; T: number }) {
+  const W = log.width * T - 4;
+  const H = T - 14;
+  const grains = Math.max(1, Math.floor(W / 16));
 
-function Tree({ size }: { size: number }) {
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
-      {/* Canopy */}
-      <View
-        style={{
-          position: 'absolute',
-          top: size * 0.05,
-          width: size * 0.72,
-          height: size * 0.72,
-          borderRadius: size * 0.36,
-          backgroundColor: '#1A4A1A',
-          shadowColor: '#0D3A0D',
-          shadowOpacity: 0.7,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: 2 },
-          borderWidth: 1.5,
-          borderColor: '#2A6A2A',
-        }}
-      />
-      {/* Highlight */}
-      <View
-        style={{
-          position: 'absolute',
-          top: size * 0.12,
-          left: size * 0.22,
-          width: size * 0.22,
-          height: size * 0.18,
-          borderRadius: size * 0.1,
-          backgroundColor: '#2D7A2D',
-          opacity: 0.6,
-        }}
-      />
+    <G>
+      {/* Drop shadow */}
+      <Rect x={3} y={3} width={W} height={H} rx={7} fill="rgba(0,0,0,0.28)" />
+      {/* Side face */}
+      <Rect x={2} y={2} width={W} height={H} rx={7} fill={COLORS.logSide} />
+      {/* Top face */}
+      <Rect x={0} y={0} width={W} height={H} rx={7} fill={COLORS.logTop} stroke="rgba(0,0,0,0.45)" strokeWidth={2} />
+      {/* Highlight stripe */}
+      <Rect x={5} y={3} width={W - 10} height={4} rx={2} fill="rgba(200,160,60,0.35)" />
+      {/* Wood grain lines */}
+      {Array.from({ length: grains }, (_, i) => {
+        const gx = 10 + i * (W / (grains + 1));
+        return (
+          <Path key={i} d={`M${gx} 4 L${gx} ${H - 4}`} stroke="rgba(60,30,0,0.35)" strokeWidth={1.5} strokeLinecap="round" />
+        );
+      })}
+    </G>
+  );
+}
+
+// ─── SVG Tree ─────────────────────────────────────────────────────────────────
+function SvgTree({ T }: { T: number }) {
+  const cR = T * 0.34;
+  const cx = T / 2;
+  const cy = T * 0.38;
+  const tW = T * 0.2;
+  const tH = T * 0.34;
+  const tX = cx - tW / 2;
+  const tY = cy + cR * 0.7;
+
+  return (
+    <G>
+      {/* Trunk shadow */}
+      <Rect x={tX + 2} y={tY + 2} width={tW} height={tH} rx={3} fill="rgba(0,0,0,0.25)" />
       {/* Trunk */}
-      <View
-        style={{
-          width: size * 0.2,
-          height: size * 0.28,
-          borderRadius: 3,
-          backgroundColor: '#5C3A1A',
-          marginBottom: 0,
-        }}
+      <Rect x={tX} y={tY} width={tW} height={tH} rx={3} fill={COLORS.treeTrunk} stroke="rgba(0,0,0,0.45)" strokeWidth={1.5} />
+      {/* Canopy shadow */}
+      <Circle cx={cx + 3} cy={cy + 3} r={cR} fill={COLORS.treeShade} />
+      {/* Canopy */}
+      <Circle cx={cx} cy={cy} r={cR} fill={COLORS.treeCanopy} stroke="rgba(0,0,0,0.4)" strokeWidth={2} />
+      {/* Canopy highlight */}
+      <Ellipse cx={cx - cR * 0.25} cy={cy - cR * 0.2} rx={cR * 0.45} ry={cR * 0.32} fill={COLORS.treeHighlight} opacity={0.7} />
+    </G>
+  );
+}
+
+// ─── SVG Player — chunky blue kart (ref); bopScale only nudges height, never stretches width ─
+function SvgStreetRacer({
+  T,
+  surgeActive,
+  bopScale,
+}: {
+  T: number;
+  surgeActive: boolean;
+  bopScale: number;
+}) {
+  const body = surgeActive ? '#F43F5E' : '#1D4ED8';
+  const side = surgeActive ? '#9F1239' : '#1E3A8A';
+  const cap = '#DC2626';
+  const cx = T / 2;
+  /** Keep proportions readable — engine uses 0.72–1.5 bop; never invert aspect. */
+  const squash = Math.max(0.92, Math.min(1.12, bopScale));
+
+  const carW = T * 0.5;
+  const carH = T * 0.27 * squash;
+  const carY = T * 0.56;
+  const carX = cx - carW / 2;
+  const rr = 6;
+
+  const wR = Math.max(3.5, T * 0.085);
+  const wx1 = carX + carW * 0.24;
+  const wx2 = carX + carW * 0.76;
+  const wy = carY + carH * 0.82;
+
+  const headR = T * 0.1;
+  const hx = cx + carW * 0.14;
+  const hy = carY - headR * 0.15;
+
+  const chevHalf = T * 0.1;
+  const chevGap = T * 0.03;
+  const chevBottom = carY - T * 0.06;
+
+  return (
+    <G>
+      <Ellipse cx={cx + 1} cy={T * 0.9} rx={T * 0.26} ry={T * 0.035} fill="rgba(0,0,0,0.5)" />
+
+      {/* Cyan speed pool + chevrons — point UP (toward top / forward) */}
+      <Ellipse
+        cx={cx}
+        cy={carY - T * 0.12}
+        rx={T * 0.34}
+        ry={T * 0.14}
+        fill={COLORS.cyanBoost}
+        fillOpacity={0.12}
       />
-    </View>
+      <Path
+        d={`M ${cx - T * 0.32} ${carY - T * 0.02} Q ${cx} ${carY - T * 0.38} ${cx + T * 0.32} ${carY - T * 0.02}`}
+        fill="none"
+        stroke={COLORS.cyanBoost}
+        strokeWidth={2.5}
+        strokeOpacity={0.45}
+        strokeLinecap="round"
+      />
+      {[0, 1, 2].map((i) => {
+        const yBase = chevBottom - i * (chevHalf * 0.9 + chevGap);
+        const tipY = yBase - chevHalf * 0.85;
+        const baseY = yBase + chevHalf * 0.35;
+        return (
+          <Polygon
+            key={i}
+            points={`${cx},${tipY} ${cx - chevHalf * 0.72},${baseY} ${cx + chevHalf * 0.72},${baseY}`}
+            fill={COLORS.cyanBoost}
+            fillOpacity={0.28 + i * 0.15}
+            stroke={COLORS.cyanBoost}
+            strokeOpacity={0.55}
+            strokeWidth={1.2}
+          />
+        );
+      })}
+
+      <Rect x={carX + 2} y={carY + 2} width={carW} height={carH} rx={rr} fill="rgba(0,0,0,0.4)" />
+      <Rect x={carX} y={carY} width={carW} height={carH} rx={rr} fill={side} />
+      <Rect
+        x={carX}
+        y={carY}
+        width={carW}
+        height={carH * 0.9}
+        rx={rr}
+        fill={body}
+        stroke="#0F172A"
+        strokeWidth={2}
+      />
+      <Rect x={carX + 5} y={carY + 4} width={carW - 10} height={2.5} rx={1} fill="rgba(255,255,255,0.25)" />
+
+      <Rect
+        x={carX + carW * 0.34}
+        y={carY + carH * 0.14}
+        width={carW * 0.32}
+        height={carH * 0.42}
+        rx={3}
+        fill="rgba(191,219,254,0.55)"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth={1}
+      />
+
+      <Circle cx={wx1} cy={wy} r={wR} fill="#0A0A0F" stroke="#000" strokeWidth={1.2} />
+      <Circle cx={wx1} cy={wy} r={wR * 0.35} fill="#52525B" />
+      <Circle cx={wx2} cy={wy} r={wR} fill="#0A0A0F" stroke="#000" strokeWidth={1.2} />
+      <Circle cx={wx2} cy={wy} r={wR * 0.35} fill="#52525B" />
+
+      <Circle cx={hx} cy={hy} r={headR} fill="#FECACA" stroke="#0F172A" strokeWidth={1} />
+      <Path
+        d={`M ${hx - headR * 0.9} ${hy - headR * 0.05} L ${hx + headR * 0.85} ${hy - headR * 0.12} L ${hx + headR * 0.65} ${hy - headR * 1.05} L ${hx - headR * 0.65} ${hy - headR * 0.95} Z`}
+        fill={surgeActive ? '#FBBF24' : cap}
+        stroke="#450A0A"
+        strokeWidth={1}
+      />
+    </G>
+  );
+}
+
+// ─── Collectible coin (spirit node) — gold + star ─────────────────────────────
+function SvgSpiritNode({ T }: { T: number }) {
+  const cx = T / 2;
+  const cy = T / 2;
+  const r = T * 0.3;
+  const starOuter = r * 0.42;
+  const starInner = starOuter * 0.42;
+  const starPts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? starOuter : starInner;
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    starPts.push(`${cx + rad * Math.cos(a)},${cy + rad * Math.sin(a)}`);
+  }
+  return (
+    <G>
+      <Circle cx={cx} cy={cy} r={r * 1.35} fill="rgba(250,204,21,0.15)" />
+      <Circle cx={cx} cy={cy} r={r} fill="#CA8A04" stroke="#FDE047" strokeWidth={2} />
+      <Circle cx={cx} cy={cy} r={r * 0.72} fill="#EAB308" />
+      <Polygon points={starPts.join(' ')} fill="#FFFBEB" stroke="#FACC15" strokeWidth={0.8} />
+    </G>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-
 export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
   const { width: sw, height: sh } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const tileSize = useMemo(() => Math.floor(Math.min(sw, 480) / LANE_COUNT), [sw]);
-  const controlsH = Math.min(180, Math.max(140, sh * 0.22));
-  const playfieldH = Math.max(220, sh - controlsH);
+  const tileSize = useMemo(() => {
+    const base = Math.min(sw, 500) / LANE_COUNT;
+    return Math.max(40, Math.floor(base * PLAYFIELD_ZOOM));
+  }, [sw]);
+  /** Bottom sheet: side buttons + safe area (no D-pad — playfield uses swipes). */
+  const controlsH = useMemo(() => {
+    const core = 58;
+    const bottomInset = Math.max(10, insets.bottom);
+    const padTop = 2;
+    const webExtra = Platform.OS === 'web' ? 34 : 0;
+    return padTop + core + webExtra + bottomInset;
+  }, [insets.bottom]);
+  const playfieldH = Math.max(120, sh - STATS_RIBBON_H - HUD_H - controlsH);
 
   const [, setUiTick] = useState(0);
+  /** True after countdown in parent; traffic and input should run immediately (no extra tap). */
+  const [started, setStarted] = useState(true);
+  const [bestScore, setBestScore] = useState(0);
   const gameRef = useRef<GameRef>(createGameRef(seed));
   const startTimeRef = useRef(Date.now());
-  const lastHudRef = useRef(0);
   const finishedRef = useRef(false);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
+
+  useEffect(() => {
+    bump();
+  }, [bump, seed]);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(BEST_SCORE_KEY).then((raw) => {
+      const n = parseInt(raw ?? '0', 10);
+      if (!Number.isNaN(n) && n > 0) setBestScore(n);
+    });
+  }, []);
+
+  const startRun = useCallback(() => {
+    if (started) return;
+    finishedRef.current = false;
+    startTimeRef.current = Date.now();
+    setStarted(true);
+    bump();
+  }, [bump, started]);
 
   const finishRun = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     const g = gameRef.current;
-    onRunComplete(g.score, Math.max(0, Date.now() - startTimeRef.current), g.tapCount);
-  }, [onRunComplete]);
+    const score = g.score;
+    setBestScore((prev) => {
+      if (score > prev) {
+        void AsyncStorage.setItem(BEST_SCORE_KEY, String(score));
+        return score;
+      }
+      return prev;
+    });
+    onRunComplete(score, Math.max(0, Date.now() - startTimeRef.current), g.tapCount);
+    bump();
+  }, [bump, onRunComplete]);
 
   const step = useCallback(
     (totalDtMs: number) => {
       const g = gameRef.current;
-      if (finishedRef.current) return;
-      runFixedPhysicsSteps(totalDtMs, (dtMs) => { stepGame(g, dtMs); return true; });
-      if (!g.alive && g.deathFlash <= 0) finishRun();
-      if (shouldEmitMinigameHudFrame(lastHudRef, MINIGAME_HUD_MS_MOTION)) bump();
-    },
-    [bump, finishRun],
-  );
-
-  useRafLoop(step, !finishedRef.current);
-
-  const hop = useCallback(
-    (dr: number, dc: number) => {
-      if (finishedRef.current) return;
-      tryHop(gameRef.current, dr, dc);
+      if (finishedRef.current || !started) return;
+      runFixedPhysicsSteps(totalDtMs, (dtMs) => {
+        stepGame(g, dtMs);
+        return true;
+      });
+      if (!g.alive && g.deathFlash <= 0) {
+        finishRun();
+        return;
+      }
       bump();
     },
-    [bump],
+    [bump, finishRun, started],
+  );
+
+  useRafLoop(step, started && !finishedRef.current);
+
+  const hop = useCallback((dr: number, dc: number) => {
+    if (finishedRef.current || !started) return;
+    tryHop(gameRef.current, dr, dc);
+    bump();
+  }, [bump, started]);
+
+  const hopRef = useRef(hop);
+  hopRef.current = hop;
+  const startedRef = useRef(started);
+  startedRef.current = started;
+
+  const swipePan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, g) => {
+          if (!startedRef.current || finishedRef.current) return false;
+          return Math.abs(g.dx) > SWIPE_ACTIVATE_PX || Math.abs(g.dy) > SWIPE_ACTIVATE_PX;
+        },
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderRelease: (_, g) => {
+          if (!startedRef.current || finishedRef.current) return;
+          const { dx, dy } = g;
+          if (Math.abs(dx) < SWIPE_COMMIT_PX && Math.abs(dy) < SWIPE_COMMIT_PX) return;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dx > 0) hopRef.current(0, 1);
+            else hopRef.current(0, -1);
+          } else {
+            if (dy < 0) hopRef.current(1, 0);
+            else hopRef.current(-1, 0);
+          }
+        },
+      }),
+    [],
   );
 
   const activateSurge = useCallback(() => {
-    if (finishedRef.current) return;
+    if (finishedRef.current || !started) return;
     tryActivateSurge(gameRef.current);
     bump();
-  }, [bump]);
+  }, [bump, started]);
 
   useWebGameKeyboard(!finishedRef.current, {
+    Enter:      (d) => { if (d && !started) startRun(); },
     ArrowUp:    (d) => { if (d) hop(1, 0); },
     ArrowDown:  (d) => { if (d) hop(-1, 0); },
     ArrowLeft:  (d) => { if (d) hop(0, -1); },
@@ -240,20 +442,21 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
     KeyS: (d) => { if (d) hop(-1, 0); },
     KeyA: (d) => { if (d) hop(0, -1); },
     KeyD: (d) => { if (d) hop(0, 1); },
-    Space: (d) => { if (d) activateSurge(); },
+    Space: (d) => { if (!d) return; if (!started) startRun(); else activateSurge(); },
   });
 
-  // ── Derived render values ──────────────────────────────────────────────────
-
+  // ── Render values ──────────────────────────────────────────────────────────
   const g = gameRef.current;
   const { dispRow, dispCol } = getDispPos(g);
   const hopArc = getHopArc(g);
 
   const playerScreenY = playfieldH * PLAYER_Y_FRAC;
   const cameraRow = dispRow;
+  const gridW = LANE_COUNT * tileSize;
+  const gridOffsetX = Math.max(0, (sw - gridW) / 2);
 
-  const rowsBelow = Math.ceil(playerScreenY / tileSize) + 2;
-  const rowsAbove = Math.ceil((playfieldH - playerScreenY) / tileSize) + 2;
+  const rowsBelow = Math.ceil(playerScreenY / tileSize) + 2 + ROW_VIEW_BUFFER;
+  const rowsAbove = Math.ceil((playfieldH - playerScreenY) / tileSize) + 2 + ROW_VIEW_BUFFER;
   const visibleRows: GridRow[] = [];
   for (let r = Math.floor(cameraRow) - rowsBelow; r <= Math.ceil(cameraRow) + rowsAbove; r++) {
     const row = g.rows.get(r);
@@ -264,759 +467,677 @@ export function NeonGridGame({ seed, subtitle, onExit, onRunComplete }: Props) {
     return playerScreenY - (rowId - cameraRow) * tileSize;
   }
 
-  const playerPixX = dispCol * tileSize;
+  const playerPixX = gridOffsetX + dispCol * tileSize;
   const playerPixY = playerScreenY - hopArc * tileSize;
 
-  const deathAlpha = g.deathFlash > 0 ? Math.min(0.6, g.deathFlash / 500) : 0;
-  const playerFlicker = g.deathFlash > 0 && Math.floor(g.deathFlash / 65) % 2 === 0;
-
+  const deathAlpha = g.deathFlash > 0 ? Math.min(0.55, g.deathFlash / 600) : 0;
+  const playerFlicker = g.deathFlash > 0 && Math.floor(g.deathFlash / 60) % 2 === 0;
   const surgeFill = g.surgeCharge / SURGE_MAX;
   const surgeReady = g.surgeCharge >= SURGE_MAX && !g.surgeActive;
+  const displayBest = Math.max(bestScore, g.score);
+  const distanceM = Math.max(0, Math.floor(g.playerRow * 8 + g.score * 2));
 
-  const gridW = LANE_COUNT * tileSize;
+  const onPause = useCallback(() => {
+    Alert.alert('Paused', undefined, [
+      { text: 'Keep going', style: 'cancel' },
+      { text: 'Leave run', style: 'destructive', onPress: onExit },
+    ]);
+  }, [onExit]);
 
-  // Gradient sky — rows further forward = darker indigo
-  const skyRows = Array.from({ length: 5 }, (_, i) => i);
+  const stubSoon = useCallback((title: string) => {
+    Alert.alert(title, 'Coming soon in Street Dash.');
+  }, []);
 
   return (
-    <View style={styles.root}>
+    <LinearGradient colors={[COLORS.skyBottom, COLORS.skyTop]} style={styles.root}>
+      {/* ── Top: BEST · OBJECTIVE · DISTANCE (reference strip) ───────── */}
+      <View style={[styles.statsRibbon, { minHeight: STATS_RIBBON_H }]}>
+        <View style={styles.statsCol}>
+          <SafeIonicons name="trophy" size={17} color={COLORS.hudGold} />
+          <Text style={styles.statsLbl}>BEST</Text>
+          <Text style={styles.statsVal}>{displayBest.toLocaleString()}</Text>
+        </View>
+        <View style={styles.statsCenter}>
+          <Text style={styles.statsObjectiveLbl}>OBJECTIVE</Text>
+          <Text style={styles.statsObjectiveTxt} numberOfLines={2}>
+            Dodge cars and collect coins!
+          </Text>
+          {subtitle ? <Text style={styles.statsSub} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
+        <View style={styles.statsCol}>
+          <SafeIonicons name="speedometer-outline" size={17} color="#F8FAFC" />
+          <Text style={styles.statsLbl}>DISTANCE</Text>
+          <Text style={styles.statsVal}>{distanceM}m</Text>
+        </View>
+      </View>
 
-      {/* ── Playfield ──────────────────────────────────────────────── */}
-      <View style={[styles.playfield, { height: playfieldH }]}>
+      {/* ── HUD ──────────────────────────────────────────────────────── */}
+      <View style={[styles.hud, { height: HUD_H }]}>
+        <Pressable onPress={onPause} hitSlop={14} style={styles.hudPauseBtn} accessibilityLabel="Pause">
+          <SafeIonicons name="pause" size={22} color={COLORS.neonPurple} />
+        </Pressable>
 
-        {/* Sky gradient backdrop */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: '#0D1B2A',
-              // Warm horizon glow at bottom
-            },
-          ]}
-          pointerEvents="none"
-        />
+        <View style={styles.blocksPill}>
+          <View style={styles.hexIcon}>
+            <Text style={styles.hexGlyph}>⬡</Text>
+          </View>
+          <View>
+            <Text style={styles.blocksNum}>{g.score}</Text>
+            <Text style={styles.blocksLbl}>BLOCKS</Text>
+          </View>
+        </View>
 
-        {/* Rendered rows */}
+        <View style={styles.hudCenter}>
+          <Text style={styles.logoStreet}>STREET</Text>
+          <View style={styles.logoRow}>
+            <Text style={styles.logoDash}>DASH</Text>
+            <Text style={styles.logoCrown}>👑</Text>
+          </View>
+        </View>
+
+        <View style={styles.hudRight}>
+          <View style={styles.spiritRow}>
+            <SafeIonicons name="flame" size={14} color={COLORS.neonPurple} />
+            <Text style={styles.spiritLbl}>SPIRIT</Text>
+          </View>
+          <View style={styles.spiritTrack}>
+            <LinearGradient
+              colors={
+                surgeReady
+                  ? [COLORS.surgeOrange, COLORS.hudGold]
+                  : g.surgeActive
+                    ? ['#FB923C', COLORS.hudGold]
+                    : [COLORS.neonPurpleDim, COLORS.neonPurple]
+              }
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={[
+                styles.spiritFillGrad,
+                { width: `${Math.round(surgeFill * 100)}%` as `${number}%` },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* ── Playfield (swipe up/down/left/right to move) ─────────────── */}
+      <View style={[styles.playfield, { height: playfieldH }]} {...swipePan.panHandlers}>
+        {!started ? (
+          <Pressable onPress={startRun} style={({ pressed }) => [styles.startOverlay, pressed && styles.startOverlayPressed]}>
+            <Text style={styles.startTitle}>Street Dash</Text>
+            <Text style={styles.startSub}>Tap anywhere to start, then cross as many blocks as you can.</Text>
+            <View style={styles.startBtn}>
+              <Text style={styles.startBtnTxt}>Tap anywhere</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/* Rows — neon street slice */}
         {visibleRows.map((row) => {
           const ry = rowScreenY(row.rowId);
           if (ry + tileSize < -tileSize || ry > playfieldH + tileSize) return null;
 
-          // Row background
-          let rowBg: string;
-          let rowBorder: string;
-          if (row.kind === 'safe') {
-            const alt = row.rowId % 2 === 0;
-            rowBg = alt ? '#1A3A1A' : '#1E4020';
-            rowBorder = '#2A5A2A';
-          } else if (row.kind === 'road') {
-            const alt = row.rowId % 2 === 0;
-            rowBg = alt ? '#1A130C' : '#1E160E';
-            rowBorder = '#2A1E10';
-          } else {
-            // river
-            const alt = row.rowId % 2 === 0;
-            rowBg = alt ? '#0A2035' : '#0C2840';
-            rowBorder = '#0A3A65';
-          }
+          const grad =
+            row.kind === 'safe'
+              ? row.rowId % 2 === 0
+                ? (['#2c2838', '#1e1c28'] as const)
+                : (['#252030', '#18151f'] as const)
+              : row.kind === 'road'
+                ? row.rowId % 2 === 0
+                  ? (['#24222e', '#16141c'] as const)
+                  : (['#1c1a24', '#121018'] as const)
+                : row.rowId % 2 === 0
+                  ? (['#152238', '#0f1a30'] as const)
+                  : (['#121f3a', '#0c1830'] as const);
 
           return (
             <View
               key={row.rowId}
-              style={[
-                styles.row,
-                {
-                  top: ry,
-                  height: tileSize,
-                  width: gridW,
-                  backgroundColor: rowBg,
-                  borderBottomColor: rowBorder,
-                },
-              ]}
+              style={{
+                position: 'absolute',
+                left: gridOffsetX,
+                top: ry,
+                width: gridW,
+                height: tileSize,
+                overflow: 'hidden',
+              }}
             >
-              {/* Road markings */}
-              {row.kind === 'road' && (
-                <>
-                  {/* Center dashed line */}
-                  <View
-                    style={{
-                      position: 'absolute',
-                      left: 0,
-                      right: 0,
-                      top: tileSize / 2 - 1,
-                      height: 2,
-                      opacity: 0.18,
-                      backgroundColor: '#FFD700',
-                    }}
-                  />
-                  {/* Edge kerbs */}
-                  <View style={[styles.kerb, { top: 0 }]} />
-                  <View style={[styles.kerb, { bottom: 0 }]} />
-                </>
-              )}
+              <LinearGradient colors={grad} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+              {/* Row SVG layer — decorations + objects */}
+              <Svg width={gridW} height={tileSize}>
+                {row.kind === 'road' && (
+                  <>
+                    <Rect x={0} y={0} width={gridW} height={tileSize * 0.22} fill="rgba(10,8,18,0.92)" />
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const bw = 12 + ((row.rowId + i * 7) % 18);
+                      const bx = (i * (gridW / 4.2) + (row.rowId * 13) % 40) % (gridW - bw);
+                      return <Rect key={`b${i}`} x={bx} y={2} width={bw} height={tileSize * 0.18} rx={1} fill={`rgba(${80 + i * 20},${40 + i * 10},${120 + i * 15},0.35)`} />;
+                    })}
+                    <Rect x={0} y={0} width={gridW} height={2} fill="rgba(147,51,234,0.25)" />
+                    <Rect x={0} y={tileSize - 2} width={gridW} height={2} fill="rgba(255,255,255,0.05)" />
+                    {Array.from({ length: Math.ceil(gridW / (tileSize * 0.55)) }, (_, i) => {
+                      const dashW = tileSize * 0.28;
+                      const gapW = tileSize * 0.24;
+                      const px = i * (dashW + gapW);
+                      return (
+                        <Rect key={i} x={px} y={tileSize / 2 - 1.5} width={dashW} height={3} rx={1.5} fill="rgba(253,224,71,0.38)" />
+                      );
+                    })}
+                    {/* Vertical lane dividers (3 lanes) */}
+                    {[1, 2].map((lane) => {
+                      const x = lane * tileSize - 1;
+                      const n = Math.max(3, Math.floor(tileSize / 11));
+                      return Array.from({ length: n }, (_, j) => (
+                        <Rect
+                          key={`lane${lane}-${j}`}
+                          x={x}
+                          y={tileSize * 0.22 + j * ((tileSize * 0.76) / n)}
+                          width={2}
+                          height={Math.max(5, (tileSize * 0.76) / n - 4)}
+                          rx={1}
+                          fill="rgba(248,250,252,0.2)"
+                        />
+                      ));
+                    })}
+                  </>
+                )}
 
-              {/* River ripple stripes */}
-              {row.kind === 'river' && (
-                <>
-                  <View style={[styles.ripple, { top: tileSize * 0.22 }]} />
-                  <View style={[styles.ripple, { top: tileSize * 0.62 }]} />
-                </>
-              )}
+                {row.kind === 'safe' && (() => {
+                  const mhX = (gridW * 0.12 + ((row.rowId * 47) % Math.max(1, Math.floor(gridW * 0.5)))) as number;
+                  const lampSide = row.rowId % 2 === 0;
+                  const lx = lampSide ? gridW - tileSize * 0.18 : tileSize * 0.18;
+                  return (
+                    <>
+                      <Rect x={mhX} y={tileSize * 0.72} width={tileSize * 0.4} height={tileSize * 0.11} rx={4} fill="rgba(0,0,0,0.35)" />
+                      <Ellipse cx={mhX + tileSize * 0.2} cy={tileSize * 0.775} rx={tileSize * 0.13} ry={tileSize * 0.048} fill="rgba(60,55,75,0.9)" stroke="rgba(100,90,120,0.5)" strokeWidth={1} />
+                      <Circle cx={lx} cy={tileSize * 0.28} r={tileSize * 0.07} fill="rgba(253,224,71,0.38)" />
+                      <Rect x={lx - 2} y={tileSize * 0.28} width={4} height={tileSize * 0.42} fill="rgba(40,35,55,0.9)" />
+                    </>
+                  );
+                })()}
 
-              {/* Safe row grass texture stripes */}
-              {row.kind === 'safe' && row.rowId % 3 === 0 && (
-                <View style={styles.grassStripe} />
-              )}
+                {row.kind === 'river' && (
+                  <>
+                    <Path d={`M 8 ${tileSize * 0.5} Q ${gridW * 0.5} ${tileSize * 0.46} ${gridW - 8} ${tileSize * 0.5}`} stroke="rgba(56,189,248,0.07)" strokeWidth={1.25} fill="none" strokeLinecap="round" />
+                  </>
+                )}
 
-              {/* Vehicles (road) */}
-              {row.kind === 'road' && row.vehicles.map((v) => {
-                const vx = v.col * tileSize;
-                const vw = v.width * tileSize - 6;
-                if (vx + vw < -tileSize || vx > gridW + tileSize) return null;
-                const color = VEHICLE_COLORS[v.colorIdx % VEHICLE_COLORS.length]!;
-                const goRight = v.speed > 0;
-                return <CarSprite key={v.id} v={v} tileSize={tileSize} color={color} goRight={goRight} />;
-              })}
+                {/* Logs */}
+                {row.kind === 'river' && row.logs.map((l) => {
+                  const lx = l.col * tileSize;
+                  if (lx + l.width * tileSize < -tileSize || lx > gridW + tileSize) return null;
+                  return (
+                    <G key={l.id} transform={`translate(${lx + 2}, 7)`}>
+                      <SvgLog log={l} T={tileSize} />
+                    </G>
+                  );
+                })}
 
-              {/* Logs (river) */}
-              {row.kind === 'river' && row.logs.map((l) => {
-                const lx = l.col * tileSize;
-                const lw = l.width * tileSize - 4;
-                if (lx + lw < -tileSize || lx > gridW + tileSize) return null;
-                return <LogSprite key={l.id} log={l} tileSize={tileSize} />;
-              })}
+                {/* Vehicles */}
+                {row.kind === 'road' && row.vehicles.map((v) => {
+                  const vx = v.col * tileSize;
+                  if (vx + v.width * tileSize < -tileSize || vx > gridW + tileSize) return null;
+                  return (
+                    <G key={v.id} transform={`translate(${vx + 3}, 6)`}>
+                      <SvgCar v={v} T={tileSize} isLong={v.width >= 2} />
+                    </G>
+                  );
+                })}
 
-              {/* Trees (safe) */}
-              {row.kind === 'safe' && row.treeMask.map((isTree, col) => {
-                if (!isTree) return null;
-                return (
-                  <View
-                    key={col}
-                    style={{
-                      position: 'absolute',
-                      left: col * tileSize,
-                      top: 0,
-                      width: tileSize,
-                      height: tileSize,
-                      zIndex: 4,
-                    }}
-                  >
-                    <Tree size={tileSize} />
-                  </View>
-                );
-              })}
+                {/* Trees */}
+                {row.kind === 'safe' && row.treeMask.map((isTree, col) => {
+                  if (!isTree) return null;
+                  return (
+                    <G key={col} transform={`translate(${col * tileSize}, 0)`}>
+                      <SvgTree T={tileSize} />
+                    </G>
+                  );
+                })}
 
-              {/* Spirit energy node */}
-              {row.surgeNodeCol !== null && !row.surgeCollected && (
-                <View
-                  style={[
-                    styles.spiritNode,
-                    {
-                      left: row.surgeNodeCol * tileSize + tileSize * 0.5 - 14,
-                      top: tileSize * 0.5 - 14,
-                    },
-                  ]}
-                >
-                  <View style={styles.spiritNodeInner} />
-                  <Text style={styles.spiritNodeGlyph}>✦</Text>
-                </View>
-              )}
+                {/* Spirit node */}
+                {row.surgeNodeCol !== null && !row.surgeCollected && (
+                  <G transform={`translate(${row.surgeNodeCol * tileSize}, 0)`}>
+                    <SvgSpiritNode T={tileSize} />
+                  </G>
+                )}
+              </Svg>
 
               {/* Row bottom border */}
-              <View style={[styles.rowSep, { borderBottomColor: rowBorder }]} />
+              <View style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                backgroundColor: 'rgba(0,0,0,0.22)',
+              }} />
             </View>
           );
         })}
 
-        {/* Player — Spirit Fox */}
-        <View
-          style={[
-            styles.playerWrap,
-            {
-              left: playerPixX,
-              top: playerPixY,
-              width: tileSize,
-              height: tileSize,
-            },
-          ]}
-        >
-          <SpiritFox
-            size={tileSize}
-            surgeActive={g.surgeActive}
-            bopScale={g.bopScale}
-            flicker={playerFlicker}
-          />
-        </View>
-
-        {/* Shadow under player (grounded) */}
-        {!g.hopping && (
-          <View
-            style={[
-              styles.playerShadow,
-              {
-                left: playerPixX + tileSize * 0.2,
-                top: playerScreenY + tileSize * 0.82,
-                width: tileSize * 0.6,
-                opacity: 0.35,
-              },
-            ]}
-          />
+        {/* Player */}
+        {!playerFlicker && (
+          <View style={{
+            position: 'absolute',
+            left: playerPixX,
+            top: playerPixY,
+            width: tileSize,
+            height: tileSize,
+            zIndex: 10,
+          }}>
+            <Svg width={tileSize} height={tileSize}>
+              <SvgStreetRacer T={tileSize} surgeActive={g.surgeActive} bopScale={g.bopScale} />
+            </Svg>
+          </View>
         )}
 
-        {/* Surge spirit-time banner */}
+        {/* Spirit Time banner */}
         {g.surgeActive && (
           <View style={styles.spiritBanner} pointerEvents="none">
             <Text style={styles.spiritBannerTxt}>✦  SPIRIT TIME  ✦</Text>
           </View>
         )}
 
-        {/* Death overlay */}
+        {/* Death flash */}
         {deathAlpha > 0 && (
           <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: `rgba(220,50,50,${deathAlpha.toFixed(2)})`, zIndex: 8 },
-            ]}
+            style={[StyleSheet.absoluteFill, {
+              backgroundColor: `rgba(220,40,40,${deathAlpha.toFixed(2)})`,
+              zIndex: 20,
+            }]}
             pointerEvents="none"
           />
         )}
-
-        {/* HUD */}
-        <View style={styles.hud} pointerEvents="none">
-          <View>
-            <Text style={styles.scoreNum}>{g.score}</Text>
-            <Text style={styles.scoreLbl}>STEPS</Text>
-          </View>
-
-          <View style={styles.hudMid}>
-            <Text style={styles.hudTitle}>SPIRIT CROSS</Text>
-            {subtitle ? <Text style={styles.hudSub} numberOfLines={1}>{subtitle}</Text> : null}
-          </View>
-
-          <View style={styles.hudRight}>
-            <Text style={styles.spiritLbl}>SPIRIT</Text>
-            <View style={styles.spiritMeterTrack}>
-              <View
-                style={[
-                  styles.spiritMeterFill,
-                  {
-                    width: `${Math.round(surgeFill * 100)}%` as any,
-                    backgroundColor: surgeReady
-                      ? '#FF6B35'
-                      : g.surgeActive
-                        ? '#FFB347'
-                        : '#FFD700',
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Back button */}
-        <Pressable onPress={onExit} hitSlop={14} style={styles.backBtn}>
-          <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
-        </Pressable>
-
-        {/* Ambient vignette */}
-        <View style={styles.vignette} pointerEvents="none" />
       </View>
 
-      {/* ── Controls ───────────────────────────────────────────────── */}
-      <View style={[styles.controls, { height: controlsH }]}>
-
-        {/* D-pad */}
-        <View style={styles.dpad}>
-          <View style={styles.dpadRow}>
-            <View style={styles.dpadSpacer} />
-            <DBtn icon="arrow-up" onPress={() => hop(1, 0)} />
-            <View style={styles.dpadSpacer} />
-          </View>
-          <View style={styles.dpadRow}>
-            <DBtn icon="arrow-back" onPress={() => hop(0, -1)} />
-            <DBtn icon="arrow-down" onPress={() => hop(-1, 0)} />
-            <DBtn icon="arrow-forward" onPress={() => hop(0, 1)} />
-          </View>
-        </View>
-
-        {/* Spirit button */}
-        <Pressable
-          onPress={activateSurge}
-          style={({ pressed }) => [
-            styles.spiritBtn,
-            surgeReady && styles.spiritBtnReady,
-            g.surgeActive && styles.spiritBtnActive,
-            pressed && styles.spiritBtnPressed,
-          ]}
-        >
-          <Text style={[styles.spiritBtnGlyph, surgeReady && { color: '#FF6B35' }]}>✦</Text>
-          <Text style={[styles.spiritBtnLabel, surgeReady && { color: '#FF6B35' }]}>
-            {g.surgeActive ? 'ACTIVE' : surgeReady ? 'SPIRIT!' : 'SPIRIT'}
-          </Text>
-        </Pressable>
-
-        {Platform.OS === 'web' ? (
-          <Text style={styles.webHint}>{'WASD / ↑↓←→\nSpace = ✦'}</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-// ─── Car sprite ───────────────────────────────────────────────────────────────
-
-function CarSprite({
-  v,
-  tileSize,
-  color,
-  goRight,
-}: {
-  v: Vehicle;
-  tileSize: number;
-  color: string;
-  goRight: boolean;
-}) {
-  const vx = v.col * tileSize;
-  const vw = v.width * tileSize - 6;
-  const isLong = v.width >= 2;
-
-  return (
-    <View
-      style={[
-        styles.car,
-        {
-          left: vx + 3,
-          width: vw,
-          height: tileSize - 10,
-          top: 5,
-          backgroundColor: color + '30',
-          borderColor: color,
-          shadowColor: color,
-        },
-      ]}
-    >
-      {/* Headlights / taillights */}
-      <View
+      {/* ── Controls — pinned low; thin purple rule above ───────────── */}
+      <LinearGradient
+        colors={['#1a1628', COLORS.metalPanel, '#0c0a12']}
         style={[
-          styles.carLight,
-          { [goRight ? 'right' : 'left']: 3, backgroundColor: color },
+          styles.controlsSheet,
+          {
+            minHeight: controlsH,
+            paddingBottom: Math.max(10, insets.bottom),
+          },
         ]}
-      />
-      {/* Windshield */}
-      {isLong && (
-        <View
-          style={[
-            styles.carWindshield,
-            {
-              [goRight ? 'left' : 'right']: vw * 0.28,
-              width: vw * 0.28,
-            },
-          ]}
-        />
-      )}
-      {/* Roof line */}
-      <View style={[styles.carRoof, { width: isLong ? vw * 0.55 : vw * 0.65 }]} />
-    </View>
+      >
+        <View style={styles.controlsRow}>
+          <View style={styles.sideBtnCol}>
+            <MetalSideBtn icon="settings-outline" label="SETTINGS" onPress={() => stubSoon('Settings')} />
+            <MetalSideBtn icon="cart-outline" label="SHOP" onPress={() => stubSoon('Shop')} />
+          </View>
+
+          <View style={styles.swipeHintWrap} pointerEvents="none">
+            <SafeIonicons name="hand-left-outline" size={22} color="rgba(196,181,253,0.75)" />
+            <Text style={styles.swipeHint}>Swipe the street</Text>
+            <Text style={styles.swipeHintSub}>up · down · left · right</Text>
+          </View>
+
+          <View style={styles.sideBtnCol}>
+            <MetalSideBtn icon="star-outline" label="MISSIONS" onPress={() => stubSoon('Missions')} />
+            <MetalSideBtn
+              icon="flame"
+              label="BOOSTS"
+              highlight={surgeReady || g.surgeActive}
+              onPress={activateSurge}
+            />
+          </View>
+        </View>
+        {Platform.OS === 'web' ? (
+          <Text style={styles.webHint}>{'WASD / arrows · or swipe the playfield · Space = boost'}</Text>
+        ) : null}
+      </LinearGradient>
+    </LinearGradient>
   );
 }
 
-// ─── Log sprite ───────────────────────────────────────────────────────────────
-
-function LogSprite({ log, tileSize }: { log: Log; tileSize: number }) {
-  const lx = log.col * tileSize;
-  const lw = log.width * tileSize - 4;
-
-  return (
-    <View
-      style={[
-        styles.log,
-        {
-          left: lx + 2,
-          width: lw,
-          height: tileSize - 12,
-          top: 6,
-        },
-      ]}
-    >
-      {/* Wood grain lines */}
-      {Array.from({ length: Math.max(1, Math.floor(lw / 14)) }, (_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.logGrain,
-            { left: 8 + i * 14, height: tileSize - 18 },
-          ]}
-        />
-      ))}
-      {/* Highlight edge */}
-      <View style={styles.logHighlight} />
-    </View>
-  );
-}
-
-// ─── D-pad button ─────────────────────────────────────────────────────────────
-
-function DBtn({ icon, onPress }: { icon: string; onPress: () => void }) {
+function MetalSideBtn({
+  icon,
+  label,
+  onPress,
+  highlight,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  highlight?: boolean;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={4}
-      style={({ pressed }) => [styles.dBtn, pressed && styles.dBtnActive]}
+      style={({ pressed }) => [
+        styles.metalSideBtn,
+        highlight && styles.metalSideBtnHot,
+        pressed && styles.metalSideBtnPressed,
+      ]}
     >
-      <SafeIonicons name={icon as any} size={20} color="#FFD700" />
+      <SafeIonicons name={icon as any} size={18} color={highlight ? COLORS.hudGold : COLORS.neonPurple} />
+      <Text style={[styles.metalSideLbl, highlight && { color: COLORS.hudGold }]}>{label}</Text>
     </Pressable>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#070D14' },
-
-  playfield: {
+  root: {
+    flex: 1,
     width: '100%',
-    overflow: 'hidden',
-    backgroundColor: '#0D1B2A',
-    position: 'relative',
   },
 
-  row: {
-    position: 'absolute',
-    left: 0,
-    overflow: 'hidden',
-    zIndex: 1,
+  hud: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(6,4,12,0.97)',
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(147,51,234,0.35)',
   },
-
-  kerb: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#E8E0CC',
-    opacity: 0.08,
+  hudPauseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(253,224,71,0.75)',
+    backgroundColor: 'rgba(250,204,21,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  ripple: {
-    position: 'absolute',
-    left: '8%',
-    right: '8%',
-    height: 1.5,
-    borderRadius: 1,
-    backgroundColor: '#4A90D9',
-    opacity: 0.22,
+  blocksPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(12,10,20,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(253,224,71,0.2)',
   },
-
-  grassStripe: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: '#3A7A3A',
-    opacity: 0.25,
-  },
-
-  rowSep: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    borderBottomWidth: 1,
-  },
-
-  // Car
-  car: {
-    position: 'absolute',
-    borderRadius: 5,
-    borderWidth: 1.5,
-    shadowOpacity: 0.85,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 6,
-    elevation: 4,
-    zIndex: 3,
-    overflow: 'hidden',
-  },
-  carLight: {
-    position: 'absolute',
-    top: 2,
-    bottom: 2,
-    width: 5,
-    borderRadius: 2,
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 4,
-    shadowColor: '#FFFFFF',
-  },
-  carWindshield: {
-    position: 'absolute',
-    top: 3,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(200,230,255,0.3)',
-  },
-  carRoof: {
-    position: 'absolute',
-    top: 2,
-    left: 10,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-
-  // Log
-  log: {
-    position: 'absolute',
-    borderRadius: 6,
-    backgroundColor: '#6B4F1A',
-    borderWidth: 1.5,
-    borderColor: '#8B6914',
-    shadowColor: '#3A2A08',
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    zIndex: 3,
-    overflow: 'hidden',
-  },
-  logGrain: {
-    position: 'absolute',
-    top: 2,
-    width: 1.5,
-    borderRadius: 1,
-    backgroundColor: '#4A3410',
-    opacity: 0.55,
-  },
-  logHighlight: {
-    position: 'absolute',
-    top: 2,
-    left: 4,
-    right: 4,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#C49A2A',
-    opacity: 0.35,
-  },
-
-  // Spirit node
-  spiritNode: {
-    position: 'absolute',
+  hexIcon: {
     width: 28,
     height: 28,
-    justifyContent: 'center',
+    borderRadius: 6,
+    backgroundColor: 'rgba(234,179,8,0.15)',
     alignItems: 'center',
-    zIndex: 5,
+    justifyContent: 'center',
   },
-  spiritNodeInner: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFD700',
-    opacity: 0.18,
-    shadowColor: '#FFD700',
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  spiritNodeGlyph: {
+  hexGlyph: {
     fontSize: 14,
-    lineHeight: 18,
-    color: '#FFE566',
-    textShadowColor: '#FFD700',
-    textShadowRadius: 8,
+    color: COLORS.hudGold,
+  },
+  blocksNum: {
+    color: COLORS.hudGold,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 22,
+  },
+  blocksLbl: {
+    color: COLORS.hudMuted,
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+  },
+  hudCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoStreet: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 4,
+    textShadowColor: 'rgba(147,51,234,0.6)',
     textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: -2,
+  },
+  logoDash: {
+    color: COLORS.neonPurple,
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 5,
+    textShadowColor: 'rgba(192,132,252,0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  logoCrown: {
+    fontSize: 10,
+    marginLeft: 2,
+    marginTop: -4,
+  },
+  hudRight: {
+    alignItems: 'flex-end',
+    paddingRight: 6,
+    minWidth: 76,
+  },
+  spiritRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  spiritLbl: {
+    color: COLORS.hudMuted,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  spiritTrack: {
+    marginTop: 4,
+    width: 72,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: 'rgba(12,8,24,0.95)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.4)',
+  },
+  spiritFillGrad: {
+    height: '100%',
+    borderRadius: 5,
   },
 
-  // Ear helper
-  ear: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
-
-  // Player wrapper
-  playerWrap: {
-    position: 'absolute',
-    zIndex: 10,
-  },
-  playerShadow: {
-    position: 'absolute',
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#000000',
-    zIndex: 9,
+  playfield: {
+    overflow: 'hidden',
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(168,85,247,0.55)',
   },
 
-  // Spirit time banner
+  statsRibbon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    backgroundColor: '#05030a',
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderTopColor: 'rgba(168,85,247,0.85)',
+    borderBottomColor: 'rgba(168,85,247,0.85)',
+  },
+  statsCol: {
+    width: 68,
+    flexShrink: 0,
+    alignItems: 'center',
+  },
+  statsCenter: {
+    flex: 1,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  statsLbl: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginTop: 3,
+    textTransform: 'uppercase',
+  },
+  statsVal: {
+    color: COLORS.hudGold,
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  statsObjectiveLbl: {
+    color: COLORS.neonPurple,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+  },
+  statsObjectiveTxt: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 15,
+  },
+  statsSub: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+
   spiritBanner: {
     position: 'absolute',
-    top: 48,
+    top: 36,
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 20,
+    zIndex: 22,
   } as any,
   spiritBannerTxt: {
-    color: '#FFB347',
+    color: COLORS.hudGold,
     fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 5,
-    opacity: 0.9,
-    textShadowColor: '#FF6B35',
-    textShadowRadius: 10,
-    textShadowOffset: { width: 0, height: 0 },
+    letterSpacing: 4,
+    textShadowColor: COLORS.neonPurple,
+    textShadowRadius: 12,
   },
 
-  // Vignette
-  vignette: {
+  startOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 7,
-    // Simulated vignette with semi-transparent edges
-    borderWidth: 32,
-    borderColor: 'rgba(7,13,20,0.45)',
-    borderRadius: 4,
-    pointerEvents: 'none',
-  } as any,
-
-  // HUD
-  hud: {
-    position: 'absolute',
-    top: 6,
-    left: 40,
-    right: 8,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
     zIndex: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(4,2,12,0.88)',
   },
-  scoreNum: {
-    color: '#FFD700',
-    fontSize: 26,
+  startOverlayPressed: {
+    opacity: 0.96,
+  },
+  startTitle: {
+    color: '#F8FAFC',
+    fontSize: 28,
     fontWeight: '900',
-    lineHeight: 28,
-    textShadowColor: '#FF8C00',
-    textShadowRadius: 10,
-    textShadowOffset: { width: 0, height: 0 },
+    marginBottom: 8,
   },
-  scoreLbl: {
-    color: 'rgba(200,180,130,0.8)',
-    fontSize: 9,
+  startSub: {
+    color: COLORS.hudMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  startBtn: {
+    minWidth: 180,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.neonPurple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  startBtnTxt: {
+    color: '#0A0A0A',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+
+  controlsSheet: {
+    width: '100%',
+    paddingTop: 2,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    flexGrow: 0,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    gap: 4,
+  },
+  sideBtnCol: {
+    gap: 6,
+    width: 64,
+    flexShrink: 0,
+  },
+  swipeHintWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    minWidth: 0,
+  },
+  swipeHint: {
+    marginTop: 4,
+    color: 'rgba(248,250,252,0.92)',
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 0.6,
+    textAlign: 'center',
   },
-  hudMid: { alignItems: 'center', flex: 1 },
-  hudTitle: {
-    color: 'rgba(255,215,0,0.55)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 3,
-    marginTop: 5,
-  },
-  hudSub: {
-    color: 'rgba(200,180,130,0.65)',
+  swipeHintSub: {
+    marginTop: 2,
+    color: 'rgba(148,163,184,0.9)',
     fontSize: 9,
     fontWeight: '700',
+    letterSpacing: 1.2,
     textAlign: 'center',
-    marginTop: 1,
   },
-  hudRight: { alignItems: 'flex-end' },
-  spiritLbl: {
-    color: 'rgba(200,180,130,0.8)',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
-  spiritMeterTrack: {
-    marginTop: 4,
-    width: 58,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(40,30,15,0.85)',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(180,140,60,0.3)',
-  },
-  spiritMeterFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-
-  backBtn: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    zIndex: 40,
-    padding: 8,
-  },
-
-  // Controls
-  controls: {
-    width: '100%',
-    flexDirection: 'row',
+  metalSideBtn: {
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-    backgroundColor: '#0A1018',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,215,0,0.08)',
-  },
-
-  dpad: { gap: 4 },
-  dpadRow: { flexDirection: 'row', gap: 4 },
-  dpadSpacer: { width: 44, height: 44 },
-
-  dBtn: {
-    width: 44,
-    height: 44,
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 2,
     borderRadius: 10,
-    backgroundColor: 'rgba(20,16,8,0.95)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,215,0,0.22)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(10,8,18,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.45)',
   },
-  dBtnActive: {
-    backgroundColor: 'rgba(255,215,0,0.1)',
-    borderColor: 'rgba(255,180,0,0.7)',
+  metalSideBtnHot: {
+    borderColor: COLORS.hudGold,
+    backgroundColor: 'rgba(234,179,8,0.12)',
   },
-
-  spiritBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(20,16,8,0.95)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,215,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 2,
+  metalSideBtnPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   },
-  spiritBtnReady: {
-    borderColor: '#FF6B35',
-    backgroundColor: 'rgba(255,107,53,0.1)',
-    shadowColor: '#FF6B35',
-    shadowOpacity: 0.65,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
-  },
-  spiritBtnActive: {
-    borderColor: '#FFB347',
-    backgroundColor: 'rgba(255,179,71,0.1)',
-  },
-  spiritBtnPressed: { opacity: 0.65 },
-  spiritBtnGlyph: { fontSize: 22, color: '#FFD700', lineHeight: 26 },
-  spiritBtnLabel: {
-    color: '#FFD700',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+  metalSideLbl: {
+    marginTop: 2,
+    color: COLORS.hudMuted,
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
 
   webHint: {
-    color: 'rgba(160,140,100,0.75)',
+    color: 'rgba(196,181,253,0.55)',
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
     lineHeight: 16,
+    marginTop: 10,
   },
 });

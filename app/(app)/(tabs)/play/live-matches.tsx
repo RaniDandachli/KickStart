@@ -25,7 +25,7 @@ import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
-import { H2H_OPEN_GAMES, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
+import { H2H_OPEN_GAMES, H2H_OPEN_GAMES_ALL, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { queryKeys } from '@/lib/queryKeys';
 import {
@@ -98,7 +98,7 @@ export default function LiveMatchesScreen() {
     if (!joinWaiterIdParam || !ENABLE_BACKEND) return;
     if (boardLoading) return;
     const w = waiters.find((x) => x.id === joinWaiterIdParam);
-    const gameRow = w ? H2H_OPEN_GAMES.find((g) => g.gameKey === w.gameKey) : undefined;
+    const gameRow = w ? H2H_OPEN_GAMES_ALL.find((g) => g.gameKey === w.gameKey) : undefined;
     const tier =
       w != null
         ? MATCH_ENTRY_TIERS[((w.tierIndex % MATCH_ENTRY_TIERS.length) + MATCH_ENTRY_TIERS.length) % MATCH_ENTRY_TIERS.length]
@@ -139,7 +139,7 @@ export default function LiveMatchesScreen() {
     // Keep selected waiter index valid when queue sizes change.
     setWaiterIndexByGame((prev) => {
       const next: Partial<Record<H2hGameKey, number>> = { ...prev };
-      for (const g of H2H_OPEN_GAMES) {
+      for (const g of H2H_OPEN_GAMES_ALL) {
         const total = waiters.filter((w) => w.gameKey === g.gameKey).length;
         if (total <= 0) {
           next[g.gameKey] = 0;
@@ -175,7 +175,7 @@ export default function LiveMatchesScreen() {
   }
 
   function h2hGradients(gameKey: H2hGameKey): readonly [string, string] {
-    const row = H2H_OPEN_GAMES.find((x) => x.gameKey === gameKey);
+    const row = H2H_OPEN_GAMES_ALL.find((x) => x.gameKey === gameKey);
     const bg = row?.bgColors;
     if (bg && bg.length >= 2) return [bg[0], bg[bg.length - 1]];
     return ['#141028', '#3b2b68'];

@@ -11,42 +11,43 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
-import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import {
-  BallRunGameIcon,
-  DashDuelGameIcon,
-  NeonDanceGameIcon,
-  NeonGridGameIcon,
-  TapDashGameIcon,
-  TileClashGameIcon,
-  TurboArenaGameIcon,
+    BallRunGameIcon,
+    DashDuelGameIcon,
+    NeonDanceGameIcon,
+    NeonGridGameIcon,
+    NeonShipGameIcon,
+    TapDashGameIcon,
+    TileClashGameIcon,
+    TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
+import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { ENABLE_BACKEND, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useActiveSeason } from '@/hooks/useActiveSeason';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
 import { buildTickerLinesFromLobby, useHomeLobbyStats } from '@/hooks/useHomeLobbyStats';
-import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
-import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
-import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
+import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
+import { H2H_OPEN_GAMES_ALL, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import {
-  APP_SCREEN_GRADIENT_COLORS,
-  APP_SCREEN_GRADIENT_LOCATIONS,
-  appBorderAccentMuted,
-  appChromeLinePink,
-  runit,
-  runitFont,
+    APP_SCREEN_GRADIENT_COLORS,
+    APP_SCREEN_GRADIENT_LOCATIONS,
+    appBorderAccentMuted,
+    appChromeLinePink,
+    runit,
+    runitFont,
 } from '@/lib/runitArcadeTheme';
+import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 import { useHomeH2hBoardStore } from '@/store/homeH2hBoardStore';
@@ -223,13 +224,15 @@ export default function HomeScreen() {
         return <NeonDanceGameIcon size={size} />;
       case 'neon-grid':
         return <NeonGridGameIcon size={size} />;
+      case 'neon-ship':
+        return <NeonShipGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }
   }
 
   function h2hGradients(gameKey: H2hGameKey): readonly [string, string] {
-    const row = H2H_OPEN_GAMES.find((x) => x.gameKey === gameKey);
+    const row = H2H_OPEN_GAMES_ALL.find((x) => x.gameKey === gameKey);
     const bg = row?.bgColors;
     if (bg && bg.length >= 2) return [bg[0], bg[bg.length - 1]];
     return ['#141028', '#3b2b68'];

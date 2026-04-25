@@ -320,7 +320,6 @@ export default function NeonDanceGame({
   const gameOverLockRef = useRef(false);
   const visualFrameAccRef = useRef(0);
   const forcedThreeColorRef = useRef(false);
-  const lastColorSwitchMsRef = useRef(0);
   const insets = useSafeAreaInsets();
 
   const playAreaH = Math.max(360, winH - 220 - SWIPE_BAR_HEIGHT - Math.min(32, insets.bottom));
@@ -384,7 +383,6 @@ export default function NeonDanceGame({
     gameOverLockRef.current = false;
     visualFrameAccRef.current = 0;
     forcedThreeColorRef.current = false;
-    lastColorSwitchMsRef.current = 0;
     hoopsRef.current = [];
     nextHoopIdRef.current = 1;
     timeMsRef.current = 0;
@@ -663,23 +661,6 @@ export default function NeonDanceGame({
     [applyTouchFromEvent],
   );
 
-  const cycleBallColor = useCallback(() => {
-    if (phaseRef.current !== 'playing') return;
-    const now = timeMsRef.current;
-    const n = sectorsRef.current;
-    if (now - lastColorSwitchMsRef.current < (n >= 3 ? 300 : 400)) return;
-    lastColorSwitchMsRef.current = now;
-    if (n <= 1) return;
-    ballIdxRef.current = (ballIdxRef.current + 1) % n;
-    setHud((prev) => ({ ...prev, ballIdx: ballIdxRef.current }));
-    inputSamplesRef.current += 1;
-    try {
-      void Haptics.selectionAsync();
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   useWebGameKeyboard(Platform.OS === 'web' && phase === 'playing', {
     ArrowLeft: (d) => {
       if (d) {
@@ -692,9 +673,6 @@ export default function NeonDanceGame({
         targetAngleRef.current += 0.14;
         inputSamplesRef.current += 1;
       }
-    },
-    KeyC: (d) => {
-      if (d) cycleBallColor();
     },
   });
 
@@ -1052,7 +1030,7 @@ export default function NeonDanceGame({
             <Text style={styles.title}>Neon Dance</Text>
             <Text style={styles.blurb}>
               Drag anywhere to rotate. Match your ball color to the glowing sector as hoops approach.
-              Tap the color chip to switch colors. Wrong sector ends the run.
+              Wrong sector ends the run.
             </Text>
             {bestLocal != null ? (
               <Text style={styles.bestLbl}>Best · {bestLocal.toLocaleString()} pts</Text>
@@ -1216,7 +1194,7 @@ export default function NeonDanceGame({
                 pointerEvents="none"
               >
                 <SafeIonicons name="finger-print" size={26} color="rgba(248,250,252,0.9)" style={styles.swipeIcon} />
-                <Text style={styles.swipeHint}>Drag to spin · tap chip to switch color</Text>
+                <Text style={styles.swipeHint}>Drag to spin · line up with the bright sector</Text>
               </View>
 
               <View
@@ -1232,17 +1210,15 @@ export default function NeonDanceGame({
             </View>
 
             <View style={styles.hudGlass}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Cycle ball color"
-                onPress={cycleBallColor}
-                hitSlop={12}
-                style={({ pressed }) => [styles.swatchPress, pressed && { opacity: 0.85 }]}
+              <View
+                accessibilityLabel="Current ball color"
+                importantForAccessibility="yes"
+                style={styles.swatchWrap}
               >
                 <View style={[styles.swatch, { backgroundColor: ballColor, shadowColor: ballColor }]} />
-              </Pressable>
+              </View>
               <View style={styles.hudTextBlock}>
-                <Text style={styles.hudTxt}>Drag to aim · tap chip to switch color</Text>
+                <Text style={styles.hudTxt}>Drag to aim · match the glowing sector</Text>
                 {hud.streak >= 3 ? (
                   <Text style={[styles.streakLabel, { color: ballColor }]}>
                     🔥 {hud.streak} streak
@@ -1430,7 +1406,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.22)',
   },
   hudTextBlock: { flex: 1, gap: 2 },
-  swatchPress: { borderRadius: 24, padding: 2 },
+  swatchWrap: { borderRadius: 24, padding: 2 },
   swatch: {
     width: 40,
     height: 40,

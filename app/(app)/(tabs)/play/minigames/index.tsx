@@ -5,15 +5,17 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
 import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import {
-  BallRunGameIcon,
-  DashDuelGameIcon,
-  NeonDanceGameIcon,
-  NeonGridGameIcon,
-  StackerGameIcon,
-  TapDashGameIcon,
-  TileClashGameIcon,
-  TurboArenaGameIcon,
+    BallRunGameIcon,
+    DashDuelGameIcon,
+    NeonDanceGameIcon,
+    NeonGridGameIcon,
+    NeonShipGameIcon,
+    StackerGameIcon,
+    TapDashGameIcon,
+    TileClashGameIcon,
+    TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
+import { SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 
@@ -84,7 +86,7 @@ export default function MinigamesHubScreen() {
       />
       <ArcadeMinigameRow
         gameRoute="neon-grid"
-        title="Neon Grid"
+        title="Street Dash"
         entryLabel="Practice or prize run"
         winLabel="PLAY"
         bgColors={['#0f172a', '#312e81', '#831843']}
@@ -92,6 +94,18 @@ export default function MinigamesHubScreen() {
         entryColor="rgba(248,250,252,0.9)"
         iconSlot={<NeonGridGameIcon size={36} />}
       />
+      {SHOW_NEON_SHIP_MINIGAME ? (
+        <ArcadeMinigameRow
+          gameRoute="neon-ship"
+          title="Void Glider"
+          entryLabel="Practice or prize run"
+          winLabel="PLAY"
+          bgColors={['#1a0a2e', '#4c1d95', '#0f0220']}
+          borderAccent="pink"
+          entryColor="rgba(248,250,252,0.9)"
+          iconSlot={<NeonShipGameIcon size={36} />}
+        />
+      ) : null}
       <ArcadeMinigameRow
         gameRoute="turbo-arena"
         title="Turbo Arena"

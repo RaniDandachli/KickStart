@@ -1,5 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 
@@ -162,6 +162,7 @@ Deno.serve(async (req) => {
         if (gk === 'turbo-arena') return 'turbo_arena';
         if (gk === 'neon-dance') return 'neon_dance';
         if (gk === 'neon-grid') return 'neon_grid';
+        if (gk === 'neon-ship') return 'neon_ship';
         return null;
       })();
       if (!forfeitBy && skillGameType) {

@@ -1,7 +1,8 @@
 import type { RunitBorderAccent } from '@/components/arcade/ArcadeGameRow';
+import { SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
 
-/** Minigame routes + Arcade-matching visuals (gradients / border) for H2H pickers & Home rows. */
-export const H2H_OPEN_GAMES = [
+/** Full list (includes vaulted games) — use for titles, server keys, in-flight matches. */
+export const H2H_OPEN_GAMES_ALL = [
   {
     gameKey: 'tap-dash' as const,
     title: 'Tap Dash',
@@ -46,14 +47,26 @@ export const H2H_OPEN_GAMES = [
   },
   {
     gameKey: 'neon-grid' as const,
-    title: 'Neon Grid',
+    title: 'Street Dash',
     route: '/(app)/(tabs)/play/minigames/neon-grid',
     bgColors: ['#0f172a', '#312e81', '#831843'] as const,
     borderAccent: 'purple' as const satisfies RunitBorderAccent,
   },
+  {
+    gameKey: 'neon-ship' as const,
+    title: 'Void Glider',
+    route: '/(app)/(tabs)/play/minigames/neon-ship',
+    bgColors: ['#1a0a2e', '#4c1d95', '#0f0220'] as const,
+    borderAccent: 'pink' as const satisfies RunitBorderAccent,
+  },
 ] as const;
 
-export type H2hGameKey = (typeof H2H_OPEN_GAMES)[number]['gameKey'];
+export type H2hGameKey = (typeof H2H_OPEN_GAMES_ALL)[number]['gameKey'];
+
+/** Shown in H2H pickers & home open-match rows (respects {@link SHOW_NEON_SHIP_MINIGAME}). */
+export const H2H_OPEN_GAMES = SHOW_NEON_SHIP_MINIGAME
+  ? H2H_OPEN_GAMES_ALL
+  : H2H_OPEN_GAMES_ALL.filter((g) => g.gameKey !== 'neon-ship');
 
 /** Server sentinel for Quick Match wildcard rows in `h2h_queue_entries` / RPC (not a real minigame). */
 export const H2H_QUICK_MATCH_GAME_KEY = '__quick_match__' as const;
@@ -61,6 +74,6 @@ export const H2H_QUICK_MATCH_GAME_KEY = '__quick_match__' as const;
 export type H2hLobbyKind = 'host_waiting' | 'empty_pool';
 
 export function titleForH2hGameKey(gameKey: string): string {
-  const g = H2H_OPEN_GAMES.find((x) => x.gameKey === gameKey);
+  const g = H2H_OPEN_GAMES_ALL.find((x) => x.gameKey === gameKey);
   return g?.title ?? 'Game';
 }

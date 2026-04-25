@@ -1,18 +1,19 @@
 import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import { MATCH_ENTRY_TIERS, type MatchEntryTier } from '@/components/arcade/matchEntryTiers';
-import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import {
-  BallRunGameIcon,
-  DashDuelGameIcon,
-  NeonDanceGameIcon,
-  NeonGridGameIcon,
-  TapDashGameIcon,
-  TileClashGameIcon,
-  TurboArenaGameIcon,
+    BallRunGameIcon,
+    DashDuelGameIcon,
+    NeonDanceGameIcon,
+    NeonGridGameIcon,
+    NeonShipGameIcon,
+    TapDashGameIcon,
+    TileClashGameIcon,
+    TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
+import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
-import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { arcade } from '@/lib/arcadeTheme';
+import { H2H_OPEN_GAMES, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -35,6 +36,8 @@ function gameIcon(gameKey: H2hGameKey, size: number) {
       return <NeonDanceGameIcon size={size} />;
     case 'neon-grid':
       return <NeonGridGameIcon size={size} />;
+    case 'neon-ship':
+      return <NeonShipGameIcon size={size} />;
     default:
       return <TapDashGameIcon size={size} />;
   }

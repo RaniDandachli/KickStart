@@ -1,8 +1,7 @@
 /** Daily elimination event — labels, scoring helpers, and `dailyFreeTournamentStore` integration. */
 
-import type { H2hGameKey } from '@/lib/homeOpenMatches';
-import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { H2H_BRACKET_GAME_ROTATION, h2hBracketGameRotationForClient } from '@/lib/h2hGameRotation';
+import { titleForH2hGameKey, type H2hGameKey } from '@/lib/homeOpenMatches';
 import type { MatchFinishPayload } from '@/types/match';
 
 /** Legacy max/defaults kept for callers that still read constants directly. */
@@ -196,8 +195,8 @@ export function computeOpponentRoundScore(
 }
 
 export function titleForDailyGame(gameKey: H2hGameKey): string {
-  const g = H2H_OPEN_GAMES.find((x) => x.gameKey === gameKey);
-  return g?.title ?? 'Skill challenge';
+  const t = titleForH2hGameKey(gameKey);
+  return t === 'Game' ? 'Skill challenge' : t;
 }
 
 /**

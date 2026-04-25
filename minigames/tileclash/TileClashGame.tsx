@@ -43,6 +43,7 @@ import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
+import { TILE_CLASH } from '@/minigames/config/tuning';
 import { useTileClashMusic } from '@/minigames/tileclash/useTileClashMusic';
 import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
@@ -54,8 +55,8 @@ const COLS = 4;
 /** Abstract vertical range (game logic). */
 const LANE_H = 200;
 const TILE_H = 22;
-const HIT_TOP = 120;
-const HIT_BOTTOM = 186;
+const HIT_TOP = TILE_CLASH.hitZoneTop;
+const HIT_BOTTOM = TILE_CLASH.hitZoneBottom;
 /** Extra logical px around the amber band for tap + overlap checks (float edges + “feels in” taps). */
 const TAP_BAND_PAD = 8;
 const BASE_SCROLL = 0.056;

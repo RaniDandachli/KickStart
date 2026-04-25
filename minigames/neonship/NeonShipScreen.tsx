@@ -1,27 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Text, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import { useProfile } from '@/hooks/useProfile';
+import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
+import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
+import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
+import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+import { awardRedeemTicketsForPrizeRun, ticketsFromNeonShipScore } from '@/lib/ticketPayouts';
+import { NeonShipGame } from '@/minigames/neonship/NeonShipGame';
+import { NeonShipLobby } from '@/minigames/neonship/NeonShipLobby';
+import { NeonShipResults } from '@/minigames/neonship/NeonShipResults';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
-import { NeonGridGame } from '@/minigames/neongrid/NeonGridGame';
-import { NeonGridLobby } from '@/minigames/neongrid/NeonGridLobby';
-import { NeonGridResults } from '@/minigames/neongrid/NeonGridResults';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import { beginMinigamePrizeRun } from '@/lib/beginMinigamePrizeRun';
-import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/prizeRunGuards';
-import { consumePrizeRunEntryCredits, PRIZE_RUN_ENTRY_CREDITS } from '@/lib/arcadeEconomy';
-import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
-import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
-import { awardRedeemTicketsForPrizeRun, ticketsFromNeonGridScore } from '@/lib/ticketPayouts';
-import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
-import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
-import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
 import type { H2hSkillContestBundle } from '@/types/match';
@@ -32,7 +32,7 @@ function nextSeed(): number {
   return (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
 }
 
-export default function NeonGridScreen({
+export default function NeonShipScreen({
   h2hSkillContest,
 }: {
   h2hSkillContest?: H2hSkillContestBundle;
@@ -58,7 +58,7 @@ export default function NeonGridScreen({
   const buildH2hBody = useCallback(() => {
     const r = lastRunRef.current;
     return {
-      game_type: 'neon_grid' as const,
+      game_type: 'neon_ship' as const,
       score: r.score,
       duration_ms: r.durationMs,
       taps: r.tapCount,
@@ -106,7 +106,7 @@ export default function NeonGridScreen({
     if (mode === 'vs') {
       if (ENABLE_BACKEND) {
         if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
-        const r = await beginMinigamePrizeRun('neon_grid');
+        const r = await beginMinigamePrizeRun('neon_ship');
         if (!r.ok) {
           if (r.error === 'insufficient_credits') {
             alertInsufficientPrizeCredits(
@@ -160,23 +160,23 @@ export default function NeonGridScreen({
         if (mode === 'vs') {
           if (ENABLE_BACKEND) {
             if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) {
-              tickets = ticketsFromNeonGridScore(score);
+              tickets = ticketsFromNeonShipScore(score);
             } else {
               try {
                 const supabase = getSupabase();
                 const { data: sess } = await supabase.auth.getSession();
                 if (!sess.session) {
                   Alert.alert('Sign in required', 'Log in to apply prize credits and redeem tickets.');
-                  tickets = ticketsFromNeonGridScore(score);
+                  tickets = ticketsFromNeonShipScore(score);
                 } else if (!assertPrizeRunReservation(true, ENABLE_BACKEND, prizeRunReservationRef.current)) {
-                  tickets = ticketsFromNeonGridScore(score);
+                  tickets = ticketsFromNeonShipScore(score);
                 } else {
                   const rid = prizeRunReservationRef.current!;
                   const { data, error } = await invokeEdgeFunction('submitMinigameScore', {
                     body: {
                       prize_run: true,
                       prize_run_reservation_id: rid,
-                      game_type: 'neon_grid' as const,
+                      game_type: 'neon_ship' as const,
                       score,
                       duration_ms: dur,
                       taps,
@@ -184,25 +184,25 @@ export default function NeonGridScreen({
                   });
                   if (error) {
                     Alert.alert('Could not save prize run', error.message ?? 'Try again later.');
-                    tickets = ticketsFromNeonGridScore(score);
+                    tickets = ticketsFromNeonShipScore(score);
                   } else {
                     const row = data as { tickets_granted?: number } | null;
                     tickets = Math.max(
                       0,
                       typeof row?.tickets_granted === 'number'
                         ? row.tickets_granted
-                        : ticketsFromNeonGridScore(score),
+                        : ticketsFromNeonShipScore(score),
                     );
                     if (uid) invalidateProfileEconomy(queryClient, uid);
                   }
                 }
               } catch {
                 Alert.alert('Could not save prize run', 'Check your connection and try again.');
-                tickets = ticketsFromNeonGridScore(score);
+                tickets = ticketsFromNeonShipScore(score);
               }
             }
           } else {
-            const n = ticketsFromNeonGridScore(score);
+            const n = ticketsFromNeonShipScore(score);
             awardRedeemTicketsForPrizeRun(n);
             tickets = n;
           }
@@ -223,7 +223,7 @@ export default function NeonGridScreen({
       if (mode === 'vs') {
         if (ENABLE_BACKEND) {
           if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
-          const r = await beginMinigamePrizeRun('neon_grid');
+          const r = await beginMinigamePrizeRun('neon_ship');
           if (!r.ok) {
             if (r.error === 'insufficient_credits') {
               alertInsufficientPrizeCredits(
@@ -295,10 +295,10 @@ export default function NeonGridScreen({
           {!h2hSkillContest && phase === 'home' ? (
             <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
               <Text style={{ textAlign: 'center', fontSize: 28, fontWeight: '900', color: '#c4b5fd', marginBottom: 8 }}>
-                Street Dash
+                Void Glider
               </Text>
               <Text style={{ textAlign: 'center', fontSize: 13, color: 'rgba(148,163,184,0.95)', marginBottom: 20 }}>
-                Cross roads and rivers in a neon city. One hit and the run ends.
+                Endless neon ship flight — thrust up, fall down, thread the gaps and dodge spikes.
               </Text>
               <AppButton title="Practice run (free)" onPress={goPractice} />
               {Platform.OS === 'web' ? (
@@ -317,16 +317,17 @@ export default function NeonGridScreen({
           ) : null}
 
           {phase === 'lobby' ? (
-            <NeonGridLobby onStart={() => void lobbyStart()} onBack={() => setPhase('home')} />
+            <NeonShipLobby onStart={() => void lobbyStart()} onBack={() => setPhase('home')} />
           ) : null}
 
           {phase === 'countdown' || phase === 'playing' ? (
             <View style={{ flex: 1, width: '100%' }}>
               {phase === 'playing' ? (
-                <NeonGridGame
+                <NeonShipGame
                   key={seed}
                   seed={seed}
                   subtitle={prizeLabel ?? practiceLabel}
+                  skipStartOverlay={Boolean(h2hSkillContest)}
                   onExit={() => router.back()}
                   onRunComplete={onRunComplete}
                 />
@@ -341,7 +342,7 @@ export default function NeonGridScreen({
           <Countdown active={phase === 'countdown'} onComplete={onCountdownDone} />
 
           {phase === 'results' ? (
-            <NeonGridResults
+            <NeonShipResults
               visible
               finalScore={finalScore}
               durationMs={durationMs}
@@ -353,7 +354,7 @@ export default function NeonGridScreen({
                 h2hSkillContest ? (
                   <View style={{ marginBottom: 12, marginTop: 8 }}>
                     <Text style={{ color: 'rgba(148,163,184,0.95)', fontSize: 13, textAlign: 'center' }}>
-                      Head-to-head: higher row count wins after both runs submit.
+                      Head-to-head: higher distance wins after both runs submit.
                     </Text>
                     {h2hSubmitPhase === 'loading' ? (
                       <Text style={{ color: 'rgba(148,163,184,0.95)', fontSize: 13, textAlign: 'center', marginTop: 8 }}>

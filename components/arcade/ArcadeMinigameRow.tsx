@@ -1,17 +1,17 @@
-import { type ReactNode, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { type ReactNode, useState } from 'react';
 
 import { ArcadeGameRow, type RunitBorderAccent } from '@/components/arcade/ArcadeGameRow';
 import { ArcadePlayModeModal } from '@/components/arcade/ArcadePlayModeModal';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
-import {
-  consumePrizeRunEntryCredits,
-  PRIZE_RUN_ENTRY_CREDITS,
-  STACKER_PRIZE_RUN_ENTRY_CREDITS,
-  TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
-} from '@/lib/arcadeEconomy';
 import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arcadeCreditsShop';
+import {
+    consumePrizeRunEntryCredits,
+    PRIZE_RUN_ENTRY_CREDITS,
+    STACKER_PRIZE_RUN_ENTRY_CREDITS,
+    TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
+} from '@/lib/arcadeEconomy';
 import { useAuthStore } from '@/store/authStore';
 
 type Props = {
@@ -24,7 +24,8 @@ type Props = {
     | 'neon-pool'
     | 'stacker'
     | 'neon-dance'
-    | 'neon-grid';
+    | 'neon-grid'
+    | 'neon-ship';
   title: string;
   entryLabel: string;
   winLabel: string;
