@@ -257,6 +257,7 @@ export default function PlayHubScreen() {
         <ArcadeQuickMatch
           onOneVsOne={() => pushCrossTab(router, '/(app)/(tabs)')}
           onSoloPlay={() => setSoloPlayGate(true)}
+          onMoneyChallenges={() => pushCrossTab(router, '/(app)/(tabs)/tournaments/money-challenges')}
           onTournament={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}
         />
 

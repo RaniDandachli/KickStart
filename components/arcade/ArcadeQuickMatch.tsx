@@ -17,10 +17,12 @@ interface Props {
   onOneVsOne: () => void;
   /** Quick solo minigame. */
   onSoloPlay: () => void;
+  /** Free + wallet score challenges (Tap Dash first). */
+  onMoneyChallenges: () => void;
   onTournament: () => void;
 }
 
-export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props) {
+export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onMoneyChallenges, onTournament }: Props) {
   return (
     <View style={styles.section}>
       <View style={styles.ruleRow}>
@@ -53,6 +55,19 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onTournament }: Props
           </LinearGradient>
         </Pressable>
       </View>
+
+      <Pressable onPress={onMoneyChallenges} style={({ pressed }) => [styles.moneyRow, pressed && styles.pressed]}>
+        <LinearGradient
+          colors={[runit.neonPink, '#a16207', runit.neonPurple]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={[styles.eventsGrad, { borderRadius: 14 }]}
+        >
+          <SafeIonicons name="cash-outline" size={22} color="#fff" />
+          <Text style={[styles.eventsText, { fontFamily: runitFont.black }]}>$ MONEY CHALLENGES</Text>
+          <SafeIonicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+        </LinearGradient>
+      </Pressable>
 
       <Pressable onPress={onTournament} style={({ pressed }) => [styles.eventsRow, pressed && styles.pressed]}>
         <LinearGradient
@@ -111,6 +126,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cardSubDark: { color: 'rgba(255,255,255,0.9)' },
+  moneyRow: {
+    marginTop: 12,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(253,224,71,0.45)',
+  },
   eventsRow: {
     marginTop: 12,
     borderRadius: 14,

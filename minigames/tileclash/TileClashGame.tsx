@@ -24,6 +24,9 @@ import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import { onWeeklyRaceAfterMinigameScore } from '@/lib/weeklyRaceAfterScore';
+import { queryKeys } from '@/lib/queryKeys';
+import { weeklyRaceDayKey } from '@/lib/weeklyRace';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import {
   awardRedeemTicketsForPrizeRun,
@@ -148,10 +151,12 @@ export default function TileClashGame({
   playMode = 'practice',
   dailyTournament,
   h2hSkillContest,
+  weeklyRace = false,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
+  weeklyRace?: boolean;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -205,7 +210,7 @@ export default function TileClashGame({
         taps: tapCountRef.current,
         intervals: [...intervalsRef.current],
       };
-      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize' && !weeklyRace) {
         awardRedeemTicketsForPrizeRun(ticketsFromTileClashScore(m.score));
       }
       setPhase('over');
@@ -214,7 +219,7 @@ export default function TileClashGame({
       }
       bump();
     },
-    [bump, playMode, dailyTournament, h2hSkillContest],
+    [bump, playMode, dailyTournament, h2hSkillContest, weeklyRace],
   );
 
   const step = useCallback(
@@ -287,7 +292,7 @@ export default function TileClashGame({
 
   const startGame = useCallback(() => {
     void (async () => {
-      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize' && !weeklyRace) {
         if (ENABLE_BACKEND) {
           if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
           const r = await beginMinigamePrizeRun('tile_clash');
@@ -328,7 +333,7 @@ export default function TileClashGame({
       setPhase('playing');
       bump();
     })();
-  }, [bump, playMode, dailyTournament, h2hSkillContest, router, profileQ.data?.prize_credits, queryClient, uid]);
+  }, [bump, playMode, dailyTournament, h2hSkillContest, weeklyRace, router, profileQ.data?.prize_credits, queryClient, uid]);
 
   const applyPlayingTap = useCallback(
     (col: number) => {
@@ -401,7 +406,7 @@ export default function TileClashGame({
         setSubmitErr(true);
         return;
       }
-      const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest;
+      const prizeRun = !dailyTournament && playMode === 'prize' && !h2hSkillContest && !weeklyRace;
       if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
         setSubmitErr(true);
         return;
@@ -425,10 +430,18 @@ export default function TileClashGame({
       }
       invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
+      if (weeklyRace) {
+        void (async () => {
+          const ok = await onWeeklyRaceAfterMinigameScore('tile-clash', endStatsRef.current.score);
+          if (ok) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.weeklyRace(weeklyRaceDayKey()) });
+          }
+        })();
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [dailyTournament, playMode, h2hSkillContest, queryClient, uid]);
+  }, [dailyTournament, playMode, h2hSkillContest, queryClient, uid, weeklyRace]);
 
   useAutoSubmitOnPhaseOver({
     phase,

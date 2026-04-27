@@ -22,7 +22,12 @@ export type TransactionKind =
   /** Wallet credit when both players leave paid H2H before play (lobby abandon). */
   | 'h2h_contest_entry_refund'
   | 'tournament_entry'
-  | 'tournament_prize_grant';
+  | 'tournament_prize_grant'
+  | 'weekly_race_entry'
+  /** Daily Weekly Race leaderboard (top 3 by best_score among paid entrants). */
+  | 'weekly_race_prize'
+  /** Wallet debit to unlock a paid Money Challenge tier for the calendar day. */
+  | 'money_challenge_entry';
 
 type PublicTable<
   Row extends Record<string, unknown>,
@@ -177,6 +182,32 @@ export type LeaderboardSnapshotRow = {
   streak: number;
   rank_delta: number;
   captured_at: string;
+};
+
+export type WeeklyRaceEntryRow = {
+  id: string;
+  user_id: string;
+  day_key: string;
+  game_key: string;
+  entry_fee_cents: number;
+  attempts_used: number;
+  best_score: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WeeklyRaceDailySettlementRow = {
+  day_key: string;
+  settled_at: string;
+};
+
+export type WeeklyRacePayoutAuditRow = {
+  id: string;
+  day_key: string;
+  user_id: string;
+  rank: number;
+  amount_cents: number;
+  created_at: string;
 };
 
 export type TransactionRow = {
@@ -374,6 +405,15 @@ type SoloChallengeDailyAttemptRow = {
   updated_at: string;
 };
 
+/** Paid Money Challenge unlock for the calendar day (`enter_money_challenge_wallet`). */
+type MoneyChallengeDailyPaymentRow = {
+  user_id: string;
+  challenge_id: string;
+  calendar_day: string;
+  paid_cents: number;
+  created_at: string;
+};
+
 /** Supabase `Database` generic: includes `Relationships` for postgrest-js. Regenerate via CLI when schema changes. */
 export interface Database {
   public: {
@@ -416,6 +456,22 @@ export interface Database {
       >;
       solo_challenge_daily_attempts: PublicTable<
         SoloChallengeDailyAttemptRow,
+        never,
+        never
+      >;
+      money_challenge_daily_payments: PublicTable<
+        MoneyChallengeDailyPaymentRow,
+        never,
+        never
+      >;
+      weekly_race_entries: PublicTable<WeeklyRaceEntryRow, never, never>;
+      weekly_race_daily_settlement: PublicTable<
+        WeeklyRaceDailySettlementRow,
+        never,
+        never
+      >;
+      weekly_race_payout_audit: PublicTable<
+        WeeklyRacePayoutAuditRow,
         never,
         never
       >;
@@ -615,6 +671,22 @@ export interface Database {
         Returns: Json;
       };
       solo_challenge_consume_try: {
+        Args: { p_challenge_id: string; p_calendar_day: string };
+        Returns: Json;
+      };
+      enter_weekly_race: {
+        Args: { p_day_key: string; p_game_key: string };
+        Returns: Json;
+      };
+      record_weekly_race_score: {
+        Args: { p_day_key: string; p_game_key: string; p_score: number };
+        Returns: Json;
+      };
+      finalize_weekly_race_pending_days: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      enter_money_challenge_wallet: {
         Args: { p_challenge_id: string; p_calendar_day: string };
         Returns: Json;
       };

@@ -8,6 +8,8 @@ export type SoloChallengeDefinition = {
   targetScore: number;
   /** Display only until payouts are wired. */
   showcasePrizeUsd: number;
+  /** Overrides default tries/day cap in UI (≤ server RPC for this id). */
+  maxAttemptsPerDay?: number;
 };
 
 export const SOLO_CHALLENGES: readonly SoloChallengeDefinition[] = [
@@ -18,6 +20,7 @@ export const SOLO_CHALLENGES: readonly SoloChallengeDefinition[] = [
     subtitle: 'Beat the run — hit 100 scored gates in one attempt.',
     targetScore: 100,
     showcasePrizeUsd: 100,
+    maxAttemptsPerDay: 10,
   },
 ] as const;
 
@@ -25,9 +28,11 @@ export function getSoloChallengeById(id: string): SoloChallengeDefinition | unde
   return SOLO_CHALLENGES.find((c) => c.id === id);
 }
 
-/** Passed into Tap Dash when launched from Solo Challenges. */
+/** Passed into Tap Dash when launched from Solo / Money Challenges. */
 export type SoloChallengeBundle = {
   challengeId: string;
   targetScore: number;
   prizeLabel: string;
+  /** Overrides default daily attempt cap shown in HUD (≤ server cap per challenge id). */
+  maxAttemptsPerDay?: number;
 };

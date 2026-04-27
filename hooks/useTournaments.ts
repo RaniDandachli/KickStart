@@ -32,7 +32,9 @@ export function useJoinTournament(userId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (tournamentId: string) => {
-      if (!ENABLE_BACKEND) return;
+      if (!ENABLE_BACKEND) {
+        throw new Error('Tournaments are disabled in this build (set EXPO_PUBLIC_ENABLE_BACKEND=true).');
+      }
       if (!userId) throw new Error('Not signed in');
       const r = await joinTournament(tournamentId);
       if (!r.ok) throw new Error(r.error ?? 'Could not join tournament');

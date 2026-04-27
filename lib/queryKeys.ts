@@ -7,6 +7,7 @@ export const queryKeys = {
   tournament: (id: string) => ['tournament', id] as const,
   tournamentRules: (id: string) => ['tournamentRules', id] as const,
   tournamentBracket: (id: string) => ['tournamentBracket', id] as const,
+  weeklyRace: (dayKey: string) => ['weeklyRace', dayKey] as const,
   userAchievements: (userId: string) => ['userAchievements', userId] as const,
   leaderboard: (scope: string, seasonId: string | null, region: string) =>
     ['leaderboard', scope, seasonId, region] as const,

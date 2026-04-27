@@ -31,6 +31,9 @@ export const ENABLE_DAILY_FREE_TOURNAMENT = true;
 /** Single-elimination credit cups (1000–5000 prize_credits; same flow as daily bracket). */
 export const ENABLE_CREDIT_CUPS = true;
 
+/** $10 daily rotating minigame race — 10 scored runs, leaderboard + wallet entry (see `enter_weekly_race`). */
+export const ENABLE_WEEKLY_RACE = true;
+
 /**
  * Void Glider (neon ship). When false, the minigame is vaulted: hidden from Arcade rows and H2H game
  * pickers; the route redirects to Play. Match flows + backend stay wired for in-flight games.

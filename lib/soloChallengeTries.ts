@@ -13,7 +13,7 @@ export const SOLO_CHALLENGE_MAX_TRIES_PER_DAY = 50;
  * Challenge ids enforced in Postgres `solo_challenge_consume_try` allowlist — keep in sync with migrations.
  * Other ids use device-only AsyncStorage until a migration adds them.
  */
-export const BACKEND_SOLO_CHALLENGE_IDS = new Set<string>(['tap_dash_100']);
+export const BACKEND_SOLO_CHALLENGE_IDS = new Set<string>(['tap_dash_100', 'money_tapdash_hot']);
 
 function keyFor(challengeId: string, dayKey: string): string {
   return `${PREFIX}/${encodeURIComponent(dayKey)}/${encodeURIComponent(challengeId)}`;
@@ -88,7 +88,7 @@ export async function tryConsumeSoloChallengeTry(
   challengeId: string,
 ): Promise<
   | { ok: true; usedAfter: number }
-  | { ok: false; used: number; rpcFailed?: boolean }
+  | { ok: false; used: number; rpcFailed?: boolean; requiresWalletUnlock?: boolean }
 > {
   const day = todayYmdLocal();
   const userId = await getSessionUserId();
@@ -111,6 +111,10 @@ export async function tryConsumeSoloChallengeTry(
 
       if (payload.ok === true && typeof payload.attempts_after === 'number') {
         return { ok: true, usedAfter: payload.attempts_after };
+      }
+
+      if (payload.error === 'payment_required') {
+        return { ok: false, used, requiresWalletUnlock: true };
       }
 
       return { ok: false, used };

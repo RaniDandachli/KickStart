@@ -11,7 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
-import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
+import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT, ENABLE_WEEKLY_RACE } from '@/constants/featureFlags';
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useTournaments } from '@/hooks/useTournaments';
@@ -105,13 +105,27 @@ export default function TournamentsListScreen() {
       imageSource: fridayCupBannerSource,
       imageFit: 'cover' as const,
     },
+    ...(ENABLE_WEEKLY_RACE
+      ? ([
+          {
+            id: 'weekly-race' as const,
+            title: 'Weekly Race',
+            subtitle: '$10 entry · 10 runs · best score on daily game · top-3 pool',
+            cta: 'View race',
+            pill: 'CASH' as const,
+            onPress: () => router.push('/(app)/(tabs)/tournaments/weekly-race'),
+            imageSource: fridayCupBannerSource,
+            imageFit: 'cover' as const,
+          },
+        ] as const)
+      : []),
     {
       id: 'solo',
-      title: 'Solo Challenges',
-      subtitle: 'Beat score targets · 50 tries/day · showcase prizes',
-      cta: 'Play now',
-      pill: 'FREE',
-      onPress: () => router.push('/(app)/(tabs)/tournaments/solo-challenges'),
+      title: 'Money Challenges',
+      subtitle: 'Free Tap Dash targets · wallet vault tiers · 10 tries/day on free tiers',
+      cta: 'Open challenges',
+      pill: '$',
+      onPress: () => router.push('/(app)/(tabs)/tournaments/money-challenges'),
       imageSource: runItArcadeLogoSource,
       imageFit: 'contain' as const,
     },

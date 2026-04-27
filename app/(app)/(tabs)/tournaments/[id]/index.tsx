@@ -16,7 +16,6 @@ import {
 } from '@/features/tournaments/tournamentPresentation';
 import { useJoinTournament, useTournament, useTournamentRules } from '@/hooks/useTournaments';
 import { useAuthStore } from '@/store/authStore';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import {
   appBorderAccentMuted,
   appChromeGradientFadePink,
@@ -29,6 +28,7 @@ export default function TournamentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
+  const authStatus = useAuthStore((s) => s.status);
   const [guestAuthOpen, setGuestAuthOpen] = useState(false);
   const tq = useTournament(id);
   const rq = useTournamentRules(id);
@@ -36,8 +36,16 @@ export default function TournamentDetailScreen() {
   const t = tq.data;
 
   function onJoin() {
-    if (!t || !userId) return;
-    if (t.state !== 'open' || t.current_player_count >= t.max_players) {
+    if (!t) {
+      Alert.alert('RunitArcade', 'Tournament is still loading. Try again in a moment.');
+      return;
+    }
+    if (!userId) {
+      setGuestAuthOpen(true);
+      return;
+    }
+    const isFull = !t.unlimited_entrants && t.current_player_count >= t.max_players;
+    if (t.state !== 'open' || isFull) {
       Alert.alert('RunitArcade', 'This tournament is full or not open for registration.');
       return;
     }
@@ -86,10 +94,12 @@ export default function TournamentDetailScreen() {
 
           <View style={styles.actions}>
             <AppButton
-              title={ENABLE_BACKEND && !userId ? 'Sign in to join' : 'Join tournament'}
-              loading={join.isPending}
+              title={!userId ? 'Sign in to join' : 'Join tournament'}
+              loading={authStatus === 'loading' || join.isPending}
+              disabled={authStatus === 'loading'}
               onPress={() => {
-                if (ENABLE_BACKEND && !userId) {
+                if (authStatus === 'loading') return;
+                if (!userId) {
                   setGuestAuthOpen(true);
                   return;
                 }

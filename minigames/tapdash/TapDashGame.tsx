@@ -48,6 +48,9 @@ import {
   saveLastMinigameAttempt,
   type LastMinigameAttempt,
 } from '@/lib/lastMinigameScoreAttempt';
+import { onWeeklyRaceAfterMinigameScore } from '@/lib/weeklyRaceAfterScore';
+import { queryKeys } from '@/lib/queryKeys';
+import { weeklyRaceDayKey } from '@/lib/weeklyRace';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import type { SoloChallengeBundle } from '@/lib/soloChallenges';
@@ -425,11 +428,14 @@ export default function TapDashGame({
   dailyTournament,
   h2hSkillContest,
   soloChallenge,
+  weeklyRace = false,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
   soloChallenge?: SoloChallengeBundle;
+  /** Daily paid leaderboard (practice mode, no prize credits) — `?weeklyRace=1` */
+  weeklyRace?: boolean;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -437,6 +443,9 @@ export default function TapDashGame({
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
   const prizeCredits = usePrizeCreditsDisplay();
+
+  const soloAttemptsCap =
+    soloChallenge?.maxAttemptsPerDay ?? SOLO_CHALLENGE_MAX_TRIES_PER_DAY;
 
   const { width: sw, height: sh } = useWindowDimensions();
   const laneCap = useMemo(() => minigameImmersiveStageWidth(sw), [sw]);
@@ -522,7 +531,7 @@ export default function TapDashGame({
       m.streak = 0;
       const durationMs = Math.max(0, Date.now() - startTimeRef.current);
       endStatsRef.current = { score: m.score, durationMs, taps: m.taps };
-      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize' && !weeklyRace) {
         const t = ticketsFromTapDashScore(m.score);
         awardRedeemTicketsForPrizeRun(t);
       }
@@ -538,7 +547,7 @@ export default function TapDashGame({
       }
       bump();
     },
-    [bump, playMode, dailyTournament, h2hSkillContest, soloChallenge],
+    [bump, playMode, dailyTournament, h2hSkillContest, soloChallenge, weeklyRace],
   );
 
   const step = useCallback(
@@ -639,17 +648,24 @@ export default function TapDashGame({
         void (async () => {
           const r = await tryConsumeSoloChallengeTry(soloChallenge.challengeId);
           if (!r.ok) {
+            if ('requiresWalletUnlock' in r && r.requiresWalletUnlock) {
+              Alert.alert(
+                'Unlock first',
+                'Pay today’s wallet entry from Money Challenges, then retry while signed in.',
+              );
+              return;
+            }
             if (r.rpcFailed) {
               Alert.alert(
                 'Could not sync',
                 'Check your connection and try again. Your try count is verified on the server when you’re signed in.',
               );
-            } else {
-              Alert.alert(
-                'Daily limit',
-                `You’ve used all ${SOLO_CHALLENGE_MAX_TRIES_PER_DAY} tries today for this challenge. New tries after local midnight.`,
-              );
+              return;
             }
+            Alert.alert(
+              'Daily limit',
+              `You’ve used all ${soloAttemptsCap} tries today for this challenge. New tries after local midnight.`,
+            );
             return;
           }
           setSoloTriesUsed(r.usedAfter);
@@ -665,7 +681,7 @@ export default function TapDashGame({
         })();
         return;
       }
-      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && playMode === 'prize' && !weeklyRace) {
         void (async () => {
           if (ENABLE_BACKEND) {
             if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
@@ -731,6 +747,8 @@ export default function TapDashGame({
     queryClient,
     uid,
     soloChallenge,
+    soloAttemptsCap,
+    weeklyRace,
   ]);
 
   /** Same controls as in-play (Space / ↑): start from ready, flap while playing — web only. */
@@ -755,7 +773,7 @@ export default function TapDashGame({
         setSubmitErr(true);
         return;
       }
-      const prizeRun = playMode === 'prize' && !dailyTournament && !h2hSkillContest;
+      const prizeRun = playMode === 'prize' && !dailyTournament && !h2hSkillContest && !weeklyRace;
       if (!assertPrizeRunReservation(prizeRun, ENABLE_BACKEND, prizeRunReservationRef.current)) {
         setSubmitErr(true);
         return;
@@ -788,10 +806,18 @@ export default function TapDashGame({
       setLastLocalAttempt(null);
       invalidateProfileEconomy(queryClient, uid);
       setSubmitOk(true);
+      if (weeklyRace) {
+        void (async () => {
+          const ok = await onWeeklyRaceAfterMinigameScore('tap-dash', endStatsRef.current.score);
+          if (ok) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.weeklyRace(weeklyRaceDayKey()) });
+          }
+        })();
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [playMode, dailyTournament, h2hSkillContest, queryClient, uid]);
+  }, [playMode, dailyTournament, h2hSkillContest, queryClient, uid, weeklyRace]);
 
   useAutoSubmitOnPhaseOver({
     phase,
@@ -986,7 +1012,7 @@ export default function TapDashGame({
               </Text>
               {soloChallenge ? (
                 <Text style={styles.hintSub}>
-                  Tries today: {soloTriesUsed ?? '…'}/{SOLO_CHALLENGE_MAX_TRIES_PER_DAY} · free entry
+                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Money Challenge (see Events)
                 </Text>
               ) : (
                 <Text style={styles.hintSub}>Neon sprint · precision run</Text>
