@@ -326,11 +326,14 @@ function checkCollisions(state: RunState, input: InputState): void {
         const cx = o.x + o.w / 2, cy = o.y + o.h / 2, r = o.w / 2;
         const pcx = player.worldX + NR.PLAYER_W / 2, pcy = player.y + NR.PLAYER_H / 2;
         const dx = pcx - cx, dy = pcy - cy;
-        if (dx * dx + dy * dy < (r + NR.PLAYER_W * 0.55) ** 2 && input.jumpHeld) {
+        // GD-style: orb works on tap (jump buffer) or hold — not hold-only.
+        const orbInput = input.jumpHeld || input.jumpBufferMs > 0;
+        if (dx * dx + dy * dy < (r + NR.PLAYER_W * 0.62) ** 2 && orbInput) {
           o.used = true;
           player.vy = NR.JUMP_V * 1.1;
           player.rotV = -(Math.PI * 2) / 60;
           input.coyoteMs = 0;
+          input.jumpBufferMs = 0;
         }
         break;
       }

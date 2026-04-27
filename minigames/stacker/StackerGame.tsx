@@ -287,6 +287,18 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     },
   });
 
+  /** Web: game over — Space / Enter = Play Again (same as in-run drop keys). */
+  useWebGameKeyboard(Platform.OS === 'web' && phase === 'over', {
+    Space: (down) => {
+      if (!down) return;
+      resetRun();
+    },
+    Enter: (down) => {
+      if (!down) return;
+      resetRun();
+    },
+  });
+
   const submitScore = useCallback(async () => {
     const { rows, durationMs } = endStatsRef.current;
     setSubmitting(true);

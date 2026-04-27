@@ -824,6 +824,28 @@ export default function TapDashGame({
     dailyTournament.onComplete(dailyPayload);
   }, [dailyTournament, dailyPayload]);
 
+  /** Web: game over — Space / ↑ / Enter = Play Again or (daily) Continue. H2H waits on server — no shortcut. */
+  useWebGameKeyboard(
+    Platform.OS === 'web' && phase === 'over' && !h2hSkillContest && (!dailyTournament || !!dailyPayload),
+    {
+      Space: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      ArrowUp: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Enter: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+    },
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>

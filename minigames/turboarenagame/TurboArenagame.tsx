@@ -516,6 +516,22 @@ export default function TurboArenaGame({
     KeyX: (d) => setKey('kick', d),
   });
 
+  /** Web: game over — Space / ↑ / Enter = Play Again (jump / confirm keys). */
+  useWebGameKeyboard(Platform.OS === 'web' && phase === 'over', {
+    Space: (down) => {
+      if (!down) return;
+      resetRun();
+    },
+    ArrowUp: (down) => {
+      if (!down) return;
+      resetRun();
+    },
+    Enter: (down) => {
+      if (!down) return;
+      resetRun();
+    },
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>

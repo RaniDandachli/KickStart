@@ -38,7 +38,7 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View className="flex-1 px-4" style={{ paddingTop: topPad }}>
+    <View className="flex-1 px-5" style={{ paddingTop: topPad }}>
       {children}
     </View>
   );
@@ -69,5 +69,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, minHeight: 0 },
   /** Lets nested flex layouts shrink so RN Web ScrollView can scroll on iOS Safari (body scroll is off). */
   scrollView: { flex: 1, minHeight: 0 },
-  scrollContent: { paddingHorizontal: 16 },
+  /** Slightly wider gutters read more “product” on phone + web. */
+  scrollContent: { paddingHorizontal: 20 },
 });

@@ -6,4 +6,17 @@
 html,
 body {
   background-color: #050208;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: rgba(168, 85, 247, 0.35);
+  color: #f8fafc;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(232, 121, 249, 0.85);
+  outline-offset: 2px;
 }

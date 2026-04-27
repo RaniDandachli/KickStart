@@ -20,6 +20,7 @@ import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/
 import { AppButton } from '@/components/ui/AppButton';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
@@ -314,7 +315,12 @@ export default function ProfileScreen() {
         <Text style={styles.signedInNote}>Signed in as {user.email}</Text>
       ) : null}
 
-      <Text style={styles.screenKicker}>Your profile</Text>
+      <ScreenHeader
+        eyebrow="Account"
+        title="Profile"
+        subtitle="Wallet, display name, and security — your hub for Run It on this device."
+        style={{ marginBottom: 6 }}
+      />
 
       <View style={styles.header}>
         <Pressable onPress={() => void pickAvatar()} accessibilityRole="button" accessibilityLabel="Change profile photo">
@@ -692,14 +698,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 8,
-  },
-  screenKicker: {
-    color: 'rgba(226,232,240,0.95)',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-    marginBottom: 16,
-    marginTop: 4,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
   avatarRing: { width: 96, height: 96, borderRadius: 48, padding: 3 },

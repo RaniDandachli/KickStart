@@ -461,6 +461,43 @@ export default function TileClashGame({
     dailyTournament.onComplete(dailyPayload);
   }, [dailyTournament, dailyPayload]);
 
+  /** Web: game over — Space / Enter / 1–4 = Play Again or (daily) Continue. H2H waits on server. */
+  useWebGameKeyboard(
+    Platform.OS === 'web' && phase === 'over' && !h2hSkillContest && (!dailyTournament || !!dailyPayload),
+    {
+      Space: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Enter: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Digit1: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Digit2: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Digit3: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+      Digit4: (down) => {
+        if (!down) return;
+        if (dailyTournament) onContinueDaily();
+        else resetRun();
+      },
+    },
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.topBar} accessibilityRole="toolbar">

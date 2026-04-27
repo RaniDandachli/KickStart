@@ -8,6 +8,8 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT } from '@/constants/featureFlags';
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
@@ -17,7 +19,7 @@ import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
 import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
 import { fridayCupBannerSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
-import { appChromeGradientFadePink, runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -119,10 +121,13 @@ export default function TournamentsListScreen() {
 
   return (
     <Screen>
-      <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>EVENTS</Text>
-      <Text style={styles.sub}>Skill-based tournaments — admin-awarded prizes</Text>
+      <ScreenHeader
+        eyebrow="Compete"
+        title="Events"
+        subtitle="Skill-based tournaments and featured runs — prizes are awarded by admins after verification."
+      />
 
-      <Text style={styles.sectionKicker}>FEATURED EVENTS</Text>
+      <SectionLabel>Featured events</SectionLabel>
       <Pressable onPress={featured.onPress} style={({ pressed }) => [styles.heroCardWrap, pressed && { opacity: 0.95 }]}>
         <LinearGradient
           colors={[runit.neonCyan, runit.neonPurple]}
@@ -181,7 +186,7 @@ export default function TournamentsListScreen() {
 
       {ENABLE_CREDIT_CUPS ? (
         <>
-          <Text style={styles.sectionKicker}>CREDIT CUPS</Text>
+          <SectionLabel>Credit cups</SectionLabel>
           <Text style={styles.cupSectionSub}>
             One Run It cup run per day (pick a tier) · single elimination · prize credits — most players still top up for Arcade
           </Text>
@@ -360,16 +365,6 @@ function stateColor(state: string) {
 }
 
 const styles = StyleSheet.create({
-  title: { color: runit.neonPink, fontSize: 30, fontWeight: '900', letterSpacing: 3, marginBottom: 4 },
-  sub: { color: 'rgba(203,213,225,0.85)', fontSize: 13, marginBottom: 18 },
-  sectionKicker: {
-    color: 'rgba(148,163,184,0.95)',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 6,
-    marginTop: 4,
-  },
   cupSectionSub: { color: 'rgba(148,163,184,0.88)', fontSize: 12, marginBottom: 12, lineHeight: 17 },
   heroCardWrap: { marginBottom: 8 },
   heroCardBorder: { borderRadius: 22, padding: 2.5 },

@@ -23,6 +23,7 @@ import { ShippingAddressForm } from '@/components/profile/ShippingAddressForm';
 import { AppButton } from '@/components/ui/AppButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useShippingAddress } from '@/hooks/useShippingAddress';
@@ -45,7 +46,6 @@ import {
   runit,
   runitFont,
   runitGlowPinkSoft,
-  runitTextGlowPink,
 } from '@/lib/runitArcadeTheme';
 
 type ShippingModal =
@@ -63,7 +63,7 @@ function newIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-const SCREEN_H_PAD = 16;
+const SCREEN_H_PAD = 20;
 const CATALOG_GAP = 8;
 /** Match Arcade “compact” rows — smaller tiles so more catalog items fit above the fold. */
 const PRIZE_IMG_H = 58;
@@ -243,8 +243,11 @@ export default function PrizesScreen() {
 
   return (
     <Screen>
-      <Text style={[styles.pageTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>PRIZES</Text>
-      <Text style={styles.pageSub}>Spend redeem tickets here — earn them from arcade prize runs</Text>
+      <ScreenHeader
+        eyebrow="Redeem shop"
+        title="Prizes"
+        subtitle="Spend redeem tickets you earn from arcade prize runs — shipping and digital delivery in one place."
+      />
 
       <Pressable
         onPress={() =>
@@ -557,8 +560,6 @@ export default function PrizesScreen() {
 }
 
 const styles = StyleSheet.create({
-  pageTitle: { color: runit.neonPink, fontSize: 22, fontWeight: '900', letterSpacing: 2, marginBottom: 2 },
-  pageSub: { color: 'rgba(203,213,225,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 6 },
   shipLink: { marginBottom: 6 },
   shipLinkText: { color: runit.neonCyan, fontSize: 13, fontWeight: '700', flex: 1 },
   iconLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },

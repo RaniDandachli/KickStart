@@ -33,7 +33,10 @@ export function NeonArcadeSplash({ onComplete }: Props) {
 
   const isWeb = Platform.OS === 'web';
   const shortSide = Math.min(w, h);
-  const logoMax = isWeb ? Math.min(w * 0.48, 300) : Math.min(shortSide * 0.6, 300);
+  /** iPhone (and narrow mobile browsers): match native splash — `contain` hero + same logo scale. Desktop web keeps full-bleed `cover`. */
+  const useNativeSplashLayout = !isWeb || shortSide < 640;
+  const logoMax = useNativeSplashLayout ? Math.min(shortSide * 0.6, 300) : Math.min(w * 0.48, 300);
+  const heroResizeMode = useNativeSplashLayout ? 'contain' : 'cover';
 
   useEffect(() => {
     progress.value = withSequence(
@@ -86,7 +89,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
       <ImageBackground
         source={HERO}
         style={StyleSheet.absoluteFill}
-        resizeMode={isWeb ? 'cover' : 'contain'}
+        resizeMode={heroResizeMode}
         accessibilityLabel=""
       >
         <LinearGradient
@@ -114,7 +117,7 @@ export function NeonArcadeSplash({ onComplete }: Props) {
         pointerEvents="none"
       />
 
-      {isWeb ? (
+      {isWeb && !useNativeSplashLayout ? (
         <LinearGradient
           colors={['transparent', 'rgba(5,0,10,0.5)', 'rgba(0,0,0,0.85)']}
           locations={[0, 0.5, 1]}

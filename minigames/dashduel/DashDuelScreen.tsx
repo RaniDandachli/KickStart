@@ -343,7 +343,7 @@ export default function DashDuelScreen({
                 </Text>
                 <Text className="mb-8 text-center text-base leading-6 text-slate-300">
                   Landscape run: constant speed like Geometry Dash. Avoid voids, crystals, walls, and lasers. Hit rings
-                  while holding jump for a boost.
+                  with a tap or hold mid-air for a boost (same timing as GD).
                 </Text>
               </View>
               <View

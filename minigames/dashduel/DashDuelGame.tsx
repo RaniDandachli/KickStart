@@ -490,8 +490,8 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
       <View style={[styles.hint, { marginBottom: Math.max(4, insets.bottom) }]}>
         <Text style={[styles.hintTxt, { color: theme.accentColor + 'bb' }]}>
           {Platform.OS === 'web'
-            ? 'SPACE / ↑ TO JUMP · HOLD TO CHAIN'
-            : 'TAP TO JUMP · HOLD TO CHAIN'}
+            ? 'SPACE / ↑ JUMP · TAP OR HOLD ON RINGS'
+            : 'TAP JUMP · TAP OR HOLD ON RINGS'}
         </Text>
       </View>
     </View>

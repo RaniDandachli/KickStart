@@ -1,4 +1,4 @@
-import { appBorderAccent, runit } from '@/lib/runitArcadeTheme';
+import { appBorderAccent, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type PropsWithChildren } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
@@ -143,8 +143,21 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
-  textPrimary: { color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: 0.5, textAlign: 'center' },
-  textSecondary: { color: '#a78bfa', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
-  textGhost: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 15 },
-  textDanger: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  textPrimary: {
+    color: '#fff',
+    fontFamily: runitFont.bold,
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  textSecondary: {
+    color: '#a78bfa',
+    fontFamily: runitFont.bold,
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 0.6,
+  },
+  textGhost: { color: 'rgba(255,255,255,0.92)', fontFamily: runitFont.bold, fontWeight: '800', fontSize: 15 },
+  textDanger: { color: '#fff', fontFamily: runitFont.bold, fontWeight: '800', fontSize: 15 },
 });
