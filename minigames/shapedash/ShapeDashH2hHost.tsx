@@ -53,7 +53,7 @@ export function ShapeDashH2hHost({
     () =>
       buildShapeDashHtml({
         marathon: true,
-        skipAutoMarathon: true,
+        skipAutoMarathon: false,
         h2h: true,
       }),
     [],
@@ -98,6 +98,10 @@ export function ShapeDashH2hHost({
   const onCountdownDone = useCallback(() => {
     setPhase('playing');
     kickStartMarathon();
+    if (Platform.OS === 'web') {
+      setTimeout(kickStartMarathon, 200);
+      setTimeout(kickStartMarathon, 600);
+    }
   }, [kickStartMarathon]);
 
   const handleMessageBody = useCallback(

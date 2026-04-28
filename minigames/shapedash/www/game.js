@@ -42,6 +42,24 @@ requestAnimationFrame(function () {
 setTimeout(function () {
   resize();
 }, 100);
+setTimeout(function () {
+  resize();
+}, 280);
+(function settleResizePolling() {
+  const started = now();
+  const id = setInterval(function () {
+    resize();
+    if (now() - started > 2200) clearInterval(id);
+  }, 180);
+})();
+if (typeof ResizeObserver !== "undefined" && typeof document !== "undefined") {
+  try {
+    const ro = new ResizeObserver(function () {
+      resize();
+    });
+    if (document.documentElement) ro.observe(document.documentElement);
+  } catch (_) {}
+}
 
 // -------------------- Constants --------------------
 const PS = 38; // player size

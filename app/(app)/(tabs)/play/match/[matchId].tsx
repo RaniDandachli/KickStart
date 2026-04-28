@@ -2,7 +2,7 @@ import { usePreventRemove } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, InteractionManager, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, InteractionManager, Platform, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -194,6 +194,11 @@ export default function MatchPlayScreen() {
   }
 
   function confirmForfeit() {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const ok = window.confirm('Forfeit match? Your opponent will be recorded as the winner.');
+      if (ok) navigateToForfeitResult();
+      return;
+    }
     Alert.alert(
       'Forfeit match?',
       'Your opponent will be recorded as the winner. This cannot be undone.',
