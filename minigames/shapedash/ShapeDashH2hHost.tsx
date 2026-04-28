@@ -4,11 +4,10 @@ import WebView from 'react-native-webview';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
-import { Countdown } from '@/minigames/ui/Countdown';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
 import type { H2hSkillContestBundle } from '@/types/match';
 
-type Phase = 'countdown' | 'playing' | 'results';
+type Phase = 'playing' | 'results';
 
 /** Injects Marathon boot (+ optional skip + H2H flag) before bundled game script. */
 function buildShapeDashHtml(opts: {
@@ -48,7 +47,7 @@ export function ShapeDashH2hHost({
   /** Head-to-head match stack sometimes gives RN WebView 0 height until a floor is set */
   const minEmbedHeight = Math.max(280, Math.floor(windowHeight * 0.55));
 
-  const [phase, setPhase] = useState<Phase>('countdown');
+  const [phase, setPhase] = useState<Phase>('playing');
   const html = useMemo(
     () =>
       buildShapeDashHtml({
@@ -80,29 +79,6 @@ export function ShapeDashH2hHost({
     buildH2hBody,
     'results',
   );
-
-  const kickStartMarathon = useCallback(() => {
-    const js =
-      '(function(){try{if(typeof window.startMarathon==="function")window.startMarathon();}catch(e){}})();true;';
-    if (Platform.OS === 'web') {
-      try {
-        iframeRef.current?.contentWindow?.postMessage({ type: 'shape-dash-start-marathon' }, '*');
-      } catch (_) {
-        /** ignore */
-      }
-      return;
-    }
-    webRef.current?.injectJavaScript(js);
-  }, []);
-
-  const onCountdownDone = useCallback(() => {
-    setPhase('playing');
-    kickStartMarathon();
-    if (Platform.OS === 'web') {
-      setTimeout(kickStartMarathon, 200);
-      setTimeout(kickStartMarathon, 600);
-    }
-  }, [kickStartMarathon]);
 
   const handleMessageBody = useCallback(
     (raw: string | object) => {
@@ -180,12 +156,6 @@ export function ShapeDashH2hHost({
           })}
         </View>
 
-        {phase === 'countdown' ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,23,42,0.75)', zIndex: 40 }]} pointerEvents="auto">
-            <Countdown active onComplete={onCountdownDone} />
-          </View>
-        ) : null}
-
         {phase === 'results' ? (
           <View style={[styles.h2hBanner, { zIndex: 50 }]} pointerEvents="box-none">
             <Text style={styles.bannerTitle}>Run recorded</Text>
@@ -242,12 +212,6 @@ export function ShapeDashH2hHost({
         {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
         {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
       />
-
-      {phase === 'countdown' ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,23,42,0.75)', zIndex: 40 }]} pointerEvents="auto">
-          <Countdown active onComplete={onCountdownDone} />
-        </View>
-      ) : null}
 
       {phase === 'results' ? (
         <View style={[styles.h2hBanner, { zIndex: 50 }]} pointerEvents="box-none">
