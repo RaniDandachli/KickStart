@@ -163,6 +163,7 @@ Deno.serve(async (req) => {
         if (gk === 'neon-dance') return 'neon_dance';
         if (gk === 'neon-grid') return 'neon_grid';
         if (gk === 'neon-ship') return 'neon_ship';
+        if (gk === 'shape-dash') return 'shape_dash';
         return null;
       })();
       if (!forfeitBy && skillGameType) {

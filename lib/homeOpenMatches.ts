@@ -60,6 +60,14 @@ export const H2H_OPEN_GAMES_ALL = [
     bgColors: ['#1a0a2e', '#4c1d95', '#0f0220'] as const,
     borderAccent: 'pink' as const satisfies RunitBorderAccent,
   },
+  {
+    gameKey: 'shape-dash' as const,
+    title: 'Shape Dash',
+    /** Head-to-head: endless Marathon only (single mode for competitive runs). */
+    route: '/(app)/(tabs)/play/minigames/shape-dash?mode=marathon',
+    bgColors: ['#061018', '#0e7490', '#155e75'] as const,
+    borderAccent: 'gold' as const satisfies RunitBorderAccent,
+  },
 ] as const;
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES_ALL)[number]['gameKey'];

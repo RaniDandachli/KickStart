@@ -14,6 +14,9 @@ import {
   BallRunGameIcon,
   DashDuelGameIcon,
   NeonDanceGameIcon,
+  NeonGridGameIcon,
+  NeonShipGameIcon,
+  ShapeDashGameIcon,
   TapDashGameIcon,
   TileClashGameIcon,
   TurboArenaGameIcon,
@@ -169,6 +172,12 @@ export default function LiveMatchesScreen() {
         return <TurboArenaGameIcon size={size} />;
       case 'neon-dance':
         return <NeonDanceGameIcon size={size} />;
+      case 'neon-grid':
+        return <NeonGridGameIcon size={size} />;
+      case 'neon-ship':
+        return <NeonShipGameIcon size={size} />;
+      case 'shape-dash':
+        return <ShapeDashGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }

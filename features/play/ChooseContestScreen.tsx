@@ -6,6 +6,7 @@ import {
     NeonDanceGameIcon,
     NeonGridGameIcon,
     NeonShipGameIcon,
+    ShapeDashGameIcon,
     TapDashGameIcon,
     TileClashGameIcon,
     TurboArenaGameIcon,
@@ -38,6 +39,8 @@ function gameIcon(gameKey: H2hGameKey, size: number) {
       return <NeonGridGameIcon size={size} />;
     case 'neon-ship':
       return <NeonShipGameIcon size={size} />;
+    case 'shape-dash':
+      return <ShapeDashGameIcon size={size} />;
     default:
       return <TapDashGameIcon size={size} />;
   }

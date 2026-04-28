@@ -54,6 +54,8 @@ let muted = false;
 
 let currentLevelIdx = 0;
 let marathonMode = false;
+/** Head-to-head: input taps (jumps/actions) counted for submitMinigameScore. */
+let h2hInputCount = 0;
 let levelData = null;
 let attemptNum = 0;
 let deathNum = 0;
@@ -128,6 +130,7 @@ function resetPlayer(fromCp) {
   P.speed = BASE_SPEED;
   P.dead = false;
   P.done = false;
+  h2hInputCount = 0;
   trail = [];
   cameraX = P.x - 250;
   _inputWasDown = inputHeld;
@@ -1100,12 +1103,35 @@ function showAttemptFlash() {
   attemptFlashText = "Attempt " + attemptNum;
 }
 
+function emitShapeDashH2hDeath() {
+  try {
+    if (!globalThis.__SHAPE_DASH_H2H || !marathonMode) return;
+    const durationMs = Math.max(0, Math.floor(now() - levelTimer));
+    const payload = {
+      kind: "shape_dash_h2h_death",
+      score: marathonDistanceScore(),
+      duration_ms: durationMs,
+      taps: Math.max(0, h2hInputCount),
+    };
+    const s = JSON.stringify(payload);
+    if (typeof window !== "undefined") {
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(s);
+      }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(payload, "*");
+      }
+    }
+  } catch (_) {}
+}
+
 function kill() {
   if (P.dead) return;
   P.dead = true;
   deathNum++;
   shakeIntensity = 14;
   sfxDie();
+  emitShapeDashH2hDeath();
   emitP(P.x + PS / 2, P.y + PS / 2, "#ff0040", 28, 12);
   emitP(P.x + PS / 2, P.y + PS / 2, "#ffcc00", 14, 8);
   if (marathonMode) {
@@ -1147,6 +1173,10 @@ function update() {
 
   inputJustDown = inputHeld && !_inputWasDown;
   _inputWasDown = inputHeld;
+
+  if (marathonMode && globalThis.__SHAPE_DASH_H2H && inputJustDown) {
+    h2hInputCount++;
+  }
 
   P.x += P.speed;
 
@@ -2463,10 +2493,28 @@ function loop(ts) {
 (function applyShapeDashBoot() {
   try {
     const boot = globalThis.__SHAPE_DASH_BOOT;
-    if (boot && boot.defaultMode === "marathon") {
+    if (
+      boot &&
+      boot.defaultMode === "marathon" &&
+      !boot.skipAutoPlay
+    ) {
       startMarathon();
     }
   } catch (_) {}
+})();
+if (typeof globalThis !== "undefined") {
+  globalThis.startMarathon = startMarathon;
+}
+(function shapeDashListenParentStart() {
+  if (typeof window === "undefined") return;
+  window.addEventListener("message", function (ev) {
+    try {
+      const d = ev.data;
+      if (d && typeof d === "object" && d.type === "shape-dash-start-marathon") {
+        startMarathon();
+      }
+    } catch (_) {}
+  });
 })();
 
 requestAnimationFrame(loop);

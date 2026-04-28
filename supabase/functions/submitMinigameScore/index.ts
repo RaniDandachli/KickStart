@@ -156,6 +156,13 @@ const Body = z.discriminatedUnion('game_type', [
     taps: z.number().int().min(0).max(2_000_000),
     match_session_id: z.string().uuid().optional(),
   }),
+  z.object({
+    game_type: z.literal('shape_dash'),
+    score: z.number().int().min(0).max(1_000_000),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(2_000_000),
+    match_session_id: z.string().uuid().optional(),
+  }),
 ]);
 
 /** Max pipes that can exist / be passed given spawn cadence (generous margin). */
@@ -205,6 +212,11 @@ function maxPlausibleNeonShipScore(durationMs: number): number {
   return Math.min(1_000_000, Math.floor(durationMs * 0.04) + 4000);
 }
 
+/** Shape Dash Marathon — score ≈ horizontal distance px; generous vs session length / speed ramps. */
+function maxPlausibleShapeDashMarathonScore(durationMs: number): number {
+  return Math.min(1_000_000, Math.floor(durationMs * 0.72) + 120_000);
+}
+
 /** `minigame_scores.game_type` → `match_sessions.game_key` slug for H2H validation. */
 const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   tap_dash: 'tap-dash',
@@ -215,6 +227,7 @@ const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   neon_dance: 'neon-dance',
   neon_grid: 'neon-grid',
   neon_ship: 'neon-ship',
+  shape_dash: 'shape-dash',
 };
 
 function stdev(arr: number[]): number {
@@ -381,6 +394,12 @@ Deno.serve(async (req) => {
       }
       const maxThrusts = Math.floor(duration_ms / 12) + 4000;
       if (taps > maxThrusts) return errorResponse('Invalid thrust count for session duration', 422);
+    } else if (data.game_type === 'shape_dash') {
+      if (score > maxPlausibleShapeDashMarathonScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      const maxJumps = Math.floor(duration_ms / 35) + 8000;
+      if (taps > maxJumps) return errorResponse('Invalid input count for session duration', 422);
     } else {
       return errorResponse('Unsupported game_type', 422);
     }
