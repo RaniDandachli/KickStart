@@ -26,6 +26,25 @@ function buildShapeDashHtml(opts: {
         skipAutoPlay: Boolean(opts.skipAutoMarathon),
       })};`,
     );
+    // Failsafe: after bundled script loads, keep attempting Marathon start briefly.
+    parts.push(`
+      (function shapeDashH2hAutostart(){
+        var tries = 0;
+        function kick() {
+          try {
+            if (typeof globalThis.startMarathon === 'function') {
+              globalThis.startMarathon();
+            }
+          } catch (_) {}
+          tries += 1;
+          if (tries >= 30) clearInterval(id);
+        }
+        var id = setInterval(kick, 120);
+        if (typeof window !== 'undefined') {
+          window.addEventListener('load', kick, { once: true });
+        }
+      })();
+    `);
   }
   parts.push('<\\/script>');
   return SHAPE_DASH_INLINE_HTML.replace('<body>', `<body>${parts.join('')}`);

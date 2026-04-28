@@ -46,10 +46,10 @@ setTimeout(function () {
   resize();
 }, 280);
 (function settleResizePolling() {
-  const started = now();
+  const started = Date.now();
   const id = setInterval(function () {
     resize();
-    if (now() - started > 2200) clearInterval(id);
+    if (Date.now() - started > 2200) clearInterval(id);
   }, 180);
 })();
 if (typeof ResizeObserver !== "undefined" && typeof document !== "undefined") {
