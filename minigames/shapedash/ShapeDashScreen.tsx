@@ -1,7 +1,9 @@
 /**
- * Hosted HTML5 canvas Geometry-Dash tribute (bundled HTML for WebView on native + web).
+ * Hosted HTML5 canvas Geometry-Dash tribute.
+ * - Native: WebView with bundled HTML.
+ * - Web: iframe + srcDoc (react-native-webview does not support web).
  */
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -13,10 +15,7 @@ import { runitFont } from '@/lib/runitArcadeTheme';
 
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
 
-export default function ShapeDashScreen() {
-  useHidePlayTabBar();
-  const { onHeaderBackPress, replacePrimaryLabel } = useMinigameExitNav();
-
+function ShapeDashGameEmbed({ html }: { html: string }) {
   const injected = useMemo(
     () => `
       (function() {
@@ -27,6 +26,55 @@ export default function ShapeDashScreen() {
     `,
     [],
   );
+
+  if (Platform.OS === 'web') {
+    /** RN Web has no native WebView; iframe + srcDoc runs the same document. */
+    return (
+      <View style={styles.embedWrap} accessibilityLabel="Shape Dash">
+        {/* DOM iframe — only built on web bundle */}
+        {createElement('iframe', {
+          srcDoc: html,
+          title: 'Shape Dash',
+          style: ({
+            border: 'none',
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            backgroundColor: '#060610',
+            flexGrow: 1,
+          }) as Record<string, unknown>,
+          allow: 'fullscreen',
+        })}
+      </View>
+    );
+  }
+
+  return (
+    <WebView
+      style={styles.web}
+      originWhitelist={['*']}
+      source={{ html }}
+      javaScriptEnabled
+      domStorageEnabled
+      injectedJavaScriptBeforeContentLoaded={injected}
+      nestedScrollEnabled
+      allowsFullscreenVideo={false}
+      mediaPlaybackRequiresUserAction
+      {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
+      {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
+      setBuiltInZoomControls={false}
+      showsHorizontalScrollIndicator={false}
+      showsVerticalScrollIndicator={false}
+      overScrollMode="never"
+      bounces={false}
+      scrollEnabled={false}
+    />
+  );
+}
+
+export default function ShapeDashScreen() {
+  useHidePlayTabBar();
+  const { onHeaderBackPress, replacePrimaryLabel } = useMinigameExitNav();
 
   return (
     <View style={styles.wrap}>
@@ -42,25 +90,7 @@ export default function ShapeDashScreen() {
           <Text style={styles.backTxt}>{replacePrimaryLabel}</Text>
         </Pressable>
       </SafeAreaView>
-      <WebView
-        style={styles.web}
-        originWhitelist={['*']}
-        source={{ html: SHAPE_DASH_INLINE_HTML }}
-        javaScriptEnabled
-        domStorageEnabled
-        injectedJavaScriptBeforeContentLoaded={injected}
-        nestedScrollEnabled
-        allowsFullscreenVideo={false}
-        mediaPlaybackRequiresUserAction
-        {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
-        {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
-        setBuiltInZoomControls={false}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-        bounces={false}
-        scrollEnabled={false}
-      />
+      <ShapeDashGameEmbed html={SHAPE_DASH_INLINE_HTML} />
     </View>
   );
 }
@@ -89,6 +119,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     fontFamily: runitFont.black,
+  },
+  embedWrap: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: '#060610',
   },
   web: {
     flex: 1,
