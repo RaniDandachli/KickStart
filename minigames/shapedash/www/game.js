@@ -97,6 +97,8 @@ let currentLevelIdx = 0;
 let marathonMode = false;
 /** Head-to-head: input taps (jumps/actions) counted for submitMinigameScore. */
 let h2hInputCount = 0;
+/** Head-to-head Marathon is single-attempt only (no restarts). */
+let h2hRunLocked = false;
 let levelData = null;
 let attemptNum = 0;
 let deathNum = 0;
@@ -227,7 +229,9 @@ window.addEventListener("keydown", (e) => {
       menuAction();
     }
   }
-  if (gameState === "dead" && (c === "Space" || c === "Enter")) restart();
+  if (gameState === "dead" && (c === "Space" || c === "Enter")) {
+    if (!(marathonMode && globalThis.__SHAPE_DASH_H2H && h2hRunLocked)) restart();
+  }
   if (gameState === "complete" && (c === "Space" || c === "Enter")) goToMenu();
 });
 
@@ -241,7 +245,7 @@ function tapHandler(x, y) {
     return;
   }
   if (gameState === "dead") {
-    restart();
+    if (!(marathonMode && globalThis.__SHAPE_DASH_H2H && h2hRunLocked)) restart();
     return;
   }
   if (gameState === "complete") {
@@ -301,6 +305,7 @@ document.addEventListener("fullscreenchange", () => resize());
 
 function goToMenu() {
   marathonMode = false;
+  h2hRunLocked = false;
   gameState = "menu";
   menuScreen = "main";
   menuSel = 0;
@@ -1096,6 +1101,7 @@ function getProgress() {
 function startLevel(idx) {
   initAudio();
   marathonMode = false;
+  h2hRunLocked = false;
   currentLevelIdx = idx;
   levels = makeLevels();
   levelData = levels[idx];
@@ -1113,6 +1119,7 @@ function startLevel(idx) {
 function startMarathon() {
   initAudio();
   marathonMode = true;
+  h2hRunLocked = false;
   currentLevelIdx = 3;
   levels = makeLevels();
   levelData = buildMarathonLevel();
@@ -1128,6 +1135,7 @@ function startMarathon() {
 }
 
 function restart() {
+  if (marathonMode && globalThis.__SHAPE_DASH_H2H && h2hRunLocked) return;
   if (practiceMode && checkpoints.length) {
     resetPlayer(true);
   } else {
@@ -1147,6 +1155,7 @@ function showAttemptFlash() {
 function emitShapeDashH2hDeath() {
   try {
     if (!globalThis.__SHAPE_DASH_H2H || !marathonMode) return;
+    h2hRunLocked = true;
     const durationMs = Math.max(0, Math.floor(now() - levelTimer));
     const payload = {
       kind: "shape_dash_h2h_death",
@@ -2067,7 +2076,11 @@ function drawDeath() {
   ctx.fillStyle = "#fff";
   ctx.font = 'bold 17px "Segoe UI", system-ui, sans-serif';
   ctx.textAlign = "center";
-  ctx.fillText("Click or Space to retry", W / 2, H / 2 + 70);
+  if (marathonMode && globalThis.__SHAPE_DASH_H2H && h2hRunLocked) {
+    ctx.fillText("Run submitted. Waiting for opponent...", W / 2, H / 2 + 70);
+  } else {
+    ctx.fillText("Click or Space to retry", W / 2, H / 2 + 70);
+  }
 
   ctx.fillStyle = "rgba(255,255,255,0.35)";
   ctx.font = '14px "Segoe UI", system-ui, sans-serif';
