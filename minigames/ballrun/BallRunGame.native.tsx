@@ -40,7 +40,8 @@ import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -603,6 +604,12 @@ export default function NeonBallRunGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -861,7 +868,7 @@ export default function NeonBallRunGame({
 
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+          <Pressable onPress={onHeaderBackPress} style={styles.backBtn} hitSlop={12}>
             <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <View style={styles.scoreCol}>
@@ -968,8 +975,9 @@ export default function NeonBallRunGame({
               {dailyTournament && dailyPayload ? (
                 <>
                   <GameOverExitRow
-                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                    onHome={() => router.replace(ROUTE_HOME)}
+                    minigamesLabel={replacePrimaryLabel}
+                    onMinigames={replaceToPrimaryExit}
+                    onHome={replaceToHomeTab}
                   />
                   <Text style={styles.goTitle}>Round result</Text>
                   <Text style={styles.goVsBall} numberOfLines={1}>
@@ -988,8 +996,9 @@ export default function NeonBallRunGame({
               ) : h2hSkillContest ? (
                 <>
                   <GameOverExitRow
-                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                    onHome={() => router.replace(ROUTE_HOME)}
+                    minigamesLabel={replacePrimaryLabel}
+                    onMinigames={replaceToPrimaryExit}
+                    onHome={replaceToHomeTab}
                   />
                   <Text style={styles.goTitle}>Run ended</Text>
                   <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
@@ -1014,8 +1023,9 @@ export default function NeonBallRunGame({
               ) : (
                 <>
                   <GameOverExitRow
-                    onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                    onHome={() => router.replace(ROUTE_HOME)}
+                    minigamesLabel={replacePrimaryLabel}
+                    onMinigames={replaceToPrimaryExit}
+                    onHome={replaceToHomeTab}
                   />
                   <Text style={styles.goTitle}>WIPED OUT</Text>
                   {s && <Text style={styles.goReason}>{s.deathReason}</Text>}

@@ -31,7 +31,8 @@ import {
   shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow, ROUTE_HOME } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
@@ -439,6 +440,12 @@ export default function TapDashGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -880,7 +887,7 @@ export default function TapDashGame({
             accessibilityRole="button"
             accessibilityLabel="Back"
             hitSlop={12}
-            onPress={() => router.back()}
+            onPress={onHeaderBackPress}
             style={styles.topIconBtn}
           >
             <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
@@ -1012,7 +1019,7 @@ export default function TapDashGame({
               </Text>
               {soloChallenge ? (
                 <Text style={styles.hintSub}>
-                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Money Challenge (see Events)
+                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Money Challenge (Money tab)
                 </Text>
               ) : (
                 <Text style={styles.hintSub}>Neon sprint · precision run</Text>
@@ -1031,8 +1038,9 @@ export default function TapDashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Round result</Text>
               <Text style={styles.goVs} numberOfLines={1}>
@@ -1054,8 +1062,9 @@ export default function TapDashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Your gates: {endStatsRef.current.score}</Text>
@@ -1087,8 +1096,9 @@ export default function TapDashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Run ended</Text>
               {soloChallenge ? (

@@ -7,6 +7,8 @@ export const ROUTE_HOME = '/(app)/(tabs)' as const;
 
 type Props = {
   onMinigames: () => void;
+  /** When set (e.g. “Money”, “Arcade”), replaces the left “Minigames” label. */
+  minigamesLabel?: string;
   /** Omit to hide Home and keep a single exit (e.g. tight daily-tournament cards). */
   onHome?: () => void;
   /** Use on light cards (e.g. MiniResultsModal) — dark icons/text. */
@@ -16,7 +18,7 @@ type Props = {
 /**
  * Top-of-card back navigation after a run ends — Minigames list + optional Home tab.
  */
-export function GameOverExitRow({ onMinigames, onHome, lightBackground }: Props) {
+export function GameOverExitRow({ onMinigames, minigamesLabel, onHome, lightBackground }: Props) {
   const icon = lightBackground ? '#5b21b6' : '#e2e8f0';
   const labelStyle = lightBackground ? styles.labelLight : styles.labelDark;
   const border = lightBackground ? 'rgba(91, 33, 182, 0.2)' : 'rgba(148, 163, 184, 0.25)';
@@ -28,10 +30,10 @@ export function GameOverExitRow({ onMinigames, onHome, lightBackground }: Props)
         onPress={onMinigames}
         hitSlop={10}
         accessibilityRole="button"
-        accessibilityLabel="Back to minigames"
+        accessibilityLabel={minigamesLabel ? `Back to ${minigamesLabel}` : 'Back to minigames'}
       >
         <SafeIonicons name="chevron-back" size={24} color={icon} />
-        <Text style={labelStyle}>Minigames</Text>
+        <Text style={labelStyle}>{minigamesLabel ?? 'Minigames'}</Text>
       </Pressable>
       {onHome ? (
         <Pressable

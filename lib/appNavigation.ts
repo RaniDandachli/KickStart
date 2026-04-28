@@ -1,5 +1,7 @@
 import type { Href, Router } from 'expo-router';
 
+import { moneyChallengesHref } from '@/lib/tabRoutes';
+
 /**
  * When opening a route inside another tab’s stack (e.g. Home → Profile/add-funds), this keeps that
  * tab’s index screen under the target so Back returns to the tab (You), not the first tab (Home).
@@ -16,6 +18,9 @@ export const ROUTES = {
   profileTab: '/(app)/(tabs)/profile' as const,
   playTab: '/(app)/(tabs)/play' as const,
   tournamentsTab: '/(app)/(tabs)/tournaments' as const,
+  get moneyChallengesTab(): ReturnType<typeof moneyChallengesHref> {
+    return moneyChallengesHref();
+  },
   prizesTab: '/(app)/(tabs)/prizes' as const,
 };
 

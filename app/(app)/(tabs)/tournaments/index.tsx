@@ -20,6 +20,7 @@ import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
 import { fridayCupBannerSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
+import { moneyChallengesHref } from '@/lib/tabRoutes';
 import { useAuthStore } from '@/store/authStore';
 import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -125,7 +126,7 @@ export default function TournamentsListScreen() {
       subtitle: 'Free Tap Dash targets · wallet vault tiers · 10 tries/day on free tiers',
       cta: 'Open challenges',
       pill: '$',
-      onPress: () => router.push('/(app)/(tabs)/tournaments/money-challenges'),
+      onPress: () => router.push(moneyChallengesHref()),
       imageSource: runItArcadeLogoSource,
       imageFit: 'contain' as const,
     },

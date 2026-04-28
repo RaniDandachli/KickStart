@@ -1,7 +1,8 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useNavigation, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLayoutEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
@@ -29,7 +30,9 @@ import { BackendModeBanner } from '@/components/BackendModeBanner';
 import { ENABLE_BACKEND, SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
-import { pushCrossTab } from '@/lib/appNavigation';
+import { pushCrossTab, ROUTES } from '@/lib/appNavigation';
+import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
+import { moneyChallengesHref } from '@/lib/tabRoutes';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { presentAddMoneyChooser } from '@/lib/shopNavigation';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
@@ -70,7 +73,9 @@ export default function PlayHubScreen() {
           <Text style={[styles.brandArcadeOnly, { fontFamily: runitFont.black }, runitTextGlowCyan]}>Arcade</Text>
         </View>
         <Text style={styles.arcadeTagline}>
-          Spend Arcade Credits on runs (about 10–20 per game) · earn tickets · redeem in Prizes
+          {Platform.OS === 'web'
+            ? 'Spend Arcade Credits on runs (about 10–20 per game) · earn tickets · redeem in Prizes'
+            : 'Spend Arcade Credits on runs (about 10–20 per game) · earn tickets · redeem in Prize catalog (below)'}
         </Text>
         <Pressable
           onPress={() => setArcadeHowItWorksOpen(true)}
@@ -81,6 +86,33 @@ export default function PlayHubScreen() {
           <SafeIonicons name="information-circle-outline" size={18} color="rgba(167,139,250,0.95)" />
           <Text style={styles.howItWorksText}>How Arcade works</Text>
         </Pressable>
+
+        {Platform.OS !== 'web' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open prize catalog"
+            onPress={() => pushCrossTab(router, '/(app)/(tabs)/prizes')}
+            style={({ pressed }) => [styles.prizesFromArcadeRow, pressed && { opacity: 0.9 }]}
+          >
+            <LinearGradient
+              colors={['rgba(250,204,21,0.35)', 'rgba(139,92,246,0.55)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.prizesFromArcadeBorder}
+            >
+              <View style={styles.prizesFromArcadeInner}>
+                <SafeIonicons name="gift-outline" size={22} color="#fde047" />
+                <View style={styles.prizesFromArcadeTextWrap}>
+                  <Text style={[styles.prizesFromArcadeTitle, { fontFamily: runitFont.black }]}>
+                    PRIZE CATALOG
+                  </Text>
+                  <Text style={styles.prizesFromArcadeSub}>Spend redeem tickets · same prizes as desktop</Text>
+                </View>
+                <SafeIonicons name="chevron-forward" size={20} color="rgba(248,250,252,0.92)" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        ) : null}
 
         <ArcadeBalanceBar balanceLabel={prizeBalanceLabel} onAddPress={onAddMoneyPress} />
 
@@ -111,7 +143,14 @@ export default function PlayHubScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Play practice"
-                onPress={() => router.push('/(app)/(tabs)/play/minigames/tap-dash?mode=practice')}
+                onPress={() =>
+                  router.push(
+                    withReturnHref(
+                      '/(app)/(tabs)/play/minigames/tap-dash?mode=practice',
+                      ARCADE_HUB_RETURN_PATH,
+                    ) as never,
+                  )
+                }
                 style={({ pressed }) => [styles.prizeZeroChip, pressed && { opacity: 0.88 }]}
               >
                 <Text style={styles.prizeZeroChipTxt}>Practice free</Text>
@@ -257,7 +296,7 @@ export default function PlayHubScreen() {
         <ArcadeQuickMatch
           onOneVsOne={() => pushCrossTab(router, '/(app)/(tabs)')}
           onSoloPlay={() => setSoloPlayGate(true)}
-          onMoneyChallenges={() => pushCrossTab(router, '/(app)/(tabs)/tournaments/money-challenges')}
+          onMoneyChallenges={() => pushCrossTab(router, moneyChallengesHref())}
           onTournament={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}
         />
 
@@ -267,11 +306,21 @@ export default function PlayHubScreen() {
           onClose={() => setSoloPlayGate(false)}
           onPractice={() => {
             setSoloPlayGate(false);
-            router.push('/(app)/(tabs)/play/minigames/tap-dash?mode=practice');
+            router.push(
+              withReturnHref(
+                '/(app)/(tabs)/play/minigames/tap-dash?mode=practice',
+                ROUTES.playTab,
+              ) as never,
+            );
           }}
           onPrizeRun={() => {
             setSoloPlayGate(false);
-            router.push('/(app)/(tabs)/play/minigames/tap-dash?mode=prize');
+            router.push(
+              withReturnHref(
+                '/(app)/(tabs)/play/minigames/tap-dash?mode=prize',
+                ROUTES.playTab,
+              ) as never,
+            );
           }}
         />
 
@@ -326,6 +375,25 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     textDecorationColor: 'rgba(167,139,250,0.45)',
   },
+  prizesFromArcadeRow: { marginBottom: 14 },
+  prizesFromArcadeBorder: { borderRadius: 14, padding: 2 },
+  prizesFromArcadeInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(6,2,14,0.88)',
+  },
+  prizesFromArcadeTextWrap: { flex: 1 },
+  prizesFromArcadeTitle: {
+    color: '#fff',
+    fontSize: 14,
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  prizesFromArcadeSub: { color: 'rgba(226,232,240,0.85)', fontSize: 11, fontWeight: '600' },
   gamesSectionRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -37,7 +37,8 @@ import {
   shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useAuthStore } from '@/store/authStore';
@@ -94,6 +95,12 @@ function resetAimSession(cueX: number, cueY: number): AimSession {
 export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -368,7 +375,7 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.root}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+          <Pressable onPress={onHeaderBackPress} style={styles.backBtn} hitSlop={12}>
             <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <Text style={styles.title}>Neon Pocket</Text>
@@ -487,8 +494,9 @@ export default function NeonPoolGame({ playMode = 'practice' }: { playMode?: 'pr
           <View style={styles.modalBg}>
             <View style={[styles.modalCard, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.modalTitle}>
                 {stateRef.current?.phase === 'won' ? 'Table cleared!' : 'Game over'}

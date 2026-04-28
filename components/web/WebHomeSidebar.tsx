@@ -5,34 +5,42 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
+import { moneyChallengesHref } from '@/lib/tabRoutes';
 import { runitFont } from '@/lib/runitArcadeTheme';
 
 const BRAND_GOLD = '#FFD700';
 
-type TabKey = 'home' | 'tournaments' | 'play' | 'prizes' | 'profile';
+type TabKey = 'home' | 'tournaments' | 'play' | 'money' | 'prizes' | 'profile';
 
 function useActiveTab(): TabKey {
   const p = usePathname() ?? '';
   if (p.includes('/tournaments')) return 'tournaments';
+  if (p.includes('/money-challenges')) return 'money';
   if (p.includes('/play')) return 'play';
   if (p.includes('/prizes')) return 'prizes';
   if (p.includes('/profile')) return 'profile';
   return 'home';
 }
 
-const ITEMS: {
-  key: TabKey;
-  label: string;
-  href: `/(app)/(tabs)` | `/(app)/(tabs)/tournaments` | `/(app)/(tabs)/play` | `/(app)/(tabs)/prizes` | `/(app)/(tabs)/profile`;
-  icon: ComponentProps<typeof SafeIonicons>['name'];
-}[] =
-  [
-    { key: 'home', label: 'Home', href: '/(app)/(tabs)', icon: 'home' },
-    { key: 'tournaments', label: 'Events', href: '/(app)/(tabs)/tournaments', icon: 'trophy' },
-    { key: 'play', label: 'Arcade', href: '/(app)/(tabs)/play', icon: 'game-controller' },
-    { key: 'prizes', label: 'Prizes', href: '/(app)/(tabs)/prizes', icon: 'gift' },
-    { key: 'profile', label: 'You', href: '/(app)/(tabs)/profile', icon: 'person' },
-  ];
+type TabHref =
+  | `/(app)/(tabs)`
+  | `/(app)/(tabs)/tournaments`
+  | `/(app)/(tabs)/play`
+  | `/(app)/(tabs)/prizes`
+  | `/(app)/(tabs)/profile`;
+
+type SidebarItem =
+  | { key: TabKey; label: string; href: TabHref; icon: ComponentProps<typeof SafeIonicons>['name'] }
+  | { key: 'money'; label: string; icon: ComponentProps<typeof SafeIonicons>['name'] };
+
+const ITEMS: SidebarItem[] = [
+  { key: 'home', label: 'Home', href: '/(app)/(tabs)', icon: 'home' },
+  { key: 'tournaments', label: 'Events', href: '/(app)/(tabs)/tournaments', icon: 'trophy' },
+  { key: 'play', label: 'Arcade', href: '/(app)/(tabs)/play', icon: 'game-controller' },
+  { key: 'money', label: 'Money', icon: 'cash-outline' },
+  { key: 'prizes', label: 'Prizes', href: '/(app)/(tabs)/prizes', icon: 'gift' },
+  { key: 'profile', label: 'You', href: '/(app)/(tabs)/profile', icon: 'person' },
+];
 
 export function WebHomeSidebar() {
   const router = useRouter();
@@ -51,7 +59,9 @@ export function WebHomeSidebar() {
           return (
             <Pressable
               key={it.key}
-              onPress={() => router.push(it.href)}
+              onPress={() =>
+                it.key === 'money' ? router.push(moneyChallengesHref()) : router.push(it.href)
+              }
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
               style={({ pressed }) => [styles.item, on && styles.itemOn, pressed && { opacity: 0.9 }]}

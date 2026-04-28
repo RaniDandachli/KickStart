@@ -41,7 +41,8 @@ import {
   shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
@@ -160,6 +161,12 @@ export default function TileClashGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -519,7 +526,7 @@ export default function TileClashGame({
           accessibilityLabel="Back"
           hitSlop={12}
           style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
-          onPress={() => router.back()}
+          onPress={onHeaderBackPress}
         >
           <SafeIonicons name="chevron-back" size={28} color={arcade.white} />
         </Pressable>
@@ -672,8 +679,9 @@ export default function TileClashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Round result</Text>
               <Text style={styles.goVsTile} numberOfLines={1}>
@@ -695,8 +703,9 @@ export default function TileClashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
@@ -724,8 +733,9 @@ export default function TileClashGame({
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>Run over</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>

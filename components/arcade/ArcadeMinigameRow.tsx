@@ -12,6 +12,7 @@ import {
     STACKER_PRIZE_RUN_ENTRY_CREDITS,
     TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
 } from '@/lib/arcadeEconomy';
+import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
 import { useAuthStore } from '@/store/authStore';
 
 type Props = {
@@ -70,7 +71,7 @@ export function ArcadeMinigameRow(props: Props) {
         }}
         onPractice={() => {
           setOpen(false);
-          router.push(`${path}?mode=practice` as never);
+          router.push(withReturnHref(`${path}?mode=practice`, ARCADE_HUB_RETURN_PATH) as never);
         }}
         onPrizeRun={() => {
           if (ENABLE_BACKEND && uid && !consumePrizeRunEntryCredits(profileQ.data?.prize_credits, prizeCost)) {
@@ -81,7 +82,7 @@ export function ArcadeMinigameRow(props: Props) {
             return;
           }
           setOpen(false);
-          router.push(`${path}?mode=prize` as never);
+          router.push(withReturnHref(`${path}?mode=prize`, ARCADE_HUB_RETURN_PATH) as never);
         }}
       />
     </>

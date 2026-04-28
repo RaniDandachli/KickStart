@@ -17,11 +17,20 @@ import { getDefaultTabBarStyle } from '@/lib/tabBarStyle';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-const STEPS: { href: string; title: string; body: string }[] = [
+/** Matches native tab order (see `(tabs)/_layout`). Prizes are opened from Arcade on mobile — no Prizes tab. */
+const TAB_TOUR_STEPS: { href: string; title: string; body: string }[] = [
   { href: '/(app)/(tabs)', title: 'Home', body: 'Choose Quick Match, Live matches, or your contest — plus daily events and stats.' },
   { href: '/(app)/(tabs)/tournaments', title: 'Events', body: 'Tournaments, brackets, and scheduled play.' },
-  { href: '/(app)/(tabs)/play', title: 'Arcade', body: 'Minigames, ranked, and casual queues.' },
-  { href: '/(app)/(tabs)/prizes', title: 'Prizes', body: 'Spend tickets and prize credits.' },
+  {
+    href: '/(app)/(tabs)/play',
+    title: 'Arcade',
+    body: 'Minigames and prize runs · open Prize catalog from the Arcade screen (gift row).',
+  },
+  {
+    href: '/(app)/(tabs)/money-challenges',
+    title: 'Money',
+    body: 'Score challenges and showcase tiers — free daily tries or wallet entry for bigger showcases.',
+  },
   { href: '/(app)/(tabs)/profile', title: 'You', body: 'Wallet, profile, and account.' },
 ];
 
@@ -42,11 +51,11 @@ export function FirstRunTabTour({ onFinished }: Props) {
   const arrowBottom = tabBarHeight + 6;
   const cardBottomMargin = arrowBottom + 40;
 
-  const idx = Math.min(step, STEPS.length - 1);
-  const tabCenterX = (SCREEN_W / STEPS.length) * (idx + 0.5);
+  const idx = Math.min(step, TAB_TOUR_STEPS.length - 1);
+  const tabCenterX = (SCREEN_W / TAB_TOUR_STEPS.length) * (idx + 0.5);
 
   useEffect(() => {
-    const s = STEPS[idx];
+    const s = TAB_TOUR_STEPS[idx];
     if (!s) return;
     router.navigate(s.href as Href);
   }, [idx, router]);
@@ -58,7 +67,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
   }, [onFinished]);
 
   const onNext = useCallback(() => {
-    if (step >= STEPS.length - 1) {
+    if (step >= TAB_TOUR_STEPS.length - 1) {
       void finish();
       return;
     }
@@ -67,7 +76,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
 
   if (!visible) return null;
 
-  const current = STEPS[idx]!;
+  const current = TAB_TOUR_STEPS[idx]!;
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent>
@@ -79,7 +88,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
         </View>
 
         <View style={[styles.card, { marginBottom: cardBottomMargin }]} pointerEvents="box-none">
-          <Text style={[styles.stepLbl, { fontFamily: runitFont.bold }]}>TAB {idx + 1} / {STEPS.length}</Text>
+          <Text style={[styles.stepLbl, { fontFamily: runitFont.bold }]}>TAB {idx + 1} / {TAB_TOUR_STEPS.length}</Text>
           <Text style={[styles.title, { fontFamily: runitFont.black }]}>{current.title}</Text>
           <Text style={styles.body}>{current.body}</Text>
           <View style={styles.row}>
@@ -95,7 +104,7 @@ export function FirstRunTabTour({ onFinished }: Props) {
             )}
             <Pressable style={({ pressed }) => [styles.primary, pressed && { opacity: 0.9 }]} onPress={onNext}>
               <Text style={[styles.primaryText, { fontFamily: runitFont.bold }]}>
-                {step >= STEPS.length - 1 ? 'GOT IT' : 'NEXT'}
+                {step >= TAB_TOUR_STEPS.length - 1 ? 'GOT IT' : 'NEXT'}
               </Text>
               <SafeIonicons name="chevron-forward" size={18} color="#fff" />
             </Pressable>

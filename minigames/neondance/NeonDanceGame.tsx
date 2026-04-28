@@ -32,8 +32,9 @@ import { assertBackendPrizeSignedIn, assertPrizeRunReservation } from '@/lib/pri
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { awardRedeemTicketsForPrizeRun, ticketsFromNeonDanceScore } from '@/lib/ticketPayouts';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
 import { minigameImmersiveStageWidth } from '@/minigames/ui/minigameWebMaxWidth';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -248,6 +249,12 @@ export default function NeonDanceGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const qc = useQueryClient();
   const uid = useAuthStore((s) => s.user?.id);
@@ -981,7 +988,7 @@ export default function NeonDanceGame({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
-            onPress={() => router.back()}
+            onPress={onHeaderBackPress}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
           >
             <SafeIonicons name="chevron-back" size={26} color="#e2e8f0" />
@@ -1016,7 +1023,7 @@ export default function NeonDanceGame({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Home"
-              onPress={() => router.replace(ROUTE_HOME)}
+              onPress={replaceToHomeTab}
               style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
             >
               <SafeIonicons name="home" size={22} color="#e2e8f0" />
@@ -1286,8 +1293,9 @@ export default function NeonDanceGame({
               <>
                 <AppButton title="Play again" onPress={startPlaying} />
                 <GameOverExitRow
-                  onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                  onHome={() => router.replace(ROUTE_HOME)}
+                  minigamesLabel={replacePrimaryLabel}
+                  onMinigames={replaceToPrimaryExit}
+                  onHome={replaceToHomeTab}
                 />
               </>
             ) : null}

@@ -38,7 +38,8 @@ import {
   shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -310,6 +311,12 @@ export default function TurboArenaGame({
 }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const queryClient = useQueryClient();
   const profileQ = useProfile(uid);
@@ -538,7 +545,7 @@ export default function TurboArenaGame({
 
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+          <Pressable onPress={onHeaderBackPress} style={styles.backBtn} hitSlop={12}>
             <SafeIonicons name="chevron-back" size={26} color="rgba(226,232,240,0.95)" />
           </Pressable>
           <View style={styles.scoreCol}>
@@ -670,8 +677,9 @@ export default function TurboArenaGame({
           <View style={styles.overlay}>
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>
                 {(endStatsRef.current.scoreP1 > (s?.scoreP2 ?? 0)) ? 'You Win! 🏆' : 'CPU Wins!'}

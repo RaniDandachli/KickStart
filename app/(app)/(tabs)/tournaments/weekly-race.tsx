@@ -31,6 +31,7 @@ import {
 } from '@/lib/runitArcadeTheme';
 import { enterWeeklyRaceClient, finalizeWeeklyRacePendingDaysClient } from '@/services/api/weeklyRace';
 import { useAuthStore } from '@/store/authStore';
+import { withReturnHref } from '@/lib/minigameReturnHref';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 
 export default function WeeklyRaceScreen() {
@@ -135,7 +136,10 @@ export default function WeeklyRaceScreen() {
       Alert.alert('Game mismatch', 'Your entry is for a different build — try again after daily reset.');
       return;
     }
-    const href = `${playRoute}?weeklyRace=1` as Href;
+    const href = withReturnHref(
+      `${playRoute}?weeklyRace=1`,
+      '/(app)/(tabs)/tournaments/weekly-race',
+    ) as Href;
     router.push(href);
   }, [uid, entryQ.data, playRoute, router, todaysGame]);
 

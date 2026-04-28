@@ -37,7 +37,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
     shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -648,6 +648,12 @@ import { VOID_RUNNER } from './voidRunnerTuning';
   export default function VoidRunnerGame() {
     useHidePlayTabBar();
     const router = useRouter();
+    const {
+      replaceToPrimaryExit,
+      replacePrimaryLabel,
+      replaceToHomeTab,
+      onHeaderBackPress,
+    } = useMinigameExitNav();
     const { width: sw, height: sh } = useWindowDimensions();
   
     // Compute scale so the logical canvas fills the available area
@@ -783,7 +789,7 @@ import { VOID_RUNNER } from './voidRunnerTuning';
               accessibilityRole="button"
               accessibilityLabel="Back"
               hitSlop={14}
-              onPress={() => router.back()}
+              onPress={onHeaderBackPress}
               style={styles.hudBack}
             >
               <SafeIonicons name="chevron-back" size={26} color="rgba(199,210,254,0.9)" />
@@ -1005,13 +1011,13 @@ import { VOID_RUNNER } from './voidRunnerTuning';
                   <View style={styles.exitRow}>
                     <Pressable
                       style={styles.exitBtn}
-                      onPress={() => router.replace(ROUTE_MINIGAMES)}
+                      onPress={replaceToPrimaryExit}
                     >
-                      <Text style={styles.exitBtnText}>ARCADE</Text>
+                      <Text style={styles.exitBtnText}>{replacePrimaryLabel.toUpperCase()}</Text>
                     </Pressable>
                     <Pressable
                       style={styles.exitBtn}
-                      onPress={() => router.replace(ROUTE_HOME)}
+                      onPress={replaceToHomeTab}
                     >
                       <Text style={styles.exitBtnText}>HOME</Text>
                     </Pressable>

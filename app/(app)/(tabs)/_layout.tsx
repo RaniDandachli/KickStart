@@ -256,10 +256,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="money-challenges"
+        options={{
+          title: 'Money',
+          tabBarIcon: tabBarIcon('cash-outline', { webTop: webUsesTopTabBar }),
+        }}
+      />
+      <Tabs.Screen
         name="prizes"
         options={{
           title: 'Prizes',
           tabBarIcon: tabBarIcon('gift', { webTop: webUsesTopTabBar }),
+          /** Prize catalog stays in-tab on web · native opens it via Arcade (“Prize catalog” row). */
+          href: Platform.OS === 'web' ? undefined : null,
         }}
       />
       <Tabs.Screen

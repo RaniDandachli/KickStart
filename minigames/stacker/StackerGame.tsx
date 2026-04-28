@@ -37,7 +37,8 @@ import {
   shouldEmitMinigameHudFrame,
 } from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
-import { GameOverExitRow, ROUTE_HOME, ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
@@ -102,6 +103,12 @@ function createGame(): GameRef {
 export default function StackerGame({ playMode = 'practice' }: { playMode?: 'practice' | 'prize' }) {
   useHidePlayTabBar();
   const router = useRouter();
+  const {
+    replaceToPrimaryExit,
+    replacePrimaryLabel,
+    replaceToHomeTab,
+    onHeaderBackPress,
+  } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -437,9 +444,9 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
 
         {/* Floating chrome — does not shrink the board */}
         <View style={[styles.floatTop, { paddingTop: 4, paddingLeft: Math.max(insets.left, 6), paddingRight: Math.max(insets.right, 6) }]} pointerEvents="box-none">
-          <Pressable onPress={() => router.back()} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}>
+          <Pressable onPress={onHeaderBackPress} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}>
             <SafeIonicons name="chevron-back" size={26} color={arcade.gold} />
-            <Text style={styles.backText}>Arcade</Text>
+            <Text style={styles.backText}>{replacePrimaryLabel}</Text>
           </Pressable>
           <View style={styles.hudCluster}>
             <Text style={styles.hudTitle}>STACKER</Text>
@@ -465,8 +472,9 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
-                onMinigames={() => router.replace(ROUTE_MINIGAMES)}
-                onHome={() => router.replace(ROUTE_HOME)}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
               />
               <Text style={styles.goTitle}>{wonRef.current ? 'Jackpot!' : 'Game over'}</Text>
               <Text style={styles.goScore}>
