@@ -25,6 +25,7 @@ import { useWalletPaymentSheet } from '@/hooks/useWalletPaymentSheet';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
+import { useWithdrawPlatformFeeBps } from '@/hooks/useWithdrawPlatformFeeBps';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { CREDIT_PACKAGES } from '@/lib/creditPackages';
 import {
@@ -42,6 +43,7 @@ import {
   walletDepositProcessingFeeCents,
   walletDepositTotalChargeCents,
 } from '@/lib/walletDepositFee';
+import { splitWithdrawGrossCents, withdrawNetFailsMinimum } from '@/lib/walletWithdrawPreview';
 import { appBorderAccent, runit, runitFont } from '@/lib/runitArcadeTheme';
 import {
   assertValidTopUpAmountCents,
@@ -504,6 +506,15 @@ export default function AddFundsScreen() {
       Alert.alert('Connect', e instanceof Error ? e.message : 'Could not open onboarding');
     }
   }, [qc, uid, loadWithdrawStripeStatus]);
+
+  const withdrawFeeBpsQ = useWithdrawPlatformFeeBps(uid);
+  const withdrawFeeBps = withdrawFeeBpsQ.data ?? 0;
+
+  const withdrawFeeSplit = useMemo(() => {
+    const cents = parseUsdToCents(withdrawUsd);
+    if (cents == null || cents < 1) return null;
+    return splitWithdrawGrossCents(cents, withdrawFeeBps);
+  }, [withdrawUsd, withdrawFeeBps]);
 
   const onOpenWhopPortalFromModal = useCallback(async () => {
     if (!ENABLE_BACKEND || !uid) return;
@@ -1071,6 +1082,22 @@ export default function AddFundsScreen() {
                     value={withdrawUsd}
                     onChangeText={setWithdrawUsd}
                   />
+                  {withdrawFeeSplit && withdrawFeeSplit.feeCents > 0 ? (
+                    <>
+                      <Text style={styles.sheetPartner}>
+                        Wallet debit {formatUsdFromCents(withdrawFeeSplit.grossCents)} · Est.{' '}
+                        {formatUsdFromCents(withdrawFeeSplit.payoutCents)} to your bank · Fee{' '}
+                        {formatUsdFromCents(withdrawFeeSplit.feeCents)}
+                      </Text>
+                      {withdrawNetFailsMinimum(withdrawFeeSplit.payoutCents) ? (
+                        <Text style={[styles.sheetPartner, { color: '#fbbf24', marginTop: 6 }]}>
+                          After the fee, less than $1.00 would reach your bank — enter a larger amount.
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : withdrawFeeSplit ? (
+                    <Text style={styles.sheetPartner}>No withdrawal fee — full amount is sent toward your bank payout.</Text>
+                  ) : null}
                   <Text style={styles.sheetPartner}>Funds move to your connected bank through Stripe (min $1.00).</Text>
                   <Pressable
                     onPress={() => void onWithdrawStripe()}
@@ -1105,6 +1132,22 @@ export default function AddFundsScreen() {
                     value={withdrawUsd}
                     onChangeText={setWithdrawUsd}
                   />
+                  {withdrawFeeSplit && withdrawFeeSplit.feeCents > 0 ? (
+                    <>
+                      <Text style={styles.sheetPartner}>
+                        Wallet debit {formatUsdFromCents(withdrawFeeSplit.grossCents)} · Est.{' '}
+                        {formatUsdFromCents(withdrawFeeSplit.payoutCents)} to Whop · Fee{' '}
+                        {formatUsdFromCents(withdrawFeeSplit.feeCents)}
+                      </Text>
+                      {withdrawNetFailsMinimum(withdrawFeeSplit.payoutCents) ? (
+                        <Text style={[styles.sheetPartner, { color: '#fbbf24', marginTop: 6 }]}>
+                          After the fee, less than $1.00 would reach Whop — enter a larger amount.
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : withdrawFeeSplit ? (
+                    <Text style={styles.sheetPartner}>No withdrawal fee — full amount is sent toward Whop.</Text>
+                  ) : null}
                   <Pressable
                     onPress={() => void onWithdrawWhop()}
                     disabled={withdrawing}

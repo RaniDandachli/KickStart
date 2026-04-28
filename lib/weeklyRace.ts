@@ -167,9 +167,17 @@ export function buildWeeklyRaceLeaderboardView(params: {
   });
 }
 
+const ARCADE_MINIGAMES = '/(app)/(tabs)/play/minigames';
+const EVENTS_MINIGAMES = '/(app)/(tabs)/tournaments/minigames';
+
+/**
+ * Opens the playable URL on the Events stack (`tournaments/minigames/…`), not Arcade, so switching to
+ * the Play tab stays on the arcade hub after a run exits to Weekly Race / Events.
+ */
 export function routeForWeeklyRaceGameKey(gameKey: H2hGameKey): string | null {
   const g = H2H_OPEN_GAMES_ALL.find((x) => x.gameKey === gameKey);
-  return g?.route ?? null;
+  if (!g?.route) return null;
+  return g.route.replace(ARCADE_MINIGAMES, EVENTS_MINIGAMES);
 }
 
 export function labelForWeeklyRaceGame(gameKey: H2hGameKey): string {

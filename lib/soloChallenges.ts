@@ -2,7 +2,8 @@
 
 export type SoloChallengeDefinition = {
   id: string;
-  gameRoute: '/(app)/(tabs)/play/minigames/tap-dash';
+  /** Daily Race opens Tap Dash under Events stack — see tournaments/minigames/tap-dash. */
+  gameRoute: '/(app)/(tabs)/tournaments/minigames/tap-dash';
   title: string;
   subtitle: string;
   targetScore: number;
@@ -15,7 +16,7 @@ export type SoloChallengeDefinition = {
 export const SOLO_CHALLENGES: readonly SoloChallengeDefinition[] = [
   {
     id: 'tap_dash_100',
-    gameRoute: '/(app)/(tabs)/play/minigames/tap-dash',
+    gameRoute: '/(app)/(tabs)/tournaments/minigames/tap-dash',
     title: 'Tap Dash · 100 gates',
     subtitle: 'Beat the run — hit 100 scored gates in one attempt.',
     targetScore: 100,

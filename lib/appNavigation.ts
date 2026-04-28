@@ -1,6 +1,6 @@
 import type { Href, Router } from 'expo-router';
 
-import { moneyChallengesHref } from '@/lib/tabRoutes';
+import { dailyRaceHref, moneyChallengesHref } from '@/lib/tabRoutes';
 
 /**
  * When opening a route inside another tab’s stack (e.g. Home → Profile/add-funds), this keeps that
@@ -18,6 +18,10 @@ export const ROUTES = {
   profileTab: '/(app)/(tabs)/profile' as const,
   playTab: '/(app)/(tabs)/play' as const,
   tournamentsTab: '/(app)/(tabs)/tournaments' as const,
+  get dailyRace(): ReturnType<typeof dailyRaceHref> {
+    return dailyRaceHref();
+  },
+  /** @deprecated Use ROUTES.dailyRace */
   get moneyChallengesTab(): ReturnType<typeof moneyChallengesHref> {
     return moneyChallengesHref();
   },

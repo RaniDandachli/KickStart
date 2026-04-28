@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
@@ -17,10 +17,15 @@ import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useTournaments } from '@/hooks/useTournaments';
 import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
 import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
-import { fridayCupBannerSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
+import {
+  dailyRaceBannerSource,
+  fridayCupBannerSource,
+  tournamentOfTheDayHeroSource,
+  weeklyRaceBannerSource,
+} from '@/lib/brandLogo';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
-import { moneyChallengesHref } from '@/lib/tabRoutes';
+import { dailyRaceHref } from '@/lib/tabRoutes';
 import { useAuthStore } from '@/store/authStore';
 import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -45,18 +50,14 @@ export default function TournamentsListScreen() {
     commitId: string | null;
     byId: Record<string, { won: boolean; lost: boolean }>;
   } | null>(null);
-  const [cupCarouselIndex, setCupCarouselIndex] = useState(0);
-  const [featuredIndex, setFeaturedIndex] = useState(0);
-
-  useEffect(() => {
-    if (CREDIT_CUPS.length === 0) {
-      setCupCarouselIndex(0);
-      return;
-    }
-    if (cupCarouselIndex >= CREDIT_CUPS.length) {
-      setCupCarouselIndex(CREDIT_CUPS.length - 1);
-    }
-  }, [cupCarouselIndex]);
+  const { width: screenW } = useWindowDimensions();
+  /** Two columns above ~340pt; snug tiles on dense browse screens */
+  const gridTileWidth = useMemo(() => {
+    const pad = 40; // matches Screen horizontal padding ×2
+    const gap = 10;
+    const inner = Math.max(280, screenW - pad);
+    return (inner - gap) / 2;
+  }, [screenW]);
 
   useFocusEffect(
     useCallback(() => {
@@ -115,194 +116,171 @@ export default function TournamentsListScreen() {
             cta: 'View race',
             pill: 'CASH' as const,
             onPress: () => router.push('/(app)/(tabs)/tournaments/weekly-race'),
-            imageSource: fridayCupBannerSource,
+            imageSource: weeklyRaceBannerSource,
             imageFit: 'cover' as const,
           },
         ] as const)
       : []),
     {
-      id: 'solo',
-      title: 'Money Challenges',
-      subtitle: 'Free Tap Dash targets · wallet vault tiers · 10 tries/day on free tiers',
-      cta: 'Open challenges',
-      pill: '$',
-      onPress: () => router.push(moneyChallengesHref()),
-      imageSource: runItArcadeLogoSource,
-      imageFit: 'contain' as const,
+      id: 'daily-race',
+      title: 'Daily Race',
+      subtitle: 'Tap Dash showcase lanes · free + wallet tiers · up to 10 tries/day',
+      cta: 'Enter daily race',
+      pill: 'RACE',
+      onPress: () => router.push(dailyRaceHref()),
+      imageSource: dailyRaceBannerSource,
+      imageFit: 'cover' as const,
     },
   ] as const;
-
-  const featured = featuredEvents[featuredIndex];
 
   return (
     <Screen>
       <ScreenHeader
+        compact
         eyebrow="Compete"
         title="Events"
         subtitle="Skill-based tournaments and featured runs — prizes are awarded by admins after verification."
       />
 
-      <SectionLabel>Featured events</SectionLabel>
-      <Pressable onPress={featured.onPress} style={({ pressed }) => [styles.heroCardWrap, pressed && { opacity: 0.95 }]}>
-        <LinearGradient
-          colors={[runit.neonCyan, runit.neonPurple]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCardBorder}
-        >
-          <View style={styles.heroCardInner}>
-            <Image source={featured.imageSource} style={styles.heroImage} contentFit={featured.imageFit ?? 'cover'} />
+      <SectionLabel style={styles.sectionKickerTight}>Featured events</SectionLabel>
+      <View style={styles.gridRow}>
+        {featuredEvents.map((featured) => (
+          <Pressable
+            key={featured.id}
+            onPress={featured.onPress}
+            style={({ pressed }) => [
+              styles.featureTile,
+              { width: gridTileWidth },
+              pressed && { opacity: 0.93 },
+            ]}
+          >
             <LinearGradient
-              colors={['rgba(4,8,20,0.08)', 'rgba(4,8,20,0.72)']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.heroOverlay}
-            />
-            <View style={styles.heroTopRow}>
-              <View style={[styles.statePill, styles.heroPill]}>
-                <Text style={styles.heroPillText}>{featured.pill}</Text>
+              colors={[runit.neonCyan, runit.neonPurple]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.featureBorder}
+            >
+              <View style={styles.featureInner}>
+                <View style={styles.featureImageBox}>
+                  <Image
+                    source={featured.imageSource}
+                    style={StyleSheet.absoluteFillObject}
+                    contentFit={featured.imageFit ?? 'cover'}
+                  />
+                  <LinearGradient
+                    colors={['rgba(4,8,20,0.02)', 'rgba(4,8,22,0.55)']}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={[styles.statePill, styles.featurePill]}>
+                    <Text style={[styles.heroPillText]}>{featured.pill}</Text>
+                  </View>
+                </View>
+                <View style={styles.featureBody}>
+                  <Text style={[styles.featureTileTitle, { fontFamily: runitFont.black }]} numberOfLines={2}>
+                    {featured.title}
+                  </Text>
+                  <Text style={styles.featureTileSub} numberOfLines={2}>
+                    {featured.subtitle}
+                  </Text>
+                  {featured.id === 'daily' ? (
+                    <Text style={styles.featureResetTiny} numberOfLines={1}>
+                      Resets in {dailyResetCountdown}
+                    </Text>
+                  ) : null}
+                  <View style={styles.heroCtaRow}>
+                    <Text style={styles.featureCta}>{featured.cta}</Text>
+                    <SafeIonicons name="chevron-forward" size={14} color="#FFE082" />
+                  </View>
+                </View>
               </View>
-            </View>
-            <View style={styles.heroBottom}>
-              <Text style={[styles.heroTitle, { fontFamily: runitFont.black }]} numberOfLines={2}>
-                {featured.title}
-              </Text>
-              <Text style={styles.heroSubtitle} numberOfLines={2}>
-                {featured.subtitle}
-              </Text>
-              {featured.id === 'daily' ? <Text style={styles.dailyResetTiny}>Resets in {dailyResetCountdown}</Text> : null}
-              <View style={styles.heroCtaRow}>
-                <Text style={styles.heroCta}>{featured.cta}</Text>
-                <SafeIonicons name="chevron-forward" size={16} color="#FFE082" />
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
-      </Pressable>
-      <View style={styles.heroControls}>
-        <Pressable
-          onPress={() => setFeaturedIndex((prev) => (prev === 0 ? featuredEvents.length - 1 : prev - 1))}
-          style={({ pressed }) => [styles.heroNavBtn, pressed && { opacity: 0.85 }]}
-        >
-          <SafeIonicons name="chevron-back" size={16} color={runit.neonCyan} />
-          <Text style={styles.heroNavTxt}>Prev</Text>
-        </Pressable>
-        <Text style={styles.carouselPosition}>
-          {featuredIndex + 1} / {featuredEvents.length}
-        </Text>
-        <Pressable
-          onPress={() => setFeaturedIndex((prev) => (prev === featuredEvents.length - 1 ? 0 : prev + 1))}
-          style={({ pressed }) => [styles.heroNavBtn, pressed && { opacity: 0.85 }]}
-        >
-          <Text style={styles.heroNavTxt}>Next</Text>
-          <SafeIonicons name="chevron-forward" size={16} color={runit.neonCyan} />
-        </Pressable>
+            </LinearGradient>
+          </Pressable>
+        ))}
       </View>
 
       {ENABLE_CREDIT_CUPS ? (
         <>
-          <SectionLabel>Credit cups</SectionLabel>
-          <Text style={styles.cupSectionSub}>
-            One Run It cup run per day (pick a tier) · single elimination · prize credits — most players still top up for Arcade
-          </Text>
-          {CREDIT_CUPS.length ? (() => {
-            const cup = CREDIT_CUPS[cupCarouselIndex];
-            const snap = cupBoard?.byId[cup.id];
-            const wonToday = snap?.won ?? false;
-            const lockedOther =
-              !!(cupBoard?.commitId && cupBoard.commitId !== cup.id && !wonToday);
-            const otherName = cupBoard?.commitId ? getCreditCupById(cupBoard.commitId)?.name : undefined;
-            const dim = wonToday || lockedOther;
-            return (
-              <View style={styles.cardWrap}>
-                <View style={styles.carouselControlsRow}>
+          <SectionLabel style={styles.sectionKickerCup}>Credit cups</SectionLabel>
+          <Text style={styles.cupSectionSub}>One cup run per day per tier · single elimination · credits from shop or wins</Text>
+          {CREDIT_CUPS.length ? (
+            <View style={styles.gridRow}>
+              {CREDIT_CUPS.map((cup) => {
+                const snap = cupBoard?.byId[cup.id];
+                const wonToday = snap?.won ?? false;
+                const lockedOther = !!(cupBoard?.commitId && cupBoard.commitId !== cup.id && !wonToday);
+                const otherName = cupBoard?.commitId ? getCreditCupById(cupBoard.commitId)?.name : undefined;
+                const dim = wonToday || lockedOther;
+                return (
                   <Pressable
-                    onPress={() =>
-                      setCupCarouselIndex((prev) =>
-                        prev === 0 ? CREDIT_CUPS.length - 1 : prev - 1,
-                      )
-                    }
-                    style={({ pressed }) => [styles.carouselNavBtn, pressed && { opacity: 0.86 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show previous cup"
+                    key={cup.id}
+                    onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
+                    style={({ pressed }) => [
+                      { width: gridTileWidth },
+                      dim && { opacity: 0.55 },
+                      pressed && !dim && { opacity: 0.92 },
+                    ]}
                   >
-                    <SafeIonicons name="chevron-back" size={16} color={runit.neonCyan} />
-                    <Text style={styles.carouselNavTxt}>Prev</Text>
-                  </Pressable>
-                  <Text style={styles.carouselPosition}>
-                    {cupCarouselIndex + 1} / {CREDIT_CUPS.length}
-                  </Text>
-                  <Pressable
-                    onPress={() =>
-                      setCupCarouselIndex((prev) =>
-                        prev === CREDIT_CUPS.length - 1 ? 0 : prev + 1,
-                      )
-                    }
-                    style={({ pressed }) => [styles.carouselNavBtn, pressed && { opacity: 0.86 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show next cup"
-                  >
-                    <Text style={styles.carouselNavTxt}>Next</Text>
-                    <SafeIonicons name="chevron-forward" size={16} color={runit.neonCyan} />
-                  </Pressable>
-                </View>
-                <Pressable
-                  onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
-                  style={({ pressed }) => [dim && { opacity: 0.55 }, pressed && !dim && { opacity: 0.92 }]}
-                >
-                  <LinearGradient
-                    colors={cupAccentGradient(cup.accent)}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.cardBorder}
-                  >
-                    <View style={styles.cardInner}>
-                      <View style={styles.cardTop}>
-                        <Text style={[styles.cardName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                          {cup.name}
-                        </Text>
-                        <View
-                          style={[
-                            styles.statePill,
-                            {
-                              borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
-                            },
-                          ]}
-                        >
-                          <Text
+                    <LinearGradient
+                      colors={cupAccentGradient(cup.accent)}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.cupTileBorder}
+                    >
+                      <View style={styles.cupTileInner}>
+                        <View style={styles.cardTopCompact}>
+                          <Text style={[styles.cupTileName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
+                            {cup.name}
+                          </Text>
+                          <View
                             style={[
-                              styles.statePillText,
+                              styles.statePill,
+                              styles.cupBadge,
                               {
-                                color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
+                                borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
                               },
                             ]}
                           >
-                            {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
+                            <Text
+                              style={[
+                                styles.statePillText,
+                                {
+                                  color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
+                                },
+                              ]}
+                            >
+                              {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.cupCreditsLineCompact}>
+                          {cup.prizeCredits.toLocaleString()} cr · {DAILY_FREE_TOURNAMENT_ROUNDS} rds
+                        </Text>
+                        <Text style={styles.cupTileTag} numberOfLines={2}>
+                          {wonToday
+                            ? 'Back after midnight'
+                            : lockedOther
+                              ? `Using ${otherName ?? 'another cup'} today`
+                              : cup.subtitle}
+                        </Text>
+                        <View style={styles.heroCtaRow}>
+                          <Text style={[styles.viewLinkCompact, dim && { color: 'rgba(203,213,225,0.75)' }]}>
+                            {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter'}
                           </Text>
+                          <SafeIonicons
+                            name="chevron-forward"
+                            size={13}
+                            color={dim ? 'rgba(203,213,225,0.55)' : runit.neonPink}
+                          />
                         </View>
                       </View>
-                      <Text style={styles.cupCreditsLine}>
-                        {cup.prizeCredits.toLocaleString()} prize credits · {DAILY_FREE_TOURNAMENT_ROUNDS} rounds
-                      </Text>
-                      <Text style={[styles.cardPrize, styles.cardPrizeDailyTagline]}>
-                        {wonToday
-                          ? 'Cleared today — back after midnight'
-                          : lockedOther
-                            ? `Daily run on ${otherName ?? 'another cup'}`
-                            : cup.subtitle}
-                      </Text>
-                      <View style={styles.cardFooter}>
-                        <Text style={[styles.viewLink, dim && { color: 'rgba(203,213,225,0.75)' }]}>
-                          {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter cup'}
-                        </Text>
-                        <SafeIonicons name="chevron-forward" size={14} color={dim ? 'rgba(203,213,225,0.6)' : runit.neonPink} />
-                      </View>
-                    </View>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            );
-          })() : null}
+                    </LinearGradient>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </>
       ) : null}
 
@@ -380,117 +358,121 @@ function stateColor(state: string) {
 }
 
 const styles = StyleSheet.create({
-  cupSectionSub: { color: 'rgba(148,163,184,0.88)', fontSize: 12, marginBottom: 12, lineHeight: 17 },
-  heroCardWrap: { marginBottom: 8 },
-  heroCardBorder: { borderRadius: 22, padding: 2.5 },
-  heroCardInner: {
-    borderRadius: 20,
-    backgroundColor: 'rgba(5,10,25,0.94)',
-    minHeight: 220,
-    overflow: 'hidden',
-    position: 'relative',
+  sectionKickerTight: { marginTop: 4, marginBottom: 8 },
+  sectionKickerCup: { marginTop: 14, marginBottom: 6 },
+  cupSectionSub: {
+    color: 'rgba(148,163,184,0.85)',
+    fontSize: 11,
+    marginBottom: 10,
+    lineHeight: 15,
   },
-  heroImage: { ...StyleSheet.absoluteFillObject },
-  heroOverlay: { ...StyleSheet.absoluteFillObject },
-  heroTopRow: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
+  gridRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
     justifyContent: 'flex-start',
-    alignItems: 'center',
   },
-  heroPill: {
-    borderColor: 'rgba(167,243,208,0.95)',
-    backgroundColor: 'rgba(6,20,28,0.6)',
+  featureTile: { marginBottom: 6 },
+  featureBorder: { borderRadius: 14, padding: 2, overflow: 'hidden' },
+  featureInner: {
+    borderRadius: 12,
+    backgroundColor: 'rgba(5,10,25,0.96)',
+    overflow: 'hidden',
   },
-  heroPillText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  heroBottom: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 14,
+  featureImageBox: {
+    height: 56,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: 'rgba(12,14,28,1)',
+    overflow: 'hidden',
+    borderRadius: 10,
+    marginBottom: 0,
   },
-  heroTitle: { color: '#f8fafc', fontSize: 24, letterSpacing: 0.6, marginBottom: 6 },
-  heroSubtitle: { color: 'rgba(226,232,240,0.95)', fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heroCta: { color: '#FFE082', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
-  heroControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  heroNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 5,
+  featureBody: {
     paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.55)',
-    backgroundColor: 'rgba(8,18,30,0.65)',
+    paddingTop: 8,
+    paddingBottom: 10,
   },
-  heroNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
-  carouselControlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  carouselNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.55)',
-    backgroundColor: 'rgba(8,18,30,0.65)',
+  featurePill: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    borderColor: 'rgba(167,243,208,0.95)',
+    backgroundColor: 'rgba(6,20,28,0.82)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
-  carouselNavTxt: { color: runit.neonCyan, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
-  carouselPosition: { color: 'rgba(186,230,253,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  heroPillText: { color: '#a7f3d0', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  featureTileTitle: {
+    color: '#f8fafc',
+    fontSize: 13,
+    letterSpacing: 0.35,
+    marginBottom: 3,
+    lineHeight: 16,
+  },
+  featureTileSub: {
+    color: 'rgba(226,232,240,0.9)',
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 14,
+    marginBottom: 4,
+  },
+  featureResetTiny: {
+    color: '#fde68a',
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  featureCta: { color: '#FFE082', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
+
+  cupTileBorder: { borderRadius: 12, padding: 2, marginBottom: 2 },
+  cupTileInner: {
+    borderRadius: 10,
+    backgroundColor: 'rgba(8,4,18,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 108,
+  },
+  cupTileName: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '900', lineHeight: 17 },
+  cupBadge: { paddingHorizontal: 5, paddingVertical: 2 },
+  cupCreditsLineCompact: {
+    color: '#fef08a',
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 3,
+    marginTop: 2,
+  },
+  cupTileTag: {
+    color: 'rgba(203,213,225,0.88)',
+    fontSize: 10,
+    lineHeight: 14,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  cardTopCompact: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 2 },
+  viewLinkCompact: { color: runit.neonPink, fontSize: 12, fontWeight: '800' },
   cupCreditsLine: { color: '#fef08a', fontSize: 15, fontWeight: '900', marginBottom: 4 },
-  cardWrap: { marginBottom: 14 },
-  cardBorder: { borderRadius: 16, padding: 2 },
-  cardInner: { backgroundColor: 'rgba(8,4,18,0.88)', borderRadius: 14, padding: 14 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  cardName: { flex: 1, color: '#fff', fontSize: 16, fontWeight: '900' },
+  cardWrap: { marginBottom: 10 },
+  cardBorder: { borderRadius: 14, padding: 2 },
+  cardInner: { backgroundColor: 'rgba(8,4,18,0.88)', borderRadius: 12, padding: 11 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 5 },
+  cardName: { flex: 1, color: '#fff', fontSize: 15, fontWeight: '900', lineHeight: 19 },
   statePill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   statePillText: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   cardMeta: { flexDirection: 'row', gap: 12, marginBottom: 6 },
-  cardMetaTxt: { color: 'rgba(148,163,184,0.85)', fontSize: 12, fontWeight: '700' },
-  cardDate: { color: 'rgba(148,163,184,0.75)', fontSize: 11, marginBottom: 6 },
-  dailyPrizeRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginBottom: 6,
-    marginTop: 2,
-  },
-  dailyPrizeDollar: {
-    color: '#fef08a',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(250,204,21,0.55)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-  },
-  dailyPrizeSub: { color: 'rgba(254,243,199,0.95)', fontSize: 13, fontWeight: '800' },
+  cardMetaTxt: { color: 'rgba(148,163,184,0.85)', fontSize: 11, fontWeight: '700' },
+  cardDate: { color: 'rgba(148,163,184,0.75)', fontSize: 10, marginBottom: 4 },
   cardPrize: {
     color: '#f1f5f9',
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 10,
-    fontWeight: '800',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 7,
+    fontWeight: '700',
   },
-  cardPrizeDailyTagline: { fontSize: 13, fontWeight: '600', color: 'rgba(203,213,225,0.85)', marginTop: 0 },
-  dailyResetTiny: {
-    color: '#fde68a',
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: 6,
-    fontVariant: ['tabular-nums'],
-  },
+  cardPrizeDailyTagline: { fontSize: 12, fontWeight: '600', color: 'rgba(203,213,225,0.85)', marginTop: 0 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  viewLink: { color: runit.neonPink, fontSize: 13, fontWeight: '800' },
+  viewLink: { color: runit.neonPink, fontSize: 12, fontWeight: '800' },
 });

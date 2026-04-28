@@ -6,8 +6,8 @@ import { parseMinigameReturnHref, primaryExitLabel } from '@/lib/minigameReturnH
 import { ROUTE_MINIGAMES } from '@/minigames/ui/GameOverExitRow';
 
 /**
- * Respect `returnHref` (encodeURIComponent path) so exiting a minigame returns to Money / Events /
- * Arcade hub instead of always landing on Minigames.
+ * Respect `returnHref` (encodeURIComponent path) so exiting a minigame returns to Events / Arcade hub
+ * instead of always landing on the minigames index.
  */
 export function useMinigameExitNav(): {
   replaceToPrimaryExit: () => void;

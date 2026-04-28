@@ -2,9 +2,11 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
+import { useWithdrawPlatformFeeBps } from '@/hooks/useWithdrawPlatformFeeBps';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { formatUsdFromCents } from '@/lib/money';
+import { splitWithdrawGrossCents, withdrawNetFailsMinimum } from '@/lib/walletWithdrawPreview';
 import {
   PAYOUT_BANK_TIMING_SHORT,
   PAYOUT_WHOP_TRANSFER_SUCCESS,
@@ -16,7 +18,7 @@ import { withdrawWalletToWhop } from '@/services/wallet/withdrawWalletToWhop';
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -137,6 +139,15 @@ export default function WhopPayoutsScreen() {
     }
   }, [uid, whopId, withdrawUsd, walletCents, qc, onOpenPortal]);
 
+  const withdrawFeeBpsQ = useWithdrawPlatformFeeBps(uid);
+  const withdrawFeeBps = withdrawFeeBpsQ.data ?? 0;
+
+  const withdrawFeeSplit = useMemo(() => {
+    const cents = parseUsdToCents(withdrawUsd);
+    if (cents == null || cents < 1) return null;
+    return splitWithdrawGrossCents(cents, withdrawFeeBps);
+  }, [withdrawUsd, withdrawFeeBps]);
+
   const canEnterAmount = !withdrawing && walletCents >= 100;
   const canTapWithdraw = !withdrawing && walletCents >= 100 && !!whopId;
 
@@ -209,6 +220,21 @@ export default function WhopPayoutsScreen() {
               style={[styles.input, !canEnterAmount && styles.inputMuted]}
               editable={canEnterAmount}
             />
+            {withdrawFeeSplit && withdrawFeeSplit.feeCents > 0 ? (
+              <>
+                <Text style={styles.feePreview}>
+                  Wallet debit {formatUsdFromCents(withdrawFeeSplit.grossCents)} · Est. Whop credit{' '}
+                  {formatUsdFromCents(withdrawFeeSplit.payoutCents)} · Fee {formatUsdFromCents(withdrawFeeSplit.feeCents)}
+                </Text>
+                {withdrawNetFailsMinimum(withdrawFeeSplit.payoutCents) ? (
+                  <Text style={[styles.feePreview, { color: '#fbbf24' }]}>
+                    After the fee, less than $1.00 would reach Whop — enter a larger amount.
+                  </Text>
+                ) : null}
+              </>
+            ) : withdrawFeeSplit ? (
+              <Text style={styles.feePreview}>No withdrawal fee — full amount is sent toward Whop.</Text>
+            ) : null}
             <Pressable
               onPress={() => void onWithdraw()}
               disabled={!canTapWithdraw}
@@ -317,6 +343,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: 'rgba(8,4,18,0.75)',
   },
+  feePreview: { color: 'rgba(148,163,184,0.92)', fontSize: 12, marginBottom: 10, lineHeight: 17 },
   inputMuted: { opacity: 0.55 },
   hint: { color: 'rgba(148,163,184,0.9)', fontSize: 12, marginTop: 4, lineHeight: 17 },
 });

@@ -25,6 +25,8 @@ Apply to the hosted database:
 
 Optional reference data: `sql/seed/*.sql` (run manually in SQL Editor).
 
+**Withdrawal platform fee:** Not an Expo or Edge secret — set **`platform_economy.withdraw_platform_fee_bps`** (0–9999 basis points; e.g. `250` = 2.50%) via SQL (`UPDATE … WHERE id = 1`). Migration **`00055_platform_economy_withdraw_fee_bps.sql`** adds the column and **`get_withdraw_platform_fee_bps`** for authenticated previews; **`withdrawWalletToConnect`** / **`withdrawWalletToWhop`** load the same value server-side.
+
 ## Edge Functions — secrets (hosted)
 
 Supabase injects `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for deployed functions. For anything else:

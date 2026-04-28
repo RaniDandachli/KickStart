@@ -64,7 +64,7 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onMoneyChallenges, on
           style={[styles.eventsGrad, { borderRadius: 14 }]}
         >
           <SafeIonicons name="cash-outline" size={22} color="#fff" />
-          <Text style={[styles.eventsText, { fontFamily: runitFont.black }]}>$ MONEY CHALLENGES</Text>
+          <Text style={[styles.eventsText, { fontFamily: runitFont.black }]}>DAILY RACE</Text>
           <SafeIonicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
         </LinearGradient>
       </Pressable>

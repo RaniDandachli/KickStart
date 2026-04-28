@@ -10,6 +10,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
+import {
+  assertPayoutMeansMinimumBankTransfer,
+  fetchWithdrawPlatformFeeBps,
+  splitWithdrawGrossCents,
+} from '../_shared/walletWithdrawFee.ts';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 import { whopTransfersCreate } from '../_shared/whopRest.ts';
 
@@ -49,6 +54,11 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    const feeBps = await fetchWithdrawPlatformFeeBps(admin);
+    const split = splitWithdrawGrossCents(amount_cents, feeBps);
+    const payoutErr = assertPayoutMeansMinimumBankTransfer(split.payoutCents, split.feeCents);
+    if (payoutErr) return errorResponse(payoutErr, 422);
+
     const { data: profile, error: profErr } = await admin
       .from('profiles')
       .select('wallet_cents, whop_company_id')
@@ -81,7 +91,8 @@ Deno.serve(async (req) => {
     }
 
     const whopIdempotence = `withdraw_whop_${userId}_${idempotency_key}`.slice(0, 200);
-    const usdAmount = centsToUsdAmount(amount_cents);
+    /** User receives this amount net; remainder is platform withhold (Stripe/Whop parent balance retains margin vs gross debit). */
+    const usdAmount = centsToUsdAmount(split.payoutCents);
 
     try {
       const transfer = await whopTransfersCreate(whopKey, {
@@ -92,10 +103,15 @@ Deno.serve(async (req) => {
         idempotence_key: whopIdempotence,
         metadata: {
           user_id: userId,
-          idempotency_key: idempotency_key,
+          idempotency_key,
           source: 'withdraw_wallet_to_whop',
+          gross_wallet_debit_cents: String(amount_cents),
+          platform_fee_cents: String(split.feeCents),
+          net_destination_usd_approx: String(usdAmount),
         },
-        notes: 'Wallet cash-out',
+        notes: split.feeCents > 0
+          ? `Wallet cash-out (${(split.feeCents / 100).toFixed(2)} USD fee retained)`
+          : 'Wallet cash-out',
       });
 
       const { error: txErr } = await admin.from('transactions').insert({
@@ -103,11 +119,17 @@ Deno.serve(async (req) => {
         kind: 'wallet_withdraw',
         amount: amount_cents,
         currency: 'wallet_cents',
-        description: 'Withdraw to Whop connected account',
+        description:
+          split.feeCents > 0
+            ? `Withdraw to Whop (${(split.feeCents / 100).toFixed(2)} USD platform fee)`
+            : 'Withdraw to Whop connected account',
         metadata: {
           whop_transfer_id: transfer.id,
           idempotency_key,
           destination_whop_company_id: whopCompanyId,
+          gross_wallet_debit_cents: amount_cents,
+          net_destination_cents: split.payoutCents,
+          platform_fee_cents: split.feeCents,
         },
       });
 
@@ -115,10 +137,20 @@ Deno.serve(async (req) => {
         console.error('[withdrawWalletToWhop] transaction row failed', txErr);
       }
 
+      if (split.feeCents > 0) {
+        const { error: platErr } = await admin.rpc('platform_credit_withdraw_fee_revenue', {
+          p_cents: split.feeCents,
+        });
+        if (platErr) console.error('[withdrawWalletToWhop] platform rollup failed', platErr);
+      }
+
       return json({
         ok: true,
         wallet_cents: debited.wallet_cents as number,
         whop_transfer_id: transfer.id,
+        gross_wallet_debit_cents: amount_cents,
+        net_destination_cents: split.payoutCents,
+        platform_fee_cents: split.feeCents,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

@@ -658,7 +658,7 @@ export default function TapDashGame({
             if ('requiresWalletUnlock' in r && r.requiresWalletUnlock) {
               Alert.alert(
                 'Unlock first',
-                'Pay today’s wallet entry from Money Challenges, then retry while signed in.',
+                'Pay today’s wallet entry from Daily Race (challenges tab), then retry while signed in.',
               );
               return;
             }
@@ -1019,7 +1019,7 @@ export default function TapDashGame({
               </Text>
               {soloChallenge ? (
                 <Text style={styles.hintSub}>
-                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Money Challenge (Money tab)
+                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Daily Race
                 </Text>
               ) : (
                 <Text style={styles.hintSub}>Neon sprint · precision run</Text>

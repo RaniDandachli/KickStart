@@ -690,6 +690,10 @@ export interface Database {
         Args: { p_challenge_id: string; p_calendar_day: string };
         Returns: Json;
       };
+      get_withdraw_platform_fee_bps: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
   };

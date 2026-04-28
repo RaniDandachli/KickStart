@@ -12,6 +12,7 @@ export const queryKeys = {
   leaderboard: (scope: string, seasonId: string | null, region: string) =>
     ['leaderboard', scope, seasonId, region] as const,
   transactions: (userId: string) => ['transactions', userId] as const,
+  withdrawPlatformFeeBps: () => ['withdrawPlatformFeeBps'] as const,
   seasonActive: () => ['seasonActive'] as const,
   ratings: (userId: string) => ['ratings', userId] as const,
   userStats: (userId: string) => ['userStats', userId] as const,

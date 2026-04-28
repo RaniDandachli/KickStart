@@ -7,14 +7,18 @@ export const RUN_IT_ARCADE_LOGO_URI =
 
 export const runItArcadeLogoSource = { uri: RUN_IT_ARCADE_LOGO_URI } as const;
 
-/** Hero art for the Tournament of the Day card (Events carousel). */
-export const TOURNAMENT_OF_THE_DAY_HERO_URI =
-  'https://www.image2url.com/r2/default/images/1777087549347-78bd2585-50ab-4dae-b988-2cebf4002e62.png' as const;
+/** Hero banner — Tournament of the Day (Events grid). Replace `assets/images/tournament-of-the-day-banner.png` when updating art. */
+export const tournamentOfTheDayHeroSource = require('@/assets/images/tournament-of-the-day-banner.png');
 
-export const tournamentOfTheDayHeroSource = { uri: TOURNAMENT_OF_THE_DAY_HERO_URI } as const;
+/** Friday Cup banner (Events + `friday-cup` screen). */
+export const fridayCupBannerSource = require('@/assets/images/friday-cup-banner.png');
+
+/** Weekly Race banner (Events grid + weekly race screen). */
+export const weeklyRaceBannerSource = require('@/assets/images/weekly-race-banner.png');
+
+/** Daily Race banner (solo / money tap targets — Events grid). */
+export const dailyRaceBannerSource = require('@/assets/images/daily-race-banner.png');
 
 /** Web home hero: arena + trophy art behind "COMPETE. WIN REAL CASH." */
 export const competeWinCashHeroSource = require('@/assets/images/hero-compete-win-cash-arena.png');
 
-/** Friday Cup promotional banner (Events carousel + `friday-cup` screen). */
-export const fridayCupBannerSource = require('@/assets/images/friday-cup-banner.png');

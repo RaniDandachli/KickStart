@@ -2,7 +2,7 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
+import { useWithdrawPlatformFeeBps } from '@/hooks/useWithdrawPlatformFeeBps';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { ROUTES, safeBack } from '@/lib/appNavigation';
 import { formatUsdFromCents } from '@/lib/money';
@@ -30,6 +31,7 @@ import {
   openStripeConnectOnboarding,
   type StripeConnectStatus,
 } from '@/services/wallet/stripeConnectOnboarding';
+import { splitWithdrawGrossCents, withdrawNetFailsMinimum } from '@/lib/walletWithdrawPreview';
 import { withdrawWalletToConnect } from '@/services/wallet/withdrawWallet';
 import { appBorderAccent, appBorderAccentMuted, runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -118,6 +120,15 @@ export default function StripeConnectScreen() {
 
   const hasAccount = !!(connectId || status?.connected);
   const payoutsReady = status?.payouts_enabled === true;
+
+  const withdrawFeeBpsQ = useWithdrawPlatformFeeBps(uid);
+  const withdrawFeeBps = withdrawFeeBpsQ.data ?? 0;
+
+  const withdrawFeeSplit = useMemo(() => {
+    const cents = parseUsdToCents(withdrawUsd);
+    if (cents == null || cents < 1) return null;
+    return splitWithdrawGrossCents(cents, withdrawFeeBps);
+  }, [withdrawUsd, withdrawFeeBps]);
 
   /** Explains what’s missing and offers actions (Connect bank / Continue / Dashboard). */
   const promptPayoutGate = useCallback(() => {
@@ -340,6 +351,21 @@ export default function StripeConnectScreen() {
               style={[styles.input, !canEnterAmount && styles.inputMuted]}
               editable={canEnterAmount}
             />
+            {withdrawFeeSplit && withdrawFeeSplit.feeCents > 0 ? (
+              <>
+                <Text style={styles.feePreview}>
+                  Wallet debit {formatUsdFromCents(withdrawFeeSplit.grossCents)} · Est. bank payout{' '}
+                  {formatUsdFromCents(withdrawFeeSplit.payoutCents)} · Fee {formatUsdFromCents(withdrawFeeSplit.feeCents)}
+                </Text>
+                {withdrawNetFailsMinimum(withdrawFeeSplit.payoutCents) ? (
+                  <Text style={[styles.feePreview, { color: '#fbbf24' }]}>
+                    After the fee, less than $1.00 would reach your bank — enter a larger amount.
+                  </Text>
+                ) : null}
+              </>
+            ) : withdrawFeeSplit ? (
+              <Text style={styles.feePreview}>No withdrawal fee — full amount is sent toward your bank payout.</Text>
+            ) : null}
             <Pressable
               onPress={() => void onWithdraw()}
               disabled={!canTapWithdraw}
@@ -435,6 +461,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     backgroundColor: 'rgba(8,4,18,0.75)',
+  },
+  feePreview: {
+    color: 'rgba(148,163,184,0.92)',
+    fontSize: 12,
+    marginBottom: 10,
+    lineHeight: 17,
   },
   hint: { color: 'rgba(148,163,184,0.9)', fontSize: 12, marginTop: 10, lineHeight: 17 },
   timingNote: {

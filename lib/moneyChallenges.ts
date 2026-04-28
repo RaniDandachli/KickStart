@@ -15,7 +15,7 @@ export type MoneyChallengeDefinition = {
   kind: MoneyChallengeKind;
   title: string;
   subtitle: string;
-  /** Minigame route segment under play/minigames (no leading slash). */
+  /** Route segment under `/(app)/(tabs)/…/minigames` (no leading slash) — Daily Race uses tournaments stack. */
   minigameSegment: string;
   targetScore: number;
   showcasePrizeUsd: number;

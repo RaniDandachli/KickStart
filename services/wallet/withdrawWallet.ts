@@ -18,6 +18,10 @@ export type WithdrawWalletResult = {
   ok: boolean;
   wallet_cents: number;
   stripe_transfer_id?: string;
+  /** Gross wallet debit; net to bank & platform fee optional when Edge applies a withdraw fee */
+  gross_wallet_debit_cents?: number;
+  net_transfer_cents?: number;
+  platform_fee_cents?: number;
   error?: string;
 };
 

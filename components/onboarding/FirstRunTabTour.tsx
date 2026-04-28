@@ -20,16 +20,15 @@ const { width: SCREEN_W } = Dimensions.get('window');
 /** Matches native tab order (see `(tabs)/_layout`). Prizes are opened from Arcade on mobile — no Prizes tab. */
 const TAB_TOUR_STEPS: { href: string; title: string; body: string }[] = [
   { href: '/(app)/(tabs)', title: 'Home', body: 'Choose Quick Match, Live matches, or your contest — plus daily events and stats.' },
-  { href: '/(app)/(tabs)/tournaments', title: 'Events', body: 'Tournaments, brackets, and scheduled play.' },
+  {
+    href: '/(app)/(tabs)/tournaments',
+    title: 'Events',
+    body: 'Tournaments, brackets, Weekly Race, Daily Race challenges — all competition lives here.',
+  },
   {
     href: '/(app)/(tabs)/play',
     title: 'Arcade',
     body: 'Minigames and prize runs · open Prize catalog from the Arcade screen (gift row).',
-  },
-  {
-    href: '/(app)/(tabs)/money-challenges',
-    title: 'Money',
-    body: 'Score challenges and showcase tiers — free daily tries or wallet entry for bigger showcases.',
   },
   { href: '/(app)/(tabs)/profile', title: 'You', body: 'Wallet, profile, and account.' },
 ];

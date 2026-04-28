@@ -18,6 +18,9 @@ export type WithdrawWalletToWhopResult = {
   ok: boolean;
   wallet_cents: number;
   whop_transfer_id?: string;
+  gross_wallet_debit_cents?: number;
+  net_destination_cents?: number;
+  platform_fee_cents?: number;
   error?: string;
 };
 

@@ -32,7 +32,7 @@ import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { pushCrossTab, ROUTES } from '@/lib/appNavigation';
 import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
-import { moneyChallengesHref } from '@/lib/tabRoutes';
+import { dailyRaceHref } from '@/lib/tabRoutes';
 import { runit, runitFont, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { presentAddMoneyChooser } from '@/lib/shopNavigation';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
@@ -296,7 +296,7 @@ export default function PlayHubScreen() {
         <ArcadeQuickMatch
           onOneVsOne={() => pushCrossTab(router, '/(app)/(tabs)')}
           onSoloPlay={() => setSoloPlayGate(true)}
-          onMoneyChallenges={() => pushCrossTab(router, moneyChallengesHref())}
+          onMoneyChallenges={() => pushCrossTab(router, dailyRaceHref())}
           onTournament={() => pushCrossTab(router, '/(app)/(tabs)/tournaments')}
         />
 

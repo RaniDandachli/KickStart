@@ -15,17 +15,28 @@ export default function TapDashRoute() {
 
   const wr = weeklyRace === '1' || weeklyRace === 'true';
 
-  const solo: SoloChallengeBundle | undefined = (() => {
-    if (wr || typeof challengeId !== 'string' || challengeId.length === 0) return undefined;
+  const normalizedChallengeId =
+    typeof challengeId === 'string' && challengeId.length > 0
+      ? (() => {
+          try {
+            return decodeURIComponent(challengeId);
+          } catch {
+            return challengeId;
+          }
+        })()
+      : '';
 
-    const def = getMoneyChallengeById(challengeId);
+  const solo: SoloChallengeBundle | undefined = (() => {
+    if (wr || !normalizedChallengeId) return undefined;
+
+    const def = getMoneyChallengeById(normalizedChallengeId);
     if (def) return toSoloChallengeBundle(def);
 
     if (!targetScore) return undefined;
 
     const ts = parseInt(String(targetScore), 10);
     return {
-      challengeId,
+      challengeId: normalizedChallengeId,
       targetScore: Math.max(1, Number.isFinite(ts) ? ts : 1),
       prizeLabel:
         typeof prizeLabel === 'string' && prizeLabel.length > 0

@@ -6,6 +6,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
+import {
+  assertPayoutMeansMinimumBankTransfer,
+  fetchWithdrawPlatformFeeBps,
+  splitWithdrawGrossCents,
+} from '../_shared/walletWithdrawFee.ts';
 import { corsHeaders, errorResponse, json } from '../_shared/http.ts';
 
 const Body = z.object({
@@ -35,8 +40,15 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
     const { amount_cents, idempotency_key } = parsed.data;
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16', httpClient: Stripe.createFetchHttpClient() });
     const admin = createClient(supabaseUrl, serviceKey);
+    const feeBps = await fetchWithdrawPlatformFeeBps(admin);
+    const split = splitWithdrawGrossCents(amount_cents, feeBps);
+    const payoutErr = assertPayoutMeansMinimumBankTransfer(split.payoutCents, split.feeCents);
+    if (payoutErr) {
+      return errorResponse(payoutErr, 422);
+    }
+
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16', httpClient: Stripe.createFetchHttpClient() });
 
     const { data: profile, error: profErr } = await admin
       .from('profiles')
@@ -66,13 +78,16 @@ Deno.serve(async (req) => {
     try {
       transfer = await stripe.transfers.create(
         {
-          amount: amount_cents,
+          amount: split.payoutCents,
           currency: 'usd',
           destination: connectId,
           metadata: {
             user_id: userId,
             idempotency_key,
             source: 'withdraw_wallet_to_connect',
+            gross_wallet_debit_cents: String(amount_cents),
+            platform_fee_cents: String(split.feeCents),
+            net_to_destination_cents: String(split.payoutCents),
           },
         },
         { idempotencyKey: stripeIdempotency },
@@ -111,11 +126,17 @@ Deno.serve(async (req) => {
       kind: 'wallet_withdraw',
       amount: amount_cents,
       currency: 'wallet_cents',
-      description: 'Withdraw to bank (Stripe Connect)',
+      description:
+        split.feeCents > 0
+          ? `Withdraw to bank (Stripe Connect · ${(split.feeCents / 100).toFixed(2)} USD platform fee)`
+          : 'Withdraw to bank (Stripe Connect)',
       metadata: {
         stripe_transfer_id: transfer.id,
         idempotency_key,
         destination_connect_account: connectId,
+        gross_wallet_debit_cents: amount_cents,
+        net_to_destination_cents: split.payoutCents,
+        platform_fee_cents: split.feeCents,
       },
     });
 
@@ -123,10 +144,22 @@ Deno.serve(async (req) => {
       console.error('[withdrawWalletToConnect] transaction row failed', txErr);
     }
 
+    if (split.feeCents > 0) {
+      const { error: platErr } = await admin.rpc('platform_credit_withdraw_fee_revenue', {
+        p_cents: split.feeCents,
+      });
+      if (platErr) {
+        console.error('[withdrawWalletToConnect] platform revenue rollup failed', platErr);
+      }
+    }
+
     return json({
       ok: true,
       wallet_cents: updated.wallet_cents as number,
       stripe_transfer_id: transfer.id,
+      gross_wallet_debit_cents: amount_cents,
+      net_transfer_cents: split.payoutCents,
+      platform_fee_cents: split.feeCents,
     });
   } catch (e) {
     console.error('[withdrawWalletToConnect]', e);
