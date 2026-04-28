@@ -43,3 +43,9 @@ yarn-error.*
 
 # local agent worktree artifacts
 minigames/neongrid/.claude/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
