@@ -412,7 +412,14 @@ export default function MatchPlayScreen() {
       );
     return (
       <Screen scroll={false} className="px-0">
-        <View className="flex-1" style={{ marginHorizontal: -16 }}>
+        <View
+          className="flex-1"
+          style={{
+            marginHorizontal: -16,
+            minHeight: 0,
+            alignSelf: 'stretch',
+          }}
+        >
           {game}
         </View>
         {canForfeit ? (

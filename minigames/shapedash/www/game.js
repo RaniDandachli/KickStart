@@ -13,12 +13,35 @@ const GROUND_RATIO = 0.78;
 const CEIL_Y = 40;
 
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  let ww =
+    typeof window !== "undefined" && window.innerWidth > 2
+      ? window.innerWidth
+      : 0;
+  let hh =
+    typeof window !== "undefined" && window.innerHeight > 2
+      ? window.innerHeight
+      : 0;
+  if (ww < 2 && typeof document !== "undefined" && document.documentElement) {
+    ww = document.documentElement.clientWidth || ww;
+  }
+  if (hh < 2 && typeof document !== "undefined" && document.documentElement) {
+    hh = document.documentElement.clientHeight || hh;
+  }
+  /** React Native WebView sometimes reports 0×0 until layout settles; avoid blank canvas */
+  if (ww < 2) ww = 320;
+  if (hh < 2) hh = 568;
+  W = canvas.width = ww;
+  H = canvas.height = hh;
   groundY = Math.floor(H * GROUND_RATIO);
 }
 resize();
 window.addEventListener("resize", resize);
+requestAnimationFrame(function () {
+  resize();
+});
+setTimeout(function () {
+  resize();
+}, 100);
 
 // -------------------- Constants --------------------
 const PS = 38; // player size

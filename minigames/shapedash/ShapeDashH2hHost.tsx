@@ -1,5 +1,5 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import WebView from 'react-native-webview';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -44,6 +44,10 @@ export function ShapeDashH2hHost({
 }: {
   h2hSkillContest: H2hSkillContestBundle;
 }) {
+  const { height: windowHeight } = useWindowDimensions();
+  /** Head-to-head match stack sometimes gives RN WebView 0 height until a floor is set */
+  const minEmbedHeight = Math.max(280, Math.floor(windowHeight * 0.55));
+
   const [phase, setPhase] = useState<Phase>('countdown');
   const html = useMemo(
     () =>
@@ -133,10 +137,19 @@ export function ShapeDashH2hHost({
     return () => window.removeEventListener('message', handler);
   }, [handleMessageBody]);
 
+  const kickResizeInFrame = useCallback(() => {
+    try {
+      const w = iframeRef.current?.contentWindow;
+      if (w) w.dispatchEvent(new Event('resize'));
+    } catch (_) {
+      /** ignore */
+    }
+  }, []);
+
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.flex}>
-        <View style={[styles.flex, { position: 'relative' }]}>
+      <View style={[styles.flex, { minHeight: minEmbedHeight }]}>
+        <View style={[styles.flex, { position: 'relative', minHeight: minEmbedHeight }]}>
           {createElement('iframe', {
             title: 'Shape Dash H2H',
             srcDoc: html,
@@ -144,11 +157,15 @@ export function ShapeDashH2hHost({
             onLoad: (ev: unknown) => {
               const iframe = (ev as { target?: HTMLIFrameElement })?.target;
               if (iframe) iframeRef.current = iframe;
+              kickResizeInFrame();
+              setTimeout(kickResizeInFrame, 50);
+              setTimeout(kickResizeInFrame, 200);
             },
             style: ({
               border: 'none',
               width: '100%',
               height: '100%',
+              minHeight: minEmbedHeight,
               display: 'block',
               backgroundColor: '#060610',
               flexGrow: 1,
@@ -191,15 +208,25 @@ export function ShapeDashH2hHost({
   }
 
   return (
-    <View style={styles.flex}>
+    <View style={[styles.flex, { minHeight: minEmbedHeight }]}>
       <WebView
         ref={webRef}
-        style={styles.flex}
+        style={[styles.flex, { minHeight: minEmbedHeight }]}
         originWhitelist={['*']}
         source={{ html }}
         javaScriptEnabled
         domStorageEnabled
         nestedScrollEnabled
+        onLoadEnd={() => {
+          webRef.current?.injectJavaScript(
+            '(function(){try{window.dispatchEvent(new Event("resize"));}catch(e){}})();true;',
+          );
+          setTimeout(() => {
+            webRef.current?.injectJavaScript(
+              '(function(){try{window.dispatchEvent(new Event("resize"));}catch(e){}})();true;',
+            );
+          }, 150);
+        }}
         onMessage={(m) => handleMessageBody(m.nativeEvent.data)}
         mediaPlaybackRequiresUserAction
         setBuiltInZoomControls={false}
