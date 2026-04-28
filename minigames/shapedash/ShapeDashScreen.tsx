@@ -2,8 +2,13 @@
  * Hosted HTML5 canvas Geometry-Dash tribute.
  * - Native: WebView with bundled HTML.
  * - Web: iframe + srcDoc (react-native-webview does not support web).
+ *
+ * Boot mode (search param `mode`):
+ * - `mode=marathon` — auto-starts endless Marathon (competitive / money matchups).
+ * - Omit or anything else — main menu so the player can pick Marathon vs Classic Levels (arcade / practice).
  */
 import { createElement, useMemo } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -14,6 +19,13 @@ import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { runitFont } from '@/lib/runitArcadeTheme';
 
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
+
+function injectShapeDashBoot(html: string, defaultMode: 'menu' | 'marathon'): string {
+  if (defaultMode !== 'marathon') return html;
+  const payload = JSON.stringify({ defaultMode: 'marathon' });
+  /* Boot runs before bundled game script so Marathon can auto-start when competing. */
+  return html.replace('<body>', `<body><script>globalThis.__SHAPE_DASH_BOOT=${payload};<\\/script>`);
+}
 
 function ShapeDashGameEmbed({ html }: { html: string }) {
   const injected = useMemo(
@@ -75,6 +87,20 @@ function ShapeDashGameEmbed({ html }: { html: string }) {
 export default function ShapeDashScreen() {
   useHidePlayTabBar();
   const { onHeaderBackPress, replacePrimaryLabel } = useMinigameExitNav();
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+
+  const bootMode =
+    typeof params.mode === 'string'
+      ? params.mode
+      : Array.isArray(params.mode)
+        ? params.mode[0]
+        : undefined;
+
+  const html = useMemo(
+    () =>
+      injectShapeDashBoot(SHAPE_DASH_INLINE_HTML, bootMode === 'marathon' ? 'marathon' : 'menu'),
+    [bootMode],
+  );
 
   return (
     <View style={styles.wrap}>
@@ -90,7 +116,7 @@ export default function ShapeDashScreen() {
           <Text style={styles.backTxt}>{replacePrimaryLabel}</Text>
         </Pressable>
       </SafeAreaView>
-      <ShapeDashGameEmbed html={SHAPE_DASH_INLINE_HTML} />
+      <ShapeDashGameEmbed html={html} />
     </View>
   );
 }

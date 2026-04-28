@@ -53,6 +53,7 @@ let practiceMode = false;
 let muted = false;
 
 let currentLevelIdx = 0;
+let marathonMode = false;
 let levelData = null;
 let attemptNum = 0;
 let deathNum = 0;
@@ -80,16 +81,18 @@ let trail = [];
 // -------------------- Persistence --------------------
 let bestProg = {};
 let totalAttempts = {};
+let marathonBest = 0;
 try {
   const s = JSON.parse(localStorage.getItem("gd_save2") || "{}");
   bestProg = s.bp || {};
   totalAttempts = s.ta || {};
+  marathonBest = s.md || 0;
 } catch (e) {}
 function save() {
   try {
     localStorage.setItem(
       "gd_save2",
-      JSON.stringify({ bp: bestProg, ta: totalAttempts })
+      JSON.stringify({ bp: bestProg, ta: totalAttempts, md: marathonBest })
     );
   } catch (e) {}
 }
@@ -172,7 +175,7 @@ window.addEventListener("keydown", (e) => {
   if (c === "KeyM") muted = !muted;
 
   if (gameState === "menu") {
-    const max = menuScreen === "main" ? 2 : levels.length;
+    const max = menuScreen === "main" ? 3 : levels.length;
     if (c === "ArrowDown") menuSel = Math.min(menuSel + 1, max);
     if (c === "ArrowUp") menuSel = Math.max(menuSel - 1, 0);
     if (c === "Enter" || c === "Space") {
@@ -253,6 +256,7 @@ function toggleFullscreen() {
 document.addEventListener("fullscreenchange", () => resize());
 
 function goToMenu() {
+  marathonMode = false;
   gameState = "menu";
   menuScreen = "main";
   menuSel = 0;
@@ -809,6 +813,163 @@ function buildLevel3() {
   return { name: "Spectral Drift", hue: 350, obs: o, len: x + 300 };
 }
 
+function maxObsRight(obs) {
+  let m = 0;
+  for (const o of obs) {
+    let r = o.x;
+    if (o.type === "gap") r = o.x + (o.w || 0);
+    else if (o.type === "block" || o.type === "plat" || o.type === "mover")
+      r = o.x + (o.w || 0);
+    else if (o.type === "spike" || o.type === "spikeD") r = o.x + SPIKE_W;
+    else if (o.type === "finish") r = o.x + 50;
+    else r = o.x + 56;
+    if (r > m) m = r;
+  }
+  return m;
+}
+
+function shiftObs(obs, dx) {
+  return obs.map((o) => {
+    const c = { ...o, x: o.x + dx };
+    return c;
+  });
+}
+
+function procMulberry32(a) {
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildProceduralExtension(startX, length, seed) {
+  const rnd = procMulberry32(seed >>> 0);
+  const o = [];
+  let x = startX + 420;
+  const end = startX + length - 200;
+  while (x < end) {
+    const roll = rnd();
+    if (roll < 0.26) {
+      o.push({ type: "spike", x });
+      x += 280 + rnd() * 220;
+    } else if (roll < 0.38) {
+      o.push({ type: "spike", x });
+      o.push({ type: "spike", x: x + 70 });
+      x += 330 + rnd() * 160;
+    } else if (roll < 0.47) {
+      o.push({ type: "gap", x, w: 100 + Math.floor(rnd() * 45) });
+      x += 300 + rnd() * 140;
+    } else if (roll < 0.56) {
+      const h = 50 + Math.floor(rnd() * 40);
+      o.push({
+        type: "block",
+        x,
+        y: groundY - h,
+        w: 52 + Math.floor(rnd() * 20),
+        h,
+      });
+      o.push({ type: "spike", x: x + 72 });
+      x += 340 + rnd() * 120;
+    } else if (roll < 0.63) {
+      o.push({ type: "speedP", x, spd: rnd() < 0.45 ? "fast" : "normal" });
+      x += 200;
+      o.push({ type: "spike", x });
+      x += 220 + rnd() * 140;
+    } else if (roll < 0.7) {
+      o.push({ type: "pad", x });
+      x += 130;
+      o.push({ type: "spike", x });
+      x += 360;
+    } else if (roll < 0.79) {
+      o.push({ type: "gap", x, w: 115 });
+      o.push({
+        type: "orb",
+        x: x + 55,
+        y: groundY - 110 - Math.floor(rnd() * 55),
+      });
+      x += 400;
+    } else if (roll < 0.86) {
+      o.push({ type: "spike", x });
+      o.push({ type: "spike", x: x + 60 });
+      o.push({ type: "spike", x: x + 120 });
+      x += 380 + rnd() * 100;
+    } else {
+      o.push({ type: "spike", x });
+      x += 260 + rnd() * 230;
+    }
+  }
+  return o;
+}
+
+function buildMarathonLevel() {
+  const BRIDGE = 720;
+  const PROC_LEN = 240000;
+  const PROC_SEED = 0xc0ffee62;
+
+  const raw1 = buildLevel1();
+  const o1 = raw1.obs.filter((ob) => ob.type !== "finish");
+  const r1 = maxObsRight(o1);
+
+  const raw2 = buildLevel2();
+  const o2raw = raw2.obs.filter((ob) => ob.type !== "finish");
+  const off2 = r1 + BRIDGE - 650;
+  const o2 = shiftObs(o2raw, off2);
+  const r2 = maxObsRight(o2);
+
+  const raw3 = buildLevel3();
+  const o3raw = raw3.obs.filter((ob) => ob.type !== "finish");
+  const off3 = r2 + BRIDGE - 550;
+  const o3 = shiftObs(o3raw, off3);
+  const r3 = maxObsRight(o3);
+
+  const L2_START_WORLD = off2 + 650;
+  const L3_START_WORLD = off3 + 550;
+  const procStart = r3 + 520;
+  const procObs = buildProceduralExtension(procStart, PROC_LEN, PROC_SEED);
+  procObs.unshift({ type: "speedP", x: procStart + 50, spd: "normal" });
+
+  const all = o1.concat(o2).concat(o3).concat(procObs);
+  const len = procStart + PROC_LEN + 900;
+  const marathonBounds = [
+    { end: L2_START_WORLD, label: "Neon Pulse" },
+    { end: L3_START_WORLD, label: "Rebound" },
+    { end: procStart, label: "Spectral Drift" },
+    { end: len, label: "Deep Run" },
+  ];
+
+  return {
+    name: "Marathon",
+    hue: 210,
+    marathon: true,
+    obs: all,
+    len,
+    procStart,
+    marathonBounds,
+  };
+}
+
+function marathonLabelAt(px) {
+  if (!levelData || !levelData.marathonBounds) return "";
+  for (const b of levelData.marathonBounds) {
+    if (px < b.end) return b.label;
+  }
+  return "Deep Run";
+}
+
+function activeHue() {
+  let h = levelData ? levelData.hue : 220;
+  if (levelData && levelData.marathon) {
+    h = (h + Math.floor(cameraX / 2400) * 38) % 360;
+  }
+  return h;
+}
+
+function marathonDistanceScore() {
+  return Math.max(0, Math.floor(P.x));
+}
+
 let levels = makeLevels();
 window.addEventListener("resize", () => {
   setTimeout(() => {
@@ -890,6 +1051,7 @@ function getProgress() {
 // -------------------- Start / Restart --------------------
 function startLevel(idx) {
   initAudio();
+  marathonMode = false;
   currentLevelIdx = idx;
   levels = makeLevels();
   levelData = levels[idx];
@@ -904,12 +1066,29 @@ function startLevel(idx) {
   showAttemptFlash();
 }
 
+function startMarathon() {
+  initAudio();
+  marathonMode = true;
+  currentLevelIdx = 3;
+  levels = makeLevels();
+  levelData = buildMarathonLevel();
+  deathNum = 0;
+  attemptNum = (totalAttempts[3] || 0) + 1;
+  totalAttempts[3] = attemptNum;
+  levelTimer = now();
+  levelFinishTime = 0;
+  resetPlayer(false);
+  gameState = "playing";
+  startMusic();
+  showAttemptFlash();
+}
+
 function restart() {
   if (practiceMode && checkpoints.length) {
     resetPlayer(true);
   } else {
     attemptNum++;
-    totalAttempts[currentLevelIdx] = attemptNum;
+    if (currentLevelIdx >= 0) totalAttempts[currentLevelIdx] = attemptNum;
     resetPlayer(false);
   }
   gameState = "playing";
@@ -929,10 +1108,18 @@ function kill() {
   sfxDie();
   emitP(P.x + PS / 2, P.y + PS / 2, "#ff0040", 28, 12);
   emitP(P.x + PS / 2, P.y + PS / 2, "#ffcc00", 14, 8);
-  const prog = getProgress();
-  if (!bestProg[currentLevelIdx] || prog > bestProg[currentLevelIdx]) {
-    bestProg[currentLevelIdx] = prog;
-    save();
+  if (marathonMode) {
+    const d = marathonDistanceScore();
+    if (d > marathonBest) {
+      marathonBest = d;
+      save();
+    }
+  } else {
+    const prog = getProgress();
+    if (!bestProg[currentLevelIdx] || prog > bestProg[currentLevelIdx]) {
+      bestProg[currentLevelIdx] = prog;
+      save();
+    }
   }
   setTimeout(() => {
     if (gameState === "playing" || P.dead) gameState = "dead";
@@ -940,6 +1127,7 @@ function kill() {
 }
 
 function win() {
+  if (marathonMode) return;
   P.done = true;
   gameState = "complete";
   bestProg[currentLevelIdx] = 100;
@@ -1173,7 +1361,7 @@ function update() {
 
 function drawBG() {
   bgPulse *= 0.92;
-  const hue = levelData ? levelData.hue : 220;
+  const hue = activeHue();
   const baseLit = 5;
   const pulseLit = bgPulse * 6;
 
@@ -1232,7 +1420,7 @@ function drawBG() {
 
 function drawGroundAndCeil() {
   if (!levelData) return;
-  const hue = levelData.hue;
+  const hue = activeHue();
 
   // Ground fill with gradient
   const gaps = levelData.obs
@@ -1310,7 +1498,7 @@ function drawGroundAndCeil() {
 
 function drawObs() {
   if (!levelData) return;
-  const hue = levelData.hue;
+  const hue = activeHue();
 
   for (const o of levelData.obs) {
     const sx = o.x - cameraX;
@@ -1551,7 +1739,7 @@ function drawPlayer() {
   const cx = dx + PS / 2,
     cy = P.y + PS / 2;
 
-  const hue = levelData ? levelData.hue : 200;
+  const hue = activeHue();
   const ph = hue + 120;
 
   // Draw trail behind player
@@ -1627,14 +1815,18 @@ function drawPlayer() {
 function drawHUD() {
   if (gameState !== "playing" && gameState !== "paused") return;
   const prog = getProgress();
-  const hue = levelData ? levelData.hue : 200;
+  const hue = activeHue();
 
-  // === Progress bar (upscaled) ===
+  // === Progress bar (upscaled) — classic: % · marathon: distance runway ===
   const bw = Math.min(W * 0.45, 500),
     bx = (W - bw) / 2,
     by = 18,
     bh = 10,
     br = bh / 2;
+
+  const barFrac = marathonMode
+    ? Math.min(1, (P.x - 250) / Math.max(4000, levelData.len - 800))
+    : prog / 100;
 
   // Track background
   ctx.save();
@@ -1644,18 +1836,18 @@ function drawHUD() {
   ctx.fill();
 
   // Filled portion with gradient
-  if (prog > 0) {
+  if ((marathonMode && barFrac > 0) || (!marathonMode && prog > 0)) {
     ctx.save();
     ctx.beginPath();
     rRect(bx, by, bw, bh, br);
     ctx.clip();
-    const grd = ctx.createLinearGradient(bx, 0, bx + bw * (prog / 100), 0);
+    const grd = ctx.createLinearGradient(bx, 0, bx + bw * barFrac, 0);
     grd.addColorStop(0, `hsl(${hue + 120}, 80%, 55%)`);
     grd.addColorStop(1, `hsl(${hue + 140}, 90%, 65%)`);
     ctx.fillStyle = grd;
     ctx.shadowColor = `hsl(${hue + 120}, 100%, 60%)`;
     ctx.shadowBlur = 10;
-    ctx.fillRect(bx, by, bw * (prog / 100), bh);
+    ctx.fillRect(bx, by, bw * barFrac, bh);
     ctx.restore();
   }
 
@@ -1667,16 +1859,25 @@ function drawHUD() {
   ctx.stroke();
   ctx.restore();
 
-  // Percentage text
   ctx.fillStyle = "#fff";
   ctx.font = 'bold 15px "Segoe UI", system-ui, sans-serif';
   ctx.textAlign = "center";
-  ctx.fillText(prog + "%", W / 2, by + bh + 20);
-
-  // Level name
-  ctx.font = '13px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = "rgba(255,255,255,0.45)";
-  ctx.fillText(levelData.name, W / 2, by + bh + 36);
+  if (marathonMode) {
+    const dist = marathonDistanceScore();
+    ctx.fillText(dist + " m", W / 2, by + bh + 20);
+    ctx.font = '13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(
+      marathonLabelAt(P.x) + "  ·  best " + marathonBest,
+      W / 2,
+      by + bh + 36
+    );
+  } else {
+    ctx.fillText(prog + "%", W / 2, by + bh + 20);
+    ctx.font = '13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(levelData.name, W / 2, by + bh + 36);
+  }
 
   // Left info — larger
   ctx.textAlign = "left";
@@ -1765,11 +1966,17 @@ function drawDeath() {
   ctx.restore();
 
   // Stats row
-  const stats = [
-    { label: "Progress", val: getProgress() + "%" },
-    { label: "Attempt", val: "#" + attemptNum },
-    { label: "Deaths", val: "" + deathNum },
-  ];
+  const stats = marathonMode
+    ? [
+        { label: "Distance", val: "" + marathonDistanceScore() },
+        { label: "Attempt", val: "#" + attemptNum },
+        { label: "Deaths", val: "" + deathNum },
+      ]
+    : [
+        { label: "Progress", val: getProgress() + "%" },
+        { label: "Attempt", val: "#" + attemptNum },
+        { label: "Deaths", val: "" + deathNum },
+      ];
   const statW = 100, gap = 20, totalW = stats.length * statW + (stats.length - 1) * gap;
   const sx = W / 2 - totalW / 2;
   stats.forEach((s, i) => {
@@ -1958,7 +2165,8 @@ function drawMenu() {
       bh = 58,
       bx = W / 2 - bw / 2;
     const items = [
-      { label: "\u25B6  Play", col: "#00ff88" },
+      { label: "Marathon (endless)", col: "#00ff88" },
+      { label: "Classic Levels", col: "#8899ff" },
       {
         label: "Practice: " + (practiceMode ? "ON" : "OFF"),
         col: practiceMode ? "#ffaa00" : "#555",
@@ -2102,11 +2310,12 @@ function drawMenu() {
 
 function menuAction() {
   if (menuScreen === "main") {
-    if (menuSel === 0) {
+    if (menuSel === 0) startMarathon();
+    else if (menuSel === 1) {
       menuScreen = "levels";
       menuSel = 0;
-    } else if (menuSel === 1) practiceMode = !practiceMode;
-    else if (menuSel === 2) muted = !muted;
+    } else if (menuSel === 2) practiceMode = !practiceMode;
+    else if (menuSel === 3) muted = !muted;
   } else {
     if (menuSel < levels.length) startLevel(menuSel);
     else {
@@ -2119,7 +2328,7 @@ function menuAction() {
 function menuClickAt(mx, my) {
   for (const b of menuBtns) {
     if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
-      if (b.act < 3) {
+      if (b.act < 4) {
         menuSel = b.act;
         menuAction();
       } else if (b.act >= 10 && b.act < 10 + levels.length)
@@ -2172,6 +2381,10 @@ function renderGameToText() {
     state: gameState,
     menu: gameState === "menu" ? menuScreen : null,
     level: levelData ? levelData.name : null,
+    marathon: marathonMode,
+    distance: marathonMode ? marathonDistanceScore() : undefined,
+    best_distance: marathonBest,
+    marathon_sector: marathonMode ? marathonLabelAt(P.x) : undefined,
     progress: levelData ? getProgress() : 0,
     attempt: attemptNum,
     deaths: deathNum,
@@ -2246,5 +2459,14 @@ function loop(ts) {
   frame();
   requestAnimationFrame(loop);
 }
+
+(function applyShapeDashBoot() {
+  try {
+    const boot = globalThis.__SHAPE_DASH_BOOT;
+    if (boot && boot.defaultMode === "marathon") {
+      startMarathon();
+    }
+  } catch (_) {}
+})();
 
 requestAnimationFrame(loop);
