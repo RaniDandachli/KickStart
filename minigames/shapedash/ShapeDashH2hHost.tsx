@@ -15,39 +15,16 @@ function buildShapeDashHtml(opts: {
   skipAutoMarathon?: boolean;
   h2h: boolean;
 }): string {
-  const parts = ['<script>'];
-  if (opts.h2h) {
-    parts.push('globalThis.__SHAPE_DASH_H2H=1;');
-  }
-  if (opts.marathon) {
-    parts.push(
-      `globalThis.__SHAPE_DASH_BOOT=${JSON.stringify({
+  const boot = opts.marathon
+    ? JSON.stringify({
         defaultMode: 'marathon',
         skipAutoPlay: Boolean(opts.skipAutoMarathon),
-      })};`,
-    );
-    // Failsafe: after bundled script loads, keep attempting Marathon start briefly.
-    parts.push(`
-      (function shapeDashH2hAutostart(){
-        var tries = 0;
-        function kick() {
-          try {
-            if (typeof globalThis.startMarathon === 'function') {
-              globalThis.startMarathon();
-            }
-          } catch (_) {}
-          tries += 1;
-          if (tries >= 30) clearInterval(id);
-        }
-        var id = setInterval(kick, 120);
-        if (typeof window !== 'undefined') {
-          window.addEventListener('load', kick, { once: true });
-        }
-      })();
-    `);
-  }
-  parts.push('<\\/script>');
-  return SHAPE_DASH_INLINE_HTML.replace('<body>', `<body>${parts.join('')}`);
+      })
+    : '';
+  const script = opts.marathon
+    ? `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};globalThis.__SHAPE_DASH_BOOT=${boot};</script>`
+    : `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};</script>`;
+  return SHAPE_DASH_INLINE_HTML.replace('<body>', `<body>${script}`);
 }
 
 type ShapeDashDeathPayload = {
@@ -136,15 +113,6 @@ export function ShapeDashH2hHost({
     return () => window.removeEventListener('message', handler);
   }, [handleMessageBody]);
 
-  const kickResizeInFrame = useCallback(() => {
-    try {
-      const w = iframeRef.current?.contentWindow;
-      if (w) w.dispatchEvent(new Event('resize'));
-    } catch (_) {
-      /** ignore */
-    }
-  }, []);
-
   if (Platform.OS === 'web') {
     return (
       <View style={[styles.flex, { minHeight: minEmbedHeight }]}>
@@ -156,9 +124,6 @@ export function ShapeDashH2hHost({
             onLoad: (ev: unknown) => {
               const iframe = (ev as { target?: HTMLIFrameElement })?.target;
               if (iframe) iframeRef.current = iframe;
-              kickResizeInFrame();
-              setTimeout(kickResizeInFrame, 50);
-              setTimeout(kickResizeInFrame, 200);
             },
             style: ({
               border: 'none',
@@ -272,3 +237,4 @@ const styles = StyleSheet.create({
   bannerSub: { color: 'rgba(148,163,184,0.95)', fontSize: 12, marginTop: 8, textAlign: 'center' },
   bannerMeta: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginTop: 10, textAlign: 'center' },
 });
+

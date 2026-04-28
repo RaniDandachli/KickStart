@@ -24,7 +24,7 @@ function injectShapeDashBoot(html: string, defaultMode: 'menu' | 'marathon'): st
   if (defaultMode !== 'marathon') return html;
   const payload = JSON.stringify({ defaultMode: 'marathon' });
   /* Boot runs before bundled game script so Marathon can auto-start when competing. */
-  return html.replace('<body>', `<body><script>globalThis.__SHAPE_DASH_BOOT=${payload};<\\/script>`);
+  return html.replace('<body>', `<body><script>globalThis.__SHAPE_DASH_BOOT=${payload};</script>`);
 }
 
 function ShapeDashGameEmbed({ html }: { html: string }) {
@@ -156,3 +156,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#060610',
   },
 });
+
