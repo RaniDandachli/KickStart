@@ -1,192 +1,295 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import type { SoloChallengeBundle } from '@/lib/soloChallenges';
-import { todayYmdLocal } from '@/lib/dailyFreeTournament';
-import { MONEY_CHALLENGES, toSoloChallengeBundle } from '@/lib/moneyChallenges';
-import { SOLO_CHALLENGE_MAX_TRIES_PER_DAY, getSoloTriesUsedToday } from '@/lib/soloChallengeTries';
-import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { GuestAuthPromptModal } from '@/components/auth/GuestAuthPromptModal';
+import { ENABLE_BACKEND, ENABLE_WEEKLY_RACE } from '@/constants/featureFlags';
+import { useProfile } from '@/hooks/useProfile';
+import { useWeeklyRaceEntry } from '@/hooks/useWeeklyRaceEntry';
 import { queryKeys } from '@/lib/queryKeys';
-import { enterMoneyChallengeWallet } from '@/services/api/moneyChallengesWallet';
-import { dailyRaceHref } from '@/lib/tabRoutes';
+import { formatUsdFromCents } from '@/lib/money';
+import {
+  buildWeeklyRaceLeaderboardView,
+  labelForWeeklyRaceGame,
+  nextWeeklyRaceDayKey,
+  pickWeeklyRaceGameKey,
+  routeForWeeklyRaceGameKey,
+  WEEKLY_RACE_ENTRY_FEE_CENTS,
+  WEEKLY_RACE_MAX_ATTEMPTS,
+  WEEKLY_RACE_PAYOUTS_USD,
+  weeklyRaceDayKey,
+} from '@/lib/weeklyRace';
+import {
+  appChromeGradientFadePink,
+  runit,
+  runitFont,
+  runitTextGlowPink,
+} from '@/lib/runitArcadeTheme';
+import { enterWeeklyRaceClient, finalizeWeeklyRacePendingDaysClient } from '@/services/api/weeklyRace';
 import { useAuthStore } from '@/store/authStore';
-import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { withReturnHref } from '@/lib/minigameReturnHref';
+import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
+import { dailyRaceLeaderHref } from '@/lib/tabRoutes';
 
-function buildNavigateParams(bundle: SoloChallengeBundle): {
-  challengeId: string;
-  targetScore: string;
-  prizeLabel: string;
-} {
-  return {
-    challengeId: encodeURIComponent(bundle.challengeId),
-    targetScore: String(bundle.targetScore),
-    prizeLabel: encodeURIComponent(bundle.prizeLabel),
-  };
-}
-
-/** Daily Race hub — Tap Dash showcase targets (Events tab → stack). */
-export default function DailyRaceScreen() {
+/** Paid rotating minigame leaderboard (server `weekly_race_*` RPCs — UI name: Daily Race). */
+export default function DailyRaceLeaderScreen() {
   const router = useRouter();
   const uid = useAuthStore((s) => s.user?.id);
+  const [guestOpen, setGuestOpen] = useState(false);
   const qc = useQueryClient();
-  const [tries, setTries] = useState<Record<string, number>>({});
+  const dayKey = useMemo(() => weeklyRaceDayKey(), []);
+  const tomorrowKey = useMemo(() => nextWeeklyRaceDayKey(), []);
+  const todaysGame = useMemo(() => pickWeeklyRaceGameKey(dayKey), [dayKey]);
+  const tomorrowsGame = useMemo(() => pickWeeklyRaceGameKey(tomorrowKey), [tomorrowKey]);
+  const playRoute = routeForWeeklyRaceGameKey(todaysGame);
+  const profileQ = useProfile(uid);
+  const entryQ = useWeeklyRaceEntry();
+  const walletCents = profileQ.data?.wallet_cents ?? 0;
+  const displayName = (profileQ.data?.display_name?.trim() || profileQ.data?.username || 'You').trim();
 
-  const refresh = useCallback(async () => {
-    const next: Record<string, number> = {};
-    for (const c of MONEY_CHALLENGES) {
-      next[c.id] = await getSoloTriesUsedToday(c.id);
-    }
-    setTries(next);
-  }, []);
+  const leaderReturnHref = dailyRaceLeaderHref();
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
-    }, [refresh]),
+      if (!ENABLE_BACKEND || !uid) return;
+      void (async () => {
+        const r = await finalizeWeeklyRacePendingDaysClient();
+        if (!r.ok || !uid) return;
+        const cents = r.you_received_cents ?? 0;
+        if (cents > 0) {
+          void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+          void invalidateProfileEconomy(qc, uid);
+          Alert.alert(
+            'Daily Race prize',
+            `We added ${formatUsdFromCents(cents)} to your cash wallet for finishing in the top 3 on an eligible day. Keep climbing the board!`,
+          );
+        }
+      })();
+    }, [uid, qc]),
   );
 
-  const startChallenge = useCallback(
-    async (c: (typeof MONEY_CHALLENGES)[number]) => {
-      const bundle = toSoloChallengeBundle(c);
-      const dayKey = todayYmdLocal();
+  const leaderboard = useMemo(
+    () =>
+      buildWeeklyRaceLeaderboardView({
+        dayKey,
+        gameKey: todaysGame,
+        yourBest: entryQ.data?.best_score != null ? entryQ.data!.best_score : null,
+        yourDisplayName: displayName,
+      }),
+    [dayKey, todaysGame, entryQ.data?.best_score, displayName],
+  );
 
-      if (c.kind === 'paid') {
-        if (!ENABLE_BACKEND) {
-          Alert.alert(
-            'Unavailable',
-            'Wallet tiers need the live API (EXPO_PUBLIC_ENABLE_BACKEND=true).',
-          );
-          return;
-        }
-        if (!uid) {
-          Alert.alert('Sign in required', 'Paid Daily Race tiers debit your cash wallet once per day.');
-          return;
-        }
-        const r = await enterMoneyChallengeWallet(c.id, dayKey);
-        if (!r.ok) {
-          const code = r.error ?? '';
-          const msg =
-            code === 'insufficient_wallet'
-              ? 'Not enough cash in your wallet for this $5 daily unlock. Add funds on your profile, then try again.'
-              : code === 'unknown_challenge'
-                ? 'This challenge is not available on the server yet. Try again after app update or contact support.'
-                : 'Could not unlock today’s tier. Add funds if needed.';
-          Alert.alert('Wallet', msg);
-          return;
-        }
-        await refresh();
+  const enterM = useMutation({
+    mutationFn: async () => {
+      if (!ENABLE_BACKEND) throw new Error('Backend disabled');
+      return enterWeeklyRaceClient(dayKey, todaysGame);
+    },
+    onSuccess: (r) => {
+      if (!r?.ok) {
+        Alert.alert('Could not enter', r?.error ?? 'Try again.');
+        return;
+      }
+      void qc.invalidateQueries({ queryKey: queryKeys.weeklyRace(dayKey) });
+      if (uid) {
         void qc.invalidateQueries({ queryKey: queryKeys.profile(uid) });
         void invalidateProfileEconomy(qc, uid);
       }
-
-      const q = buildNavigateParams(bundle);
-      const ret = encodeURIComponent(String(dailyRaceHref()));
-      router.push(
-        `/(app)/(tabs)/tournaments/minigames/tap-dash?challengeId=${q.challengeId}&targetScore=${q.targetScore}&prizeLabel=${q.prizeLabel}&returnHref=${ret}` as never,
-      );
+      Alert.alert('You’re in', 'Play up to 10 runs today. We keep your best score for the board.');
     },
-    [qc, refresh, router, uid],
-  );
+    onError: (e: Error) => Alert.alert('Could not enter', e.message),
+  });
+
+  const onEnter = useCallback(() => {
+    if (!uid) {
+      setGuestOpen(true);
+      return;
+    }
+    if (walletCents < WEEKLY_RACE_ENTRY_FEE_CENTS) {
+      Alert.alert('Add funds', `You need ${formatUsdFromCents(WEEKLY_RACE_ENTRY_FEE_CENTS)} in your cash wallet.`);
+      return;
+    }
+    if (entryQ.data) {
+      Alert.alert('Already entered', "You're already in today’s Daily Race.");
+      return;
+    }
+    enterM.mutate();
+  }, [uid, walletCents, entryQ.data, enterM]);
+
+  const onPlay = useCallback(() => {
+    if (!uid) {
+      setGuestOpen(true);
+      return;
+    }
+    if (!entryQ.data) {
+      Alert.alert('Enter first', 'Pay the entry fee to unlock your 10 scored runs.');
+      return;
+    }
+    if (!playRoute) {
+      Alert.alert('Route missing', "Couldn’t open today’s minigame.");
+      return;
+    }
+    if (entryQ.data.attempts_used >= WEEKLY_RACE_MAX_ATTEMPTS) {
+      Alert.alert('No runs left', "You've used all 10 scored attempts for today.");
+      return;
+    }
+    if (entryQ.data.game_key !== todaysGame) {
+      Alert.alert('Game mismatch', 'Your entry is for a different build — try again after daily reset.');
+      return;
+    }
+    const href = withReturnHref(`${playRoute}?weeklyRace=1`, String(leaderReturnHref)) as Href;
+    router.push(href);
+  }, [uid, entryQ.data, playRoute, router, todaysGame, leaderReturnHref]);
+
+  if (!ENABLE_WEEKLY_RACE) {
+    return (
+      <Screen>
+        <Text style={styles.muted}>Daily Race is not available in this build.</Text>
+      </Screen>
+    );
+  }
 
   return (
     <Screen scroll>
-      <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>
-        DAILY RACE
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        onPress={() => router.back()}
+        style={styles.backRow}
+      >
+        <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
+        <Text style={styles.backTxt}>Events</Text>
+      </Pressable>
+
+      <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>DAILY RACE</Text>
+      <Text style={styles.supportBanner}>
+        We&apos;re still small — pools will grow over time and prize amounts will climb. Thanks for sticking with Run It
+        Arcade; keep practicing and competing.
       </Text>
-      <Text style={styles.sectionLabel}>CHALLENGES</Text>
       <Text style={styles.sub}>
-        Tap Dash showcase targets · free lanes (10 tries) or wallet tiers — prizes subject to eligibility & verification
+        Not a live match — runs when you tap play. Leaderboard settles your best scored run vs everyone who entered that
+        calendar day. $10 wallet entry · 10 scored runs · best score counts · rotating minigame every local midnight (no Stacker,
+        no Turbo Arena). Top three cash scores among entrants split ${WEEKLY_RACE_PAYOUTS_USD.first} / $
+        {WEEKLY_RACE_PAYOUTS_USD.second} / ${WEEKLY_RACE_PAYOUTS_USD.third}, credited after the day completes (UTC rollover).
       </Text>
 
-      {MONEY_CHALLENGES.map((c) => {
-        const used = tries[c.id] ?? 0;
-        const cap = c.maxAttemptsPerDay ?? SOLO_CHALLENGE_MAX_TRIES_PER_DAY;
-        const remaining = Math.max(0, cap - used);
+      <LinearGradient
+        colors={[runit.neonCyan, appChromeGradientFadePink]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cardBorder}
+      >
+        <View style={styles.cardInner}>
+          <Text style={styles.cardLbl}>TODAY&apos;S GAME</Text>
+          <Text style={styles.cardGame}>{labelForWeeklyRaceGame(todaysGame)}</Text>
+          <Text style={styles.rotateHint}>
+            Tomorrow resets the board · next game preview:{' '}
+            <Text style={styles.rotateHintStrong}>{labelForWeeklyRaceGame(tomorrowsGame)}</Text>
+          </Text>
+          <Text style={styles.cardMeta}>
+            Day {dayKey} · Prizes credit to wallet: 1st ${WEEKLY_RACE_PAYOUTS_USD.first} · 2nd $
+            {WEEKLY_RACE_PAYOUTS_USD.second} · 3rd ${WEEKLY_RACE_PAYOUTS_USD.third} · among everyone who entered for that date.
+          </Text>
+        </View>
+      </LinearGradient>
 
-        return (
-          <Pressable
-            key={c.id}
-            onPress={() => void startChallenge(c)}
-            style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.93 }]}
+      {!ENABLE_BACKEND ? (
+        <Text style={styles.warn}>Enable the backend to enter with your wallet (set EXPO_PUBLIC_ENABLE_BACKEND=true).</Text>
+      ) : null}
+
+      <View style={styles.rowActions}>
+        <AppButton
+          title={
+            entryQ.data
+              ? 'Entered for today'
+              : `Enter ${formatUsdFromCents(WEEKLY_RACE_ENTRY_FEE_CENTS)}`
+          }
+          onPress={onEnter}
+          disabled={!!entryQ.data || enterM.isPending}
+          loading={enterM.isPending}
+        />
+        <AppButton
+          title="Play a run"
+          variant="secondary"
+          onPress={onPlay}
+          disabled={
+            !entryQ.data ||
+            (entryQ.data?.attempts_used ?? 0) >= WEEKLY_RACE_MAX_ATTEMPTS
+          }
+        />
+      </View>
+
+      {entryQ.data ? (
+        <Text style={styles.attempts}>
+          Runs used: {entryQ.data.attempts_used} / {WEEKLY_RACE_MAX_ATTEMPTS} · Your best:{' '}
+          {entryQ.data.best_score.toLocaleString()}
+        </Text>
+      ) : (
+        <Text style={styles.attempts}>Enter to unlock 10 scored runs today.</Text>
+      )}
+
+      <Text style={styles.sectionTitle}>Board (today)</Text>
+      <View style={styles.table}>
+        {leaderboard.map((r) => (
+          <View
+            key={`${r.rank}-${r.name}`}
+            style={[styles.row, r.isYou && styles.rowYou]}
           >
-            <LinearGradient
-              colors={c.kind === 'paid' ? ['#fde047', runit.neonPurple] : [runit.neonPink, '#7c3aed']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.cardBorder}
-            >
-              <View style={styles.cardInner}>
-                <View style={styles.rowTop}>
-                  <Text style={[styles.cardName, { fontFamily: runitFont.bold }]}>{c.title}</Text>
-                  <View style={[styles.pill, c.kind === 'paid' && styles.pillGold]}>
-                    <Text style={[styles.pillTxt, c.kind === 'paid' && styles.pillTxtDark]}>
-                      {c.kind === 'paid' ? 'WALLET ENTRY' : 'FREE TODAY'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.meta}>{c.subtitle}</Text>
-                <Text style={styles.prize}>
-                  ${c.showcasePrizeUsd} showcase prize · up to {cap} tries today
-                  {c.entryFeeWalletCents != null
-                    ? ` · $${(c.entryFeeWalletCents / 100).toFixed(2)} once per day to unlock attempts`
-                    : ''}
-                </Text>
-                <Text style={styles.tries}>
-                  Remaining tries: {remaining}/{cap}
-                </Text>
-                <View style={styles.footer}>
-                  <Text style={styles.link}>
-                    {c.kind === 'paid' ? 'Unlock & chase target' : 'Play challenge'}
-                  </Text>
-                  <SafeIonicons name="chevron-forward" size={14} color={runit.neonPink} />
-                </View>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        );
-      })}
+            <Text style={styles.rRank}>#{r.rank}</Text>
+            <Text style={styles.rName} numberOfLines={1}>
+              {r.name}
+              {r.isYou ? '  (you)' : ''}
+            </Text>
+            <Text style={styles.rScore}>{r.score.toLocaleString()}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.footNote}>
+        This board mixes Rivals previews with your best score for flair. Actual payouts rank real entrants only (server)
+        once that calendar day closes.
+      </Text>
+
+      <GuestAuthPromptModal visible={guestOpen} variant="tournaments" onClose={() => setGuestOpen(false)} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, letterSpacing: 1, marginBottom: 4, color: '#fff' },
-  sectionLabel: {
-    fontSize: 12,
-    letterSpacing: 2,
-    color: 'rgba(253,186,219,0.85)',
-    fontWeight: '800',
-    marginBottom: 12,
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
+  title: { color: runit.neonPink, fontSize: 22, fontWeight: '900', marginBottom: 8 },
+  supportBanner: {
+    backgroundColor: 'rgba(167,139,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.28)',
+    borderRadius: 12,
+    padding: 12,
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
   },
-  sub: { color: 'rgba(255,255,255,0.78)', fontSize: 14, lineHeight: 20, marginBottom: 22 },
-  cardWrap: { marginBottom: 16 },
-  cardBorder: { borderRadius: 16, padding: 2 },
-  cardInner: { backgroundColor: 'rgba(6,2,14,0.92)', borderRadius: 14, padding: 16 },
-  rowTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  cardName: { flex: 1, color: '#fff', fontSize: 17 },
-  pill: {
-    backgroundColor: 'rgba(236,72,153,0.35)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  pillGold: { backgroundColor: 'rgba(253,224,71,0.45)' },
-  pillTxt: { color: '#fce7f3', fontSize: 11 },
-  pillTxtDark: { color: '#422006', fontWeight: '700' },
-  meta: { color: 'rgba(255,255,255,0.82)', fontSize: 14, marginBottom: 6 },
-  prize: { color: 'rgba(253,224,71,0.95)', fontSize: 13, marginBottom: 4 },
-  tries: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginBottom: 10 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  link: { color: runit.neonPink, fontSize: 13, fontWeight: '600' },
+  sub: { color: 'rgba(203,213,225,0.95)', fontSize: 14, lineHeight: 20, marginBottom: 16 },
+  cardBorder: { borderRadius: 16, padding: 2, marginBottom: 16 },
+  cardInner: { borderRadius: 14, backgroundColor: 'rgba(8,4,18,0.9)', padding: 14 },
+  cardLbl: { color: 'rgba(148,163,184,0.95)', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 4 },
+  cardGame: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 6 },
+  rotateHint: { color: 'rgba(226,232,240,0.88)', fontSize: 13, marginBottom: 10, lineHeight: 18 },
+  rotateHintStrong: { fontWeight: '900', color: '#FFE082' },
+  cardMeta: { color: 'rgba(203,213,225,0.88)', fontSize: 12, lineHeight: 18 },
+  warn: { color: '#fecaca', fontSize: 12, marginBottom: 8 },
+  rowActions: { gap: 8, marginBottom: 12 },
+  attempts: { color: 'rgba(203,213,225,0.9)', fontSize: 13, marginBottom: 16 },
+  sectionTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 1.2, marginBottom: 8 },
+  table: { borderRadius: 12, borderWidth: 1, borderColor: 'rgba(148,163,184,0.25)', overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, gap: 8 },
+  rowYou: { backgroundColor: 'rgba(99,102,241,0.12)' },
+  rRank: { width: 36, color: 'rgba(148,163,184,0.9)', fontWeight: '800', fontSize: 13 },
+  rName: { flex: 1, color: '#e2e8f0', fontWeight: '700', fontSize: 14 },
+  rScore: { color: '#FFE082', fontWeight: '900', fontSize: 14 },
+  footNote: { color: 'rgba(148,163,184,0.75)', fontSize: 11, lineHeight: 16, marginTop: 10 },
+  muted: { color: 'rgba(148,163,184,0.8)', padding: 16 },
 });

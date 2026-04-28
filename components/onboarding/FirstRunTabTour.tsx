@@ -23,7 +23,7 @@ const TAB_TOUR_STEPS: { href: string; title: string; body: string }[] = [
   {
     href: '/(app)/(tabs)/tournaments',
     title: 'Events',
-    body: 'Tournaments, brackets, Weekly Race, Daily Race challenges — all competition lives here.',
+    body: 'Tournaments, brackets, Daily Race leaderboard, 1v1 async challenges — all competition lives here.',
   },
   {
     href: '/(app)/(tabs)/play',

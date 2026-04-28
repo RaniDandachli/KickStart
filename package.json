@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "capture:how-it-works": "node scripts/capture-how-it-works.cjs",
+    "bundle:shape-dash": "node scripts/bundle-shape-dash-html.cjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "supabase:link": "supabase link",

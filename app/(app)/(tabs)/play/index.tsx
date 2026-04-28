@@ -5,6 +5,7 @@ import { useLayoutEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
+import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
 import { ArcadeGrantBanner } from '@/components/arcade/ArcadeGrantBanner';
 import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
@@ -20,6 +21,7 @@ import {
     NeonDanceGameIcon,
     NeonGridGameIcon,
     NeonShipGameIcon,
+    ShapeDashGameIcon,
     StackerGameIcon,
     TapDashGameIcon,
     TileClashGameIcon,
@@ -27,7 +29,11 @@ import {
 } from '@/components/arcade/MinigameIcons';
 import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/auth/GuestAuthPromptModal';
 import { BackendModeBanner } from '@/components/BackendModeBanner';
-import { ENABLE_BACKEND, SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
+import {
+  ENABLE_BACKEND,
+  SHOW_NEON_SHIP_MINIGAME,
+  SHOW_SHAPE_DASH_MINIGAME,
+} from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
 import { pushCrossTab, ROUTES } from '@/lib/appNavigation';
@@ -286,6 +292,27 @@ export default function PlayHubScreen() {
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<StackerGameIcon size={36} />}
         />
+        {SHOW_SHAPE_DASH_MINIGAME ? (
+          <ArcadeGameRow
+            emphasized
+            compact
+            title="Shape Dash"
+            entryLabel="Canvas runner · plays in-app (no prize run)"
+            winLabel="PLAY"
+            bgColors={['#050a12', '#0c4a6e', '#14532d']}
+            borderAccent="gold"
+            entryColor="rgba(226,232,240,0.9)"
+            iconSlot={<ShapeDashGameIcon size={36} />}
+            onPress={() =>
+              router.push(
+                withReturnHref(
+                  '/(app)/(tabs)/play/minigames/shape-dash',
+                  ARCADE_HUB_RETURN_PATH,
+                ) as never,
+              )
+            }
+          />
+        ) : null}
 
         <ArcadeStatsRow />
 

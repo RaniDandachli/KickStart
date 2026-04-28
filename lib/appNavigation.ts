@@ -1,6 +1,11 @@
 import type { Href, Router } from 'expo-router';
 
-import { dailyRaceHref, moneyChallengesHref } from '@/lib/tabRoutes';
+import {
+  dailyRaceHref,
+  dailyRaceLeaderHref,
+  moneyChallengesHref,
+  oneVsOneChallengesHref,
+} from '@/lib/tabRoutes';
 
 /**
  * When opening a route inside another tab’s stack (e.g. Home → Profile/add-funds), this keeps that
@@ -18,10 +23,17 @@ export const ROUTES = {
   profileTab: '/(app)/(tabs)/profile' as const,
   playTab: '/(app)/(tabs)/play' as const,
   tournamentsTab: '/(app)/(tabs)/tournaments' as const,
+  get oneVsOneChallenges(): ReturnType<typeof oneVsOneChallengesHref> {
+    return oneVsOneChallengesHref();
+  },
+  get dailyRaceLeader(): ReturnType<typeof dailyRaceLeaderHref> {
+    return dailyRaceLeaderHref();
+  },
+  /** Async Tap Dash challenges hub (same as `oneVsOneChallenges`). */
   get dailyRace(): ReturnType<typeof dailyRaceHref> {
     return dailyRaceHref();
   },
-  /** @deprecated Use ROUTES.dailyRace */
+  /** @deprecated Use ROUTES.oneVsOneChallenges or ROUTES.dailyRace */
   get moneyChallengesTab(): ReturnType<typeof moneyChallengesHref> {
     return moneyChallengesHref();
   },

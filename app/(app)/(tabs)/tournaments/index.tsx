@@ -25,7 +25,7 @@ import {
 } from '@/lib/brandLogo';
 import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
-import { dailyRaceHref } from '@/lib/tabRoutes';
+import { dailyRaceLeaderHref, oneVsOneChallengesHref } from '@/lib/tabRoutes';
 import { useAuthStore } from '@/store/authStore';
 import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -110,24 +110,24 @@ export default function TournamentsListScreen() {
     ...(ENABLE_WEEKLY_RACE
       ? ([
           {
-            id: 'weekly-race' as const,
-            title: 'Weekly Race',
-            subtitle: '$10 entry · 10 runs · best score on daily game · top-3 pool',
-            cta: 'View race',
+            id: 'daily-race-leader' as const,
+            title: 'Daily Race',
+            subtitle: '$10 entry · rotating minigame · best score board · play on your schedule',
+            cta: 'Open Daily Race',
             pill: 'CASH' as const,
-            onPress: () => router.push('/(app)/(tabs)/tournaments/weekly-race'),
+            onPress: () => router.push(dailyRaceLeaderHref()),
             imageSource: weeklyRaceBannerSource,
             imageFit: 'cover' as const,
           },
         ] as const)
       : []),
     {
-      id: 'daily-race',
-      title: 'Daily Race',
-      subtitle: 'Tap Dash showcase lanes · free + wallet tiers · up to 10 tries/day',
-      cta: 'Enter daily race',
-      pill: 'RACE',
-      onPress: () => router.push(dailyRaceHref()),
+      id: 'one-vs-one',
+      title: '1v1 Challenges',
+      subtitle: 'Tap Dash · post a score; matchups settle when others play — not live',
+      cta: 'Enter challenges',
+      pill: 'SKILL',
+      onPress: () => router.push(oneVsOneChallengesHref()),
       imageSource: dailyRaceBannerSource,
       imageFit: 'cover' as const,
     },

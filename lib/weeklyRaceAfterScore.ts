@@ -18,10 +18,10 @@ export async function onWeeklyRaceAfterMinigameScore(
   const e = r.error ?? '';
   if (e === 'not_entered' || e === 'game_mismatch' || e === 'no_attempts_left') {
     if (e === 'no_attempts_left') {
-      Alert.alert('Weekly race', 'You have used all 10 scored runs for today.');
+      Alert.alert('Daily Race', 'You have used all 10 scored runs for today.');
     }
     return false;
   }
-  Alert.alert('Weekly race', e || 'Could not update your race score.');
+  Alert.alert('Daily Race', e || 'Could not update your race score.');
   return false;
 }

@@ -435,7 +435,7 @@ export default function TapDashGame({
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
   soloChallenge?: SoloChallengeBundle;
-  /** Daily paid leaderboard (practice mode, no prize credits) — `?weeklyRace=1` */
+  /** Daily Race leaderboard (practice-mode scoring; server `weekly_race_*`; query `?weeklyRace=1`). */
   weeklyRace?: boolean;
 }) {
   useHidePlayTabBar();
@@ -658,7 +658,7 @@ export default function TapDashGame({
             if ('requiresWalletUnlock' in r && r.requiresWalletUnlock) {
               Alert.alert(
                 'Unlock first',
-                'Pay today’s wallet entry from Daily Race (challenges tab), then retry while signed in.',
+                'Pay today’s wallet entry from 1v1 Challenges (Events), then retry while signed in.',
               );
               return;
             }
@@ -1019,7 +1019,7 @@ export default function TapDashGame({
               </Text>
               {soloChallenge ? (
                 <Text style={styles.hintSub}>
-                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · Daily Race
+                  Tries today: {soloTriesUsed ?? '…'}/{soloAttemptsCap} · 1v1 challenges
                 </Text>
               ) : (
                 <Text style={styles.hintSub}>Neon sprint · precision run</Text>

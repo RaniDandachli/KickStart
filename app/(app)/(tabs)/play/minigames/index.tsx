@@ -3,6 +3,7 @@ import { useLayoutEffect } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
+import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import {
     BallRunGameIcon,
@@ -10,12 +11,14 @@ import {
     NeonDanceGameIcon,
     NeonGridGameIcon,
     NeonShipGameIcon,
+    ShapeDashGameIcon,
     StackerGameIcon,
     TapDashGameIcon,
     TileClashGameIcon,
     TurboArenaGameIcon,
 } from '@/components/arcade/MinigameIcons';
-import { SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
+import { SHOW_NEON_SHIP_MINIGAME, SHOW_SHAPE_DASH_MINIGAME } from '@/constants/featureFlags';
+import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 
@@ -126,6 +129,25 @@ export default function MinigamesHubScreen() {
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<StackerGameIcon size={36} />}
       />
+      {SHOW_SHAPE_DASH_MINIGAME ? (
+        <ArcadeGameRow
+          title="Shape Dash"
+          entryLabel="Canvas runner · no prize run"
+          winLabel="PLAY"
+          bgColors={['#050a12', '#0c4a6e', '#14532d']}
+          borderAccent="gold"
+          entryColor="rgba(226,232,240,0.9)"
+          iconSlot={<ShapeDashGameIcon size={36} />}
+          onPress={() =>
+            router.push(
+              withReturnHref(
+                '/(app)/(tabs)/play/minigames/shape-dash',
+                ARCADE_HUB_RETURN_PATH,
+              ) as never,
+            )
+          }
+        />
+      ) : null}
 
       <Pressable onPress={() => router.back()} accessibilityRole="button">
         <Text style={styles.backHint}>← Back to arcade</Text>

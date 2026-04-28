@@ -40,3 +40,8 @@ export const ENABLE_WEEKLY_RACE = true;
  * Set to true to unvault.
  */
 export const SHOW_NEON_SHIP_MINIGAME = false;
+
+/**
+ * Shape Dash — HTML5 canvas runner (bundled WebView). Off to hide Arcade / minigames hub rows without removing the route.
+ */
+export const SHOW_SHAPE_DASH_MINIGAME = true;

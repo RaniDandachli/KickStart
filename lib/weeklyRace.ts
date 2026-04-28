@@ -1,5 +1,5 @@
 /**
- * Daily “Weekly Race” — paid leaderboard ($10), 10 scored runs, rotating minigame (excludes Stacker + Turbo Arena).
+ * Daily Race (UI name; tables `weekly_race_*`) — paid leaderboard ($10), 10 scored runs, rotating minigame (excludes Stacker + Turbo Arena).
  * The playable game changes every calendar day (`todayYmdLocal`).
  * Top 3 real entrants by `best_score` get $200 / $50 / $30 (wallet) after that date ends (UTC) — RPC `finalize_weekly_race_pending_days`.
  *
@@ -172,7 +172,7 @@ const EVENTS_MINIGAMES = '/(app)/(tabs)/tournaments/minigames';
 
 /**
  * Opens the playable URL on the Events stack (`tournaments/minigames/…`), not Arcade, so switching to
- * the Play tab stays on the arcade hub after a run exits to Weekly Race / Events.
+ * the Play tab stays on the arcade hub after a run exits to Daily Race leaderboard / Events.
  */
 export function routeForWeeklyRaceGameKey(gameKey: H2hGameKey): string | null {
   const g = H2H_OPEN_GAMES_ALL.find((x) => x.gameKey === gameKey);

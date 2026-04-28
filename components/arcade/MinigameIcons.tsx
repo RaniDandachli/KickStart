@@ -5,6 +5,7 @@ import Svg, {
     Defs,
     Ellipse,
     Path,
+    Polygon,
     Rect,
     Stop,
     LinearGradient as SvgLinearGradient,
@@ -375,6 +376,34 @@ export function NeonShipGameIcon({ size = 40 }: IconProps) {
           stroke="rgba(255,255,255,0.4)"
           strokeWidth="0.8"
         />
+      </Svg>
+    </View>
+  );
+}
+
+/** Shape Dash — cyan cube silhouette + ground spike cue (hosted WebView tribute). */
+export function ShapeDashGameIcon({ size = 40 }: IconProps) {
+  const s = size;
+  const uid = useUniqueSvgIds('sd');
+  const idCube = `${uid}_cube`;
+  const idSpike = `${uid}_spike`;
+  return (
+    <View style={{ width: s, height: s }}>
+      <Svg width={s} height={s} viewBox="0 0 48 48">
+        <Defs>
+          <SvgLinearGradient id={idCube} x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#22D3EE" />
+            <Stop offset="100%" stopColor="#4ADE80" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id={idSpike} x1="0%" y1="100%" x2="0%" y2="0%">
+            <Stop offset="0%" stopColor="#F472B6" />
+            <Stop offset="100%" stopColor="#A855F7" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="4" y="4" width="40" height="40" rx="10" fill="#071018" />
+        <Polygon points="16,34 26,34 31,42 21,42" fill={`url(#${idSpike})`} />
+        <Rect x="18" y="18" width="14" height="14" rx="3" fill={`url(#${idCube})`} stroke="rgba(255,255,255,0.25)" strokeWidth="0.9" />
+        <Circle cx="25" cy="25" r="3" fill="rgba(255,255,255,0.75)" />
       </Svg>
     </View>
   );

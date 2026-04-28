@@ -255,7 +255,7 @@ export default function TabsLayout() {
           tabBarIcon: tabBarIcon('game-controller', { webTop: webUsesTopTabBar }),
         }}
       />
-      {/** Hidden: legacy `/money-challenges` deep links → redirect to Events · Daily Race */}
+      {/** Hidden: legacy `/money-challenges` deep links → Events · 1v1 Challenges */}
       <Tabs.Screen name="money-challenges" options={{ href: null }} />
       <Tabs.Screen
         name="prizes"

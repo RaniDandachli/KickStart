@@ -2,7 +2,7 @@
 
 export type SoloChallengeDefinition = {
   id: string;
-  /** Daily Race opens Tap Dash under Events stack — see tournaments/minigames/tap-dash. */
+  /** 1v1 Challenges open Tap Dash under Events stack — see tournaments/minigames/tap-dash. */
   gameRoute: '/(app)/(tabs)/tournaments/minigames/tap-dash';
   title: string;
   subtitle: string;

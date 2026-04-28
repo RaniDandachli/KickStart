@@ -34,8 +34,13 @@ export function parseMinigameReturnHref(raw: unknown): Href | undefined {
 export function primaryExitLabel(returnHref: Href | undefined): string {
   if (!returnHref) return 'Minigames';
   const s = String(returnHref);
-  if (s.includes('/tournaments/daily-race') || s.includes('money-challenges')) return 'Daily race';
-  if (s.includes('/tournaments/weekly-race')) return 'Weekly race';
+  if (
+    s.includes('/tournaments/one-vs-one-challenges') ||
+    s.includes('money-challenges')
+  )
+    return '1v1 challenges';
+  if (s.includes('/tournaments/daily-race')) return 'Daily race';
+  if (s.includes('/tournaments/weekly-race')) return 'Daily race';
   if (s.includes('/prizes')) return 'Prizes';
   if (s.includes('/tournaments')) return 'Events';
   if (s.includes('/profile')) return 'You';
