@@ -99,6 +99,9 @@ let marathonMode = false;
 let h2hInputCount = 0;
 /** Head-to-head Marathon is single-attempt only (no restarts). */
 let h2hRunLocked = false;
+/** Head-to-head startup guard: suppress accidental instant-death at run boot. */
+let h2hSpawnGuardUntilMs = 0;
+let h2hSpawnGuardUntilX = 0;
 let levelData = null;
 let attemptNum = 0;
 let deathNum = 0;
@@ -1117,6 +1120,8 @@ function startLevel(idx) {
   initAudio();
   marathonMode = false;
   h2hRunLocked = false;
+  h2hSpawnGuardUntilMs = 0;
+  h2hSpawnGuardUntilX = 0;
   currentLevelIdx = idx;
   levels = makeLevels();
   levelData = levels[idx];
@@ -1146,6 +1151,13 @@ function startMarathon() {
   attemptNum = (totalAttempts[3] || 0) + 1;
   totalAttempts[3] = attemptNum;
   levelTimer = now();
+  if (globalThis.__SHAPE_DASH_H2H) {
+    h2hSpawnGuardUntilMs = levelTimer + 2800;
+    h2hSpawnGuardUntilX = 1400;
+  } else {
+    h2hSpawnGuardUntilMs = 0;
+    h2hSpawnGuardUntilX = 0;
+  }
   levelFinishTime = 0;
   resetPlayer(false);
   gameState = "playing";
@@ -1196,6 +1208,13 @@ function emitShapeDashH2hDeath() {
 
 function kill() {
   if (P.dead) return;
+  if (
+    marathonMode &&
+    globalThis.__SHAPE_DASH_H2H &&
+    (now() < h2hSpawnGuardUntilMs || P.x < h2hSpawnGuardUntilX)
+  ) {
+    return;
+  }
   P.dead = true;
   deathNum++;
   shakeIntensity = 14;
