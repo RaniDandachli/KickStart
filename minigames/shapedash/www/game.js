@@ -999,6 +999,21 @@ function buildMarathonLevel() {
   };
 }
 
+function applyMarathonLeadIn(level, leadPx) {
+  if (!level || !leadPx) return level;
+  const shiftedObs = level.obs.map((o) => ({ ...o, x: o.x + leadPx }));
+  const shiftedBounds = Array.isArray(level.marathonBounds)
+    ? level.marathonBounds.map((b) => ({ ...b, end: b.end + leadPx }))
+    : level.marathonBounds;
+  return {
+    ...level,
+    obs: shiftedObs,
+    len: level.len + leadPx,
+    procStart: (level.procStart || 0) + leadPx,
+    marathonBounds: shiftedBounds,
+  };
+}
+
 function marathonLabelAt(px) {
   if (!levelData || !levelData.marathonBounds) return "";
   for (const b of levelData.marathonBounds) {
@@ -1123,6 +1138,10 @@ function startMarathon() {
   currentLevelIdx = 3;
   levels = makeLevels();
   levelData = buildMarathonLevel();
+  if (globalThis.__SHAPE_DASH_H2H) {
+    // H2H: give a short safe runway so both players can focus before first jump.
+    levelData = applyMarathonLeadIn(levelData, 900);
+  }
   deathNum = 0;
   attemptNum = (totalAttempts[3] || 0) + 1;
   totalAttempts[3] = attemptNum;
@@ -2225,7 +2244,7 @@ function drawMenu() {
     ctx.fillStyle = "#fff";
     ctx.font = `bold ${Math.min(68, W * 0.085)}px "Segoe UI", system-ui, sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText("GEOMETRY DASH", W / 2, H * 0.2);
+    ctx.fillText("SHAPE DASH", W / 2, H * 0.2);
     ctx.restore();
 
     // Subtitle with accent
