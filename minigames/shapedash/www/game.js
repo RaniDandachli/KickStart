@@ -1286,6 +1286,22 @@ function update() {
   cameraX += (P.x - 250 - cameraX) * 0.12;
 
   const solidBelow = isGround(P.x + PS / 2);
+  const h2hSpawnGuardActive =
+    marathonMode &&
+    globalThis.__SHAPE_DASH_H2H &&
+    (now() < h2hSpawnGuardUntilMs || P.x < h2hSpawnGuardUntilX);
+
+  if (h2hSpawnGuardActive) {
+    // Keep the run stable during startup on web embeds.
+    if (!P.isShip) {
+      P.vy = Math.max(0, P.vy);
+      if (P.y + PS >= groundY - 1) {
+        P.y = groundY - PS;
+        P.vy = 0;
+        P.grounded = true;
+      }
+    }
+  }
 
   if (P.isShip) {
     // --- Ship mode ---

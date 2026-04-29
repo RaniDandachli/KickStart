@@ -75,6 +75,7 @@ export function ShapeDashH2hHost({
     buildH2hBody,
     'results',
   );
+  const submittedScore = lastRunRef.current.score;
 
   const handleMessageBody = useCallback(
     (raw: string | object) => {
@@ -150,6 +151,9 @@ export function ShapeDashH2hHost({
             {h2hSubmitPhase === 'loading' ? (
               <Text style={styles.bannerMeta}>Submitting your run…</Text>
             ) : null}
+            {h2hSubmitPhase === 'ok' ? (
+              <Text style={styles.bannerMeta}>Your score submitted: {submittedScore}</Text>
+            ) : null}
             {h2hSubmitPhase === 'error' ? (
               <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
             ) : null}
@@ -157,7 +161,10 @@ export function ShapeDashH2hHost({
               <Text style={styles.bannerMeta}>Waiting for {h2hSkillContest.opponentDisplayName}…</Text>
             ) : null}
             {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
-              <Text style={styles.bannerMeta}>Both runs in — finalizing…</Text>
+              <Text style={styles.bannerMeta}>
+                Both runs in — you {h2hPoll.self_score ?? 0} vs {h2hSkillContest.opponentDisplayName} {h2hPoll.opponent_score ?? 0}.
+                Finalizing…
+              </Text>
             ) : null}
           </View>
         ) : null}
@@ -205,6 +212,7 @@ export function ShapeDashH2hHost({
             you).
           </Text>
           {h2hSubmitPhase === 'loading' ? <Text style={styles.bannerMeta}>Submitting your run…</Text> : null}
+          {h2hSubmitPhase === 'ok' ? <Text style={styles.bannerMeta}>Your score submitted: {submittedScore}</Text> : null}
           {h2hSubmitPhase === 'error' ? (
             <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
           ) : null}
@@ -212,7 +220,10 @@ export function ShapeDashH2hHost({
             <Text style={styles.bannerMeta}>Waiting for {h2hSkillContest.opponentDisplayName}…</Text>
           ) : null}
           {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
-            <Text style={styles.bannerMeta}>Both runs in — finalizing…</Text>
+            <Text style={styles.bannerMeta}>
+              Both runs in — you {h2hPoll.self_score ?? 0} vs {h2hSkillContest.opponentDisplayName} {h2hPoll.opponent_score ?? 0}.
+              Finalizing…
+            </Text>
           ) : null}
         </View>
       ) : null}
