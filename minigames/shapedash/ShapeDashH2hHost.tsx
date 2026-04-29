@@ -7,6 +7,8 @@ import WebView from 'react-native-webview';
 import { AppButton } from '@/components/ui/AppButton';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
+import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import type { H2hSkillContestBundle } from '@/types/match';
 
 type Phase = 'playing' | 'results';
@@ -58,6 +60,7 @@ export function ShapeDashH2hHost({
 }: {
   h2hSkillContest: H2hSkillContestBundle;
 }) {
+  const { replaceToPrimaryExit, replacePrimaryLabel, replaceToHomeTab } = useMinigameExitNav();
   const { height: windowHeight } = useWindowDimensions();
   const { width, height } = useWindowDimensions();
   /** Head-to-head match stack sometimes gives RN WebView 0 height until a floor is set */
@@ -111,6 +114,7 @@ export function ShapeDashH2hHost({
     { skipSubmit: wasSubmitted },
   );
   const submittedScore = lastRunRef.current.score;
+  const showResultsOverlay = phase === 'results';
 
   // Keep live Shape Dash landscape on native (same behavior style as Dash Duel).
   useLayoutEffect(() => {
@@ -210,69 +214,68 @@ export function ShapeDashH2hHost({
   if (Platform.OS === 'web') {
     return (
       <View style={[styles.flex, { minHeight: minEmbedHeight }]}>
-        <View style={[styles.flex, { position: 'relative', minHeight: minEmbedHeight }]}>
-          {createElement('iframe', {
-            title: 'Shape Dash H2H',
-            srcDoc: html,
-            allow: 'fullscreen',
-            onLoad: (ev: unknown) => {
-              const iframe = (ev as { target?: HTMLIFrameElement })?.target;
-              if (iframe) iframeRef.current = iframe;
-              focusIframeGame();
-              requestWebFullscreenLandscape();
-              setTimeout(focusIframeGame, 60);
-              setTimeout(focusIframeGame, 220);
-              setTimeout(requestWebFullscreenLandscape, 80);
-            },
-            style: ({
-              border: 'none',
-              width: '100%',
-              height: '100%',
-              minHeight: minEmbedHeight,
-              display: 'block',
-              backgroundColor: '#060610',
-              flexGrow: 1,
-            }) as Record<string, unknown>,
-            tabIndex: 0,
-            ref: (el: HTMLIFrameElement | null) => {
-              iframeRef.current = el;
-            },
-          })}
-        </View>
-
-        {phase === 'results' ? (
-          <View style={[styles.h2hBanner, { zIndex: 50 }]} pointerEvents="box-none">
-            <Text style={styles.bannerTitle}>Run recorded</Text>
-            <Text style={styles.bannerSub}>
-              Head-to-head: higher marathon distance wins after both runs submit ({h2hSkillContest.opponentDisplayName} vs
-              you).
-            </Text>
-            {h2hSubmitPhase === 'loading' ? (
-              <Text style={styles.bannerMeta}>Submitting your run…</Text>
-            ) : null}
-            {h2hSubmitPhase === 'ok' ? (
-              <Text style={styles.bannerMeta}>Your score submitted: {submittedScore}</Text>
-            ) : null}
-            {h2hSubmitPhase === 'error' ? (
-              <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
-            ) : null}
-            {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
-              <Text style={styles.bannerMeta}>Waiting for {h2hSkillContest.opponentDisplayName}…</Text>
-            ) : null}
-            {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
-              <Text style={styles.bannerMeta}>
-                Both runs in — you {h2hPoll.self_score ?? 0} vs {h2hSkillContest.opponentDisplayName} {h2hPoll.opponent_score ?? 0}.
-                Finalizing…
-              </Text>
-            ) : null}
+        {!showResultsOverlay ? (
+          <View style={[styles.flex, { position: 'relative', minHeight: minEmbedHeight }]}>
+            {createElement('iframe', {
+              title: 'Shape Dash H2H',
+              srcDoc: html,
+              allow: 'fullscreen',
+              onLoad: (ev: unknown) => {
+                const iframe = (ev as { target?: HTMLIFrameElement })?.target;
+                if (iframe) iframeRef.current = iframe;
+                focusIframeGame();
+                requestWebFullscreenLandscape();
+                setTimeout(focusIframeGame, 60);
+                setTimeout(focusIframeGame, 220);
+                setTimeout(requestWebFullscreenLandscape, 80);
+              },
+              style: ({
+                border: 'none',
+                width: '100%',
+                height: '100%',
+                minHeight: minEmbedHeight,
+                display: 'block',
+                backgroundColor: '#060610',
+                flexGrow: 1,
+              }) as Record<string, unknown>,
+              tabIndex: 0,
+              ref: (el: HTMLIFrameElement | null) => {
+                iframeRef.current = el;
+              },
+            })}
           </View>
-        ) : null}
-        {webPortrait ? (
+        ) : (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.card}>
+              <GameOverExitRow
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
+              />
+              <Text style={styles.goTitle}>Run ended</Text>
+              <Text style={styles.goScore}>Your distance: {submittedScore}</Text>
+              {h2hSubmitPhase === 'loading' ? <Text style={styles.practiceNote}>Submitting your run…</Text> : null}
+              {h2hSubmitPhase === 'error' ? (
+                <>
+                  <Text style={styles.practiceNote}>Could not submit this run. Check your connection.</Text>
+                  <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
+                </>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
+                <Text style={styles.practiceNote}>Waiting for {h2hSkillContest.opponentDisplayName} to finish…</Text>
+              ) : null}
+              {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
+                <Text style={styles.practiceNote}>Both runs in — finalizing match…</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
+        {webPortrait && !showResultsOverlay ? (
           <View style={styles.rotateHint} pointerEvents="none">
             <Text style={styles.rotateHintText}>Rotate to landscape for live Shape Dash</Text>
           </View>
         ) : null}
-        {Platform.OS === 'web' ? (
+        {Platform.OS === 'web' && !showResultsOverlay ? (
           <View style={styles.fullscreenTapZone} pointerEvents="box-none">
             <AppButton title="Fullscreen" variant="ghost" onPress={requestWebFullscreenLandscape} />
           </View>
@@ -283,60 +286,64 @@ export function ShapeDashH2hHost({
 
   return (
     <View style={[styles.flex, { minHeight: minEmbedHeight }]}>
-      <WebView
-        ref={webRef}
-        style={[styles.flex, { minHeight: minEmbedHeight }]}
-        originWhitelist={['*']}
-        source={{ html }}
-        javaScriptEnabled
-        domStorageEnabled
-        nestedScrollEnabled
-        onLoadEnd={() => {
-          webRef.current?.injectJavaScript(
-            '(function(){try{window.dispatchEvent(new Event("resize"));}catch(e){}})();true;',
-          );
-          setTimeout(() => {
+      {!showResultsOverlay ? (
+        <WebView
+          ref={webRef}
+          style={[styles.flex, { minHeight: minEmbedHeight }]}
+          originWhitelist={['*']}
+          source={{ html }}
+          javaScriptEnabled
+          domStorageEnabled
+          nestedScrollEnabled
+          onLoadEnd={() => {
             webRef.current?.injectJavaScript(
               '(function(){try{window.dispatchEvent(new Event("resize"));}catch(e){}})();true;',
             );
-          }, 150);
-        }}
-        onMessage={(m) => handleMessageBody(m.nativeEvent.data)}
-        mediaPlaybackRequiresUserAction
-        setBuiltInZoomControls={false}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-        bounces={false}
-        scrollEnabled={false}
-        {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
-        {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
-      />
-
-      {phase === 'results' ? (
-        <View style={[styles.h2hBanner, { zIndex: 50 }]} pointerEvents="box-none">
-          <Text style={styles.bannerTitle}>Run recorded</Text>
-          <Text style={styles.bannerSub}>
-            Head-to-head: higher marathon distance wins after both runs submit ({h2hSkillContest.opponentDisplayName} vs
-            you).
-          </Text>
-          {h2hSubmitPhase === 'loading' ? <Text style={styles.bannerMeta}>Submitting your run…</Text> : null}
-          {h2hSubmitPhase === 'ok' ? <Text style={styles.bannerMeta}>Your score submitted: {submittedScore}</Text> : null}
-          {h2hSubmitPhase === 'error' ? (
-            <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
-          ) : null}
-          {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
-            <Text style={styles.bannerMeta}>Waiting for {h2hSkillContest.opponentDisplayName}…</Text>
-          ) : null}
-          {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
-            <Text style={styles.bannerMeta}>
-              Both runs in — you {h2hPoll.self_score ?? 0} vs {h2hSkillContest.opponentDisplayName} {h2hPoll.opponent_score ?? 0}.
-              Finalizing…
-            </Text>
-          ) : null}
+            setTimeout(() => {
+              webRef.current?.injectJavaScript(
+                '(function(){try{window.dispatchEvent(new Event("resize"));}catch(e){}})();true;',
+              );
+            }, 150);
+          }}
+          onMessage={(m) => handleMessageBody(m.nativeEvent.data)}
+          mediaPlaybackRequiresUserAction
+          setBuiltInZoomControls={false}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          bounces={false}
+          scrollEnabled={false}
+          {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
+          {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
+        />
+      ) : null}
+      {showResultsOverlay ? (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <View style={styles.card}>
+            <GameOverExitRow
+              minigamesLabel={replacePrimaryLabel}
+              onMinigames={replaceToPrimaryExit}
+              onHome={replaceToHomeTab}
+            />
+            <Text style={styles.goTitle}>Run ended</Text>
+            <Text style={styles.goScore}>Your distance: {submittedScore}</Text>
+            {h2hSubmitPhase === 'loading' ? <Text style={styles.practiceNote}>Submitting your run…</Text> : null}
+            {h2hSubmitPhase === 'error' ? (
+              <>
+                <Text style={styles.practiceNote}>Could not submit this run. Check your connection.</Text>
+                <AppButton title="Retry submit" variant="secondary" className="mt-2" onPress={() => setH2hRetryKey((k) => k + 1)} />
+              </>
+            ) : null}
+            {h2hSubmitPhase === 'ok' && !h2hPoll?.both_submitted ? (
+              <Text style={styles.practiceNote}>Waiting for {h2hSkillContest.opponentDisplayName} to finish…</Text>
+            ) : null}
+            {h2hSubmitPhase === 'ok' && h2hPoll?.both_submitted ? (
+              <Text style={styles.practiceNote}>Both runs in — finalizing match…</Text>
+            ) : null}
+          </View>
         </View>
       ) : null}
-      {webPortrait ? (
+      {webPortrait && !showResultsOverlay ? (
         <View style={styles.rotateHint} pointerEvents="none">
           <Text style={styles.rotateHintText}>Rotate to landscape for live Shape Dash</Text>
         </View>
@@ -347,20 +354,29 @@ export function ShapeDashH2hHost({
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#060610', minHeight: 0 },
-  h2hBanner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 14,
-    paddingBottom: 20,
-    backgroundColor: 'rgba(6, 6, 16, 0.94)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(148,163,184,0.35)',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 6, 15, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 50,
   },
-  bannerTitle: { color: '#e2e8f0', fontSize: 16, fontWeight: '900', textAlign: 'center' },
-  bannerSub: { color: 'rgba(148,163,184,0.95)', fontSize: 12, marginTop: 8, textAlign: 'center' },
-  bannerMeta: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  card: {
+    width: '100%',
+    maxWidth: 460,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.35)',
+    backgroundColor: 'rgba(10, 15, 28, 0.98)',
+    shadowColor: '#22D3EE',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+  },
+  goTitle: { color: '#f8fafc', fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  goScore: { color: 'rgba(148,163,184,0.95)', fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  practiceNote: { marginTop: 8, color: 'rgba(148,163,184,0.95)', fontSize: 13, fontWeight: '600', textAlign: 'center' },
   rotateHint: {
     position: 'absolute',
     left: 12,
