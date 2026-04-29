@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { FunctionsHttpError } from '@supabase/functions-js';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -24,6 +25,18 @@ export function useH2hSkillContestSubmitAndPoll(
   overPhase: string = 'over',
   opts?: { skipSubmit?: boolean },
 ) {
+  const isAlreadySubmittedConflict = async (error: unknown): Promise<boolean> => {
+    if (!(error instanceof FunctionsHttpError) || !(error.context instanceof Response)) return false;
+    if (error.context.status !== 409) return false;
+    try {
+      const body = (await error.context.clone().json()) as { error?: string };
+      const msg = String(body?.error ?? '').toLowerCase();
+      return msg.includes('already submitted');
+    } catch {
+      return false;
+    }
+  };
+
   const [h2hSubmitPhase, setH2hSubmitPhase] = useState<H2hSubmitPhase>('idle');
   const [h2hRetryKey, setH2hRetryKey] = useState(0);
   const h2hSubmitInFlight = useRef(false);
@@ -134,6 +147,13 @@ export function useH2hSkillContestSubmitAndPoll(
         });
         if (cancelled) return;
         if (error) {
+          if (await isAlreadySubmittedConflict(error)) {
+            if (!cancelled) {
+              h2hSubmitSuccessRef.current = true;
+              setH2hSubmitPhase('ok');
+            }
+            return;
+          }
           Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
           if (!cancelled) setH2hSubmitPhase('error');
           return;

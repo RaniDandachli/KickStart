@@ -69,7 +69,6 @@ export function ShapeDashH2hHost({
 
   const [phase, setPhase] = useState<Phase>('playing');
   const [wasSubmitted, setWasSubmitted] = useState(false);
-  const submittedKey = `shape_dash_h2h_submitted_${h2hSkillContest.matchSessionId}`;
   const html = useMemo(
     () =>
       buildShapeDashHtml({
@@ -111,7 +110,6 @@ export function ShapeDashH2hHost({
     phase,
     buildH2hBody,
     'results',
-    { skipSubmit: wasSubmitted },
   );
   const submittedScore = lastRunRef.current.score;
   const showResultsOverlay = phase === 'results';
@@ -131,24 +129,6 @@ export function ShapeDashH2hHost({
       };
     }, []),
   );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(submittedKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { score?: number; durationMs?: number; taps?: number };
-      lastRunRef.current = {
-        score: Math.max(0, Math.floor(Number(parsed.score) || 0)),
-        durationMs: Math.max(0, Math.floor(Number(parsed.durationMs) || 0)),
-        taps: Math.max(0, Math.floor(Number(parsed.taps) || 0)),
-      };
-      setWasSubmitted(true);
-      setPhase('results');
-    } catch {
-      // ignore bad cache
-    }
-  }, [submittedKey]);
 
   const requestWebFullscreenLandscape = useCallback(() => {
     if (Platform.OS !== 'web') return;
@@ -185,17 +165,10 @@ export function ShapeDashH2hHost({
         durationMs: Math.max(0, Math.floor(Number(obj.duration_ms) || 0)),
         taps: Math.max(0, Math.floor(Number(obj.taps) || 0)),
       };
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(submittedKey, JSON.stringify(lastRunRef.current));
-        } catch {
-          // ignore
-        }
-      }
       setWasSubmitted(true);
       setPhase('results');
     },
-    [phase, submittedKey],
+    [phase],
   );
 
   /** Web iframe: subscribe to messages from iframe */
