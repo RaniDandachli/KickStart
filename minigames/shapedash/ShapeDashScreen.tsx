@@ -8,8 +8,10 @@
  * - Omit or anything else — main menu so the player can pick Marathon vs Classic Levels (arcade / practice).
  */
 import { createElement, useMemo } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
@@ -88,6 +90,8 @@ export default function ShapeDashScreen() {
   useHidePlayTabBar();
   const { onHeaderBackPress, replacePrimaryLabel } = useMinigameExitNav();
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const { width, height } = useWindowDimensions();
+  const webPortrait = Platform.OS === 'web' && height > width;
 
   const bootMode =
     typeof params.mode === 'string'
@@ -100,6 +104,22 @@ export default function ShapeDashScreen() {
     () =>
       injectShapeDashBoot(SHAPE_DASH_INLINE_HTML, bootMode === 'marathon' ? 'marathon' : 'menu'),
     [bootMode],
+  );
+
+  // Match Dash Duel behavior: keep Shape Dash in landscape on native devices.
+  useLayoutEffect(() => {
+    if (Platform.OS === 'web') return;
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') return;
+      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+      return () => {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      };
+    }, []),
   );
 
   return (
@@ -117,6 +137,11 @@ export default function ShapeDashScreen() {
         </Pressable>
       </SafeAreaView>
       <ShapeDashGameEmbed html={html} />
+      {webPortrait ? (
+        <View style={styles.rotateHint} pointerEvents="none">
+          <Text style={styles.rotateHintText}>Rotate to landscape for Shape Dash</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -154,6 +179,24 @@ const styles = StyleSheet.create({
   web: {
     flex: 1,
     backgroundColor: '#060610',
+  },
+  rotateHint: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 68,
+    alignItems: 'center',
+  },
+  rotateHintText: {
+    color: '#fde68a',
+    fontSize: 12,
+    fontWeight: '800',
+    backgroundColor: 'rgba(2,6,23,0.78)',
+    borderColor: 'rgba(251,191,36,0.45)',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
 });
 

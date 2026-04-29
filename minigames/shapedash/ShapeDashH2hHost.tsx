@@ -1,4 +1,6 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import WebView from 'react-native-webview';
 
@@ -40,8 +42,10 @@ export function ShapeDashH2hHost({
   h2hSkillContest: H2hSkillContestBundle;
 }) {
   const { height: windowHeight } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   /** Head-to-head match stack sometimes gives RN WebView 0 height until a floor is set */
   const minEmbedHeight = Math.max(280, Math.floor(windowHeight * 0.55));
+  const webPortrait = Platform.OS === 'web' && height > width;
 
   const [phase, setPhase] = useState<Phase>('playing');
   const html = useMemo(
@@ -69,6 +73,17 @@ export function ShapeDashH2hHost({
     };
   }, [h2hSkillContest.matchSessionId]);
 
+  const focusIframeGame = useCallback(() => {
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      iframe.focus();
+      iframe.contentWindow?.focus();
+    } catch (_) {
+      /** ignore */
+    }
+  }, []);
+
   const { h2hSubmitPhase, h2hPoll, setH2hRetryKey } = useH2hSkillContestSubmitAndPoll(
     h2hSkillContest,
     phase,
@@ -76,6 +91,22 @@ export function ShapeDashH2hHost({
     'results',
   );
   const submittedScore = lastRunRef.current.score;
+
+  // Keep live Shape Dash landscape on native (same behavior style as Dash Duel).
+  useLayoutEffect(() => {
+    if (Platform.OS === 'web') return;
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') return;
+      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+      return () => {
+        void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      };
+    }, []),
+  );
 
   const handleMessageBody = useCallback(
     (raw: string | object) => {
@@ -125,6 +156,9 @@ export function ShapeDashH2hHost({
             onLoad: (ev: unknown) => {
               const iframe = (ev as { target?: HTMLIFrameElement })?.target;
               if (iframe) iframeRef.current = iframe;
+              focusIframeGame();
+              setTimeout(focusIframeGame, 60);
+              setTimeout(focusIframeGame, 220);
             },
             style: ({
               border: 'none',
@@ -135,6 +169,7 @@ export function ShapeDashH2hHost({
               backgroundColor: '#060610',
               flexGrow: 1,
             }) as Record<string, unknown>,
+            tabIndex: 0,
             ref: (el: HTMLIFrameElement | null) => {
               iframeRef.current = el;
             },
@@ -166,6 +201,11 @@ export function ShapeDashH2hHost({
                 Finalizing…
               </Text>
             ) : null}
+          </View>
+        ) : null}
+        {webPortrait ? (
+          <View style={styles.rotateHint} pointerEvents="none">
+            <Text style={styles.rotateHintText}>Rotate to landscape for live Shape Dash</Text>
           </View>
         ) : null}
       </View>
@@ -227,6 +267,11 @@ export function ShapeDashH2hHost({
           ) : null}
         </View>
       ) : null}
+      {webPortrait ? (
+        <View style={styles.rotateHint} pointerEvents="none">
+          <Text style={styles.rotateHintText}>Rotate to landscape for live Shape Dash</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -247,5 +292,24 @@ const styles = StyleSheet.create({
   bannerTitle: { color: '#e2e8f0', fontSize: 16, fontWeight: '900', textAlign: 'center' },
   bannerSub: { color: 'rgba(148,163,184,0.95)', fontSize: 12, marginTop: 8, textAlign: 'center' },
   bannerMeta: { color: 'rgba(148,163,184,0.95)', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  rotateHint: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 10,
+    alignItems: 'center',
+    zIndex: 60,
+  },
+  rotateHintText: {
+    color: '#fde68a',
+    fontSize: 12,
+    fontWeight: '800',
+    backgroundColor: 'rgba(2,6,23,0.78)',
+    borderColor: 'rgba(251,191,36,0.45)',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
 });
 
