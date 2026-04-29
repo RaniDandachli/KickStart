@@ -14,13 +14,16 @@ export const TOURNAMENT_OF_THE_DAY_HERO_URI =
 export const tournamentOfTheDayHeroSource = { uri: TOURNAMENT_OF_THE_DAY_HERO_URI } as const;
 
 /** Friday Cup banner (Events + `friday-cup` screen). */
-export const fridayCupBannerSource = require('@/assets/images/friday-cup-banner.png');
+export const FRIDAY_CUP_BANNER_URI = 'https://i.postimg.cc/G4DT1zzy/friday-cup-image.png' as const;
+export const fridayCupBannerSource = { uri: FRIDAY_CUP_BANNER_URI } as const;
 
 /** Daily Race leaderboard banner (paid rotating game; Events grid + `daily-race` screen). */
-export const weeklyRaceBannerSource = require('@/assets/images/weekly-race-banner.png');
+export const WEEKLY_RACE_BANNER_URI = 'https://i.postimg.cc/w1NRdFFN/daily-race-image.png' as const;
+export const weeklyRaceBannerSource = { uri: WEEKLY_RACE_BANNER_URI } as const;
 
 /** 1v1 Challenges banner (Tap Dash async targets — Events grid). */
-export const dailyRaceBannerSource = require('@/assets/images/daily-race-banner.png');
+export const ONE_VS_ONE_CHALLENGES_BANNER_URI = 'https://i.postimg.cc/BXkPyR5L/1v1111.png' as const;
+export const dailyRaceBannerSource = { uri: ONE_VS_ONE_CHALLENGES_BANNER_URI } as const;
 
 /** Web home hero: arena + trophy art behind "COMPETE. WIN REAL CASH." */
 export const competeWinCashHeroSource = require('@/assets/images/hero-compete-win-cash-arena.png');

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { AppButton } from '@/components/ui/AppButton';
 import { Screen } from '@/components/ui/Screen';
@@ -34,6 +35,7 @@ import { useAuthStore } from '@/store/authStore';
 import { withReturnHref } from '@/lib/minigameReturnHref';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { dailyRaceLeaderHref } from '@/lib/tabRoutes';
+import { weeklyRaceBannerSource } from '@/lib/brandLogo';
 
 /** Paid rotating minigame leaderboard (server `weekly_race_*` RPCs — UI name: Daily Race). */
 export default function DailyRaceLeaderScreen() {
@@ -164,6 +166,10 @@ export default function DailyRaceLeaderScreen() {
         <Text style={styles.backTxt}>Events</Text>
       </Pressable>
 
+      <View style={styles.bannerWrap} accessibilityLabel="Daily Race">
+        <Image source={weeklyRaceBannerSource} style={styles.bannerImage} contentFit="cover" />
+      </View>
+
       <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>DAILY RACE</Text>
       <Text style={styles.supportBanner}>
         We&apos;re still small — pools will grow over time and prize amounts will climb. Thanks for sticking with Run It
@@ -260,6 +266,15 @@ export default function DailyRaceLeaderScreen() {
 const styles = StyleSheet.create({
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
   backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
+  bannerWrap: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,170,0.38)',
+  },
+  bannerImage: { width: '100%', aspectRatio: 2.85, backgroundColor: '#03110f' },
   title: { color: runit.neonPink, fontSize: 22, fontWeight: '900', marginBottom: 8 },
   supportBanner: {
     backgroundColor: 'rgba(167,139,250,0.08)',

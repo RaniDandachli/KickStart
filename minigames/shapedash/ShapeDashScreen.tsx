@@ -7,7 +7,7 @@
  * - `mode=marathon` — auto-starts endless Marathon (competitive / money matchups).
  * - Omit or anything else — main menu so the player can pick Marathon vs Classic Levels (arcade / practice).
  */
-import { createElement, useMemo } from 'react';
+import { createElement, useMemo, useRef } from 'react';
 import { useCallback, useLayoutEffect } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -23,13 +23,31 @@ import { runitFont } from '@/lib/runitArcadeTheme';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
 
 function injectShapeDashBoot(html: string, defaultMode: 'menu' | 'marathon'): string {
-  if (defaultMode !== 'marathon') return html;
-  const payload = JSON.stringify({ defaultMode: 'marathon' });
-  /* Boot runs before bundled game script so Marathon can auto-start when competing. */
-  return html.replace('<body>', `<body><script>globalThis.__SHAPE_DASH_BOOT=${payload};</script>`);
+  const payload =
+    defaultMode === 'marathon' ? JSON.stringify({ defaultMode: 'marathon' }) : '';
+  const boot = defaultMode === 'marathon' ? `globalThis.__SHAPE_DASH_BOOT=${payload};` : '';
+  const webFs = `
+    (function(){
+      if (typeof window === 'undefined' || typeof document === 'undefined') return;
+      var once = false;
+      function tryFs() {
+        if (once) return;
+        once = true;
+        try {
+          var de = document.documentElement;
+          if (!document.fullscreenElement && de && de.requestFullscreen) { void de.requestFullscreen(); }
+          if (screen && screen.orientation && screen.orientation.lock) { void screen.orientation.lock('landscape'); }
+        } catch (_) {}
+      }
+      window.addEventListener('pointerdown', tryFs, { once: true, passive: true });
+      window.addEventListener('keydown', tryFs, { once: true });
+    })();
+  `;
+  return html.replace('<body>', `<body><script>${boot}${webFs}</script>`);
 }
 
 function ShapeDashGameEmbed({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const injected = useMemo(
     () => `
       (function() {
@@ -41,6 +59,21 @@ function ShapeDashGameEmbed({ html }: { html: string }) {
     [],
   );
 
+  const requestWebFullscreenLandscape = () => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (!document.fullscreenElement && iframe.requestFullscreen) {
+        void iframe.requestFullscreen().catch(() => {});
+      }
+      // @ts-expect-error web runtime only
+      if (screen?.orientation?.lock) void screen.orientation.lock('landscape').catch(() => {});
+    } catch {
+      // ignore
+    }
+  };
+
   if (Platform.OS === 'web') {
     /** RN Web has no native WebView; iframe + srcDoc runs the same document. */
     return (
@@ -49,6 +82,10 @@ function ShapeDashGameEmbed({ html }: { html: string }) {
         {createElement('iframe', {
           srcDoc: html,
           title: 'Shape Dash',
+          onLoad: () => {
+            requestWebFullscreenLandscape();
+            setTimeout(requestWebFullscreenLandscape, 120);
+          },
           style: ({
             border: 'none',
             width: '100%',
@@ -58,6 +95,10 @@ function ShapeDashGameEmbed({ html }: { html: string }) {
             flexGrow: 1,
           }) as Record<string, unknown>,
           allow: 'fullscreen',
+          tabIndex: 0,
+          ref: (el: HTMLIFrameElement | null) => {
+            iframeRef.current = el;
+          },
         })}
       </View>
     );

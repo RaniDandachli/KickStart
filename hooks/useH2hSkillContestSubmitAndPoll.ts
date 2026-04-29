@@ -22,6 +22,7 @@ export function useH2hSkillContestSubmitAndPoll(
   gamePhase: string,
   buildBody: () => Record<string, unknown>,
   overPhase: string = 'over',
+  opts?: { skipSubmit?: boolean },
 ) {
   const [h2hSubmitPhase, setH2hSubmitPhase] = useState<H2hSubmitPhase>('idle');
   const [h2hRetryKey, setH2hRetryKey] = useState(0);
@@ -104,6 +105,12 @@ export function useH2hSkillContestSubmitAndPoll(
     if (!shouldRunSubmitEffect || !h2hSkillContest) {
       return;
     }
+    if (opts?.skipSubmit) {
+      h2hSubmitSuccessRef.current = true;
+      h2hSubmitInFlight.current = false;
+      setH2hSubmitPhase('ok');
+      return;
+    }
     if (h2hSubmitSuccessRef.current) return;
     if (h2hSubmitInFlight.current) return;
 
@@ -145,7 +152,7 @@ export function useH2hSkillContestSubmitAndPoll(
     return () => {
       cancelled = true;
     };
-  }, [shouldRunSubmitEffect, h2hSkillContest, h2hRetryKey]);
+  }, [shouldRunSubmitEffect, h2hSkillContest, h2hRetryKey, opts?.skipSubmit]);
 
   return {
     h2hSubmitPhase,

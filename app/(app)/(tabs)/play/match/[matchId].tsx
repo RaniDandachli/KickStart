@@ -20,6 +20,7 @@ import { H2hTurboArenaMatch } from '@/features/play/H2hTurboArenaMatch';
 import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
+import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { displayNameForProfile, h2hEnterMatchPlayRpc } from '@/services/api/h2hMatchSession';
 import { useAuthStore } from '@/store/authStore';
 import type { QueueKind } from '@/store/matchmakingStore';
@@ -27,6 +28,7 @@ import { useMatchmakingStore } from '@/store/matchmakingStore';
 import type { HeadToHeadMatchSession, MatchFinishPayload } from '@/types/match';
 
 export default function MatchPlayScreen() {
+  useHidePlayTabBar();
   const params = useLocalSearchParams<{ matchId: string | string[] }>();
   const rawMid = params.matchId;
   const matchId = Array.isArray(rawMid) ? rawMid[0] : rawMid;

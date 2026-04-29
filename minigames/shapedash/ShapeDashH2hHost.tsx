@@ -23,9 +23,26 @@ function buildShapeDashHtml(opts: {
         skipAutoPlay: Boolean(opts.skipAutoMarathon),
       })
     : '';
+  const fsHook = `
+    (function(){
+      if (typeof window === 'undefined' || typeof document === 'undefined') return;
+      var once = false;
+      function tryFs() {
+        if (once) return;
+        once = true;
+        try {
+          var de = document.documentElement;
+          if (!document.fullscreenElement && de && de.requestFullscreen) { void de.requestFullscreen(); }
+          if (screen && screen.orientation && screen.orientation.lock) { void screen.orientation.lock('landscape'); }
+        } catch (_) {}
+      }
+      window.addEventListener('pointerdown', tryFs, { once: true, passive: true });
+      window.addEventListener('keydown', tryFs, { once: true });
+    })();
+  `;
   const script = opts.marathon
-    ? `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};globalThis.__SHAPE_DASH_BOOT=${boot};</script>`
-    : `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};</script>`;
+    ? `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};globalThis.__SHAPE_DASH_BOOT=${boot};${fsHook}</script>`
+    : `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};${fsHook}</script>`;
   return SHAPE_DASH_INLINE_HTML.replace('<body>', `<body>${script}`);
 }
 
@@ -48,14 +65,16 @@ export function ShapeDashH2hHost({
   const webPortrait = Platform.OS === 'web' && height > width;
 
   const [phase, setPhase] = useState<Phase>('playing');
+  const [wasSubmitted, setWasSubmitted] = useState(false);
+  const submittedKey = `shape_dash_h2h_submitted_${h2hSkillContest.matchSessionId}`;
   const html = useMemo(
     () =>
       buildShapeDashHtml({
         marathon: true,
-        skipAutoMarathon: false,
+        skipAutoMarathon: wasSubmitted,
         h2h: true,
       }),
-    [],
+    [wasSubmitted],
   );
 
   const lastRunRef = useRef({ score: 0, durationMs: 0, taps: 0 });
@@ -89,6 +108,7 @@ export function ShapeDashH2hHost({
     phase,
     buildH2hBody,
     'results',
+    { skipSubmit: wasSubmitted },
   );
   const submittedScore = lastRunRef.current.score;
 
@@ -107,6 +127,40 @@ export function ShapeDashH2hHost({
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(submittedKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { score?: number; durationMs?: number; taps?: number };
+      lastRunRef.current = {
+        score: Math.max(0, Math.floor(Number(parsed.score) || 0)),
+        durationMs: Math.max(0, Math.floor(Number(parsed.durationMs) || 0)),
+        taps: Math.max(0, Math.floor(Number(parsed.taps) || 0)),
+      };
+      setWasSubmitted(true);
+      setPhase('results');
+    } catch {
+      // ignore bad cache
+    }
+  }, [submittedKey]);
+
+  const requestWebFullscreenLandscape = useCallback(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (!document.fullscreenElement && iframe.requestFullscreen) {
+        void iframe.requestFullscreen().catch(() => {});
+      }
+      // Safari often ignores this unless fullscreen + user gesture; best effort.
+      // @ts-expect-error web runtime only
+      if (screen?.orientation?.lock) void screen.orientation.lock('landscape').catch(() => {});
+    } catch (_) {
+      /** ignore */
+    }
+  }, []);
 
   const handleMessageBody = useCallback(
     (raw: string | object) => {
@@ -127,9 +181,17 @@ export function ShapeDashH2hHost({
         durationMs: Math.max(0, Math.floor(Number(obj.duration_ms) || 0)),
         taps: Math.max(0, Math.floor(Number(obj.taps) || 0)),
       };
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(submittedKey, JSON.stringify(lastRunRef.current));
+        } catch {
+          // ignore
+        }
+      }
+      setWasSubmitted(true);
       setPhase('results');
     },
-    [phase],
+    [phase, submittedKey],
   );
 
   /** Web iframe: subscribe to messages from iframe */
@@ -157,8 +219,10 @@ export function ShapeDashH2hHost({
               const iframe = (ev as { target?: HTMLIFrameElement })?.target;
               if (iframe) iframeRef.current = iframe;
               focusIframeGame();
+              requestWebFullscreenLandscape();
               setTimeout(focusIframeGame, 60);
               setTimeout(focusIframeGame, 220);
+              setTimeout(requestWebFullscreenLandscape, 80);
             },
             style: ({
               border: 'none',
@@ -206,6 +270,11 @@ export function ShapeDashH2hHost({
         {webPortrait ? (
           <View style={styles.rotateHint} pointerEvents="none">
             <Text style={styles.rotateHintText}>Rotate to landscape for live Shape Dash</Text>
+          </View>
+        ) : null}
+        {Platform.OS === 'web' ? (
+          <View style={styles.fullscreenTapZone} pointerEvents="box-none">
+            <AppButton title="Fullscreen" variant="ghost" onPress={requestWebFullscreenLandscape} />
           </View>
         ) : null}
       </View>
@@ -310,6 +379,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  fullscreenTapZone: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    zIndex: 70,
   },
 });
 

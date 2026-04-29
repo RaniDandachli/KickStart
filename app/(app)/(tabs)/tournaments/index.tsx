@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View, Pressable, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -11,23 +11,20 @@ import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
-import { ENABLE_CREDIT_CUPS, ENABLE_DAILY_FREE_TOURNAMENT, ENABLE_WEEKLY_RACE } from '@/constants/featureFlags';
+import { ENABLE_WEEKLY_RACE } from '@/constants/featureFlags';
 import { formatEntryType, formatFormat, formatTournamentState } from '@/features/tournaments/tournamentPresentation';
 import { useDailyFreeResetClock } from '@/hooks/useDailyFreeResetClock';
 import { useTournaments } from '@/hooks/useTournaments';
-import { loadCupBracketPersist } from '@/lib/cupBracketStorage';
-import { CREDIT_CUPS, getCreditCupById } from '@/lib/cupTournaments';
 import {
   dailyRaceBannerSource,
   fridayCupBannerSource,
   tournamentOfTheDayHeroSource,
   weeklyRaceBannerSource,
 } from '@/lib/brandLogo';
-import { DAILY_FREE_TOURNAMENT_ROUNDS, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
+import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { appChromeGradientFadePink, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { dailyRaceLeaderHref, oneVsOneChallengesHref } from '@/lib/tabRoutes';
 import { useAuthStore } from '@/store/authStore';
-import { useCupDailyRunStore } from '@/store/cupDailyRunStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
 
 export default function TournamentsListScreen() {
@@ -36,20 +33,14 @@ export default function TournamentsListScreen() {
   const { data, isLoading, isError } = useTournaments(false);
   const dailyUid = useAuthStore((s) => s.user?.id ?? 'guest');
   const dailyHydrate = useDailyFreeTournamentStore((s) => s.hydrate);
-  const cupDailyHydrate = useCupDailyRunStore((s) => s.hydrate);
   const dailyDayKey = useDailyFreeTournamentStore((s) => s.dayKey);
   const dailyResetCountdown = useDailyFreeResetClock(dailyUid, async (k) => {
     await dailyHydrate(k);
-    await cupDailyHydrate(k);
   });
   const todaysKey = dailyDayKey || todayYmdLocal();
   const dailyRounds = getDailyTournamentRounds(todaysKey);
   const dailyPrizeUsd = getDailyTournamentPrizeUsd(todaysKey);
 
-  const [cupBoard, setCupBoard] = useState<{
-    commitId: string | null;
-    byId: Record<string, { won: boolean; lost: boolean }>;
-  } | null>(null);
   const { width: screenW } = useWindowDimensions();
   /** Two columns above ~340pt; snug tiles on dense browse screens */
   const gridTileWidth = useMemo(() => {
@@ -59,34 +50,19 @@ export default function TournamentsListScreen() {
     return (inner - gap) / 2;
   }, [screenW]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      void (async () => {
-        await useCupDailyRunStore.getState().hydrate(dailyUid);
-        if (cancelled) return;
-        const commit = useCupDailyRunStore.getState().committedCupId;
-        const today = todayYmdLocal();
-        const byId: Record<string, { won: boolean; lost: boolean }> = {};
-        for (const c of CREDIT_CUPS) {
-          const p = await loadCupBracketPersist(dailyUid, c.id);
-          if (!p || p.dayKey !== today) {
-            byId[c.id] = { won: false, lost: false };
-            continue;
-          }
-          const won = !p.eliminated && p.nextRound > DAILY_FREE_TOURNAMENT_ROUNDS;
-          const lost = p.eliminated;
-          byId[c.id] = { won, lost };
-        }
-        if (!cancelled) setCupBoard({ commitId: commit, byId });
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [dailyUid]),
-  );
+  type FeaturedEvent = {
+    id: string;
+    title: string;
+    subtitle: string;
+    cta: string;
+    pill: string;
+    onPress: () => void;
+    imageSource: any;
+    imageFit?: 'cover' | 'contain';
+    imageHeight?: number;
+  };
 
-  const featuredEvents = [
+  const featuredEvents: FeaturedEvent[] = [
     {
       id: 'daily',
       title: 'Tournament of the Day',
@@ -106,6 +82,7 @@ export default function TournamentsListScreen() {
       onPress: () => router.push('/(app)/(tabs)/tournaments/friday-cup'),
       imageSource: fridayCupBannerSource,
       imageFit: 'cover' as const,
+      imageHeight: 76,
     },
     ...(ENABLE_WEEKLY_RACE
       ? ([
@@ -118,6 +95,7 @@ export default function TournamentsListScreen() {
             onPress: () => router.push(dailyRaceLeaderHref()),
             imageSource: weeklyRaceBannerSource,
             imageFit: 'cover' as const,
+            imageHeight: 76,
           },
         ] as const)
       : []),
@@ -130,8 +108,9 @@ export default function TournamentsListScreen() {
       onPress: () => router.push(oneVsOneChallengesHref()),
       imageSource: dailyRaceBannerSource,
       imageFit: 'cover' as const,
+      imageHeight: 76,
     },
-  ] as const;
+  ];
 
   return (
     <Screen>
@@ -161,7 +140,7 @@ export default function TournamentsListScreen() {
               style={styles.featureBorder}
             >
               <View style={styles.featureInner}>
-                <View style={styles.featureImageBox}>
+                <View style={[styles.featureImageBox, featured.imageHeight ? { height: featured.imageHeight } : null]}>
                   <Image
                     source={featured.imageSource}
                     style={StyleSheet.absoluteFillObject}
@@ -199,90 +178,6 @@ export default function TournamentsListScreen() {
           </Pressable>
         ))}
       </View>
-
-      {ENABLE_CREDIT_CUPS ? (
-        <>
-          <SectionLabel style={styles.sectionKickerCup}>Credit cups</SectionLabel>
-          <Text style={styles.cupSectionSub}>One cup run per day per tier · single elimination · credits from shop or wins</Text>
-          {CREDIT_CUPS.length ? (
-            <View style={styles.gridRow}>
-              {CREDIT_CUPS.map((cup) => {
-                const snap = cupBoard?.byId[cup.id];
-                const wonToday = snap?.won ?? false;
-                const lockedOther = !!(cupBoard?.commitId && cupBoard.commitId !== cup.id && !wonToday);
-                const otherName = cupBoard?.commitId ? getCreditCupById(cupBoard.commitId)?.name : undefined;
-                const dim = wonToday || lockedOther;
-                return (
-                  <Pressable
-                    key={cup.id}
-                    onPress={() => router.push(`/(app)/(tabs)/tournaments/cup/${cup.id}`)}
-                    style={({ pressed }) => [
-                      { width: gridTileWidth },
-                      dim && { opacity: 0.55 },
-                      pressed && !dim && { opacity: 0.92 },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={cupAccentGradient(cup.accent)}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.cupTileBorder}
-                    >
-                      <View style={styles.cupTileInner}>
-                        <View style={styles.cardTopCompact}>
-                          <Text style={[styles.cupTileName, { fontFamily: runitFont.bold }]} numberOfLines={2}>
-                            {cup.name}
-                          </Text>
-                          <View
-                            style={[
-                              styles.statePill,
-                              styles.cupBadge,
-                              {
-                                borderColor: wonToday ? 'rgba(148,163,184,0.7)' : lockedOther ? '#fbbf24' : '#39ff14',
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statePillText,
-                                {
-                                  color: wonToday ? 'rgba(203,213,225,0.95)' : lockedOther ? '#fbbf24' : '#39ff14',
-                                },
-                              ]}
-                            >
-                              {wonToday ? 'DONE' : lockedOther ? 'LOCKED' : 'PRIZE'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.cupCreditsLineCompact}>
-                          {cup.prizeCredits.toLocaleString()} cr · {DAILY_FREE_TOURNAMENT_ROUNDS} rds
-                        </Text>
-                        <Text style={styles.cupTileTag} numberOfLines={2}>
-                          {wonToday
-                            ? 'Back after midnight'
-                            : lockedOther
-                              ? `Using ${otherName ?? 'another cup'} today`
-                              : cup.subtitle}
-                        </Text>
-                        <View style={styles.heroCtaRow}>
-                          <Text style={[styles.viewLinkCompact, dim && { color: 'rgba(203,213,225,0.75)' }]}>
-                            {wonToday ? 'View' : lockedOther ? 'Details' : 'Enter'}
-                          </Text>
-                          <SafeIonicons
-                            name="chevron-forward"
-                            size={13}
-                            color={dim ? 'rgba(203,213,225,0.55)' : runit.neonPink}
-                          />
-                        </View>
-                      </View>
-                    </LinearGradient>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-        </>
-      ) : null}
 
       {isLoading ? (
         <>
@@ -333,23 +228,6 @@ export default function TournamentsListScreen() {
   );
 }
 
-function cupAccentGradient(accent: (typeof CREDIT_CUPS)[number]['accent']): readonly [string, string] {
-  switch (accent) {
-    case 'gold':
-      return ['#5B21B6', '#FFD700'] as const;
-    case 'purple':
-      return ['#6b21a8', '#a855f7'] as const;
-    case 'pink':
-      return ['#be185d', '#f472b6'] as const;
-    case 'amber':
-      return ['#b45309', '#fbbf24'] as const;
-    case 'emerald':
-      return ['#047857', '#FFD700'] as const;
-    default:
-      return [runit.neonPink, appChromeGradientFadePink] as const;
-  }
-}
-
 function stateColor(state: string) {
   if (state === 'open') return '#39ff14';
   if (state === 'active') return '#a78bfa';
@@ -359,13 +237,6 @@ function stateColor(state: string) {
 
 const styles = StyleSheet.create({
   sectionKickerTight: { marginTop: 4, marginBottom: 8 },
-  sectionKickerCup: { marginTop: 14, marginBottom: 6 },
-  cupSectionSub: {
-    color: 'rgba(148,163,184,0.85)',
-    fontSize: 11,
-    marginBottom: 10,
-    lineHeight: 15,
-  },
   gridRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -428,33 +299,6 @@ const styles = StyleSheet.create({
   heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   featureCta: { color: '#FFE082', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
 
-  cupTileBorder: { borderRadius: 12, padding: 2, marginBottom: 2 },
-  cupTileInner: {
-    borderRadius: 10,
-    backgroundColor: 'rgba(8,4,18,0.92)',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    minHeight: 108,
-  },
-  cupTileName: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '900', lineHeight: 17 },
-  cupBadge: { paddingHorizontal: 5, paddingVertical: 2 },
-  cupCreditsLineCompact: {
-    color: '#fef08a',
-    fontSize: 11,
-    fontWeight: '900',
-    marginBottom: 3,
-    marginTop: 2,
-  },
-  cupTileTag: {
-    color: 'rgba(203,213,225,0.88)',
-    fontSize: 10,
-    lineHeight: 14,
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  cardTopCompact: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 2 },
-  viewLinkCompact: { color: runit.neonPink, fontSize: 12, fontWeight: '800' },
-  cupCreditsLine: { color: '#fef08a', fontSize: 15, fontWeight: '900', marginBottom: 4 },
   cardWrap: { marginBottom: 10 },
   cardBorder: { borderRadius: 14, padding: 2 },
   cardInner: { backgroundColor: 'rgba(8,4,18,0.88)', borderRadius: 12, padding: 11 },
@@ -472,7 +316,6 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     fontWeight: '700',
   },
-  cardPrizeDailyTagline: { fontSize: 12, fontWeight: '600', color: 'rgba(203,213,225,0.85)', marginTop: 0 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   viewLink: { color: runit.neonPink, fontSize: 12, fontWeight: '800' },
 });

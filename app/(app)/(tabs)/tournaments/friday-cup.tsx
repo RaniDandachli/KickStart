@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,215,0,0.4)',
   },
-  bannerImage: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#0c0618' },
+  bannerImage: { width: '100%', aspectRatio: 2.85, backgroundColor: '#050816' },
   title: { color: runit.neonPink, fontSize: 22, fontWeight: '900', letterSpacing: 1, marginBottom: 6 },
   sub: { color: 'rgba(203,213,225,0.95)', fontSize: 14, fontWeight: '700', marginBottom: 14 },
   heroBorder: { borderRadius: 16, padding: 2, marginBottom: 16 },
