@@ -1294,10 +1294,10 @@ function update() {
   if (h2hSpawnGuardActive) {
     // Keep the run stable during startup on web embeds.
     if (!P.isShip) {
-      P.vy = Math.max(0, P.vy);
-      if (P.y + PS >= groundY - 1) {
+      // Do not kill upward velocity (jump), only prevent sinking through ground.
+      if (P.y + PS > groundY) {
         P.y = groundY - PS;
-        P.vy = 0;
+        if (P.vy > 0) P.vy = 0;
         P.grounded = true;
       }
     }
