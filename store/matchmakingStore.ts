@@ -9,6 +9,10 @@ export interface MatchOpponentPreview {
   username: string;
   rating: number;
   region: string;
+  /** From `profile_fight_stats` when available — for Match found UI. */
+  wins?: number;
+  losses?: number;
+  matchesPlayed?: number;
 }
 
 /** Live 1v1 session after accept — survives until result screen clears it. */

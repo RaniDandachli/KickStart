@@ -6,7 +6,7 @@ import { Alert, AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { ensureArcadeAndroidNotificationChannel } from '@/lib/arcadeLocalNotifications';
-import { H2H_QUICK_MATCH_GAME_KEY, type H2hGameKey } from '@/lib/homeOpenMatches';
+import { H2H_QUICK_MATCH_GAME_KEY, titleForH2hGameKey, type H2hGameKey } from '@/lib/homeOpenMatches';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
 import { syncExitMatchmakingToServer } from '@/lib/matchmakingExitClient';
@@ -17,6 +17,7 @@ import {
   resolveDevOpponentUserId,
 } from '@/services/api/h2hMatchSession';
 import { requestOpenMatchWatchScan } from '@/lib/requestOpenMatchWatchScan';
+import { fetchProfileFightStats } from '@/services/api/profileFightStats';
 import { h2hCancelQueue, h2hEnqueueOrMatch, h2hEnqueueQuickMatch } from '@/services/matchmaking/h2hQueue';
 import { getSupabase } from '@/supabase/client';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
@@ -196,6 +197,19 @@ export function MatchmakingQueueRunner() {
           } catch {
             /* ignore */
           }
+          let wins: number | undefined;
+          let losses: number | undefined;
+          let matchesPlayed: number | undefined;
+          try {
+            const fight = await fetchProfileFightStats(r.opponent_user_id);
+            if (fight) {
+              wins = fight.wins;
+              losses = fight.losses;
+              matchesPlayed = fight.matches_played;
+            }
+          } catch {
+            /* ignore */
+          }
           useMatchmakingStore.getState().setFound(
             r.match_session_id,
             {
@@ -203,6 +217,9 @@ export function MatchmakingQueueRunner() {
               username: name,
               rating: 1500,
               region: reg && reg.length > 0 ? reg : 'NA',
+              wins,
+              losses,
+              matchesPlayed,
             },
             { serverSessionReady: true },
           );
@@ -379,12 +396,22 @@ export function MatchmakingQueueRunner() {
     !Number.isNaN(effectivePrize);
   const modalPrizeUsd = hasPaidEntry ? effectivePrize : undefined;
 
+  const gameSubtitle =
+    q?.gameTitle != null
+      ? `1v1 · ${q.gameTitle}`
+      : acceptRoute?.gameKey && acceptRoute.gameKey !== H2H_QUICK_MATCH_GAME_KEY
+        ? `1v1 · ${titleForH2hGameKey(acceptRoute.gameKey)}`
+        : queuePollSnapshot?.gameKey && queuePollSnapshot.gameKey !== H2H_QUICK_MATCH_GAME_KEY
+          ? `1v1 · ${titleForH2hGameKey(queuePollSnapshot.gameKey)}`
+          : undefined;
+
   return (
     <OpponentFoundModal
       visible={phase === 'found'}
       opponent={opponent}
       prizeUsd={modalPrizeUsd}
       freeCasual={isFreeCasual}
+      gameSubtitle={gameSubtitle}
       onAccept={accept}
       onDecline={dismissMatchmakingToIdle}
     />

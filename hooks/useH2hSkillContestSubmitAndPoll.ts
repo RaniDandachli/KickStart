@@ -44,6 +44,8 @@ export function useH2hSkillContestSubmitAndPoll(
   const h2hSubmitSuccessRef = useRef(false);
   const h2hDoneRef = useRef(false);
   const slowOpponentWarnedRef = useRef(false);
+  /** Invalidates in-flight submit when deps churn (e.g. unstable parent props) so we never leave UI stuck on "Submitting…". */
+  const h2hSubmitFlightRef = useRef(0);
   const buildBodyRef = useRef(buildBody);
   buildBodyRef.current = buildBody;
 
@@ -115,7 +117,7 @@ export function useH2hSkillContestSubmitAndPoll(
   }, [h2hSkillContest, h2hSubmitPhase, h2hPoll]);
 
   useEffect(() => {
-    if (!shouldRunSubmitEffect || !h2hSkillContest) {
+    if (!shouldRunSubmitEffect || !h2hSid) {
       return;
     }
     if (opts?.skipSubmit) {
@@ -125,18 +127,17 @@ export function useH2hSkillContestSubmitAndPoll(
       return;
     }
     if (h2hSubmitSuccessRef.current) return;
-    if (h2hSubmitInFlight.current) return;
 
+    const flight = ++h2hSubmitFlightRef.current;
     h2hSubmitInFlight.current = true;
     setH2hSubmitPhase('loading');
 
-    let cancelled = false;
     void (async () => {
       try {
         const supabase = getSupabase();
         const { data: sess } = await supabase.auth.getSession();
         if (!sess.session) {
-          if (!cancelled) {
+          if (h2hSubmitFlightRef.current === flight) {
             Alert.alert('Sign in required', 'Log in to submit your score.');
             setH2hSubmitPhase('error');
           }
@@ -144,35 +145,33 @@ export function useH2hSkillContestSubmitAndPoll(
         }
         const { error } = await invokeEdgeFunction('submitMinigameScore', {
           body: buildBodyRef.current(),
+          timeout: 45_000,
         });
-        if (cancelled) return;
+        if (h2hSubmitFlightRef.current !== flight) return;
         if (error) {
           if (await isAlreadySubmittedConflict(error)) {
-            if (!cancelled) {
-              h2hSubmitSuccessRef.current = true;
-              setH2hSubmitPhase('ok');
-            }
+            h2hSubmitSuccessRef.current = true;
+            setH2hSubmitPhase('ok');
             return;
           }
           Alert.alert('Submit failed', error.message ?? 'Could not reach server.');
-          if (!cancelled) setH2hSubmitPhase('error');
+          setH2hSubmitPhase('error');
           return;
         }
-        if (!cancelled) {
-          h2hSubmitSuccessRef.current = true;
-          setH2hSubmitPhase('ok');
-        }
+        h2hSubmitSuccessRef.current = true;
+        setH2hSubmitPhase('ok');
       } catch {
-        if (!cancelled) setH2hSubmitPhase('error');
+        if (h2hSubmitFlightRef.current === flight) setH2hSubmitPhase('error');
       } finally {
         h2hSubmitInFlight.current = false;
       }
     })();
 
     return () => {
-      cancelled = true;
+      h2hSubmitFlightRef.current++;
+      h2hSubmitInFlight.current = false;
     };
-  }, [shouldRunSubmitEffect, h2hSkillContest, h2hRetryKey, opts?.skipSubmit]);
+  }, [shouldRunSubmitEffect, h2hSid, h2hRetryKey, opts?.skipSubmit]);
 
   return {
     h2hSubmitPhase,

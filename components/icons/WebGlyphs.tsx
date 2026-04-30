@@ -174,6 +174,65 @@ function WebGlyphChevronBack({ size, color }: GProps) {
   );
 }
 
+function WebGlyphGlobeOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Path
+          d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"
+          stroke={color}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphTimeOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Path
+          d="M12 7v6l4 2"
+          stroke={color}
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphStatsChart({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M4 20V10M10 20v-6M16 20V4"
+          stroke={color}
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphRadioOn({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Circle cx="12" cy="12" r="4" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
 /** Tier / misc outline icons (names match MATCH_ENTRY_TIERS + common) */
 export function WebGlyphByIonName({ name, size, color }: { name: string; size: number; color: string }) {
   switch (name) {
@@ -272,6 +331,15 @@ export function WebGlyphByIonName({ name, size, color }: { name: string; size: n
       return <WebGlyphGitCompareOutline size={size} color={color} />;
     case 'git-merge-outline':
       return <WebGlyphGitMergeOutline size={size} color={color} />;
+    case 'globe-outline':
+    case 'globe':
+      return <WebGlyphGlobeOutline size={size} color={color} />;
+    case 'time-outline':
+      return <WebGlyphTimeOutline size={size} color={color} />;
+    case 'stats-chart':
+      return <WebGlyphStatsChart size={size} color={color} />;
+    case 'radio-button-on':
+      return <WebGlyphRadioOn size={size} color={color} />;
     default:
       return <WebGlyphFlash size={size} color={color} />;
   }

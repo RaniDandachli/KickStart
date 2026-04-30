@@ -3,6 +3,7 @@ import { useEffect, useRef, type MutableRefObject } from 'react';
 import { getSupabase } from '@/supabase/client';
 import { H2H_QUICK_MATCH_GAME_KEY } from '@/lib/homeOpenMatches';
 import { displayNameForProfile } from '@/services/api/h2hMatchSession';
+import { fetchProfileFightStats } from '@/services/api/profileFightStats';
 import { useMatchmakingStore, type QueueKind } from '@/store/matchmakingStore';
 
 export type H2hQueueParamsRef = MutableRefObject<{
@@ -92,6 +93,19 @@ export function useH2hQueueMatchSignals(options: {
           .maybeSingle();
         const name = displayNameForProfile(prof?.username ?? null, prof?.display_name ?? null);
         const reg = prof?.region?.trim();
+        let wins: number | undefined;
+        let losses: number | undefined;
+        let matchesPlayed: number | undefined;
+        try {
+          const fight = await fetchProfileFightStats(opponentId);
+          if (fight) {
+            wins = fight.wins;
+            losses = fight.losses;
+            matchesPlayed = fight.matches_played;
+          }
+        } catch {
+          /* optional */
+        }
         useMatchmakingStore.getState().setFound(
           sessionId,
           {
@@ -99,6 +113,9 @@ export function useH2hQueueMatchSignals(options: {
             username: name,
             rating: 1500,
             region: reg && reg.length > 0 ? reg : 'NA',
+            wins,
+            losses,
+            matchesPlayed,
           },
           { serverSessionReady: true },
         );

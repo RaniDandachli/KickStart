@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { ShapeDashH2hHost } from '@/minigames/shapedash/ShapeDashH2hHost';
 
 import type { H2hSkillContestBundle } from '@/types/match';
@@ -16,15 +18,16 @@ export function H2hShapeDashMatch({
   opponentDisplayName: string;
   onComplete: H2hSkillContestBundle['onComplete'];
 }) {
-  return (
-    <ShapeDashH2hHost
-      h2hSkillContest={{
-        matchSessionId,
-        localPlayerId,
-        opponentId,
-        opponentDisplayName,
-        onComplete,
-      }}
-    />
+  const h2hSkillContest = useMemo<H2hSkillContestBundle>(
+    () => ({
+      matchSessionId,
+      localPlayerId,
+      opponentId,
+      opponentDisplayName,
+      onComplete,
+    }),
+    [matchSessionId, localPlayerId, opponentId, opponentDisplayName, onComplete],
   );
+
+  return <ShapeDashH2hHost h2hSkillContest={h2hSkillContest} />;
 }
