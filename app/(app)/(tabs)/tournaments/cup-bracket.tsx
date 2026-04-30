@@ -1,16 +1,33 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
 import { BracketPathBoard } from '@/features/tournaments/BracketPathBoard';
 import { buildFakeBracketPath } from '@/lib/fakeBracketPathModel';
 import { getCreditCupById } from '@/lib/cupTournaments';
-import { DAILY_FREE_TOURNAMENT_ROUNDS } from '@/lib/dailyFreeTournament';
+import { DAILY_FREE_TOURNAMENT_ROUNDS, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { useProfile } from '@/hooks/useProfile';
-import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit } from '@/lib/runitArcadeTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useCupBracketStore } from '@/store/cupBracketStore';
+
+function parseBracketFieldSize(roundLabel: string): number {
+  const m = /Round of (\d+)/i.exec(roundLabel);
+  return m ? parseInt(m[1], 10) : 1024;
+}
+
+function formatBracketEventDate(dayKey: string): string {
+  const parts = dayKey.split('-').map(Number);
+  const y = parts[0];
+  const mo = parts[1];
+  const d = parts[2];
+  if (!y || !mo || !d) return 'Today';
+  const dt = new Date(y, mo - 1, d);
+  const todayK = todayYmdLocal();
+  const prefix = dayKey === todayK ? 'Today' : 'Event';
+  return `${prefix} · ${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
 
 export default function CupBracketScreen() {
   const router = useRouter();
@@ -24,6 +41,8 @@ export default function CupBracketScreen() {
   const nextRound = useCupBracketStore((s) => s.nextRound);
   const eliminated = useCupBracketStore((s) => s.eliminated);
   const loseAtRound = useCupBracketStore((s) => s.loseAtRound);
+  const dayKey = useCupBracketStore((s) => s.dayKey);
+  const bracketDayKey = dayKey || todayYmdLocal();
 
   useFocusEffect(
     useCallback(() => {
@@ -49,6 +68,21 @@ export default function CupBracketScreen() {
       cupId: cup.id,
     });
 
+  const bracketStats = useMemo(() => {
+    if (!cells?.length) return undefined;
+    const fieldPlayers = parseBracketFieldSize(cells[0]?.roundLabel ?? 'Round of 1024');
+    const championLine =
+      !eliminated && nextRound > DAILY_FREE_TOURNAMENT_ROUNDS ? 'You (showcase)' : 'TBD';
+    return {
+      fieldPlayers,
+      eventDateLine: formatBracketEventDate(bracketDayKey),
+      championLine,
+    };
+  }, [cells, eliminated, nextRound, bracketDayKey]);
+
+  const disclaimer =
+    'Showcase prizes follow official rules. Bracket layout is for clarity — pairings may be resolved automatically after each round.';
+
   if (!cup || !cells) {
     return (
       <Screen>
@@ -65,23 +99,30 @@ export default function CupBracketScreen() {
     <Screen scroll>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backRow}>
         <SafeIonicons name="chevron-back" size={22} color="#FFD700" />
-        <Text style={styles.backTxt}>Back</Text>
+        <Text style={styles.backTxt}>{'<'} Back</Text>
       </Pressable>
 
-      <Text style={[styles.h1, { fontFamily: runitFont.black }, runitTextGlowPink]}>{cup.name.toUpperCase()} · BRACKET</Text>
-      <Text style={styles.lede}>
-        {cup.prizeCredits.toLocaleString()} prize credits on a full clear — your run for today.
-      </Text>
-
-      <BracketPathBoard title="Cup path" subtitle="One match per round · same flow as Tournament of the Day" cells={cells} youName={youName} />
+      <BracketPathBoard
+        heroTitle={`${cup.name.toUpperCase()} · BRACKET`}
+        heroSubtitle={`${cup.prizeCredits.toLocaleString()} prize credits on a full clear — your run for today.`}
+        eventBadge={{
+          title: cup.name.toUpperCase(),
+          subtitle: cup.subtitle,
+        }}
+        title="Run path"
+        subtitle="Scroll horizontally · Greens are wins · Live match is highlighted"
+        cells={cells}
+        youName={youName}
+        maskFutureYou
+        bracketStats={bracketStats}
+        disclaimerText={disclaimer}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
   backTxt: { color: '#FFD700', fontSize: 14, fontWeight: '700' },
-  h1: { color: runit.neonPink, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginBottom: 8 },
-  lede: { color: 'rgba(148,163,184,0.95)', fontSize: 13, lineHeight: 20, marginBottom: 16 },
   off: { color: 'rgba(148,163,184,0.9)', marginBottom: 12 },
 });

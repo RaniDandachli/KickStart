@@ -1,9 +1,11 @@
 import { usePathname, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
+import { ARCADE_SOCIAL_URLS, type ArcadeSocialKey } from '@/lib/arcadeSocialLinks';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
 import { runitFont } from '@/lib/runitArcadeTheme';
 
@@ -42,9 +44,22 @@ const ITEMS: SidebarItem[] = [
   { key: 'profile', label: 'You', href: '/(app)/(tabs)/profile', icon: 'person' },
 ];
 
+const SOCIAL_ICONS: { key: ArcadeSocialKey; icon: ComponentProps<typeof SafeIonicons>['name']; label: string }[] = [
+  { key: 'discord', icon: 'logo-discord', label: 'Discord' },
+  { key: 'instagram', icon: 'logo-instagram', label: 'Instagram' },
+  { key: 'x', icon: 'logo-twitter', label: 'X' },
+  { key: 'youtube', icon: 'logo-youtube', label: 'YouTube' },
+];
+
 export function WebHomeSidebar() {
   const router = useRouter();
   const active = useActiveTab();
+
+  const openSocial = useCallback((key: ArcadeSocialKey) => {
+    const url = ARCADE_SOCIAL_URLS[key]?.trim();
+    if (!url) return;
+    void Linking.openURL(url);
+  }, []);
 
   return (
     <View style={styles.rail} accessibilityRole="menu">
@@ -72,6 +87,38 @@ export function WebHomeSidebar() {
           );
         })}
       </View>
+      <View style={styles.railSpacer} />
+      <View style={styles.socialSection}>
+        <View style={styles.socialRow}>
+          {SOCIAL_ICONS.map(({ key, icon, label }) => {
+            const url = ARCADE_SOCIAL_URLS[key]?.trim();
+            const enabled = Boolean(url);
+            return (
+              <Pressable
+                key={key}
+                onPress={() => openSocial(key)}
+                disabled={!enabled}
+                accessibilityRole="link"
+                accessibilityLabel={label}
+                accessibilityHint={enabled ? 'Opens in browser' : 'Link not set yet'}
+                accessibilityState={{ disabled: !enabled }}
+                style={({ pressed }) => [
+                  styles.socialBtn,
+                  !enabled && styles.socialBtnDisabled,
+                  pressed && enabled && { opacity: 0.82 },
+                ]}
+              >
+                <SafeIonicons
+                  name={icon}
+                  size={18}
+                  color={enabled ? 'rgba(226,232,240,0.72)' : 'rgba(148,163,184,0.35)'}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.socialFootRing} accessibilityElementsHidden />
+      </View>
       <View style={styles.railFooter}>
         <Text style={styles.railHint}>1v1 · tiers · real matchups</Text>
       </View>
@@ -83,6 +130,8 @@ const styles = StyleSheet.create({
   rail: {
     width: 248,
     flexShrink: 0,
+    minHeight: 0,
+    alignSelf: 'stretch',
     paddingTop: 8,
     paddingBottom: 20,
     paddingHorizontal: 14,
@@ -131,6 +180,44 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   itemTxtOn: { color: '#0c0618' },
-  railFooter: { marginTop: 16, paddingHorizontal: 4 },
+  railSpacer: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 16,
+  },
+  socialSection: {
+    paddingTop: 8,
+    alignItems: 'center',
+    gap: 12,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  socialBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+  },
+  socialBtnDisabled: {
+    opacity: 0.65,
+  },
+  /** Decorative accent under social row (reference layout). */
+  socialFootRing: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(167,139,250,0.45)',
+    backgroundColor: 'transparent',
+  },
+  railFooter: { marginTop: 10, paddingHorizontal: 4 },
   railHint: { color: 'rgba(148,163,184,0.7)', fontSize: 10, lineHeight: 15, fontWeight: '600' },
 });

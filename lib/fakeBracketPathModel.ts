@@ -30,7 +30,7 @@ export function buildFakeBracketPath(args: BuildPathBracketArgs): BracketPathCel
 
   for (let r = 1; r <= totalRounds; r++) {
     const label = getRoundLabel(r);
-    const opp =
+    const seededOpp =
       mode === 'cup' && cupId
         ? randomCupOpponentName(userKey, r, cupId)
         : randomOpponentName(userKey, r);
@@ -50,10 +50,20 @@ export function buildFakeBracketPath(args: BuildPathBracketArgs): BracketPathCel
       status = 'upcoming';
     }
 
+    /** Only show a concrete opponent once that round is live or already played — never on future rounds. */
+    let opponentName: string;
+    if (status === 'upcoming') {
+      opponentName = 'OPPONENT TBD';
+    } else if (status === 'skipped') {
+      opponentName = '—';
+    } else {
+      opponentName = seededOpp;
+    }
+
     cells.push({
       roundIndex1Based: r,
       roundLabel: label,
-      opponentName: opp,
+      opponentName,
       status,
     });
   }

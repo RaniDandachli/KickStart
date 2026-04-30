@@ -2557,10 +2557,11 @@ window.advanceTime = (ms) => {
 };
 
 // -------------------- Main Loop --------------------
-let lastFrame = 0;
+/** Fixed 60Hz sim steps; multiple steps per RAF when display is under 60Hz (e.g. iOS Safari ~30Hz). */
+let shapeDashLoopAcc = 0;
+let shapeDashLastLoopTs = 0;
 
-function frame() {
-  // Decay screen shake
+function decayShake() {
   if (shakeIntensity > 0) {
     shakeX = (Math.random() - 0.5) * shakeIntensity;
     shakeY = (Math.random() - 0.5) * shakeIntensity;
@@ -2570,31 +2571,58 @@ function frame() {
     shakeX = 0;
     shakeY = 0;
   }
+}
 
+function renderScene() {
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  drawBG();
+  drawGroundAndCeil();
+  drawObs();
+  drawPlayer();
+  drawParticles();
+  ctx.restore();
+  drawHUD();
+  if (gameState === "dead") drawDeath();
+  if (gameState === "complete") drawWin();
+}
+
+function frame() {
+  decayShake();
   if (gameState === "menu") {
     drawMenu();
   } else {
     if (gameState === "playing") update();
     updateParticles();
-    ctx.save();
-    ctx.translate(shakeX, shakeY);
-    drawBG();
-    drawGroundAndCeil();
-    drawObs();
-    drawPlayer();
-    drawParticles();
-    ctx.restore();
-    drawHUD();
-    if (gameState === "dead") drawDeath();
-    if (gameState === "complete") drawWin();
+    renderScene();
   }
-
   inputJustDown = false;
 }
 
 function loop(ts) {
-  lastFrame = ts;
-  frame();
+  let dt = ts - shapeDashLastLoopTs;
+  if (!shapeDashLastLoopTs) dt = FRAME_MS;
+  shapeDashLastLoopTs = ts;
+  if (dt > 250) dt = FRAME_MS;
+  if (dt < 0) dt = FRAME_MS;
+
+  if (gameState === "menu") {
+    shapeDashLoopAcc = 0;
+    frame();
+  } else {
+    shapeDashLoopAcc += dt;
+    const maxSteps = 24;
+    let n = 0;
+    while (shapeDashLoopAcc >= FRAME_MS * 0.98 && n < maxSteps) {
+      decayShake();
+      if (gameState === "playing") update();
+      updateParticles();
+      shapeDashLoopAcc -= FRAME_MS;
+      n++;
+    }
+    renderScene();
+    inputJustDown = false;
+  }
   requestAnimationFrame(loop);
 }
 

@@ -22,6 +22,11 @@ interface Props {
   emphasized?: boolean;
   /** Tighter row — more games visible without scrolling */
   compact?: boolean;
+  /**
+   * When false, renders a static shell (no press). Parent should wrap with its own pressable
+   * (e.g. `ArcadePlayLauncher`).
+   */
+  pressable?: boolean;
 }
 
 const borderGrad: Record<RunitBorderAccent, readonly [string, string]> = {
@@ -42,6 +47,7 @@ export function ArcadeGameRow({
   entryColor = 'rgba(226,232,240,0.9)',
   emphasized = false,
   compact = false,
+  pressable = true,
 }: Props) {
   const b = borderGrad[borderAccent];
   const titleGlow = borderAccent === 'gold' ? runitTextGlowCyan : runitTextGlowPink;
@@ -56,6 +62,46 @@ export function ArcadeGameRow({
   const entryCompact = compact ? styles.entryCompact : undefined;
   const playBtnCompact = compact ? styles.playBtnCompact : undefined;
   const playTextCompact = compact ? styles.playTextCompact : undefined;
+  const inner = (
+    <LinearGradient
+      colors={b}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.borderWrap, runitGlowPinkSoft, borderExtra, borderCompact]}
+    >
+      <LinearGradient
+        colors={bgColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.card, cardExtra, cardCompact]}
+      >
+        <View style={styles.left}>
+          <View style={[styles.iconWrap, iconWrapExtra, iconWrapCompact]}>{iconSlot}</View>
+          <View style={styles.titleBlock}>
+            <Text
+              style={[styles.title, titleSz, titleCompact, { color: titleColor, fontFamily: runitFont.black }, titleGlow]}
+            >
+              {title}
+            </Text>
+            <Text style={[styles.entry, entryCompact, { color: entryColor }]}>{entryLabel}</Text>
+          </View>
+        </View>
+        <LinearGradient
+          colors={[runit.neonPink, runit.neonPurple]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.playBtn, playBtnCompact]}
+        >
+          <Text style={[styles.playText, playTextCompact, { fontFamily: runitFont.black }]}>{winLabel}</Text>
+        </LinearGradient>
+      </LinearGradient>
+    </LinearGradient>
+  );
+  if (!pressable) {
+    return (
+      <View style={[styles.press, emphasized && styles.pressHot, compact && styles.pressCompact]}>{inner}</View>
+    );
+  }
   return (
     <Pressable
       onPress={onPress}
@@ -66,39 +112,7 @@ export function ArcadeGameRow({
         pressed && { opacity: 0.92, transform: [{ scale: emphasized ? 0.985 : 0.99 }] },
       ]}
     >
-      <LinearGradient
-        colors={b}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.borderWrap, runitGlowPinkSoft, borderExtra, borderCompact]}
-      >
-        <LinearGradient
-          colors={bgColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.card, cardExtra, cardCompact]}
-        >
-          <View style={styles.left}>
-            <View style={[styles.iconWrap, iconWrapExtra, iconWrapCompact]}>{iconSlot}</View>
-            <View style={styles.titleBlock}>
-              <Text
-                style={[styles.title, titleSz, titleCompact, { color: titleColor, fontFamily: runitFont.black }, titleGlow]}
-              >
-                {title}
-              </Text>
-              <Text style={[styles.entry, entryCompact, { color: entryColor }]}>{entryLabel}</Text>
-            </View>
-          </View>
-          <LinearGradient
-            colors={[runit.neonPink, runit.neonPurple]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.playBtn, playBtnCompact]}
-          >
-            <Text style={[styles.playText, playTextCompact, { fontFamily: runitFont.black }]}>{winLabel}</Text>
-          </LinearGradient>
-        </LinearGradient>
-      </LinearGradient>
+      {inner}
     </Pressable>
   );
 }
