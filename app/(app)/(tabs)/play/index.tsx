@@ -184,6 +184,18 @@ export default function PlayHubScreen() {
         <ArcadeMinigameRow
           emphasized
           compact
+          gameRoute="cyber-road"
+          title="Cyber Road · NEW"
+          entryLabel="Practice or prize run"
+          winLabel="PLAY"
+          bgColors={['#030712', '#1f2937', '#0f766e']}
+          borderAccent="gold"
+          entryColor="rgba(226,232,240,0.9)"
+          iconSlot={<DashDuelGameIcon size={36} />}
+        />
+        <ArcadeMinigameRow
+          emphasized
+          compact
           gameRoute="tap-dash"
           title="Tap Dash"
           entryLabel="Practice or prize run"
@@ -204,18 +216,6 @@ export default function PlayHubScreen() {
           borderAccent="purple"
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<TileClashGameIcon size={36} />}
-        />
-        <ArcadeMinigameRow
-          emphasized
-          compact
-          gameRoute="cyber-road"
-          title="Cyber Road"
-          entryLabel="Practice or prize run"
-          winLabel="PLAY"
-          bgColors={['#030712', '#1f2937', '#0f766e']}
-          borderAccent="gold"
-          entryColor="rgba(226,232,240,0.9)"
-          iconSlot={<DashDuelGameIcon size={36} />}
         />
         <ArcadeMinigameRow
           emphasized

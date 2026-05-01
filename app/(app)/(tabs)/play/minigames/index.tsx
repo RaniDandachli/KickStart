@@ -37,6 +37,16 @@ export default function MinigamesHubScreen() {
       <Text style={styles.sub}>Tap PLAY — Practice (free) or Prize run (costs prize credits)</Text>
 
       <ArcadeMinigameRow
+        gameRoute="cyber-road"
+        title="Cyber Road · NEW"
+        entryLabel="Practice or prize run"
+        winLabel="PLAY"
+        bgColors={['#030712', '#1f2937', '#0f766e']}
+        borderAccent="gold"
+        entryColor="rgba(226,232,240,0.9)"
+        iconSlot={<DashDuelGameIcon size={36} />}
+      />
+      <ArcadeMinigameRow
         gameRoute="tap-dash"
         title="Tap Dash"
         entryLabel="Practice or prize run"
@@ -55,16 +65,6 @@ export default function MinigamesHubScreen() {
         borderAccent="purple"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TileClashGameIcon size={36} />}
-      />
-      <ArcadeMinigameRow
-        gameRoute="cyber-road"
-        title="Cyber Road"
-        entryLabel="Practice or prize run"
-        winLabel="PLAY"
-        bgColors={['#030712', '#1f2937', '#0f766e']}
-        borderAccent="gold"
-        entryColor="rgba(226,232,240,0.9)"
-        iconSlot={<DashDuelGameIcon size={36} />}
       />
       <ArcadeMinigameRow
         gameRoute="dash-duel"
