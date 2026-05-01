@@ -45,6 +45,8 @@ function gameIcon(gameKey: (typeof H2H_OPEN_GAMES)[number]['gameKey'], size: num
       return <NeonShipGameIcon size={size} />;
     case 'shape-dash':
       return <ShapeDashGameIcon size={size} />;
+    case 'cyber-road':
+      return <DashDuelGameIcon size={size} />;
     default:
       return <TapDashGameIcon size={size} />;
   }

@@ -25,7 +25,8 @@ export type ArcadePlayLauncherRoute =
   | 'stacker'
   | 'neon-dance'
   | 'neon-grid'
-  | 'neon-ship';
+  | 'neon-ship'
+  | 'cyber-road';
 
 const BASE = '/(app)/(tabs)/play/minigames';
 

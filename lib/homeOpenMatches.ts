@@ -68,6 +68,13 @@ export const H2H_OPEN_GAMES_ALL = [
     bgColors: ['#061018', '#0e7490', '#155e75'] as const,
     borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
+  {
+    gameKey: 'cyber-road' as const,
+    title: 'Cyber Road',
+    route: '/(app)/(tabs)/play/minigames/cyber-road',
+    bgColors: ['#030712', '#1f2937', '#0f766e'] as const,
+    borderAccent: 'gold' as const satisfies RunitBorderAccent,
+  },
 ] as const;
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES_ALL)[number]['gameKey'];
