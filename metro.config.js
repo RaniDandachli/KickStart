@@ -36,5 +36,8 @@ function wrapResolveForExpoGl(prev) {
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 config.resolver.resolveRequest = wrapResolveForExpoGl(config.resolver.resolveRequest);
+if (!config.resolver.assetExts.includes('obj')) {
+  config.resolver.assetExts.push('obj');
+}
 
 module.exports = withNativeWind(config, { input: './global.css' });

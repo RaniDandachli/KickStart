@@ -178,6 +178,8 @@ export default function LiveMatchesScreen() {
         return <NeonShipGameIcon size={size} />;
       case 'shape-dash':
         return <ShapeDashGameIcon size={size} />;
+      case 'cyber-road':
+        return <DashDuelGameIcon size={size} />;
       default:
         return <TapDashGameIcon size={size} />;
     }

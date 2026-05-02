@@ -15,5 +15,9 @@
     "expo-env.d.ts",
     "nativewind-env.d.ts"
   ],
-  "exclude": ["node_modules", "supabase/functions"]
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "minigames/cyberroad/Expo-Crossy-Road-master"
+  ]
 }

@@ -163,6 +163,13 @@ const Body = z.discriminatedUnion('game_type', [
     taps: z.number().int().min(0).max(2_000_000),
     match_session_id: z.string().uuid().optional(),
   }),
+  z.object({
+    game_type: z.literal('cyber_road'),
+    score: z.number().int().min(0).max(1_000_000),
+    duration_ms: z.number().int().min(0).max(3_600_000),
+    taps: z.number().int().min(0).max(2_000_000),
+    match_session_id: z.string().uuid().optional(),
+  }),
 ]);
 
 /** Max pipes that can exist / be passed given spawn cadence (generous margin). */
@@ -217,6 +224,11 @@ function maxPlausibleShapeDashMarathonScore(durationMs: number): number {
   return Math.min(1_000_000, Math.floor(durationMs * 0.72) + 120_000);
 }
 
+/** Cyber Road — score = rows forward (floor(z) − offset); generous vs session length. */
+function maxPlausibleCyberRoadScore(durationMs: number): number {
+  return Math.min(1_000_000, Math.floor(durationMs / 70) + 900);
+}
+
 /** `minigame_scores.game_type` → `match_sessions.game_key` slug for H2H validation. */
 const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   tap_dash: 'tap-dash',
@@ -228,6 +240,7 @@ const H2H_GAME_KEY_FOR_TYPE: Partial<Record<string, string>> = {
   neon_grid: 'neon-grid',
   neon_ship: 'neon-ship',
   shape_dash: 'shape-dash',
+  cyber_road: 'cyber-road',
 };
 
 function stdev(arr: number[]): number {
@@ -400,6 +413,12 @@ Deno.serve(async (req) => {
       }
       const maxJumps = Math.floor(duration_ms / 35) + 8000;
       if (taps > maxJumps) return errorResponse('Invalid input count for session duration', 422);
+    } else if (data.game_type === 'cyber_road') {
+      if (score > maxPlausibleCyberRoadScore(duration_ms)) {
+        return errorResponse('Score impossible for session duration', 422);
+      }
+      const maxMoves = Math.floor(duration_ms / 45) + 4000;
+      if (taps > maxMoves) return errorResponse('Invalid move count for session duration', 422);
     } else {
       return errorResponse('Unsupported game_type', 422);
     }

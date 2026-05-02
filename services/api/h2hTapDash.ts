@@ -20,6 +20,7 @@ function gameTypeFromMatchGameKey(gameKey: string | null | undefined): string | 
   if (gk === 'neon-grid') return 'neon_grid';
   if (gk === 'neon-ship') return 'neon_ship';
   if (gk === 'shape-dash') return 'shape_dash';
+  if (gk === 'cyber-road') return 'cyber_road';
   return null;
 }
 
