@@ -31,8 +31,11 @@ import { GuestAuthPromptModal, type GuestAuthPromptVariant } from '@/components/
 import { BackendModeBanner } from '@/components/BackendModeBanner';
 import {
   ENABLE_BACKEND,
+  SHOW_BALL_RUN_MINIGAME,
+  SHOW_DASH_DUEL_MINIGAME,
   SHOW_NEON_SHIP_MINIGAME,
   SHOW_SHAPE_DASH_MINIGAME,
+  SHOW_STREET_DASH_MINIGAME,
 } from '@/constants/featureFlags';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
@@ -217,31 +220,35 @@ export default function PlayHubScreen() {
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<TileClashGameIcon size={36} />}
         />
-        <ArcadeMinigameRow
-          emphasized
-          compact
-          gameRoute="dash-duel"
-          title="Dash Duel"
-          entryLabel="Practice or prize run"
-          winLabel="PLAY"
-          bgColors={['#020617', '#0c4a6e', '#164e63']}
-          borderAccent="gold"
-          titleColor="#e2e8f0"
-          entryColor="rgba(148,163,184,0.95)"
-          iconSlot={<DashDuelGameIcon size={36} />}
-        />
-        <ArcadeMinigameRow
-          emphasized
-          compact
-          gameRoute="ball-run"
-          title="Neon Ball Run"
-          entryLabel="Practice or prize run"
-          winLabel="PLAY"
-          bgColors={['#1a0b2e', '#4c1d95', '#831843']}
-          borderAccent="pink"
-          entryColor="rgba(248,250,252,0.9)"
-          iconSlot={<BallRunGameIcon size={36} />}
-        />
+        {SHOW_DASH_DUEL_MINIGAME ? (
+          <ArcadeMinigameRow
+            emphasized
+            compact
+            gameRoute="dash-duel"
+            title="Dash Duel"
+            entryLabel="Practice or prize run"
+            winLabel="PLAY"
+            bgColors={['#020617', '#0c4a6e', '#164e63']}
+            borderAccent="gold"
+            titleColor="#e2e8f0"
+            entryColor="rgba(148,163,184,0.95)"
+            iconSlot={<DashDuelGameIcon size={36} />}
+          />
+        ) : null}
+        {SHOW_BALL_RUN_MINIGAME ? (
+          <ArcadeMinigameRow
+            emphasized
+            compact
+            gameRoute="ball-run"
+            title="Neon Ball Run"
+            entryLabel="Practice or prize run"
+            winLabel="PLAY"
+            bgColors={['#1a0b2e', '#4c1d95', '#831843']}
+            borderAccent="pink"
+            entryColor="rgba(248,250,252,0.9)"
+            iconSlot={<BallRunGameIcon size={36} />}
+          />
+        ) : null}
         <ArcadeMinigameRow
           emphasized
           compact
@@ -254,18 +261,20 @@ export default function PlayHubScreen() {
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<NeonDanceGameIcon size={36} />}
         />
-        <ArcadeMinigameRow
-          emphasized
-          compact
-          gameRoute="neon-grid"
-          title="Street Dash"
-          entryLabel="Practice or prize run"
-          winLabel="PLAY"
-          bgColors={['#0f172a', '#312e81', '#831843']}
-          borderAccent="purple"
-          entryColor="rgba(248,250,252,0.9)"
-          iconSlot={<NeonGridGameIcon size={36} />}
-        />
+        {SHOW_STREET_DASH_MINIGAME ? (
+          <ArcadeMinigameRow
+            emphasized
+            compact
+            gameRoute="neon-grid"
+            title="Street Dash"
+            entryLabel="Practice or prize run"
+            winLabel="PLAY"
+            bgColors={['#0f172a', '#312e81', '#831843']}
+            borderAccent="purple"
+            entryColor="rgba(248,250,252,0.9)"
+            iconSlot={<NeonGridGameIcon size={36} />}
+          />
+        ) : null}
         {SHOW_NEON_SHIP_MINIGAME ? (
           <ArcadeMinigameRow
             emphasized

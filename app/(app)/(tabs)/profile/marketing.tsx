@@ -25,6 +25,10 @@ import {
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Screen } from '@/components/ui/Screen';
 import {
+  SHOW_BALL_RUN_MINIGAME,
+  SHOW_DASH_DUEL_MINIGAME,
+} from '@/constants/featureFlags';
+import {
   DAILY_TOURNAMENT_PROMO,
   GAME_PROMO_CARDS,
   HOW_IT_WORKS_SLIDES,
@@ -182,7 +186,11 @@ export default function MarketingPromoScreen() {
       <Text style={styles.sectionLabel}>GAME SPOTLIGHTS</Text>
       <Text style={styles.sectionHint}>One card per title — grab screenshots here or in the real game routes.</Text>
 
-      {GAME_PROMO_CARDS.map((g) => (
+      {GAME_PROMO_CARDS.filter((g) => {
+        if (g.id === 'dash-duel' && !SHOW_DASH_DUEL_MINIGAME) return false;
+        if (g.id === 'ball-run' && !SHOW_BALL_RUN_MINIGAME) return false;
+        return true;
+      }).map((g) => (
         <View key={g.id} style={styles.gameCard}>
           <LinearGradient colors={[...g.gradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameCardGrad}>
             {g.image ? (

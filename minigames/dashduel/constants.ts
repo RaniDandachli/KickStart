@@ -35,6 +35,11 @@ export const NR = {
   PLAYER_W: 18,
   PLAYER_H: 18,
   PLAYER_SCREEN_X_RATIO: 0.22,
+  /**
+   * Horizontal view multiplier (>1 = zoom out — see more track ahead for reactions).
+   * Physics stay in base PLAY_W space; only rendering/camera widen ~8%.
+   */
+  CAMERA_VIEW_WIDTH_MULT: 1.08,
 
   // ── Generation ─────────────────────────────────────────────────────────────
   MIN_GAP_BETWEEN_OBSTACLES: 40,

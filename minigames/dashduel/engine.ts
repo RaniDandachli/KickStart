@@ -98,7 +98,13 @@ export function stepRun(state: RunState, input: InputState, dt: number): void {
   snapToWallTop(state);
 
   // ── Floor clamp ──────────────────────────────────────────────────────────
-  if (player.y >= GROUND_Y - NR.PLAYER_H - 0.5 && player.vy >= 0) {
+  // Without this guard, every pit has an invisible floor at GROUND_Y — players "surf"
+  // rings/gaps forever instead of falling through and landing on real ground past the void.
+  if (
+    !playerHorizontallyOverlapsVoid(state) &&
+    player.y >= GROUND_Y - NR.PLAYER_H - 0.5 &&
+    player.vy >= 0
+  ) {
     player.y = GROUND_Y - NR.PLAYER_H;
     player.vy = 0;
   }
@@ -214,12 +220,29 @@ function snapToWallTop(state: RunState): void {
   }
 }
 
+// ─── Void overlap (no invisible floor across pits) ───────────────────────────
+
+function playerHorizontallyOverlapsVoid(state: RunState): boolean {
+  const p = state.player;
+  const margin = 2;
+  const px1 = p.worldX + margin;
+  const px2 = p.worldX + NR.PLAYER_W - margin;
+  for (const o of state.obstacles) {
+    if (o.kind !== 'void') continue;
+    const gx1 = o.x + 1;
+    const gx2 = o.x + o.w - 1;
+    if (px2 > gx1 && px1 < gx2) return true;
+  }
+  return false;
+}
+
 // ─── On-ground check ──────────────────────────────────────────────────────────
 
 function computeOnGround(state: RunState): boolean {
   const p = state.player;
   if (p.vy < 0) return false;
-  if (p.y >= GROUND_Y - NR.PLAYER_H - 0.5) return true;
+  // Main floor exists only where there isn't a gap — matches floor clamp behavior.
+  if (!playerHorizontallyOverlapsVoid(state) && p.y >= GROUND_Y - NR.PLAYER_H - 0.5) return true;
   const margin = 2;
   const px1 = p.worldX + margin;
   const px2 = p.worldX + NR.PLAYER_W - margin;

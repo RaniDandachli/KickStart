@@ -1,4 +1,9 @@
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import {
+  ENABLE_BACKEND,
+  SHOW_BALL_RUN_MINIGAME,
+  SHOW_DASH_DUEL_MINIGAME,
+  SHOW_STREET_DASH_MINIGAME,
+} from '@/constants/featureFlags';
 import { useDemoRedeemTicketsStore } from '@/store/demoRedeemTicketsStore';
 
 /** Tap Dash run points — 1 point → 1 redeem ticket (tuned with prize catalog earn targets). */
@@ -34,9 +39,8 @@ export function ticketsFromTurboArenaPrizeRun(playerGoals: number, cpuGoals: num
 }
 
 /** For Arcade “how to earn tickets” UI — single source of truth with game names. */
-export const ARCADE_TICKET_SCORE_RULES: readonly {
+const ARCADE_TICKET_SCORE_RULES_ALL: readonly {
   game: string;
-  /** What the score represents in-game */
   scoreLabel: string;
   pointsPerTicket: number;
 }[] = [
@@ -48,6 +52,13 @@ export const ARCADE_TICKET_SCORE_RULES: readonly {
   { game: 'Street Dash', scoreLabel: 'Rows cleared', pointsPerTicket: NEON_GRID_POINTS_PER_TICKET },
   { game: 'Void Glider', scoreLabel: 'Distance', pointsPerTicket: NEON_SHIP_POINTS_PER_TICKET },
 ];
+
+export const ARCADE_TICKET_SCORE_RULES = ARCADE_TICKET_SCORE_RULES_ALL.filter((r) => {
+  if (r.game === 'Dash Duel' && !SHOW_DASH_DUEL_MINIGAME) return false;
+  if (r.game === 'Neon Ball Run' && !SHOW_BALL_RUN_MINIGAME) return false;
+  if (r.game === 'Street Dash' && !SHOW_STREET_DASH_MINIGAME) return false;
+  return true;
+});
 
 export function ticketsFromTapDashScore(score: number): number {
   return Math.max(0, Math.floor(score / TAP_DASH_POINTS_PER_TICKET));

@@ -64,8 +64,8 @@ export const FAKE_RECENT_WINNER_LINES: ReadonlyArray<{
 }> = [
   { name: 'Maya K.', amountCents: 2_800, game: 'Tap Dash', ago: '2m ago' },
   { name: 'Jordan T.', amountCents: 1_200, game: 'Tile Clash', ago: '6m ago' },
-  { name: 'Alex P.', amountCents: 3_100, game: 'Dash Duel', ago: '9m ago' },
-  { name: 'Riley S.', amountCents: 800, game: 'Neon Ball Run', ago: '14m ago' },
+  { name: 'Alex P.', amountCents: 3_100, game: 'Cyber Road', ago: '9m ago' },
+  { name: 'Riley S.', amountCents: 800, game: 'Neon Dance', ago: '14m ago' },
   { name: 'Sam C.', amountCents: 4_500, game: 'Void Glider', ago: '18m ago' },
   { name: 'Casey L.', amountCents: 1_600, game: 'Turbo Arena', ago: '22m ago' },
 ];

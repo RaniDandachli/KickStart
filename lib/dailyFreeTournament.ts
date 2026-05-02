@@ -189,6 +189,8 @@ export function computeOpponentRoundScore(
       return 8 + Math.floor(r() * 55);
     case 'ball-run':
       return 220 + Math.floor(r() * 3600);
+    case 'cyber-road':
+      return 3 + Math.floor(r() * 35);
     default:
       return 10 + Math.floor(r() * 20);
   }

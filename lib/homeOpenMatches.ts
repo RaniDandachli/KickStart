@@ -1,5 +1,10 @@
 import type { RunitBorderAccent } from '@/components/arcade/ArcadeGameRow';
-import { SHOW_NEON_SHIP_MINIGAME } from '@/constants/featureFlags';
+import {
+  SHOW_BALL_RUN_MINIGAME,
+  SHOW_DASH_DUEL_MINIGAME,
+  SHOW_NEON_SHIP_MINIGAME,
+  SHOW_STREET_DASH_MINIGAME,
+} from '@/constants/featureFlags';
 
 /** Full list (includes vaulted games) — use for titles, server keys, in-flight matches. */
 export const H2H_OPEN_GAMES_ALL = [
@@ -79,10 +84,14 @@ export const H2H_OPEN_GAMES_ALL = [
 
 export type H2hGameKey = (typeof H2H_OPEN_GAMES_ALL)[number]['gameKey'];
 
-/** Shown in H2H pickers & home open-match rows (respects {@link SHOW_NEON_SHIP_MINIGAME}). */
-export const H2H_OPEN_GAMES = SHOW_NEON_SHIP_MINIGAME
-  ? H2H_OPEN_GAMES_ALL
-  : H2H_OPEN_GAMES_ALL.filter((g) => g.gameKey !== 'neon-ship');
+/** Shown in H2H pickers & home open-match rows (respects vault flags). */
+export const H2H_OPEN_GAMES = H2H_OPEN_GAMES_ALL.filter((g) => {
+  if (g.gameKey === 'neon-ship' && !SHOW_NEON_SHIP_MINIGAME) return false;
+  if (g.gameKey === 'dash-duel' && !SHOW_DASH_DUEL_MINIGAME) return false;
+  if (g.gameKey === 'ball-run' && !SHOW_BALL_RUN_MINIGAME) return false;
+  if (g.gameKey === 'neon-grid' && !SHOW_STREET_DASH_MINIGAME) return false;
+  return true;
+});
 
 /** Server sentinel for Quick Match wildcard rows in `h2h_queue_entries` / RPC (not a real minigame). */
 export const H2H_QUICK_MATCH_GAME_KEY = '__quick_match__' as const;

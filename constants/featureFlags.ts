@@ -45,3 +45,12 @@ export const SHOW_NEON_SHIP_MINIGAME = false;
  * Shape Dash — HTML5 canvas runner (bundled WebView). Off to hide Arcade / minigames hub rows without removing the route.
  */
 export const SHOW_SHAPE_DASH_MINIGAME = true;
+
+/**
+ * Vaulted: hidden from Arcade rows, H2H pickers, ticket guide, and marketing spotlights.
+ * Routes + match flows stay wired for in-flight games. Set true to restore a title.
+ */
+export const SHOW_DASH_DUEL_MINIGAME = false;
+export const SHOW_BALL_RUN_MINIGAME = false;
+/** Street Dash (`neon-grid`). */
+export const SHOW_STREET_DASH_MINIGAME = false;

@@ -63,7 +63,10 @@ type Props = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function camX(playerWorldX: number): number {
-  return playerWorldX - NR.PLAY_W * NR.PLAYER_SCREEN_X_RATIO;
+  return (
+    playerWorldX -
+    NR.PLAY_W * NR.CAMERA_VIEW_WIDTH_MULT * NR.PLAYER_SCREEN_X_RATIO
+  );
 }
 
 function safeInt(n: number): number {
@@ -136,6 +139,9 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   const scale = Number.isFinite(rawScale) && rawScale > 0 ? Math.max(0.1, Math.min(rawScale, 6)) : 1;
   const PW = NR.PLAY_W * scale;
   const PH = NR.PLAY_H * scale;
+  /** Wider camera window in world units → slightly zoomed out horizontally for lookahead */
+  const sx = scale / NR.CAMERA_VIEW_WIDTH_MULT;
+  const sy = scale;
 
   // ── Engine refs ──────────────────────────────────────────────────────────
   const stateRef   = useRef<RunState | null>(null);
@@ -199,15 +205,21 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
 
     const snap = stateRef.current!;
     const sc = scaleRef.current;
+    const sxLoop = sc / NR.CAMERA_VIEW_WIDTH_MULT;
+    const syLoop = sc;
     const cx = camX(snap.player.worldX);
 
     // Update Animated values (native driver NOT used — values drive layout directly)
-    worldTx.setValue(safe(-cx * sc));
-    playerL.setValue(safe(snap.player.worldX * sc));
-    playerT.setValue(safe(snap.player.y * sc));
+    worldTx.setValue(safe(-cx * sxLoop));
+    playerL.setValue(safe(snap.player.worldX * sxLoop));
+    playerT.setValue(safe(snap.player.y * syLoop));
     playerDeg.setValue(safe((snap.player.angle * 180) / Math.PI));
-    parFar.setValue( safe(-(snap.scroll * PAR_FAR  * sc) % (NR.PLAY_W * sc * 2.5)));
-    parNear.setValue(safe(-(snap.scroll * PAR_NEAR * sc) % (NR.PLAY_W * sc * 2.5)));
+    parFar.setValue(
+      safe(-(snap.scroll * PAR_FAR * sxLoop) % (NR.PLAY_W * sxLoop * 2.5)),
+    );
+    parNear.setValue(
+      safe(-(snap.scroll * PAR_NEAR * sxLoop) % (NR.PLAY_W * sxLoop * 2.5)),
+    );
 
     // Particles
     if (snap.player.justLanded) spawnLand(particlesRef.current, snap.player.worldX, snap.player.y);
@@ -280,10 +292,12 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
     if (strip) return;
     const st = stateRef.current; if (!st) return;
     const sc = scale;
+    const sxLayout = sc / NR.CAMERA_VIEW_WIDTH_MULT;
+    const syLayout = sc;
     const cx = camX(st.player.worldX);
-    worldTx.setValue(safe(-cx * sc));
-    playerL.setValue(safe(st.player.worldX * sc));
-    playerT.setValue(safe(st.player.y * sc));
+    worldTx.setValue(safe(-cx * sxLayout));
+    playerL.setValue(safe(st.player.worldX * sxLayout));
+    playerT.setValue(safe(st.player.y * syLayout));
     playerDeg.setValue(safe((st.player.angle * 180) / Math.PI));
   }, [scale, seed, strip]);
 
@@ -291,7 +305,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   const s  = stateRef.current!;
   const cx = camX(s.player.worldX);
   const visLeft  = cx - 40;
-  const visRight = cx + NR.PLAY_W + 60;
+  const visRight = cx + NR.PLAY_W * NR.CAMERA_VIEW_WIDTH_MULT + 60;
 
   const visObs: Obstacle[] = [];
   if (!strip) {
@@ -303,20 +317,26 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
   }
 
   const visPar = strip ? [] : particlesRef.current.filter(
-    p => p.x > cx - 10 && p.x < cx + NR.PLAY_W + 10
+    p =>
+      p.x > cx - 10 &&
+      p.x < cx + NR.PLAY_W * NR.CAMERA_VIEW_WIDTH_MULT + 10,
   );
   const trailPts = strip ? [] : s.player.trail;
 
   const obs = s.obstacles;
   const worldW = Math.min(
-    Math.max(NR.PLAY_W * 3, obs.length > 0 ? obs[obs.length - 1]!.x + 200 : 0, s.player.worldX + NR.PLAY_W * 2) * scale,
+    Math.max(
+      NR.PLAY_W * 3,
+      obs.length > 0 ? obs[obs.length - 1]!.x + 200 : 0,
+      s.player.worldX + NR.PLAY_W * 2,
+    ) * sx,
     28000,
   );
 
-  const GY = GROUND_Y * scale;          // ground y in screen coords
-  const GH = (NR.PLAY_H - GROUND_Y) * scale; // ground strip height in screen coords
-  const PW_player = NR.PLAYER_W * scale;
-  const PH_player = NR.PLAYER_H * scale;
+  const GY = GROUND_Y * sy; // ground y in screen coords
+  const GH = (NR.PLAY_H - GROUND_Y) * sy;
+  const PW_player = NR.PLAYER_W * sx;
+  const PH_player = NR.PLAYER_H * sy;
 
   const onJumpIn  = () => { inputRef.current.jumpPressedThisFrame = true; inputRef.current.jumpHeld = true; };
   const onJumpOut = () => { inputRef.current.jumpHeld = false; };
@@ -362,8 +382,8 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
             {bgFar.map((r, i) => (
               <View key={i} style={{
                 position: 'absolute',
-                left: r.x * scale, top: r.y * scale,
-                width: r.w * scale, height: r.h * scale,
+                left: r.x * sx, top: r.y * sy,
+                width: r.w * sx, height: r.h * sy,
                 backgroundColor: theme.bgRect1,
                 opacity: 0.06 + (i % 3) * 0.02,
               }} />
@@ -375,8 +395,8 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
             {bgNear.map((r, i) => (
               <View key={i} style={{
                 position: 'absolute',
-                left: r.x * scale, top: r.y * scale,
-                width: r.w * scale, height: r.h * scale,
+                left: r.x * sx, top: r.y * sy,
+                width: r.w * sx, height: r.h * sy,
                 backgroundColor: theme.bgRect2,
                 opacity: 0.09 + (i % 2) * 0.03,
               }} />
@@ -416,11 +436,11 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
               const frac = i / Math.max(trailPts.length - 1, 1);
               const opacity = frac * 0.6 * (1 - tp.age / 120);
               if (opacity < 0.04) return null;
-              const sz = Math.max(2, NR.PLAYER_W * scale * 0.35 * frac);
+              const sz = Math.max(2, NR.PLAYER_W * sx * 0.35 * frac);
               return (
                 <View key={i} style={{
                   position: 'absolute',
-                  left: tp.x * scale - sz / 2, top: tp.y * scale - sz / 2,
+                  left: tp.x * sx - sz / 2, top: tp.y * sy - sz / 2,
                   width: sz, height: sz,
                   backgroundColor: theme.playerOuter, opacity,
                 }} />
@@ -430,11 +450,11 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
             {/* Land particles */}
             {visPar.map((p, i) => {
               const op = Math.max(0, p.life / p.maxLife) * 0.85;
-              const sz = Math.max(1, p.radius * scale);
+              const sz = Math.max(1, p.radius * sy);
               return (
                 <View key={i} style={{
                   position: 'absolute',
-                  left: p.x * scale - sz / 2, top: p.y * scale - sz / 2,
+                  left: p.x * sx - sz / 2, top: p.y * sy - sz / 2,
                   width: sz, height: sz, borderRadius: sz / 2,
                   backgroundColor: p.color, opacity: op,
                 }} />
@@ -445,7 +465,12 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
             {visObs.map((o, idx) => (
               <ObstacleView
                 key={`${obsKey(o)}#${idx}`}
-                o={o} scale={scale} playH={PH} groundY={GY} theme={theme}
+                o={o}
+                scaleX={sx}
+                scaleY={sy}
+                playH={PH}
+                groundY={GY}
+                theme={theme}
               />
             ))}
 
@@ -463,7 +488,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
               <View style={{
                 position: 'absolute', top: 0, left: 0,
                 width: PW_player, height: PH_player,
-                borderWidth: Math.max(2, scale * 2.5),
+                borderWidth: Math.max(2, sy * 2.5),
                 borderColor: theme.playerOuter,
               }} />
               {/* Mid square */}
@@ -471,7 +496,7 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
                 position: 'absolute',
                 top: PH_player * 0.22, left: PW_player * 0.22,
                 width: PW_player * 0.56, height: PH_player * 0.56,
-                borderWidth: Math.max(1, scale * 1.5),
+                borderWidth: Math.max(1, sy * 1.5),
                 borderColor: theme.playerMid,
                 backgroundColor: theme.playerMid + '44',
               }} />
@@ -501,16 +526,21 @@ export function DashDuelGame({ seed, practiceLabel, prizeLabel, onExit, onRoundC
 // ─── Obstacle renderer ────────────────────────────────────────────────────────
 
 const ObstacleView = memo(function ObstacleView({
-  o, scale, playH, groundY, theme,
+  o, scaleX, scaleY, playH, groundY, theme,
 }: {
-  o: Obstacle; scale: number; playH: number; groundY: number; theme: ZoneTheme;
+  o: Obstacle;
+  scaleX: number;
+  scaleY: number;
+  playH: number;
+  groundY: number;
+  theme: ZoneTheme;
 }): ReactNode {
   // Use a stable gradient ID based on obstacle position — no useId() inside memo
   const gid = `sg${Math.round(o.x)}_${Math.round(o.y)}_${o.kind === 'ceilingSpike' ? 'd' : 'u'}`;
-  const left = o.x * scale;
-  const w    = Math.max(1, o.w * scale);
-  const top  = o.y * scale;
-  const h    = Math.max(1, o.h * scale);
+  const left = o.x * scaleX;
+  const w    = Math.max(1, o.w * scaleX);
+  const top  = o.y * scaleY;
+  const h    = Math.max(1, o.h * scaleY);
 
   switch (o.kind) {
     case 'void':
@@ -532,7 +562,7 @@ const ObstacleView = memo(function ObstacleView({
           overflow: 'hidden',
         }}>
           {/* Top highlight stripe only — no grid lines for performance */}
-          <View style={{ height: Math.max(2, scale * 2.5), backgroundColor: theme.wallStripe, width: w }} />
+          <View style={{ height: Math.max(2, scaleY * 2.5), backgroundColor: theme.wallStripe, width: w }} />
         </View>
       );
 
@@ -567,8 +597,8 @@ const ObstacleView = memo(function ObstacleView({
     case 'ring': {
       const dim = Math.max(w, h);
       const r   = dim / 2;
-      const rcx = left + o.w * scale / 2;
-      const rcy = top  + o.h * scale / 2;
+      const rcx = left + w / 2;
+      const rcy = top + h / 2;
       return (
         <View style={{ position: 'absolute', left: rcx - r, top: rcy - r, width: dim, height: dim }}>
           <Svg width={dim} height={dim}>
