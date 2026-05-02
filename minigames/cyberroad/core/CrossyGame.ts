@@ -7,7 +7,6 @@ import {
   DirectionalLight,
   FogExp2,
   Group,
-  HemisphereLight,
   OrthographicCamera,
   Scene,
 } from "three";
@@ -37,11 +36,11 @@ export class CrossyScene extends Scene {
     this.worldWithCamera.add(this.world);
     this.add(this.worldWithCamera);
 
-    /** Night skyline — cool moon key + purple ambient */
+    /** Light fog + strong key light so low-poly lanes/obstacles keep readable contrast (ref: long shadows). */
     this.fog = new FogExp2(fogColor, fogDensity);
 
-    const light = new DirectionalLight(0xd8ecff, 0.92);
-    light.position.set(18, 28, 6);
+    const light = new DirectionalLight(0xe8f0ff, 1.05);
+    light.position.set(22, 34, 10);
     light.castShadow = useShadows;
     light.shadow.mapSize.width = 1024 * 2;
     light.shadow.mapSize.height = 1024 * 2;
@@ -140,7 +139,8 @@ export class CrossyWorld extends Group {
   constructor() {
     super();
 
-    this.add(new AmbientLight(0x4c1d6e, 0.42));
+    /** Cool moon fill — enough to read geometry without purple-washing the whole map */
+    this.add(new AmbientLight(0x7ca8d8, 0.55));
   }
 
   createParticles = () => {

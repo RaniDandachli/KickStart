@@ -62,18 +62,42 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    minWidth: 96,
+    minWidth: 100,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: CyberRoadUi.radiusChip,
-    backgroundColor: CyberRoadUi.bgPanel,
-    borderWidth: 1,
-    borderColor: CyberRoadUi.stroke,
+    backgroundColor: "rgba(8, 6, 20, 0.88)",
+    borderWidth: 2,
+    borderColor: CyberRoadUi.accentCyan,
     alignItems: "flex-end",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00f5ff",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.45,
+        shadowRadius: 10,
+      },
+      android: { elevation: 8 },
+      web: {
+        boxShadow: "0 0 14px rgba(0, 245, 255, 0.35)",
+      },
+      default: {},
+    }),
   },
   chipSecondary: {
-    borderColor: CyberRoadUi.strokeMagenta,
-    backgroundColor: "rgba(24, 4, 28, 0.78)",
+    borderColor: CyberRoadUi.accentMagenta,
+    backgroundColor: "rgba(28, 6, 32, 0.88)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#ff2bd6",
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+      },
+      web: {
+        boxShadow: "0 0 14px rgba(255, 43, 214, 0.32)",
+      },
+      default: {},
+    }),
   },
   label: {
     fontFamily: "retro",

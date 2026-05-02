@@ -19,7 +19,6 @@ import {
   sceneColor,
   startingRow,
 } from "./GameSettings";
-import { applyNeonEmissiveToWorld } from "./cyberRoadSceneStyle";
 
 const normalizeAngle = (angle) => {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -66,8 +65,6 @@ export default class Engine {
     this.scene.world.add(this._hero);
 
     this.scene.createParticles();
-
-    applyNeonEmissiveToWorld(this.scene.world);
   };
 
   isGameEnded() {

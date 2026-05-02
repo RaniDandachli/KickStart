@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Footer from "../components/GameOver/Footer";
@@ -52,9 +52,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: CyberRoadUi.radiusChip,
-    backgroundColor: CyberRoadUi.bgPanel,
-    borderWidth: 1,
-    borderColor: CyberRoadUi.stroke,
+    backgroundColor: "rgba(10, 6, 22, 0.92)",
+    borderWidth: 2,
+    borderColor: CyberRoadUi.accentMagenta,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#ff2bd6",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      web: { boxShadow: "0 0 16px rgba(255, 43, 214, 0.28)" },
+      default: {},
+    }),
   },
   statusKicker: {
     fontFamily: "retro",

@@ -1,10 +1,10 @@
 // @ts-nocheck
 export const groundLevel = 0.4;
-/** World / GL clear — deep navy-violet (night city). */
-export const sceneColor = 0x050510;
-/** Exponential fog — purple-black horizon blend */
-export const fogColor = 0x14081f;
-export const fogDensity = 0.032;
+/** World / GL clear — deep night (readable; avoid crushing blacks). */
+export const sceneColor = 0x060612;
+/** Soft horizon fog — light touch only (heavy fog was washing the Crossy assets). */
+export const fogColor = 0x0c0618;
+export const fogDensity = 0.014;
 export const startingRow = 8;
 export const maxRows = 20;
 export const disableDriftwood = false;
