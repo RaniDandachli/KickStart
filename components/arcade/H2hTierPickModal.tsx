@@ -19,14 +19,18 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={[styles.kicker, { fontFamily: runitFont.black }]}>FIND OPPONENT</Text>
             <Text style={styles.gameName} numberOfLines={2}>
               {gameTitle}
             </Text>
             <Text style={styles.hint}>
-              Pick a <Text style={styles.hintStrong}>contest tier</Text>. We&apos;ll match you on the same game and tier. Your entry is
-              contest access only; prizes are fixed by Run It. Didn&apos;t win? You&apos;ll earn Arcade Credits for the Arcade floor.
+              Same game & tier matchmaking. Entry is access only; prizes are Run It–listed. Losers still earn Arcade
+              Credits.
             </Text>
 
             {MATCH_ENTRY_TIERS.map((tier) => {
@@ -37,6 +41,8 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
                   key={`${tier.entry}-${tier.prize}`}
                   onPress={() => onSelectTier(tier)}
                   style={({ pressed }) => [styles.rowPress, pressed && { opacity: 0.92 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tier.shortLabel}, match access ${entry}, top prize ${prize}`}
                 >
                   <LinearGradient
                     colors={[runit.neonCyan, 'rgba(0,240,255,0.25)']}
@@ -46,15 +52,20 @@ export function H2hTierPickModal({ visible, gameTitle, onClose, onSelectTier }: 
                   >
                     <View style={styles.rowInner}>
                       <SafeIonicons name={tier.icon} size={22} color={runit.neonCyan} />
-                      <View style={styles.rowText}>
-                        <Text style={[styles.tierName, { fontFamily: runitFont.black }, runitTextGlowCyan]}>{tier.shortLabel}</Text>
-                        <View style={styles.metaAccess}>
-                          <Text style={styles.metaLbl}>Match access</Text>
-                          <Text style={styles.metaAmt}>{entry}</Text>
-                        </View>
-                        <View style={styles.metaPrize}>
-                          <Text style={styles.metaPrizeLbl}>🏆 Top performer prize</Text>
-                          <Text style={styles.metaPrizeAmt}>{prize}</Text>
+                      <View style={styles.rowMain}>
+                        <Text style={[styles.tierName, { fontFamily: runitFont.black }, runitTextGlowCyan]} numberOfLines={1}>
+                          {tier.shortLabel}
+                        </Text>
+                        <View style={styles.amountsRow}>
+                          <View style={styles.amountChip}>
+                            <Text style={styles.chipLbl}>Match</Text>
+                            <Text style={styles.chipEntry}>{entry}</Text>
+                          </View>
+                          <View style={styles.amountDivider} />
+                          <View style={styles.amountChip}>
+                            <Text style={styles.chipLbl}>Prize</Text>
+                            <Text style={styles.chipPrize}>{prize}</Text>
+                          </View>
                         </View>
                       </View>
                       <SafeIonicons name="chevron-forward" size={18} color="rgba(148,163,184,0.9)" />
@@ -79,91 +90,114 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(2,6,15,0.88)',
     justifyContent: 'center',
-    padding: 18,
+    padding: 14,
   },
   sheet: {
     borderRadius: 18,
-    padding: 16,
+    padding: 12,
     backgroundColor: 'rgba(6,2,14,0.96)',
     borderWidth: 1,
     borderColor: appBorderAccent,
-    maxHeight: '88%',
+    maxHeight: '92%',
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
   },
-  scroll: { paddingBottom: 8 },
+  scroll: {
+    paddingBottom: 4,
+    flexGrow: 1,
+  },
   kicker: {
     color: 'rgba(148,163,184,0.95)',
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 2,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   gameName: {
     color: '#f8fafc',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   hint: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
+    color: 'rgba(148,163,184,0.88)',
+    fontSize: 11,
     textAlign: 'center',
-    marginBottom: 14,
-    lineHeight: 17,
+    marginBottom: 10,
+    lineHeight: 15,
+    paddingHorizontal: 4,
   },
-  hintStrong: { color: '#fde68a', fontWeight: '800' },
-  rowPress: { marginBottom: 10 },
-  rowBorder: { borderRadius: 14, padding: 2 },
+  rowPress: {
+    marginBottom: 6,
+  },
+  rowBorder: {
+    borderRadius: 12,
+    padding: 1.5,
+  },
   rowInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     backgroundColor: 'rgba(8,4,18,0.92)',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderRadius: 11,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
-  rowText: { flex: 1, gap: 8 },
-  tierName: { fontSize: 16, color: '#fff', marginBottom: 2 },
-  metaAccess: {
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(148,163,184,0.35)',
+  rowMain: {
+    flex: 1,
+    minWidth: 0,
   },
-  metaLbl: {
-    color: 'rgba(148,163,184,0.95)',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  metaAmt: {
-    color: '#f1f5f9',
-    fontSize: 17,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  metaPrize: {
-    marginTop: 2,
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: 'rgba(15,23,42,0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(253,224,71,0.28)',
-  },
-  metaPrizeLbl: {
-    color: 'rgba(254,243,199,0.95)',
-    fontSize: 10,
-    fontWeight: '800',
+  tierName: {
+    fontSize: 15,
+    color: '#fff',
     marginBottom: 4,
   },
-  metaPrizeAmt: {
-    color: '#FDE047',
-    fontSize: 18,
+  amountsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  amountChip: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chipLbl: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 1,
+  },
+  chipEntry: {
+    color: '#f1f5f9',
+    fontSize: 14,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
-  cancelBtn: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16 },
-  cancelText: { color: 'rgba(148,163,184,0.95)', fontSize: 15, fontWeight: '700' },
+  chipPrize: {
+    color: '#FDE047',
+    fontSize: 14,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  amountDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(148,163,184,0.35)',
+    marginVertical: 2,
+  },
+  cancelBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 2,
+  },
+  cancelText: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

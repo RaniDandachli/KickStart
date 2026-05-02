@@ -239,14 +239,6 @@ export default function SettingsScreen() {
         <Text style={styles.cardTitleOnly}>More</Text>
         <Pressable
           style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}
-          onPress={() => router.push('/(app)/(tabs)/profile/marketing')}
-        >
-          <SafeIonicons name="megaphone-outline" size={22} color="#bef264" />
-          <Text style={styles.listRowLabel}>Marketing (internal)</Text>
-          <SafeIonicons name="chevron-forward" size={20} color="rgba(226,232,240,0.5)" />
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}
           onPress={() => router.push('/(app)/(tabs)/profile/dispute')}
         >
           <SafeIonicons name="shield-outline" size={22} color="#e2e8f0" />

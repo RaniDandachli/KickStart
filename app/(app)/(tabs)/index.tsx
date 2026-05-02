@@ -49,6 +49,7 @@ import {
     runitFont,
 } from '@/lib/runitArcadeTheme';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
+import { shareAppInvite } from '@/lib/inviteFriends';
 import { pushCashWalletShop, SHOP_PATH } from '@/lib/shopNavigation';
 import { useAuthStore } from '@/store/authStore';
 import { useDailyFreeTournamentStore } from '@/store/dailyFreeTournamentStore';
@@ -225,7 +226,7 @@ export default function HomeScreen() {
 
   function goInviteFriends() {
     if (needAccount) openGuestPrompt('play');
-    else pushCrossTab(router, '/(app)/(tabs)/profile/marketing');
+    else void shareAppInvite(uid);
   }
 
   function goProfileTab() {
