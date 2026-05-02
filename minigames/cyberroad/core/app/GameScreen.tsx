@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { GLView } from "expo-gl";
 import React, { Component } from "react";
 import {
   Animated,
@@ -21,6 +20,7 @@ import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import GameContext from '../context/GameContext';
 import { CyberRoadUi } from '../uiTheme';
+import CyberRoadGLSurface from './CyberRoadGLSurface';
 
 const DEBUG_CAMERA_CONTROLS = false;
 
@@ -177,7 +177,7 @@ class Game extends Component {
         onStartGesture={this.engine.beginMoveWithDirection}
         onSwipe={this.onSwipe}
       >
-        <GLView
+        <CyberRoadGLSurface
           style={{ flex: 1, height: "100%", overflow: "hidden" }}
           onContextCreate={this.engine._onGLContextCreate}
         />

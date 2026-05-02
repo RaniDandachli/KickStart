@@ -98,8 +98,14 @@ class GestureView extends Component {
   };
 
   _handleShouldSetPanResponder = (evt, gestureState) => {
-    evt.preventDefault();
-    return evt.nativeEvent.touches.length === 1;
+    evt?.preventDefault?.();
+    const tl = evt.nativeEvent?.touches?.length ?? 0;
+    // Touch devices: single finger.
+    if (tl === 1) return true;
+    // Web: mouse / trackpad / pen drags often use Pointer Events with an empty `touches`
+    // array, so requiring length === 1 makes desktop browsers unable to swipe.
+    if (tl === 0) return true;
+    return false;
   };
 
   _gestureIsClick = (gestureState) => {

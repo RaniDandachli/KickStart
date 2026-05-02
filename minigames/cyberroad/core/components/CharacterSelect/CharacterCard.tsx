@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { GLView } from "expo-gl";
 import { alignMesh, scaleLongestSideToSize } from "expo-three/build/utils";
 import React, { Component } from "react";
 import { PixelRatio, StyleSheet, View } from "react-native";
@@ -10,6 +9,7 @@ import {
   Scene,
 } from "three";
 
+import CyberRoadGLSurface from '../../app/CyberRoadGLSurface';
 import { CrossyRenderer } from '../../CrossyGame';
 import ModelLoader from '../../ModelLoader';
 
@@ -122,7 +122,7 @@ export default class CharacterCard extends Component {
           style={StyleSheet.flatten([styles.container, this.props.style])}
         >
           <View style={{ flex: 1 }}>
-            <GLView
+            <CyberRoadGLSurface
               style={{
                 flex: 1,
 
