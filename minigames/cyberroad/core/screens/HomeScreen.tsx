@@ -66,9 +66,9 @@ function Screen(props) {
 
   return (
     <LinearGradient
-      colors={["#050308", "#14082c", "#1f0a3d", "#12081f"]}
-      start={{ x: 0.15, y: 0 }}
-      end={{ x: 0.85, y: 1 }}
+      colors={["#020008", "#0c0424", "#18082e", "#12041c"]}
+      start={{ x: 0.12, y: 0 }}
+      end={{ x: 0.88, y: 1 }}
       style={[
         styles.gradientFill,
         {
@@ -165,7 +165,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 28,
     height: 28,
-    borderColor: CyberRoadUi.stroke,
+    borderColor: CyberRoadUi.accentMagenta,
+    opacity: 0.65,
   },
   bracketTL: {
     left: 20,

@@ -7,19 +7,18 @@
  * - `mode=marathon` — auto-starts endless Marathon (competitive / money matchups).
  * - Omit or anything else — main menu so the player can pick Marathon vs Classic Levels (arcade / practice).
  */
-import { createElement, useMemo, useRef } from 'react';
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { runitFont } from '@/lib/runitArcadeTheme';
 
+import { ShapeDashGameEmbed } from '@/minigames/shapedash/ShapeDashGameEmbed';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
 
 function injectShapeDashBoot(html: string, defaultMode: 'menu' | 'marathon'): string {
@@ -44,87 +43,6 @@ function injectShapeDashBoot(html: string, defaultMode: 'menu' | 'marathon'): st
     })();
   `;
   return html.replace('<body>', `<body><script>${boot}${webFs}</script>`);
-}
-
-function ShapeDashGameEmbed({ html }: { html: string }) {
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const injected = useMemo(
-    () => `
-      (function() {
-        document.documentElement.style.background = '#060610';
-        document.body.style.background = '#060610';
-      })();
-      true;
-    `,
-    [],
-  );
-
-  const requestWebFullscreenLandscape = () => {
-    if (Platform.OS !== 'web') return;
-    try {
-      const iframe = iframeRef.current;
-      if (!iframe) return;
-      if (!document.fullscreenElement && iframe.requestFullscreen) {
-        void iframe.requestFullscreen().catch(() => {});
-      }
-      // @ts-expect-error web runtime only
-      if (screen?.orientation?.lock) void screen.orientation.lock('landscape').catch(() => {});
-    } catch {
-      // ignore
-    }
-  };
-
-  if (Platform.OS === 'web') {
-    /** RN Web has no native WebView; iframe + srcDoc runs the same document. */
-    return (
-      <View style={styles.embedWrap} accessibilityLabel="Shape Dash">
-        {/* DOM iframe — only built on web bundle */}
-        {createElement('iframe', {
-          srcDoc: html,
-          title: 'Shape Dash',
-          onLoad: () => {
-            requestWebFullscreenLandscape();
-            setTimeout(requestWebFullscreenLandscape, 120);
-          },
-          style: ({
-            border: 'none',
-            width: '100%',
-            height: '100%',
-            display: 'block',
-            backgroundColor: '#060610',
-            flexGrow: 1,
-          }) as Record<string, unknown>,
-          allow: 'fullscreen',
-          tabIndex: 0,
-          ref: (el: HTMLIFrameElement | null) => {
-            iframeRef.current = el;
-          },
-        })}
-      </View>
-    );
-  }
-
-  return (
-    <WebView
-      style={styles.web}
-      originWhitelist={['*']}
-      source={{ html }}
-      javaScriptEnabled
-      domStorageEnabled
-      injectedJavaScriptBeforeContentLoaded={injected}
-      nestedScrollEnabled
-      allowsFullscreenVideo={false}
-      mediaPlaybackRequiresUserAction
-      {...(Platform.OS === 'android' ? { mixedContentMode: 'always' as const } : {})}
-      {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true as const } : {})}
-      setBuiltInZoomControls={false}
-      showsHorizontalScrollIndicator={false}
-      showsVerticalScrollIndicator={false}
-      overScrollMode="never"
-      bounces={false}
-      scrollEnabled={false}
-    />
-  );
 }
 
 export default function ShapeDashScreen() {
@@ -211,15 +129,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     fontFamily: runitFont.black,
-  },
-  embedWrap: {
-    flex: 1,
-    minHeight: 0,
-    backgroundColor: '#060610',
-  },
-  web: {
-    flex: 1,
-    backgroundColor: '#060610',
   },
   rotateHint: {
     position: 'absolute',

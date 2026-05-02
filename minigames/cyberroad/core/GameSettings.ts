@@ -1,7 +1,10 @@
 // @ts-nocheck
 export const groundLevel = 0.4;
-/** World / GL clear — deep violet to match Cyber Road UI (not template blue void). */
-export const sceneColor = 0x070510;
+/** World / GL clear — deep navy-violet (night city). */
+export const sceneColor = 0x050510;
+/** Exponential fog — purple-black horizon blend */
+export const fogColor = 0x14081f;
+export const fogDensity = 0.032;
 export const startingRow = 8;
 export const maxRows = 20;
 export const disableDriftwood = false;

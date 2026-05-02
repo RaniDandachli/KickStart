@@ -47,7 +47,7 @@ export default function Score({ gameOver, score, ...props }) {
       </View>
       {highscore > 0 && (
         <View style={[styles.chip, styles.chipSecondary]}>
-          <Text style={styles.labelMuted}>BEST RUN</Text>
+          <Text style={styles.labelBest}>BEST RUN</Text>
           <Text style={[styles.highscore, textShadow]}>{highscore}</Text>
         </View>
       )}
@@ -72,8 +72,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   chipSecondary: {
-    borderColor: CyberRoadUi.strokeMuted,
-    backgroundColor: "rgba(12, 8, 24, 0.72)",
+    borderColor: CyberRoadUi.strokeMagenta,
+    backgroundColor: "rgba(24, 4, 28, 0.78)",
   },
   label: {
     fontFamily: "retro",
@@ -82,11 +82,11 @@ const styles = StyleSheet.create({
     color: CyberRoadUi.accentCyan,
     marginBottom: 2,
   },
-  labelMuted: {
+  labelBest: {
     fontFamily: "retro",
     fontSize: 9,
-    letterSpacing: 2,
-    color: CyberRoadUi.textMuted,
+    letterSpacing: 3,
+    color: CyberRoadUi.accentMagenta,
     marginBottom: 2,
   },
   score: {

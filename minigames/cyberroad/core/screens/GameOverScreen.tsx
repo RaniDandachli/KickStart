@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     borderRadius: CyberRoadUi.radiusChip,
     backgroundColor: CyberRoadUi.bgPanel,
     borderWidth: 1,
-    borderColor: CyberRoadUi.strokeMuted,
+    borderColor: CyberRoadUi.stroke,
   },
   statusKicker: {
     fontFamily: "retro",

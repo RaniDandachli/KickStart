@@ -5,7 +5,9 @@ import { Vibration } from "react-native";
 import {
   AmbientLight,
   DirectionalLight,
+  FogExp2,
   Group,
+  HemisphereLight,
   OrthographicCamera,
   Scene,
 } from "three";
@@ -13,7 +15,7 @@ import {
 import * as THREE from "three";
 
 import AudioManager from "./AudioManager";
-import { MAP_OFFSET, maxRows } from "./GameSettings";
+import { fogColor, fogDensity, MAP_OFFSET, maxRows } from "./GameSettings";
 import Feathers from "./Particles/Feathers";
 import Water from "./Particles/Water";
 import Rows from "./Row";
@@ -35,8 +37,11 @@ export class CrossyScene extends Scene {
     this.worldWithCamera.add(this.world);
     this.add(this.worldWithCamera);
 
-    const light = new DirectionalLight(0xffd4f0, 1.0);
-    light.position.set(20, 30, 0.05);
+    /** Night skyline — cool moon key + purple ambient */
+    this.fog = new FogExp2(fogColor, fogDensity);
+
+    const light = new DirectionalLight(0xd8ecff, 0.92);
+    light.position.set(18, 28, 6);
     light.castShadow = useShadows;
     light.shadow.mapSize.width = 1024 * 2;
     light.shadow.mapSize.height = 1024 * 2;
@@ -135,7 +140,7 @@ export class CrossyWorld extends Group {
   constructor() {
     super();
 
-    this.add(new AmbientLight(0xa0d8ff, 1.8));
+    this.add(new AmbientLight(0x4c1d6e, 0.42));
   }
 
   createParticles = () => {
