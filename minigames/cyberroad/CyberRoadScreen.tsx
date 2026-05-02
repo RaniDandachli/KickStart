@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,7 +9,7 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { AppButton } from '@/components/ui/AppButton';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import AudioManager from './core/AudioManager';
-import GameScreen from './core/app/index';
+import GameScreen from './core/app/GameScreen';
 import GameProvider from './core/context/GameProvider';
 import { useResolvedValue } from './core/hooks/useResolvedValue';
 import ModelLoader from './core/ModelLoader';
@@ -31,8 +31,12 @@ export default function CyberRoadScreen({
   const [fontLoaded] = useFonts({
     retro: require('../../assets/minigames/cyberroad/fonts/retro.ttf'),
   });
-  const [audioLoaded, audioError] = useResolvedValue(() => AudioManager.setupAsync());
-  const [modelsLoaded, modelsError] = useResolvedValue(() => ModelLoader.loadModels());
+  const [audioLoaded, audioError] = useResolvedValue(() =>
+    Platform.OS === 'web' ? Promise.resolve(true) : AudioManager.setupAsync(),
+  );
+  const [modelsLoaded, modelsError] = useResolvedValue(() =>
+    Platform.OS === 'web' ? Promise.resolve(true) : ModelLoader.loadModels(),
+  );
 
   const [matchPhase, setMatchPhase] = useState<'countdown' | 'playing' | 'results' | null>(() =>
     h2hSkillContest ? 'countdown' : null,
