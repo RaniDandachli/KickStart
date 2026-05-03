@@ -1,10 +1,10 @@
 import { Alert, Platform, Share } from 'react-native';
 
-import { STRIPE_CONNECT_PUBLIC_ORIGIN } from '@/lib/stripeConnectUrls';
+import { PUBLIC_SITE_ORIGIN } from '@/lib/publicSiteOrigin';
 
-/** Public landing URL — same origin family as Stripe Connect deep links. */
+/** Public landing URL — same origin as checkout return URLs / universal links. */
 export function buildAppInviteUrl(referrerUserId?: string): string {
-  const base = STRIPE_CONNECT_PUBLIC_ORIGIN.replace(/\/$/, '');
+  const base = PUBLIC_SITE_ORIGIN.replace(/\/$/, '');
   if (!referrerUserId) return `${base}/`;
   return `${base}/?ref=${encodeURIComponent(referrerUserId)}`;
 }

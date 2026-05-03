@@ -1,10 +1,10 @@
-import { HomeH2hCarouselWeb, type H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
+import type { H2hCarouselRow } from '@/components/arcade/HomeH2hCarouselWeb';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { H2hTierPickModal } from '@/components/arcade/H2hTierPickModal';
@@ -25,7 +25,6 @@ import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { IllustratedEmptyState } from '@/components/ui/IllustratedEmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { useHomeH2hQueueBoard } from '@/hooks/useHomeH2hQueueBoard';
-import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
 import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { H2H_OPEN_GAMES, H2H_OPEN_GAMES_ALL, type H2hGameKey, type H2hLobbyKind } from '@/lib/homeOpenMatches';
@@ -58,8 +57,6 @@ export default function LiveMatchesScreen() {
   }>();
   const rawReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
   const returnTo = typeof rawReturnTo === 'string' && rawReturnTo.startsWith('/') ? rawReturnTo : undefined;
-  const webDesktopTabs = useWebUsesTopTabBar();
-  const isWeb = Platform.OS === 'web';
   const h2hBoardQuery = useHomeH2hQueueBoard();
   const boardLoading = ENABLE_BACKEND && h2hBoardQuery.isLoading;
 
@@ -263,102 +260,93 @@ export default function LiveMatchesScreen() {
             </View>
           ) : null}
 
-          {isWeb ? (
-            <HomeH2hCarouselWeb
-              rows={h2hRows}
-              h2hIconFor={h2hIconFor}
-              h2hGradients={h2hGradients}
-              phoneWeb={!webDesktopTabs}
-              onRowPress={openRow}
-            />
-          ) : (
-            h2hRows.map((row) => {
-              const [c1, c2] = h2hGradients(row.gameKey);
-              const hostWaiting = row.activeWaiter != null;
-              const entryLbl = row.activeWaiter ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100)) : '—';
-              const prizeLbl = row.activeWaiter ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100)) : '—';
-              return (
-                <Pressable
-                  key={row.gameKey}
-                  style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
-                  onPress={() => openRow(row)}
-                >
-                  <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
-                    <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
-                      <View style={styles.gameRow}>
-                        <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
-                        <View style={styles.gameTextCol}>
-                          <View style={styles.h2hTitleRow}>
-                            <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
-                              {row.title}
+          <Text style={styles.quickMatchLbl}>Quick Match</Text>
+          {h2hRows.map((row) => {
+            const [c1, c2] = h2hGradients(row.gameKey);
+            const hostWaiting = row.activeWaiter != null;
+            const entryLbl = row.activeWaiter ? formatUsdFromCents(Math.round(row.activeWaiter.entryUsd * 100)) : '—';
+            const prizeLbl = row.activeWaiter ? formatUsdFromCents(Math.round(row.activeWaiter.prizeUsd * 100)) : '—';
+            return (
+              <Pressable
+                key={row.gameKey}
+                style={({ pressed }) => [styles.gameWrap, pressed && { opacity: 0.9 }]}
+                onPress={() => openRow(row)}
+              >
+                <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gameBorder}>
+                  <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.gameCard}>
+                    <View style={styles.gameRow}>
+                      <View style={styles.gameIconCol}>{h2hIconFor(row.gameKey, 48)}</View>
+                      <View style={styles.gameTextCol}>
+                        <View style={styles.h2hTitleRow}>
+                          <Text style={[styles.gameTitle, runitTextGlowPink]} numberOfLines={1}>
+                            {row.title}
+                          </Text>
+                          <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
+                            <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
+                              {hostWaiting ? 'IN QUEUE' : 'OPEN'}
                             </Text>
-                            <View style={[styles.waitingPill, hostWaiting ? styles.pillQueued : styles.pillOpenSlot]}>
-                              <Text style={[styles.waitingPillTxt, hostWaiting ? styles.pillTagQueued : styles.pillTagOpen]}>
-                                {hostWaiting ? 'IN QUEUE' : 'OPEN'}
-                              </Text>
-                            </View>
                           </View>
-                          {hostWaiting && row.activeWaiter ? (
-                            <>
-                              <Text style={styles.hostLine} numberOfLines={2}>
-                                <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
-                              </Text>
-                              {row.queueTotal > 1 ? (
-                                <View style={styles.queuePickerRow}>
-                                  <Pressable
-                                    hitSlop={8}
-                                    style={({ pressed }) => [styles.queuePickerBtn, pressed && { opacity: 0.8 }]}
-                                    onPress={(e) => {
-                                      e.stopPropagation?.();
-                                      shiftWaiter(row.gameKey, row.queueTotal, -1);
-                                    }}
-                                  >
-                                    <SafeIonicons name="chevron-back" size={14} color="#cbd5e1" />
-                                  </Pressable>
-                                  <Text style={styles.queueRotate}>
-                                    Opponent {row.rotateIndex}/{row.queueTotal}
-                                  </Text>
-                                  <Pressable
-                                    hitSlop={8}
-                                    style={({ pressed }) => [styles.queuePickerBtn, pressed && { opacity: 0.8 }]}
-                                    onPress={(e) => {
-                                      e.stopPropagation?.();
-                                      shiftWaiter(row.gameKey, row.queueTotal, 1);
-                                    }}
-                                  >
-                                    <SafeIonicons name="chevron-forward" size={14} color="#cbd5e1" />
-                                  </Pressable>
-                                </View>
-                              ) : null}
-                              <Text style={styles.tierTag} numberOfLines={1}>
-                                {row.activeWaiter.tierShortLabel} tier
-                              </Text>
-                              <Text style={styles.gameEntry}>
-                                Entry {entryLbl} · Listed reward {prizeLbl}
-                              </Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.hostLine} numberOfLines={2}>
-                                No open searches right now — tap to pick a contest tier and start matchmaking.
-                              </Text>
-                              <Text style={styles.tierTag} numberOfLines={1}>
-                                Choose tier on next step
-                              </Text>
-                              <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
-                            </>
-                          )}
                         </View>
-                        <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
-                          <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
-                        </LinearGradient>
+                        {hostWaiting && row.activeWaiter ? (
+                          <>
+                            <Text style={styles.hostLine} numberOfLines={2}>
+                              <Text style={styles.hostName}>{row.activeWaiter.hostLabel}</Text> waiting · {row.activeWaiter.postedMinutesAgo}m ago
+                            </Text>
+                            {row.queueTotal > 1 ? (
+                              <View style={styles.queuePickerRow}>
+                                <Pressable
+                                  hitSlop={8}
+                                  style={({ pressed }) => [styles.queuePickerBtn, pressed && { opacity: 0.8 }]}
+                                  onPress={(e) => {
+                                    e.stopPropagation?.();
+                                    shiftWaiter(row.gameKey, row.queueTotal, -1);
+                                  }}
+                                >
+                                  <SafeIonicons name="chevron-back" size={14} color="#cbd5e1" />
+                                </Pressable>
+                                <Text style={styles.queueRotate}>
+                                  Opponent {row.rotateIndex}/{row.queueTotal}
+                                </Text>
+                                <Pressable
+                                  hitSlop={8}
+                                  style={({ pressed }) => [styles.queuePickerBtn, pressed && { opacity: 0.8 }]}
+                                  onPress={(e) => {
+                                    e.stopPropagation?.();
+                                    shiftWaiter(row.gameKey, row.queueTotal, 1);
+                                  }}
+                                >
+                                  <SafeIonicons name="chevron-forward" size={14} color="#cbd5e1" />
+                                </Pressable>
+                              </View>
+                            ) : null}
+                            <Text style={styles.tierTag} numberOfLines={1}>
+                              {row.activeWaiter.tierShortLabel} tier
+                            </Text>
+                            <Text style={styles.gameEntry}>
+                              Entry {entryLbl} · Listed reward {prizeLbl}
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.hostLine} numberOfLines={2}>
+                              No open searches right now — tap to pick a contest tier and start matchmaking.
+                            </Text>
+                            <Text style={styles.tierTag} numberOfLines={1}>
+                              Choose tier on next step
+                            </Text>
+                            <Text style={styles.gameEntryMuted}>Preset tiers match Quick Match</Text>
+                          </>
+                        )}
                       </View>
-                    </LinearGradient>
+                      <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.prizeBtn}>
+                        <Text style={styles.prizeBtnText}>{hostWaiting ? 'Join' : 'Find opponent'}</Text>
+                      </LinearGradient>
+                    </View>
                   </LinearGradient>
-                </Pressable>
-              );
-            })
-          )}
+                </LinearGradient>
+              </Pressable>
+            );
+          })}
           <View style={{ height: 40 }} />
         </ScrollView>
 
@@ -440,7 +428,16 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 14, paddingBottom: 32 },
   intro: { color: 'rgba(148,163,184,0.95)', fontSize: 13, fontWeight: '600', marginBottom: 14, lineHeight: 18 },
   introEm: { color: '#e9d5ff', fontWeight: '800' },
-  gameWrap: { marginBottom: 10 },
+  quickMatchLbl: {
+    color: 'rgba(226,232,240,0.95)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  gameWrap: { marginBottom: 12, alignSelf: 'stretch', maxWidth: '100%' },
   gameBorder: {
     borderRadius: 16,
     padding: 2,

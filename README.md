@@ -2,7 +2,7 @@
 
 Production-oriented MVP shell for a competitive 1v1 arcade soccer-style game: **Expo Router + React Native**, **TanStack Query**, **Zustand**, **NativeWind**, **Zod**, and **Supabase** (Auth, Postgres, Realtime hooks, Edge Function stubs). Gameplay physics are intentionally stubbed behind a reusable match session model and placeholder screen.
 
-**Monetization & compliance:** skill-based contests and virtual / admin-granted prizes; no games of chance for cash, pooled gambling-style prizes, or unlicensed cash-entry tournaments. Tournaments use free entry, credits, sponsors, or admin-granted prizes only. Stripe is scoped to subscriptions, cosmetics, battle pass–style entitlements, and similar non-cash SKUs.
+**Monetization & compliance:** skill-based contests and virtual / admin-granted prizes; no games of chance for cash, pooled gambling-style prizes, or unlicensed cash-entry tournaments. Tournaments use free entry, credits, sponsors, or admin-granted prizes only. Cash wallet top-ups and payouts use **Whop** (hosted checkout + payout portal); never expose processor secrets client-side.
 
 ---
 
@@ -50,7 +50,7 @@ Then optional seed reference data:
 
 ### Edge Functions
 
-See **`supabase/README.md`** for linking the project, setting secrets (`STRIPE_SECRET_KEY`, etc.), and `supabase functions deploy`. In `.env`, set **`EXPO_PUBLIC_ENABLE_BACKEND=true`** when the DB and functions are deployed so the app uses real auth and `supabase.functions.invoke`.
+See **`supabase/README.md`** for linking the project, setting secrets (`WHOP_*`, etc.), and `supabase functions deploy`. In `.env`, set **`EXPO_PUBLIC_ENABLE_BACKEND=true`** when the DB and functions are deployed so the app uses real auth and `supabase.functions.invoke`.
 
 ---
 
@@ -110,7 +110,7 @@ Implemented as HTTP handlers with shared `supabase/functions/_shared/http.ts`. D
 3. **Networking** — WebRTC/data channel or dedicated game server; reconcile latency and pause.
 4. **Economic integrity** — move joins, purchases, and rewards into transactional RPC / Edge Functions only.
 5. **Anti-cheat** — client hints + server replay verification; hook `suspicious_flag`, `verification_status`, `reports`.
-6. **Stripe** — hosted billing + webhooks → `syncSubscriptionStatus`; never expose secret keys client-side.
+6. **Subscriptions (optional)** — when you add recurring billing, verify webhooks server-side → `syncSubscriptionStatus`; never expose secret keys client-side.
 
 ---
 

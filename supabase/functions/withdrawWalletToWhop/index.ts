@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     }
 
     const whopIdempotence = `withdraw_whop_${userId}_${idempotency_key}`.slice(0, 200);
-    /** User receives this amount net; remainder is platform withhold (Stripe/Whop parent balance retains margin vs gross debit). */
+    /** User receives this amount net; remainder is platform withhold (Whop parent balance retains margin vs gross debit). */
     const usdAmount = centsToUsdAmount(split.payoutCents);
 
     try {

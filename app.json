@@ -40,13 +40,6 @@
       ],
       "expo-asset",
       [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "",
-          "enableGooglePay": true
-        }
-      ],
-      [
         "expo-notifications",
         {
           "color": "#A855F7"

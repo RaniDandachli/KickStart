@@ -47,7 +47,7 @@ export const HOW_IT_WORKS_SLIDES: HowItWorksSlide[] = [
     kicker: 'STEP 4',
     title: 'FUND · WIN · REDEEM',
     body: [
-      'Add funds for paid contests, grow your wallet, and withdraw with Stripe or Whop when available.',
+      'Add funds for paid contests, grow your wallet, and withdraw through Whop when available.',
       'Arcade Credits and redeem tickets power the prize loop — play sharp, cash out smart.',
     ],
   },

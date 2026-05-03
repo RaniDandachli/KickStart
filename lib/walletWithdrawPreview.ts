@@ -3,7 +3,7 @@
  * Basis points come from `platform_economy.withdraw_platform_fee_bps` via `useWithdrawPlatformFeeBps` / `fetchWithdrawPlatformFeeBps`.
  */
 
-/** Minimum cents that must reach Stripe Connect / Whop after platform fee (matches Edge). */
+/** Minimum cents that must reach Whop after platform fee (matches Edge). */
 export const WITHDRAW_MIN_NET_OUT_CENTS = 100;
 
 export function splitWithdrawGrossCents(amountCents: number, feeBps: number): {

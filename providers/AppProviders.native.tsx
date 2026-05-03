@@ -1,4 +1,3 @@
-import { StripeProvider } from '@stripe/stripe-react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { type PropsWithChildren, useEffect, useState } from 'react';
 
@@ -15,13 +14,12 @@ function AuthBootstrapper({ children }: PropsWithChildren) {
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [client] = useState(createAppQueryClient);
-  const key = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
   useEffect(() => {
     configureArcadeNotificationBehavior();
   }, []);
 
-  const tree = (
+  return (
     <QueryClientProvider client={client}>
       <AuthBootstrapper>
         {children}
@@ -31,10 +29,4 @@ export function AppProviders({ children }: PropsWithChildren) {
       </AuthBootstrapper>
     </QueryClientProvider>
   );
-
-  if (key.trim()) {
-    return <StripeProvider publishableKey={key.trim()}>{tree}</StripeProvider>;
-  }
-
-  return tree;
 }

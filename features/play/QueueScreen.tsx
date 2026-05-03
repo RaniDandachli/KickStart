@@ -271,6 +271,12 @@ export function QueueScreen({
     [userId, mode, entryFeeUsd, listedPrizeUsd, gameKey, queueTierCents, qc],
   );
 
+  /** One tap for users stuck searching — same contest rules, but they can leave the screen and get pinged. */
+  const enableBackgroundSearchAndAlerts = useCallback(async () => {
+    await onKeepSearchingChange(true);
+    await onPingOpenQueueAlertsChange(true);
+  }, [onKeepSearchingChange, onPingOpenQueueAlertsChange]);
+
   useEffect(() => {
     if (!quickMatch) quickMatchTierDefaultsAppliedRef.current = false;
   }, [quickMatch]);
@@ -819,6 +825,41 @@ export function QueueScreen({
             </View>
           ) : null}
           <View className="mt-5 w-full max-w-sm rounded-xl border border-slate-500/35 bg-slate-950/55 px-4 py-3">
+            {hasPaidEntry ? (
+              <>
+                <Text className="text-center text-xs font-bold text-emerald-100">Same fee — next player decides by score</Text>
+                <Text className="mt-1.5 text-center text-[11px] leading-5 text-slate-300">
+                  {quickMatch ? (
+                    <>
+                      Nobody has to be waiting <Text className="font-semibold text-slate-200">before</Text> you. You keep the same match-access
+                      amounts you allow above. When Quick Match pairs you with the next player on an allowed tier, you each play your run — scores
+                      are compared and the higher score wins that tier&apos;s listed prize (Arcade Credits if you don&apos;t).
+                    </>
+                  ) : (
+                    <>
+                      Nobody has to be in queue <Text className="font-semibold text-slate-200">before</Text> you. You still use this same match
+                      access and prize tier. When the next player enters this exact contest (same game and amounts), you&apos;ll pair up: each of
+                      you plays a run, we compare scores, and the higher score wins the listed top-performer prize (consolation credits if you
+                      don&apos;t).
+                    </>
+                  )}
+                </Text>
+                {ENABLE_BACKEND && userId !== 'guest' ? (
+                  <AppButton
+                    className="mt-3"
+                    title={
+                      keepSearchingWhenAway && pingOpenQueueAlerts
+                        ? 'Background search & alerts already on'
+                        : 'Turn on background search & alerts'
+                    }
+                    variant="secondary"
+                    disabled={keepSearchingWhenAway && pingOpenQueueAlerts}
+                    onPress={() => void enableBackgroundSearchAndAlerts()}
+                  />
+                ) : null}
+                <View className="my-3 h-px bg-slate-600/40" />
+              </>
+            ) : null}
             <Text className="text-center text-xs font-bold text-slate-100">Still no opponent?</Text>
             <Text className="mt-1.5 text-center text-[11px] leading-5 text-slate-400">
               {quickMatch ? (

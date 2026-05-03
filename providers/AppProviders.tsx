@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { AppProviders as NativeProviders } from './AppProviders.native';
 import { AppProviders as WebProviders } from './AppProviders.web';
 
-/** Picks web vs native provider tree (Stripe only on native). */
+/** Picks web vs native provider tree. */
 export function AppProviders({ children }: PropsWithChildren) {
   if (Platform.OS === 'web') {
     return <WebProviders>{children}</WebProviders>;

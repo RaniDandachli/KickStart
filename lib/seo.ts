@@ -1,6 +1,6 @@
-import { STRIPE_CONNECT_PUBLIC_ORIGIN } from '@/lib/stripeConnectUrls';
+import { PUBLIC_SITE_ORIGIN } from '@/lib/publicSiteOrigin';
 
-/** Public marketing / Connect origin — also used as canonical base for meta tags (override with EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL). */
+/** Public marketing origin — also used as canonical base for meta tags (override with EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL). */
 export const SEO_SITE_NAME = 'RunitArcade';
 
 export const SEO_DEFAULT_TITLE = `${SEO_SITE_NAME} — Arcade games, head-to-head matches & tournaments`;
@@ -9,7 +9,7 @@ export const SEO_DEFAULT_DESCRIPTION =
   'Skill-based mini games, live head-to-head matches, tournaments, and prizes. Play on the web or app — wallet balance, arcade credits, and daily events.';
 
 export function getSeoSiteOrigin(): string {
-  return STRIPE_CONNECT_PUBLIC_ORIGIN;
+  return PUBLIC_SITE_ORIGIN;
 }
 
 /** Served from `public/og.png` on static web export; replace with a 1200×630 asset when you have one. */

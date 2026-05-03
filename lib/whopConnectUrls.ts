@@ -1,13 +1,13 @@
 import { env } from '@/lib/env';
 
+import { PUBLIC_SITE_ORIGIN } from '@/lib/publicSiteOrigin';
+
 /**
  * Public HTTPS origin for Whop hosted payout portal `return_url` / `refresh_url`.
  * Whop rejects non-public URLs (e.g. raw localhost); use a tunnel in dev if needed.
  */
 export const WHOP_PAYOUT_PUBLIC_ORIGIN = (
-  env.EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL?.trim() ||
-  env.EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL?.trim() ||
-  'https://runitarcade.app'
+  env.EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL?.trim() || PUBLIC_SITE_ORIGIN
 ).replace(/\/$/, '');
 
 export const WHOP_PAYOUT_PATH = 'profile/whop-payouts';

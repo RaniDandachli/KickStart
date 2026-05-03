@@ -32,13 +32,6 @@ const envSchema = z.object({
     .optional()
     .default('true')
     .transform((v) => v.trim().toLowerCase() !== 'false'),
-  EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
-  /** Enable wallet top-up UI when Stripe Checkout is wired server-side. */
-  EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED: z
-    .string()
-    .optional()
-    .default('false')
-    .transform((v) => v.trim().toLowerCase() === 'true'),
   /** Whop hosted checkout (Edge `createWhopCheckoutSession` + `whopWebhook`). */
   EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED: z
     .string()
@@ -57,9 +50,9 @@ const envSchema = z.object({
   EXPO_PUBLIC_SKILL_CONTEST_BLOCKED_REGION_CODES: blockedSkillContestRegionsFromEnv,
   /** Expo project UUID for `getExpoPushTokenAsync` (Dashboard → Project settings, or app.json `extra.eas.projectId`). */
   EXPO_PUBLIC_EXPO_PROJECT_ID: z.string().optional().default(''),
-  /** Override public origin for Stripe Connect redirects (see `lib/stripeConnectUrls.ts`). Defaults to https://runitarcade.app */
+  /** Public HTTPS origin for checkout redirects & universal links (legacy env name). Defaults to https://runitarcade.app */
   EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL: optionalUrlFromEnv,
-  /** Optional public HTTPS origin for Whop payout portal return/refresh (see `lib/whopConnectUrls.ts`). Falls back to Stripe connect base then runitarcade.app */
+  /** Optional public HTTPS origin for Whop payout portal return/refresh (see `lib/whopConnectUrls.ts`). Falls back to `EXPO_PUBLIC_STRIPE_CONNECT_BASE_URL` / runitarcade.app */
   EXPO_PUBLIC_WHOP_PAYOUT_REDIRECT_BASE_URL: optionalUrlFromEnv,
   /** Web Push VAPID public key (URL-safe base64) — pair with Edge secrets WEB_PUSH_VAPID_* for open-queue browser notifications. */
   EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional().default(''),
@@ -73,8 +66,6 @@ export const env = envSchema.parse({
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   EXPO_PUBLIC_ENABLE_BACKEND: process.env.EXPO_PUBLIC_ENABLE_BACKEND,
-  EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-  EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED: process.env.EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED,
   EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED: process.env.EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED,
   EXPO_PUBLIC_ENABLE_REALTIME: process.env.EXPO_PUBLIC_ENABLE_REALTIME ?? 'false',
   EXPO_PUBLIC_DEV_OPPONENT_USER_ID: process.env.EXPO_PUBLIC_DEV_OPPONENT_USER_ID,

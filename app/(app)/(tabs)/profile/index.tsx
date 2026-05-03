@@ -22,7 +22,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock';
-import { ALLOW_GUEST_MODE, ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED } from '@/constants/featureFlags';
+import { ALLOW_GUEST_MODE, ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileFightStats } from '@/hooks/useProfileFightStats';
 import { useRecentMatches } from '@/hooks/useRecentMatches';
@@ -473,7 +473,7 @@ export default function ProfileScreen() {
               <Pressable
                 style={({ pressed }) => [styles.wBtn, styles.wBtnGhost, pressed && { opacity: 0.85 }]}
                 onPress={() =>
-                  needAccount ? openGuestPrompt('withdraw') : router.push('/(app)/(tabs)/profile/stripe-connect')
+                  needAccount ? openGuestPrompt('withdraw') : router.push('/(app)/(tabs)/profile/whop-payouts')
                 }
               >
                 <SafeIonicons name="arrow-down-circle-outline" size={16} color={runit.neonCyan} />
@@ -487,13 +487,8 @@ export default function ProfileScreen() {
                 }
                 style={({ pressed }) => [styles.whopPayoutLink, pressed && { opacity: 0.85 }]}
               >
-                <Text style={styles.whopPayoutLinkTxt}>Whop payouts (beta) — optional alternative to Stripe</Text>
+                <Text style={styles.whopPayoutLinkTxt}>Whop payouts — deposits & cash-out</Text>
               </Pressable>
-            ) : null}
-            {ENABLE_BACKEND && WALLET_TOPUP_STRIPE_ENABLED ? (
-              <Text style={styles.walletFootnote}>
-                Withdrawals need Stripe bank setup on the next screen — we will walk you through anything missing.
-              </Text>
             ) : null}
           </View>
         </LinearGradient>

@@ -1,6 +1,6 @@
 /**
  * Arcade credit packs (USD → prize_credits). Server validates `id` in Edge Functions.
- * Tune prices with your economy; keep in sync with `createWalletCheckoutSession` package map.
+ * Tune prices with your economy; keep in sync with `createWhopCheckoutSession` package map.
  */
 export type CreditPackage = {
   id: string;

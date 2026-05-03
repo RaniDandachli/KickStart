@@ -10,14 +10,14 @@ import { formatAuthError } from '@/lib/authMessages';
 import { TERMS_PRIVACY_DOC_VERSION, openPrivacyPolicy, openTermsOfService } from '@/lib/legalLinks';
 import { setHasSeenWelcome } from '@/lib/onboardingStorage';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
-import { getStripeConnectDeviceCountry } from '@/lib/stripeConnectCountryHint';
+import { getDeviceRegionCountryCode } from '@/lib/deviceRegionCountry';
 import { updateProfileFields } from '@/services/api/profiles';
 import { getSupabase } from '@/supabase/client';
 
 type PayoutCountry = 'US' | 'CA';
 
 function defaultPayoutCountry(): PayoutCountry {
-  const d = getStripeConnectDeviceCountry();
+  const d = getDeviceRegionCountryCode();
   return d === 'CA' ? 'CA' : 'US';
 }
 

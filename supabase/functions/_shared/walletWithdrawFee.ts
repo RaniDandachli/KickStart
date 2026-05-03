@@ -1,6 +1,6 @@
-/** Shared cash-out economics for Edge Functions (withdrawWalletToConnect / withdrawWalletToWhop). */
+/** Shared cash-out economics for Edge Functions (withdrawWalletToWhop). */
 
-const MIN_BANK_PAYOUT_CENTS = 100; // Stripe / minimum $1 transfer to connected account
+const MIN_BANK_PAYOUT_CENTS = 100; // Minimum $1 transfer to connected account / payout rail
 
 /**
  * Withdraw fee rate lives in `platform_economy.withdraw_platform_fee_bps` (single source — no duplicated Edge secrets).

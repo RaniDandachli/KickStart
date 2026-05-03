@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
  * Supabase + API usage. Defaults to **on** (`EXPO_PUBLIC_ENABLE_BACKEND` unset or not `false`).
  * Set `EXPO_PUBLIC_ENABLE_BACKEND=false` only for local UI-only testing (guest mode, no live H2H).
  *
- * Security: balances (`wallet_cents`, `prize_credits`, `redeem_tickets`, `gems`), `role`, Stripe ids, and
+ * Security: balances (`wallet_cents`, `prize_credits`, `redeem_tickets`, `gems`), `role`, payment processor ids, and
  * moderation fields are enforced server-side (`protect_profile_sensitive_columns` + RLS). Redemptions and
  * grants go through RPCs / Edge Functions only — never trust client-side balance changes.
  */
@@ -14,14 +14,9 @@ export const ENABLE_BACKEND = env.EXPO_PUBLIC_ENABLE_BACKEND;
 export const ALLOW_GUEST_MODE = !ENABLE_BACKEND;
 
 /**
- * Wallet top-up UI — Stripe (publishable key in app; secret in Edge Functions). Never credit `wallet_cents`
- * from the client without a verified server event (Stripe webhook or Whop webhook).
- */
-export const WALLET_TOPUP_STRIPE_ENABLED = env.EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED;
-
-/**
- * Whop checkout for wallet top-ups + arcade credit packs (same flows as Stripe; separate Edge + webhook).
- * Off by default — set `EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED=true` when `createWhopCheckoutSession` + Whop webhook are live.
+ * Whop checkout for wallet top-ups + arcade credit packs. Never credit `wallet_cents` from the client without a
+ * verified server event (Whop webhook).
+ * Set `EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED=true` when `createWhopCheckoutSession` + `whopWebhook` are live.
  */
 export const WHOP_CHECKOUT_ENABLED = env.EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED;
 

@@ -1,19 +1,16 @@
-import { ENABLE_BACKEND, WALLET_TOPUP_STRIPE_ENABLED, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
+import { ENABLE_BACKEND, WHOP_CHECKOUT_ENABLED } from '@/constants/featureFlags';
 import { getCreditPackageById } from '@/lib/creditPackages';
 import { useDemoPrizeCreditsStore } from '@/store/demoPrizeCreditsStore';
 import { useDemoWalletStore } from '@/store/demoWalletStore';
 
-import { openStripeCheckoutSession } from '@/services/wallet/stripeCheckout';
 import { openWhopCheckoutSession } from '@/services/wallet/whopCheckout';
-
-export type WalletCheckoutProvider = 'stripe' | 'whop';
 
 export const MIN_TOP_UP_CENTS = 100;
 export const MAX_TOP_UP_CENTS = 50_000;
 
 /**
  * Validates amount for a wallet deposit (USD cents).
- * Production credits must come from a Stripe-confirmed payment on the server — never trust the client alone.
+ * Production credits must come from a Whop-confirmed payment on the server — never trust the client alone.
  */
 export function assertValidTopUpAmountCents(cents: number): void {
   const n = Math.floor(cents);
@@ -25,12 +22,9 @@ export function assertValidTopUpAmountCents(cents: number): void {
 /**
  * Guest / no backend: credits the on-device cash balance only (no payment).
  *
- * With backend: opens Stripe or Whop checkout when enabled; wallet updates after server webhook.
+ * With backend: opens Whop checkout when enabled; wallet updates after `whopWebhook`.
  */
-export async function completeWalletTopUp(
-  amountCents: number,
-  provider: WalletCheckoutProvider = 'stripe',
-): Promise<boolean> {
+export async function completeWalletTopUp(amountCents: number): Promise<boolean> {
   assertValidTopUpAmountCents(amountCents);
 
   if (!ENABLE_BACKEND) {
@@ -38,31 +32,18 @@ export async function completeWalletTopUp(
     return true;
   }
 
-  if (provider === 'whop') {
-    if (!WHOP_CHECKOUT_ENABLED) {
-      throw new Error(
-        'Whop checkout is not enabled. Set EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED and deploy createWhopCheckoutSession + whopWebhook.',
-      );
-    }
-    return openWhopCheckoutSession({ kind: 'wallet', amountCents });
-  }
-
-  if (!WALLET_TOPUP_STRIPE_ENABLED) {
+  if (!WHOP_CHECKOUT_ENABLED) {
     throw new Error(
-      'Card payments are not connected yet. Set EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED and deploy Stripe Edge Functions + webhook.',
+      'Whop checkout is not enabled. Set EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED and deploy createWhopCheckoutSession + whopWebhook.',
     );
   }
-
-  return openStripeCheckoutSession({ kind: 'wallet', amountCents });
+  return openWhopCheckoutSession({ kind: 'wallet', amountCents });
 }
 
 /**
- * Purchase a credit pack: guest mode grants on-device Arcade Credits; production uses Stripe Checkout + webhook.
+ * Purchase a credit pack: guest mode grants on-device Arcade Credits; production uses Whop checkout + webhook.
  */
-export async function completeCreditsPackagePurchase(
-  packageId: string,
-  provider: WalletCheckoutProvider = 'stripe',
-): Promise<boolean> {
+export async function completeCreditsPackagePurchase(packageId: string): Promise<boolean> {
   const pack = getCreditPackageById(packageId);
   if (!pack) throw new Error('Unknown credit package.');
 
@@ -71,20 +52,10 @@ export async function completeCreditsPackagePurchase(
     return true;
   }
 
-  if (provider === 'whop') {
-    if (!WHOP_CHECKOUT_ENABLED) {
-      throw new Error(
-        'Whop checkout is not enabled. Set EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED and deploy createWhopCheckoutSession + whopWebhook.',
-      );
-    }
-    return openWhopCheckoutSession({ kind: 'credits', packageId });
-  }
-
-  if (!WALLET_TOPUP_STRIPE_ENABLED) {
+  if (!WHOP_CHECKOUT_ENABLED) {
     throw new Error(
-      'Purchases are not enabled yet. Set EXPO_PUBLIC_WALLET_TOPUP_STRIPE_ENABLED and deploy Stripe Edge Functions + webhook.',
+      'Whop checkout is not enabled. Set EXPO_PUBLIC_WHOP_CHECKOUT_ENABLED and deploy createWhopCheckoutSession + whopWebhook.',
     );
   }
-
-  return openStripeCheckoutSession({ kind: 'credits', packageId });
+  return openWhopCheckoutSession({ kind: 'credits', packageId });
 }

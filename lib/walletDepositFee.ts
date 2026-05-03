@@ -1,5 +1,5 @@
 /**
- * Card processing pass-through on **cash wallet** deposits (aligned with typical Stripe card pricing).
+ * Card processing pass-through on **cash wallet** deposits (aligned with typical card processor pricing).
  * The amount the user **chooses** is credited in full; this fee is **added on top** of the charge.
  */
 export const WALLET_DEPOSIT_FEE_PERCENT = 0.029;

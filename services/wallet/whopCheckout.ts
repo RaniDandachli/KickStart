@@ -69,7 +69,7 @@ async function buildWhopCheckoutPayload(opts: WalletOpts | CreditsOpts): Promise
 /**
  * Opens Whop checkout in-app when Shop is mounted (`WhopCheckoutHost`); otherwise falls back to the system browser.
  * Web uses the same `runWhopCheckoutUI` path as native so `WhopCheckoutHost.web` can show the embed modal; if the host
- * is not mounted, falls back to full-page navigation (same as Stripe Checkout on web).
+ * is not mounted, falls back to full-page navigation on web.
  * Balances update after `whopWebhook` — caller should invalidate profile on success.
  */
 export async function openWhopCheckoutSession(opts: WalletOpts | CreditsOpts): Promise<boolean> {

@@ -167,8 +167,8 @@ export default function WhopPayoutsScreen() {
           <Text style={styles.badge}>Beta</Text>
           <Text style={styles.head}>Whop payouts</Text>
           <Text style={styles.body}>
-            Connect a Whop company for your account and use their hosted page for KYC and bank details. This runs next to Stripe so you
-            can compare rails.
+            Connect a Whop company for your account and use their hosted page for KYC and bank details. Cash deposits and withdrawals run
+            through Whop.
           </Text>
 
           {whopId ? (
@@ -197,8 +197,8 @@ export default function WhopPayoutsScreen() {
           {!uid ? <Text style={styles.warn}>Sign in to continue.</Text> : null}
           {!ENABLE_BACKEND ? <Text style={styles.warn}>Backend disabled — enable EXPO_PUBLIC_ENABLE_BACKEND for Whop.</Text> : null}
 
-          <Pressable onPress={() => router.push('/(app)/(tabs)/profile/stripe-connect')} style={styles.altLink}>
-            <Text style={styles.altLinkTxt}>Use Stripe payouts instead →</Text>
+          <Pressable onPress={() => router.push('/(app)/(tabs)/profile/add-funds')} style={styles.altLink}>
+            <Text style={styles.altLinkTxt}>Wallet & deposits →</Text>
           </Pressable>
         </LinearGradient>
 
