@@ -21,7 +21,9 @@
     "functions:deploy:h2hOpenMatchWatchScan": "supabase functions deploy h2hOpenMatchWatchScan",
     "functions:deploy:triggerOpenMatchWatchScan": "supabase functions deploy triggerOpenMatchWatchScan",
     "functions:deploy:welcome": "supabase functions deploy sendWelcomeEmail",
-    "functions:deploy:push": "supabase functions deploy notifyDailyCreditsPush && supabase functions deploy broadcastTournamentOfDayPush"
+    "functions:deploy:push": "supabase functions deploy notifyDailyCreditsPush && supabase functions deploy broadcastTournamentOfDayPush",
+    "deploy": "npx expo export -p web && wrangler deploy",
+    "preview": "npx expo export -p web && wrangler dev"
   },
   "dependencies": {
     "@expo-google-fonts/orbitron": "^0.4.2",
@@ -84,7 +86,8 @@
     "playwright": "^1.49.1",
     "react-test-renderer": "19.1.0",
     "supabase": "^2.84.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "wrangler": "^4.87.0"
   },
   "private": true
 }
