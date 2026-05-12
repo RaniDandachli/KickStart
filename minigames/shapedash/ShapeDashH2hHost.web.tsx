@@ -27,10 +27,8 @@ export function ShapeDashH2hHost({ h2hSkillContest }: { h2hSkillContest: H2hSkil
               const iframe = (ev as { target?: HTMLIFrameElement })?.target;
               if (iframe) v.iframeRef.current = iframe;
               v.focusIframeGame();
-              v.requestWebFullscreenLandscape();
               setTimeout(v.focusIframeGame, 60);
               setTimeout(v.focusIframeGame, 220);
-              setTimeout(v.requestWebFullscreenLandscape, 80);
             },
             style: ({
               border: 'none',

@@ -298,13 +298,19 @@ canvas.addEventListener(
 
 // -------------------- Fullscreen --------------------
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    if (canvas.requestFullscreen) canvas.requestFullscreen().catch(() => {});
+  const doc = document;
+  const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement;
+  if (!fsEl) {
+    const c = canvas;
+    if (c.requestFullscreen) c.requestFullscreen().catch(() => {});
+    else if (c.webkitRequestFullscreen) c.webkitRequestFullscreen();
   } else {
-    if (document.exitFullscreen) document.exitFullscreen();
+    if (doc.exitFullscreen) doc.exitFullscreen();
+    else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
   }
 }
 document.addEventListener("fullscreenchange", () => resize());
+document.addEventListener("webkitfullscreenchange", () => resize());
 
 function goToMenu() {
   marathonMode = false;

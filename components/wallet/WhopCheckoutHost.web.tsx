@@ -1,6 +1,6 @@
 import { WhopCheckoutEmbed } from '@whop/checkout/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { registerWhopCheckoutUI } from '@/lib/whopCheckoutBridge';
 import type { WhopCheckoutPayload } from '@/lib/whopCheckoutTypes';
@@ -10,6 +10,10 @@ import { runit } from '@/lib/runitArcadeTheme';
  * Web: embedded Whop checkout (iframe) in a modal — in-page flow instead of leaving the tab.
  */
 export function WhopCheckoutHost() {
+  const { height: winH } = useWindowDimensions();
+  /** Fixed height so the embed + iframe get a definite flex box; avoids clipping Whop footer (Join) when the form grows. */
+  const sheetHeight = useMemo(() => Math.min(Math.round(winH * 0.92), Math.max(440, winH - 16)), [winH]);
+
   const [open, setOpen] = useState(false);
   const [payload, setPayload] = useState<WhopCheckoutPayload | null>(null);
   const resolverRef = useRef<((ok: boolean) => void) | null>(null);
@@ -40,14 +44,14 @@ export function WhopCheckoutHost() {
     <Modal visible={open && !!payload} animationType="slide" transparent onRequestClose={() => finish(false)}>
       {payload ? (
         <View style={styles.backdrop}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { height: sheetHeight }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Pay with Whop</Text>
               <Pressable onPress={() => finish(false)} style={styles.closeBtn} accessibilityRole="button">
                 <Text style={styles.closeTxt}>Close</Text>
               </Pressable>
             </View>
-            <View style={styles.embedWrap}>
+            <View className="whop-checkout-embed-host" style={styles.embedWrap}>
               {payload.sessionId ? (
                 <WhopCheckoutEmbed
                   sessionId={payload.sessionId}
@@ -65,7 +69,8 @@ export function WhopCheckoutHost() {
                   style={{
                     width: '100%',
                     height: '100%',
-                    minHeight: 360,
+                    minHeight: 0,
+                    flex: 1,
                     border: 'none',
                   }}
                 />
@@ -85,17 +90,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    maxHeight: '92%',
-    minHeight: 420,
+    width: '100%',
     backgroundColor: '#0b0b12',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    overflow: 'hidden',
+    flexDirection: 'column',
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexShrink: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -104,6 +109,10 @@ const styles = StyleSheet.create({
   sheetTitle: { color: '#fff', fontWeight: '900', fontSize: 16 },
   closeBtn: { paddingVertical: 6, paddingHorizontal: 10 },
   closeTxt: { color: runit.neonCyan, fontWeight: '800', fontSize: 15 },
-  embedWrap: { flex: 1, minHeight: 360 },
-  fallbackTxt: { color: '#94a3b8', padding: 16, fontSize: 14 },
+  embedWrap: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
 });

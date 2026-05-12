@@ -16,6 +16,34 @@ body {
   color: #f8fafc;
 }
 
+/**
+ * Whop wallet checkout (modal iframe): constrain height so the Whop page scrolls inside the iframe
+ * instead of growing past the modal and clipping the Join / Pay footer.
+ */
+.whop-checkout-embed-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.whop-checkout-embed-host > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.whop-checkout-embed-host iframe {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border: none;
+}
+
 :focus-visible {
   outline: 2px solid rgba(232, 121, 249, 0.85);
   outline-offset: 2px;

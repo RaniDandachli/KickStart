@@ -1,0 +1,25 @@
+{
+  "name": "Runit Arcade",
+  "short_name": "Runit",
+  "description": "Skill contests, head-to-head minigames, and tournaments.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#060610",
+  "theme_color": "#060610",
+  "icons": [
+    {
+      "src": "/pwa-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-app-icon-512.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

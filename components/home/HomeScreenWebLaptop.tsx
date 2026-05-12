@@ -25,6 +25,7 @@ import { appBorderAccentMuted, runit, runitFont } from '@/lib/runitArcadeTheme';
 import { competeWinCashHeroSource, runItArcadeLogoSource, tournamentOfTheDayHeroSource } from '@/lib/brandLogo';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds } from '@/lib/dailyFreeTournament';
 import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
+import { usePaidOut24hTickerCents } from '@/hooks/usePaidOut24hTickerCents';
 import {
   FAKE_RECENT_WINNER_LINES,
   FAKE_TOP_EARNER_FRAMES,
@@ -126,8 +127,12 @@ export function HomeScreenWebLaptop({
   const dailyRounds = getDailyTournamentRounds(dailyDayKey);
 
   const playersOnlineDisplay = useFloatingOnlineCount(3200);
-
-  const paidOut = liveLobby ? formatPaidOut24h(liveLobby.rewardsWalletCents24h) : '$0';
+  const paidOutTickerCents = usePaidOut24hTickerCents();
+  const rewardsWalletCents24h = liveLobby?.rewardsWalletCents24h ?? 0;
+  const paidOut =
+    rewardsWalletCents24h > 0
+      ? formatPaidOut24h(rewardsWalletCents24h)
+      : formatPaidOut24h(paidOutTickerCents);
   const matchesLiveOnly = liveLobby?.matchesLive ?? 0;
   const activeGames = h2hCarouselRows.length;
   const avLetter = (userInitial || 'P').replace(/\s/g, '').slice(0, 1).toUpperCase() || 'P';
@@ -259,7 +264,7 @@ export function HomeScreenWebLaptop({
             </View>
           </View>
           <Text style={[styles.liveStripReward, compact && styles.liveStripRewardCompact]}>
-            {formatUsdFromCents(liveLobby?.rewardsWalletCents24h ?? 0)} rewards · 24h
+            {formatUsdFromCents(rewardsWalletCents24h > 0 ? rewardsWalletCents24h : paidOutTickerCents)} rewards · 24h
           </Text>
         </View>
 

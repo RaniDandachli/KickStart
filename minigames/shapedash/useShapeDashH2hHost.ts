@@ -5,6 +5,10 @@ import { Platform, useWindowDimensions } from 'react-native';
 
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
+import {
+  enterWebAppFullscreen,
+  tryLockWebLandscape,
+} from '@/minigames/shapedash/webGameFullscreen';
 import type { H2hSkillContestBundle } from '@/types/match';
 
 export type Phase = 'playing' | 'results';
@@ -21,26 +25,9 @@ export function buildShapeDashHtml(opts: {
         skipAutoPlay: Boolean(opts.skipAutoMarathon),
       })
     : '';
-  const fsHook = `
-    (function(){
-      if (typeof window === 'undefined' || typeof document === 'undefined') return;
-      var once = false;
-      function tryFs() {
-        if (once) return;
-        once = true;
-        try {
-          var de = document.documentElement;
-          if (!document.fullscreenElement && de && de.requestFullscreen) { void de.requestFullscreen(); }
-          if (screen && screen.orientation && screen.orientation.lock) { void screen.orientation.lock('landscape'); }
-        } catch (_) {}
-      }
-      window.addEventListener('pointerdown', tryFs, { once: true, passive: true });
-      window.addEventListener('keydown', tryFs, { once: true });
-    })();
-  `;
   const script = opts.marathon
-    ? `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};globalThis.__SHAPE_DASH_BOOT=${boot};${fsHook}</script>`
-    : `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};${fsHook}</script>`;
+    ? `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};globalThis.__SHAPE_DASH_BOOT=${boot};</script>`
+    : `<script>globalThis.__SHAPE_DASH_H2H=${opts.h2h ? '1' : '0'};</script>`;
   return SHAPE_DASH_INLINE_HTML.replace('<body>', `<body>${script}`);
 }
 
@@ -117,19 +104,16 @@ export function useShapeDashH2hHost(h2hSkillContest: H2hSkillContestBundle) {
     }, []),
   );
 
-  const requestWebFullscreenLandscape = useCallback(() => {
+  const requestWebFullscreenLandscape = useCallback(async () => {
     if (Platform.OS !== 'web') return;
-    try {
+    const rootOk = await enterWebAppFullscreen();
+    if (!rootOk) {
       const iframe = iframeRef.current;
-      if (!iframe) return;
-      if (!document.fullscreenElement && iframe.requestFullscreen) {
+      if (iframe && typeof iframe.requestFullscreen === 'function') {
         void iframe.requestFullscreen().catch(() => {});
       }
-      // @ts-expect-error web runtime only
-      if (screen?.orientation?.lock) void screen.orientation.lock('landscape').catch(() => {});
-    } catch (_) {
-      /** ignore */
     }
+    void tryLockWebLandscape();
   }, []);
 
   const handleMessageBody = useCallback(
