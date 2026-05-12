@@ -68,9 +68,7 @@ export function WhopCheckoutHost() {
                   src={payload.url}
                   style={{
                     width: '100%',
-                    height: '100%',
                     minHeight: 0,
-                    flex: 1,
                     border: 'none',
                   }}
                 />
@@ -114,5 +112,9 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: '100%',
     alignSelf: 'stretch',
+    /** Outer scroll so tall Whop / cross-origin iframe content can reach Join on iOS Safari. */
+    overflowY: 'scroll',
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch',
   },
 });

@@ -17,31 +17,38 @@ body {
 }
 
 /**
- * Whop wallet checkout (modal iframe): constrain height so the Whop page scrolls inside the iframe
- * instead of growing past the modal and clipping the Join / Pay footer.
+ * Whop wallet checkout (modal iframe):
+ * - Host scrolls vertically (overflow-y: auto) — fixes iOS Safari where cross-origin iframe
+ *   internal scroll often fails when the iframe is height: 100% in a flex modal.
+ * - Iframe is intentionally taller than the modal so the *host* scrolls and the Join row stays reachable.
  */
 .whop-checkout-embed-host {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
 }
 
 .whop-checkout-embed-host > * {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .whop-checkout-embed-host iframe {
-  flex: 1 1 auto;
-  min-height: 0 !important;
+  flex: 0 0 auto;
+  align-self: stretch;
   width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
   border: none;
+  min-height: 1200px;
+  height: min(3400px, max(1200px, 210vh)) !important;
+  max-height: none !important;
 }
 
 :focus-visible {
