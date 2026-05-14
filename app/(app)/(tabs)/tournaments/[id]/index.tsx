@@ -21,6 +21,7 @@ import {
   appChromeGradientFadePink,
   runit,
   runitFont,
+  runitShell,
   runitTextGlowPink,
 } from '@/lib/runitArcadeTheme';
 
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   infoLbl: { color: 'rgba(255, 0, 110, 0.92)', fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: 2 },
   infoVal: { color: '#e2e8f0', fontSize: 14, fontWeight: '700' },
   rulesTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 2, marginBottom: 10 },
-  ruleCard: { borderRadius: 12, borderWidth: 1, borderColor: appBorderAccentMuted, backgroundColor: 'rgba(12,6,22,0.85)', padding: 12, marginBottom: 8 },
+  ruleCard: { borderRadius: 12, borderWidth: 1, borderColor: appBorderAccentMuted, backgroundColor: runitShell.card85, padding: 12, marginBottom: 8 },
   ruleTitle: { color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 4 },
   ruleBody: { color: 'rgba(203,213,225,0.85)', fontSize: 13, lineHeight: 18 },
   noRules: { color: 'rgba(148,163,184,0.7)', fontSize: 13, marginBottom: 16 },

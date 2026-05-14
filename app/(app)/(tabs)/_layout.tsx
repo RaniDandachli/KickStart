@@ -162,6 +162,8 @@ export default function TabsLayout() {
               tabBarActiveBackgroundColor: 'rgba(255, 0, 110, 0.14)',
               tabBarInactiveBackgroundColor: 'transparent',
               sceneStyle: {
+                flex: 1,
+                minHeight: 0,
                 maxWidth: 1280,
                 width: '100%' as const,
                 alignSelf: 'center' as const,
@@ -245,7 +247,7 @@ export default function TabsLayout() {
         name="tournaments"
         options={{
           title: 'Events',
-          tabBarIcon: tabBarIcon('trophy', { webTop: webUsesTopTabBar }),
+          tabBarIcon: tabBarIcon('calendar-outline', { webTop: webUsesTopTabBar }),
         }}
       />
       <Tabs.Screen
@@ -261,7 +263,7 @@ export default function TabsLayout() {
         name="prizes"
         options={{
           title: 'Prizes',
-          tabBarIcon: tabBarIcon('gift', { webTop: webUsesTopTabBar }),
+          tabBarIcon: tabBarIcon('medal-outline', { webTop: webUsesTopTabBar }),
           /** Prize catalog stays in-tab on web · native opens it via Arcade (“Prize catalog” row). */
           href: Platform.OS === 'web' ? undefined : null,
         }}

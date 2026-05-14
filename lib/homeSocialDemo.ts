@@ -67,5 +67,5 @@ export const FAKE_RECENT_WINNER_LINES: ReadonlyArray<{
   { name: 'Alex P.', amountCents: 3_100, game: 'Cyber Road', ago: '9m ago' },
   { name: 'Riley S.', amountCents: 800, game: 'Neon Dance', ago: '14m ago' },
   { name: 'Sam C.', amountCents: 4_500, game: 'Void Glider', ago: '18m ago' },
-  { name: 'Casey L.', amountCents: 1_600, game: 'Turbo Arena', ago: '22m ago' },
+  { name: 'Casey L.', amountCents: 1_600, game: 'Tap Dash', ago: '22m ago' },
 ];

@@ -16,7 +16,7 @@ function rpcMatchedField(v: unknown): boolean {
 }
 
 export type H2hEnqueueOrMatchResult =
-  | { ok: true; matched: true; match_session_id: string; opponent_user_id: string }
+  | { ok: true; matched: true; match_session_id: string; opponent_user_id: string; async_host?: boolean }
   | { ok: true; matched: false; queue_entry_id: string }
   | { ok: false; error: string; detail?: string };
 
@@ -48,6 +48,7 @@ export async function h2hEnqueueOrMatch(params: {
       matched: true,
       match_session_id: String(j.match_session_id),
       opponent_user_id: String(j.opponent_user_id),
+      async_host: j.async_host === true || j.async_host === 'true',
     };
   }
   return { ok: true, matched: false, queue_entry_id: String(j.queue_entry_id) };
@@ -81,6 +82,7 @@ export async function h2hEnqueueQuickMatch(params: {
       matched: true,
       match_session_id: String(j.match_session_id),
       opponent_user_id: String(j.opponent_user_id),
+      async_host: j.async_host === true || j.async_host === 'true',
     };
   }
   return { ok: true, matched: false, queue_entry_id: String(j.queue_entry_id) };
@@ -92,4 +94,34 @@ export async function h2hCancelQueue(): Promise<void> {
   if (error) throw new Error(error.message);
   const j = asRpcRecord(data);
   if (j == null || !rpcOkField(j.ok)) throw new Error('Could not leave queue');
+}
+
+/** Join a specific async-host row from Events / challenge browser (same settlement as FIFO queue pickup). */
+export async function h2hJoinSpecificAsyncHostChallenge(pendingId: string): Promise<H2hEnqueueOrMatchResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('h2h_join_specific_async_host_challenge', {
+    p_pending_id: pendingId,
+  });
+  if (error) throw new Error(error.message);
+  const j = asRpcRecord(data);
+  if (j == null || !rpcOkField(j.ok)) {
+    return {
+      ok: false,
+      error: String(j?.error ?? (data == null ? 'empty_join_response' : 'join_error')),
+      detail: typeof j?.detail === 'string' ? j.detail : undefined,
+    };
+  }
+  if (rpcMatchedField(j.matched)) {
+    return {
+      ok: true,
+      matched: true,
+      match_session_id: String(j.match_session_id),
+      opponent_user_id: String(j.opponent_user_id),
+      async_host: j.async_host === true || j.async_host === 'true',
+    };
+  }
+  return {
+    ok: false,
+    error: 'unexpected_join_shape',
+  };
 }

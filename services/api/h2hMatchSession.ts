@@ -17,6 +17,7 @@ export type MatchSessionWithPlayers = {
   game_key: string | null;
   entry_fee_wallet_cents: number;
   listed_prize_usd_cents: number | null;
+  metadata?: MatchSessionRow['metadata'];
   player_a_username: string | null;
   player_b_username: string | null;
   player_a_display: string | null;
@@ -208,6 +209,7 @@ export async function fetchMatchSessionWithPlayers(matchSessionId: string): Prom
       game_key: row.game_key ?? null,
       entry_fee_wallet_cents: row.entry_fee_wallet_cents ?? 0,
       listed_prize_usd_cents: row.listed_prize_usd_cents ?? null,
+      metadata: row.metadata ?? null,
       player_a_username: null,
       player_b_username: null,
       player_a_display: null,
@@ -237,6 +239,7 @@ export async function fetchMatchSessionWithPlayers(matchSessionId: string): Prom
     game_key: row.game_key ?? null,
     entry_fee_wallet_cents: row.entry_fee_wallet_cents ?? 0,
     listed_prize_usd_cents: row.listed_prize_usd_cents ?? null,
+    metadata: row.metadata ?? null,
     player_a_username: a?.username ?? null,
     player_b_username: b?.username ?? null,
     player_a_display: a?.display_name ?? null,

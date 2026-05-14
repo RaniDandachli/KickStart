@@ -35,6 +35,11 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.rpc('h2h_maintenance_expire_stale');
     if (error) return errorResponse(error.message, 500);
 
+    const { error: asyncErr } = await admin.rpc('h2h_maintenance_expire_async_hosts');
+    if (asyncErr) {
+      console.warn('[h2hMaintenance] h2h_maintenance_expire_async_hosts', asyncErr.message);
+    }
+
     /** Notify watchers when queue rows are waiting (`h2hOpenMatchWatchScan` — same secret). */
     try {
       const scanUrl = `${supabaseUrl}/functions/v1/h2hOpenMatchWatchScan`;

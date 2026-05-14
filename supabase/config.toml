@@ -350,6 +350,9 @@ verify_jwt = false
 [functions.submitMinigameScore]
 verify_jwt = false
 
+[functions.submitAsyncH2hHostRun]
+verify_jwt = false
+
 # Wallet / Whop (user access tokens): use verify_jwt=false on purpose — auth enforced in-function via getUser().
 [functions.createWhopPayoutPortalLink]
 verify_jwt = false

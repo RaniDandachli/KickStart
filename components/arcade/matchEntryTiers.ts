@@ -12,7 +12,7 @@ export type MatchEntryTier = {
 };
 
 export const MATCH_ENTRY_TIERS: readonly MatchEntryTier[] = [
-  { entry: 1, prize: 2, icon: 'flash-outline', shortLabel: 'Starter' },
+  { entry: 1, prize: 2, icon: 'ellipse-outline', shortLabel: 'Starter' },
   { entry: 5, prize: 9, icon: 'flame-outline', shortLabel: 'Casual' },
   { entry: 10, prize: 19, icon: 'trending-up-outline', shortLabel: 'Rising' },
   { entry: 20, prize: 38, icon: 'ribbon-outline', shortLabel: 'Pro' },

@@ -5,11 +5,7 @@ import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
-import {
-  APP_SCREEN_GRADIENT_COLORS,
-  APP_SCREEN_GRADIENT_LOCATIONS,
-  runit,
-} from '@/lib/runitArcadeTheme';
+import { APP_SCREEN_GRADIENT_COLORS, APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
 
 /** Extra space so scroll content clears the bottom tab bar (icons + labels). */
 const TAB_BAR_CLEARANCE = Platform.OS === 'ios' ? 54 : 56;
@@ -29,19 +25,19 @@ function ScanlineOverlay() {
   );
 }
 
-/** Extra floor polish — pink horizon + stars + scanlines (Home uses the same `HomeNeonBackground` streaks). */
+/** Extra floor polish — neutral depth + stars + scanlines (Home uses the same `HomeNeonBackground` streaks). */
 function ArcadeRetroAtmosphere() {
   return (
     <>
       <LinearGradient
-        colors={['transparent', 'rgba(255,0,110,0.1)', 'rgba(6,2,14,0.88)']}
+        colors={['transparent', 'rgba(0,0,0,0.22)', 'rgba(12,12,14,0.75)']}
         start={{ x: 0.5, y: 0.38 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.atmoBottom}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={['transparent', 'rgba(236,72,153,0.09)', 'transparent']}
+        colors={['transparent', 'rgba(255,255,255,0.03)', 'transparent']}
         start={{ x: 0, y: 0.55 }}
         end={{ x: 1, y: 0.45 }}
         style={styles.horizonGlow}
@@ -132,11 +128,11 @@ const styles = StyleSheet.create({
   star: {
     position: 'absolute',
     borderRadius: 4,
-    backgroundColor: '#e9d5ff',
-    shadowColor: runit.neonPurple,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
   },
   scanWrap: {
     ...StyleSheet.absoluteFillObject,

@@ -27,6 +27,7 @@ import { Screen } from '@/components/ui/Screen';
 import {
   SHOW_BALL_RUN_MINIGAME,
   SHOW_DASH_DUEL_MINIGAME,
+  SHOW_TURBO_ARENA_MINIGAME,
 } from '@/constants/featureFlags';
 import {
   DAILY_TOURNAMENT_PROMO,
@@ -189,6 +190,7 @@ export default function MarketingPromoScreen() {
       {GAME_PROMO_CARDS.filter((g) => {
         if (g.id === 'dash-duel' && !SHOW_DASH_DUEL_MINIGAME) return false;
         if (g.id === 'ball-run' && !SHOW_BALL_RUN_MINIGAME) return false;
+        if (g.id === 'turbo-arena' && !SHOW_TURBO_ARENA_MINIGAME) return false;
         return true;
       }).map((g) => (
         <View key={g.id} style={styles.gameCard}>

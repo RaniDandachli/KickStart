@@ -5,7 +5,7 @@
 /* Web shell: match `runit.bgDeep` so transparent tab chrome (top + iPhone bottom) blends with the page */
 html,
 body {
-  background-color: #050208;
+  background-color: #121214;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -14,6 +14,17 @@ body {
 ::selection {
   background-color: rgba(168, 85, 247, 0.35);
   color: #f8fafc;
+}
+
+/** Web: hide native vertical scrollbar but keep wheel / trackpad / touch scroll (e.g. home laptop column). */
+.hide-scrollbar-y {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar-y::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /**

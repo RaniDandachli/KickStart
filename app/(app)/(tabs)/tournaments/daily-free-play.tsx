@@ -20,6 +20,7 @@ import {
 import { pushProfilePollingPause } from '@/lib/profilePollingPause';
 import { appChromeLinePink, runit } from '@/lib/runitArcadeTheme';
 import NeonBallRunGame from '@/minigames/ballrun/BallRunGame';
+import CyberRoadScreen from '@/minigames/cyberroad/CyberRoadScreen';
 import TapDashGame from '@/minigames/tapdash/TapDashGame';
 import TileClashGame from '@/minigames/tileclash/TileClashGame';
 import { useAuthStore } from '@/store/authStore';
@@ -181,6 +182,9 @@ export default function DailyFreeTournamentPlayScreen() {
         ) : null}
         {gameKey === 'ball-run' ? (
           <NeonBallRunGame key={`ball-${roundPlayKey}`} dailyTournament={bundle} />
+        ) : null}
+        {gameKey === 'cyber-road' ? (
+          <CyberRoadScreen key={`cyber-${roundPlayKey}`} dailyTournament={bundle} />
         ) : null}
       </View>
       <RoundAdvanceOverlay

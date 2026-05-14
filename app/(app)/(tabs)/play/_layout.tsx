@@ -36,7 +36,7 @@ export default function PlayStackLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: { backgroundColor: arcade.navy1 },
-        headerTintColor: runit.neonCyan,
+        headerTintColor: runit.neonPurple,
         headerTitleStyle: { fontWeight: '900', color: '#F5F3FF', fontSize: 18 },
         contentStyle: { backgroundColor: arcade.navy1 },
         ...stackAnimationDefaults,
@@ -47,6 +47,7 @@ export default function PlayStackLayout() {
       <Stack.Screen name="casual" options={{ headerShown: false, ...queueFlowGestureLock }} />
       <Stack.Screen name="live-matches" options={{ headerShown: false, ...queueFlowGestureLock }} />
       <Stack.Screen name="choose-contest" options={{ headerShown: false, ...queueFlowGestureLock }} />
+      <Stack.Screen name="async-run" options={{ headerShown: false, ...queueFlowGestureLock }} />
       <Stack.Screen name="ranked" options={{ headerShown: false, ...queueFlowGestureLock }} />
       {/* Nested minigames stack — hide parent title bar; lock gestures so drags don’t pop to arcade */}
       <Stack.Screen name="minigames" options={{ headerShown: false, ...minigamesParentGestureLock }} />

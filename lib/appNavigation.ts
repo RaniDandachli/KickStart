@@ -29,7 +29,7 @@ export const ROUTES = {
   get dailyRaceLeader(): ReturnType<typeof dailyRaceLeaderHref> {
     return dailyRaceLeaderHref();
   },
-  /** Async Tap Dash challenges hub (same as `oneVsOneChallenges`). */
+  /** Async 1v1 open-challenge hub (same as `oneVsOneChallenges`). */
   get dailyRace(): ReturnType<typeof dailyRaceHref> {
     return dailyRaceHref();
   },

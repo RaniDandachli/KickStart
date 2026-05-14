@@ -99,6 +99,17 @@ export function MatchmakingQueueRunner() {
             }
             return;
           }
+          if (r.error === 'async_host_pending' && !queuePollAlertShownRef.current) {
+            queuePollAlertShownRef.current = true;
+            setQueuePollSnapshot(null);
+            void h2hCancelQueue().catch(() => {});
+            useMatchmakingStore.getState().reset();
+            Alert.alert(
+              'Async run in progress',
+              'You already submitted a staked async Tap Dash run. Cancel it from the queue screen (or wait for a match) before live matchmaking this tier.',
+            );
+            return;
+          }
           if (r.error === 'insufficient_wallet' && !queuePollAlertShownRef.current) {
             queuePollAlertShownRef.current = true;
             setQueuePollSnapshot(null);

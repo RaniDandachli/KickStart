@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,11 +20,15 @@ import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { awardRedeemTicketsForPrizeRun, ticketsFromNeonGridScore } from '@/lib/ticketPayouts';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
-import type { H2hSkillContestBundle } from '@/types/match';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
+import { AsyncH2hQueueHostLockOverlay } from '@/minigames/ui/AsyncH2hQueueHostLockOverlay';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 
 type Phase = 'home' | 'lobby' | 'countdown' | 'playing' | 'results';
 
@@ -34,17 +38,24 @@ function nextSeed(): number {
 
 export default function NeonGridScreen({
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 } = {}) {
   useHidePlayTabBar();
   const router = useRouter();
+  const { replaceToPrimaryExit, replacePrimaryLabel, replaceToHomeTab } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
 
-  const [phase, setPhase] = useState<Phase>(() => (h2hSkillContest ? 'countdown' : 'home'));
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (h2hSkillContest?.asyncHostSkipSubmit) return 'results';
+    if (h2hSkillContest) return 'countdown';
+    return 'home';
+  });
   const [mode, setMode] = useState<'practice' | 'vs'>('practice');
   const [seed, setSeed] = useState(nextSeed);
   const [finalScore, setFinalScore] = useState(0);
@@ -71,7 +82,52 @@ export default function NeonGridScreen({
     phase,
     buildH2hBody,
     'results',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
+
+  const getAsyncHostStats = useCallback(
+    () => ({
+      score: lastRunRef.current.score,
+      durationMs: lastRunRef.current.durationMs,
+      taps: lastRunRef.current.tapCount,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'results',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(h2hSkillContest),
+    getStats: getAsyncHostStats,
+    uid,
+  });
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      lastRunRef.current = { ...lastRunRef.current, score: data.self_score };
+      setFinalScore(data.self_score);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId]);
+
+  useEffect(() => {
+    if (!asyncH2hQueueSubmit || h2hSkillContest) return;
+    setMode('practice');
+    setSeed(nextSeed());
+    setPhase('countdown');
+  }, [asyncH2hQueueSubmit, h2hSkillContest]);
+
+  const playAgainAsyncHost = useCallback(() => {
+    resetAsyncSubmission();
+    setMode('practice');
+    setSeed(nextSeed());
+    setPhase('countdown');
+  }, [resetAsyncSubmission]);
 
   const runFlow = phase !== 'home';
 
@@ -155,6 +211,15 @@ export default function NeonGridScreen({
         setPhase('results');
         return;
       }
+      if (asyncH2hQueueSubmit) {
+        lastRunRef.current = { score, durationMs: dur, tapCount: taps };
+        setTicketsEarned(0);
+        setFinalScore(score);
+        setDurationMs(dur);
+        setTapCount(taps);
+        setPhase('results');
+        return;
+      }
       void (async () => {
         let tickets = 0;
         if (mode === 'vs') {
@@ -214,11 +279,12 @@ export default function NeonGridScreen({
         setPhase('results');
       })();
     },
-    [h2hSkillContest, mode, uid, queryClient],
+    [asyncH2hQueueSubmit, h2hSkillContest, mode, uid, queryClient],
   );
 
   const rematch = useCallback(() => {
     if (h2hSkillContest) return;
+    if (asyncH2hQueueSubmit) resetAsyncSubmission();
     void (async () => {
       if (mode === 'vs') {
         if (ENABLE_BACKEND) {
@@ -255,9 +321,9 @@ export default function NeonGridScreen({
       setSeed(nextSeed());
       setPhase('countdown');
     })();
-  }, [h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, router, uid]);
+  }, [asyncH2hQueueSubmit, h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, resetAsyncSubmission, router, uid]);
 
-  useWebGameKeyboard(Platform.OS === 'web' && phase === 'results' && !h2hSkillContest, {
+  useWebGameKeyboard(Platform.OS === 'web' && phase === 'results' && !h2hSkillContest && !asyncH2hQueueSubmit, {
     Space: (down) => {
       if (!down) return;
       rematch();
@@ -348,7 +414,7 @@ export default function NeonGridScreen({
               tapCount={tapCount}
               seed={seed}
               ticketsEarned={h2hSkillContest ? undefined : mode === 'vs' ? ticketsEarned : undefined}
-              hideRematch={Boolean(h2hSkillContest)}
+              hideRematch={Boolean(h2hSkillContest || asyncH2hQueueSubmit)}
               h2hFooter={
                 h2hSkillContest ? (
                   <View style={{ marginBottom: 12, marginTop: 8 }}>
@@ -383,6 +449,17 @@ export default function NeonGridScreen({
               }
               onRematch={rematch}
               onExit={exitToMenu}
+            />
+          ) : null}
+          {phase === 'results' && asyncH2hQueueSubmit && !h2hSkillContest ? (
+            <AsyncH2hQueueHostLockOverlay
+              asyncHostSubmitPhase={asyncHostSubmitPhase}
+              scoreLine={`Rows cleared: ${finalScore}`}
+              onPlayAgain={playAgainAsyncHost}
+              playAgainDisabled={asyncHostSubmitPhase === 'loading'}
+              minigamesLabel={replacePrimaryLabel}
+              onMinigames={replaceToPrimaryExit}
+              onHome={replaceToHomeTab}
             />
           ) : null}
         </View>

@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
@@ -656,17 +656,37 @@ export function OpponentFoundModal({
     />
   );
 
+  const backdropDismiss = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Decline match"
+      onPress={onDecline}
+      style={StyleSheet.absoluteFillObject}
+    />
+  );
+
+  const bodyLayer: ViewStyle = {
+    flex: 1,
+    zIndex: 1,
+    justifyContent: 'center',
+    pointerEvents: 'box-none',
+  };
+
   if (Platform.OS === 'web') {
     return (
       <View style={webOverlayStyle as never} pointerEvents="box-none">
-        {body}
+        {backdropDismiss}
+        <View style={bodyLayer}>{body}</View>
       </View>
     );
   }
 
   return (
     <Modal animationType="fade" transparent visible>
-      <View style={stylesModalRn.root}>{body}</View>
+      <View style={stylesModalRn.root} pointerEvents="box-none">
+        {backdropDismiss}
+        <View style={bodyLayer}>{body}</View>
+      </View>
     </Modal>
   );
 }
@@ -675,6 +695,5 @@ const stylesModalRn = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: 'rgba(5, 2, 8, 0.88)',
-    justifyContent: 'center',
   },
 });

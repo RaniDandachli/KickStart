@@ -18,7 +18,7 @@ import { Screen } from '@/components/ui/Screen';
 import { arcade } from '@/lib/arcadeTheme';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
-import { runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 
 type Props = {
   entryUsd: number;
@@ -68,7 +68,7 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
     const p = encodeURIComponent(String(prizeUsd));
     const g = encodeURIComponent(gameKey);
     router.replace(
-      `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${g}&intent=start` as never,
+      `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${g}&intent=start&autoStart=1` as never,
     );
   }
 
@@ -80,7 +80,11 @@ export function PickGameForQueue({ entryUsd, prizeUsd }: Props) {
       </Pressable>
 
       <Text style={[styles.kicker, { fontFamily: runitFont.black }]}>HEAD-TO-HEAD</Text>
-      <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowPink]}>Choose your game</Text>
+      <View style={styles.heroTitleRow}>
+        <Text style={[styles.heroChoose, { fontFamily: runitFont.black }]}>Choose</Text>
+        <Text style={[styles.heroGame, { fontFamily: runitFont.black }, runitTextGlowPink]}>game</Text>
+        <SafeIonicons name="game-controller" size={22} color={runit.neonPurple} style={styles.heroIcon} />
+      </View>
       <View style={styles.tierSummary}>
         <View style={styles.tierSummaryCol}>
           <Text style={styles.tierSummaryLbl}>Match access</Text>
@@ -140,13 +144,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
-  title: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: 12,
   },
+  heroChoose: { color: '#f8fafc', fontSize: 24, letterSpacing: 0.5 },
+  heroGame: { color: runit.neonPink, fontSize: 24, letterSpacing: 0.5 },
+  heroIcon: { marginLeft: 2 },
   tierSummary: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -155,8 +163,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-    backgroundColor: 'rgba(15,23,42,0.75)',
+    borderColor: 'rgba(168,85,247,0.45)',
+    backgroundColor: 'rgba(8,4,18,0.72)',
   },
   tierSummaryCol: {
     flex: 1,

@@ -181,7 +181,7 @@ export const ZONE_THEMES = [
     spikeFill0: '#ffe066',
     spikeFill1: '#6d28d9',
     spikeStroke: 'rgba(255,240,200,0.95)',
-    voidFill: '#050208',
+    voidFill: '#121214',
     voidLine: 'rgba(168,85,247,0.5)',
     playerOuter: '#39e600',
     playerMid: '#1a9900',

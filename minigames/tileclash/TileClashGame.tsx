@@ -1,7 +1,7 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,8 @@ import { onWeeklyRaceAfterMinigameScore } from '@/lib/weeklyRaceAfterScore';
 import { queryKeys } from '@/lib/queryKeys';
 import { weeklyRaceDayKey } from '@/lib/weeklyRace';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import {
   awardRedeemTicketsForPrizeRun,
   TILE_CLASH_POINTS_PER_TICKET,
@@ -53,7 +55,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useProfile } from '@/hooks/useProfile';
 import { finalizeDailyScores } from '@/lib/dailyFreeTournament';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { H2hSkillContestBundle } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
 
 const COLS = 4;
 /** Abstract vertical range (game logic). */
@@ -153,11 +155,13 @@ export default function TileClashGame({
   dailyTournament,
   h2hSkillContest,
   weeklyRace = false,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
   weeklyRace?: boolean;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -181,7 +185,9 @@ export default function TileClashGame({
   const scaleY = boardH / LANE_H;
   const colW = boardW / COLS;
 
-  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>(() =>
+    h2hSkillContest?.asyncHostSkipSubmit ? 'over' : 'ready',
+  );
   useLockNavigatorGesturesWhile(phase === 'playing');
   useTileClashMusic(phase === 'playing');
   const [, setUiTick] = useState(0);
@@ -202,6 +208,37 @@ export default function TileClashGame({
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
+  const getEndStats = useCallback(
+    () => ({
+      score: endStatsRef.current.score,
+      durationMs: endStatsRef.current.durationMs,
+      taps: endStatsRef.current.taps,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'over',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(dailyTournament || h2hSkillContest),
+    getStats: getEndStats,
+    uid,
+  });
+
+  const resetRun = useCallback(() => {
+    modelRef.current = createGame();
+    startTimeRef.current = 0;
+    lastTapAtRef.current = 0;
+    intervalsRef.current = [];
+    tapCountRef.current = 0;
+    resetMinigameHudClock(lastHudEmitRef);
+    setSubmitOk(false);
+    setSubmitErr(false);
+    if (asyncH2hQueueSubmit) resetAsyncSubmission();
+    setPhase('ready');
+    bump();
+  }, [asyncH2hQueueSubmit, bump, resetAsyncSubmission]);
+
   const flashError = useCallback(() => {
     setRedFlash(true);
     setTimeout(() => setRedFlash(false), 140);
@@ -221,12 +258,12 @@ export default function TileClashGame({
         awardRedeemTicketsForPrizeRun(ticketsFromTileClashScore(m.score));
       }
       setPhase('over');
-      if (!dailyTournament && !h2hSkillContest) {
+      if (!dailyTournament && !h2hSkillContest && !asyncH2hQueueSubmit) {
         setAutoSubmitSeq((n) => n + 1);
       }
       bump();
     },
-    [bump, playMode, dailyTournament, h2hSkillContest, weeklyRace],
+    [bump, playMode, dailyTournament, h2hSkillContest, weeklyRace, asyncH2hQueueSubmit],
   );
 
   const step = useCallback(
@@ -266,19 +303,6 @@ export default function TileClashGame({
 
   useRafLoop(step, phase === 'playing');
 
-  const resetRun = useCallback(() => {
-    modelRef.current = createGame();
-    startTimeRef.current = 0;
-    lastTapAtRef.current = 0;
-    intervalsRef.current = [];
-    tapCountRef.current = 0;
-    resetMinigameHudClock(lastHudEmitRef);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('ready');
-    bump();
-  }, [bump]);
-
   const buildH2hBody = useCallback(() => {
     const { score, durationMs, taps, intervals } = endStatsRef.current;
     return {
@@ -295,7 +319,27 @@ export default function TileClashGame({
     h2hSkillContest,
     phase,
     buildH2hBody,
+    'over',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      endStatsRef.current = {
+        ...endStatsRef.current,
+        score: data.self_score,
+        taps: endStatsRef.current.taps,
+        intervals: endStatsRef.current.intervals,
+      };
+      bump();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId, bump]);
 
   const startGame = useCallback(() => {
     void (async () => {
@@ -454,7 +498,7 @@ export default function TileClashGame({
     phase,
     overValue: 'over',
     runToken: autoSubmitSeq,
-    disabled: Boolean(dailyTournament || h2hSkillContest),
+    disabled: Boolean(dailyTournament || h2hSkillContest || asyncH2hQueueSubmit),
     onSubmit: submitScore,
   });
 
@@ -483,7 +527,11 @@ export default function TileClashGame({
 
   /** Web: game over — Space / Enter / 1–4 = Play Again or (daily) Continue. H2H waits on server. */
   useWebGameKeyboard(
-    Platform.OS === 'web' && phase === 'over' && !h2hSkillContest && (!dailyTournament || !!dailyPayload),
+    Platform.OS === 'web' &&
+      phase === 'over' &&
+      !h2hSkillContest &&
+      (!dailyTournament || !!dailyPayload) &&
+      (!asyncH2hQueueSubmit || asyncHostSubmitPhase !== 'loading'),
     {
       Space: (down) => {
         if (!down) return;
@@ -709,10 +757,15 @@ export default function TileClashGame({
               />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
-              {h2hSubmitPhase === 'loading' ? (
+              {h2hSkillContest.asyncHostSkipSubmit ? (
+                <Text style={styles.footerHintCenter}>
+                  Your score is already on the server from your async submission. Your opponent is playing live — hang
+                  tight while they finish.
+                </Text>
+              ) : h2hSubmitPhase === 'loading' ? (
                 <Text style={styles.footerHintCenter}>Submitting your run…</Text>
               ) : null}
-              {h2hSubmitPhase === 'error' ? (
+              {!h2hSkillContest.asyncHostSkipSubmit && h2hSubmitPhase === 'error' ? (
                 <>
                   <Text style={styles.footerHintCenter}>Could not submit this run. Check your connection.</Text>
                   <AppButton title="Retry submit" className="mt-3" onPress={() => setH2hRetryKey((k) => k + 1)} />
@@ -729,7 +782,40 @@ export default function TileClashGame({
             </View>
           </View>
         ) : null}
-        {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
+        {phase === 'over' && asyncH2hQueueSubmit && !h2hSkillContest && !dailyTournament ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={[styles.card, { maxWidth: dialogMax }]}>
+              <GameOverExitRow
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
+              />
+              <Text style={styles.goTitle}>Run ended</Text>
+              <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+              {asyncHostSubmitPhase === 'loading' ? (
+                <Text style={styles.footerHintCenter}>Locking your contest entry on the server…</Text>
+              ) : null}
+              {asyncHostSubmitPhase === 'ok' ? (
+                <Text style={styles.footerHintCenter}>
+                  You’re on the stack for this tier. Opponents who pick the same stake row still play live; your run is
+                  compared when they finish.
+                </Text>
+              ) : null}
+              {asyncHostSubmitPhase === 'error' ? (
+                <Text style={styles.footerHintCenter}>
+                  We could not charge your wallet or store this run. Check the alert, then tap Play again to retry.
+                </Text>
+              ) : null}
+              <AppButton
+                title="Play again"
+                onPress={resetRun}
+                className="mb-3"
+                disabled={asyncHostSubmitPhase === 'loading'}
+              />
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament && !h2hSkillContest && !asyncH2hQueueSubmit ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow

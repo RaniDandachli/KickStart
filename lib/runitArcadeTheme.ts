@@ -1,6 +1,6 @@
 /**
- * Run It Arcade — **purple** + **gold** (#FFD700) on **black / white** — no turquoise/cyan in chrome.
- * Token `neonCyan` is kept for import compatibility; value is **gold** (replaces old cyan accents).
+ * Run It Arcade — **purple** + **gold** accents on **neutral charcoal** shells (reference: deep grey
+ * backgrounds, slightly lighter cards). Surfaces stay grey; purple / gold are accents only.
  */
 export const runit = {
   /** Hot accent — orchid / fuchsia (pairs with purple CTAs). */
@@ -16,27 +16,53 @@ export const runit = {
   goldBright: '#FFEB3B',
   /** Pale gold for soft fills / text on dark. */
   goldSoft: '#FFF3B0',
-  /** Base screen — true black with a hint of violet. */
-  bgDeep: '#050208',
-  bgPanel: 'rgba(24, 10, 40, 0.94)',
-  glass: 'rgba(10, 6, 20, 0.78)',
+  /** App shell — deep charcoal (~Skillz-style base). */
+  bgDeep: '#121214',
+  /** Cards / panels — elevated grey. */
+  bgPanel: 'rgba(24, 24, 27, 0.96)',
+  glass: 'rgba(24, 24, 27, 0.82)',
+  /** Secondary labels on dark UI. */
+  textSecondary: '#8E8E93',
 } as const;
 
-/** Full-screen vertical gradient — black → deep violet (cinematic, esports). */
-export const APP_SCREEN_GRADIENT_COLORS = ['#020103', '#0c0518', '#1a0a2e', '#0a0612'] as const;
+/**
+ * Modal / card scrims — same hue family as `bgDeep` / `bgPanel`, no violet cast.
+ * Prefer these over ad-hoc `rgba(6,2,14,…)` so the app stays one neutral secondary ramp.
+ */
+export const runitShell = {
+  scrim96: 'rgba(18, 18, 20, 0.96)',
+  scrim94: 'rgba(18, 18, 20, 0.94)',
+  scrim92: 'rgba(18, 18, 20, 0.92)',
+  scrim90: 'rgba(18, 18, 20, 0.90)',
+  scrim88: 'rgba(18, 18, 20, 0.88)',
+  scrim85: 'rgba(18, 18, 20, 0.85)',
+  scrim82: 'rgba(18, 18, 20, 0.82)',
+  scrim80: 'rgba(18, 18, 20, 0.80)',
+  scrim72: 'rgba(18, 18, 20, 0.72)',
+  scrim70: 'rgba(18, 18, 20, 0.70)',
+  scrim60: 'rgba(18, 18, 20, 0.60)',
+  scrim55: 'rgba(18, 18, 20, 0.55)',
+  card98: 'rgba(24, 24, 27, 0.98)',
+  card90: 'rgba(24, 24, 27, 0.90)',
+  card88: 'rgba(24, 24, 27, 0.88)',
+  card85: 'rgba(24, 24, 27, 0.85)',
+} as const;
+
+/** Full-screen vertical gradient — neutral charcoal steps (no purple in the base wash). */
+export const APP_SCREEN_GRADIENT_COLORS = ['#0B0B0D', '#121214', '#161618', '#101012'] as const;
 
 export const APP_SCREEN_GRADIENT_LOCATIONS = [0, 0.32, 0.65, 1] as const;
 
-/** Section dividers & tab chrome — neon purple rim. */
-export const appChromeLinePink = 'rgba(168, 85, 247, 0.45)';
+/** Section dividers & tab chrome — soft neutral rim (purple reserved for CTAs / focus). */
+export const appChromeLinePink = 'rgba(255, 255, 255, 0.06)';
 
-export const appTabBarBorderAccent = 'rgba(192, 132, 252, 0.4)';
+export const appTabBarBorderAccent = 'rgba(255, 255, 255, 0.08)';
 
-export const appBorderAccent = 'rgba(192, 132, 252, 0.45)';
+export const appBorderAccent = 'rgba(255, 255, 255, 0.12)';
 
-export const appBorderAccentMuted = 'rgba(168, 85, 247, 0.22)';
+export const appBorderAccentMuted = 'rgba(255, 255, 255, 0.07)';
 
-export const appChromeGradientFadePink = 'rgba(192, 132, 252, 0.32)' as const;
+export const appChromeGradientFadePink = 'rgba(255, 255, 255, 0.10)' as const;
 
 /** Title emphasis — soft purple bloom. */
 export const runitTextGlowPink = {

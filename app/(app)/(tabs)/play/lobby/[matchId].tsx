@@ -12,7 +12,7 @@ import { useMatchSessionWithPlayers } from '@/hooks/useMatchSessionWithPlayers';
 import { useProfile } from '@/hooks/useProfile';
 import { isUuid } from '@/lib/isUuid';
 import { queryKeys } from '@/lib/queryKeys';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitGlowPinkSoft, runitShell, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import { H2hLobbyStatusLine } from '@/features/play/H2hFlowStatusLine';
 import { displayNameForProfile, h2hAbandonMatchSessionRpc } from '@/services/api/h2hMatchSession';
 import { useAuthStore } from '@/store/authStore';
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   vsBorder: { borderRadius: 16, padding: 2, marginBottom: 16 },
   vsInner: {
-    backgroundColor: 'rgba(6,2,14,0.94)',
+    backgroundColor: runitShell.scrim94,
     borderRadius: 14,
     padding: 16,
   },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,0,110,0.6)',
     textShadowRadius: 10,
   },
-  pCard: { flex: 1, minHeight: 100, padding: 10, borderRadius: 12, backgroundColor: 'rgba(12,6,22,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  pCard: { flex: 1, minHeight: 100, padding: 10, borderRadius: 12, backgroundColor: runitShell.card90, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   pLbl: { fontSize: 10, fontWeight: '800', color: 'rgba(148,163,184,0.9)', letterSpacing: 1, marginBottom: 4 },
   pName: { fontSize: 16, fontWeight: '900', color: '#f8fafc', marginBottom: 4 },
   pSub: { fontSize: 11, color: 'rgba(148,163,184,0.95)', lineHeight: 15 },

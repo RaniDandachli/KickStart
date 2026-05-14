@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
+import { ArcadeHowItWorksModal } from '@/components/arcade/ArcadeHowItWorksModal';
 import { PickGameForQueue } from '@/features/play/PickGameForQueue';
 import { QueueScreen } from '@/features/play/QueueScreen';
 import { H2H_OPEN_GAMES, titleForH2hGameKey, type H2hGameKey } from '@/lib/homeOpenMatches';
@@ -36,6 +37,7 @@ function parseCentsParam(v: string | string[] | undefined): number | undefined {
 
 export default function CasualQueueScreen() {
   const params = useLocalSearchParams();
+  const [arcadeHowItWorksOpen, setArcadeHowItWorksOpen] = useState(false);
   const quickRaw = params.quick;
   const quickMatch = quickRaw === '1' || quickRaw === 'true';
   const entryCentsParam = parseCentsParam(params.entryCents);
@@ -60,6 +62,8 @@ export default function CasualQueueScreen() {
   }, [hasExactCents, entryCentsParam, prizeCentsParam, hasPair, entry, prize]);
   const gameKey = parseGameKey(params.game);
   const queueIntent = parseIntent(params.intent);
+  const autoRaw = params.autoStart ?? params.auto;
+  const queueAutoStart = autoRaw === '1' || autoRaw === 'true';
   const rawReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
   const returnToHref = typeof rawReturnTo === 'string' && rawReturnTo.startsWith('/') ? rawReturnTo : undefined;
 
@@ -69,16 +73,21 @@ export default function CasualQueueScreen() {
   }
 
   return (
-    <QueueScreen
-      mode="casual"
-      entryFeeUsd={hasPair ? entry : undefined}
-      listedPrizeUsd={hasPair ? prize : undefined}
-      queueTierCents={queueTierCents}
-      gameTitle={gameKey ? titleForH2hGameKey(gameKey) : undefined}
-      gameKey={gameKey}
-      queueIntent={queueIntent}
-      quickMatch={quickMatch && !hasPair}
-      returnToHref={returnToHref}
-    />
+    <>
+      <QueueScreen
+        mode="casual"
+        entryFeeUsd={hasPair ? entry : undefined}
+        listedPrizeUsd={hasPair ? prize : undefined}
+        queueTierCents={queueTierCents}
+        gameTitle={gameKey ? titleForH2hGameKey(gameKey) : undefined}
+        gameKey={gameKey}
+        queueIntent={queueIntent}
+        quickMatch={quickMatch && !hasPair}
+        queueAutoStart={queueAutoStart && !!gameKey && !!hasPair}
+        returnToHref={returnToHref}
+        onOpenHowItWorks={() => setArcadeHowItWorksOpen(true)}
+      />
+      <ArcadeHowItWorksModal visible={arcadeHowItWorksOpen} onClose={() => setArcadeHowItWorksOpen(false)} />
+    </>
   );
 }

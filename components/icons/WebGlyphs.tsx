@@ -233,6 +233,440 @@ function WebGlyphRadioOn({ size, color }: GProps) {
   );
 }
 
+/** Unmapped Ion names used to fall through to the flash glyph — use a neutral placeholder instead. */
+function WebGlyphPlaceholder({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" strokeOpacity={0.35} />
+        <Circle cx="12" cy="12" r="1.5" fill={color} fillOpacity={0.45} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphBellOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"
+          stroke={color}
+          strokeWidth="1.65"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphBellSolid({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"
+          fill={color}
+          fillOpacity={0.92}
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphPlus({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.25} strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphPlayTriangle({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M9.5 7.5v9l8-4.5-8-4.5z" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphPlayCircle({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Path d="M10.5 9.5v5l4-2.5-4-2.5z" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphShareSocial({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="18" cy="5" r="2.5" stroke={color} strokeWidth="1.5" />
+        <Circle cx="6" cy="12" r="2.5" stroke={color} strokeWidth="1.5" />
+        <Circle cx="18" cy="19" r="2.5" stroke={color} strokeWidth="1.5" />
+        <Path d="M15.5 6.5l-7 3M8.5 13.5l7 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphCheckmark({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphSettingsOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.6" />
+        <Path
+          d="M12 1v2.2M12 20.8V23M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M1 12h2.2M20.8 12H23M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
+          stroke={color}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphReceiptOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M7 3h10l3 3v15l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1V6l2-3z" stroke={color} strokeWidth="1.55" strokeLinejoin="round" />
+        <Path d="M9 9h6M9 13h6M9 17h4" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphLogOutOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M10 7V5a2 2 0 012-2h7a2 2 0 012 2v14a2 2 0 01-2 2h-7a2 2 0 01-2-2v-2M15 12H3m0 0l4-4m-4 4l4 4"
+          stroke={color}
+          strokeWidth="1.65"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphSparkles({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <Path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke={color} strokeWidth="1.35" strokeLinecap="round" />
+        <Path d="M12 8l1.2 3.8L17 13l-3.8 1.2L12 18l-1.2-3.8L7 13l3.8-1.2L12 8z" stroke={color} strokeWidth="1.35" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphOptionsSliders({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M4 7h4M10 7h2M4 17h8M16 17h4M14 12h6" stroke={color} strokeWidth="1.65" strokeLinecap="round" />
+        <Circle cx="9" cy="7" r="2" stroke={color} strokeWidth="1.4" />
+        <Circle cx="15" cy="17" r="2" stroke={color} strokeWidth="1.4" />
+        <Circle cx="11" cy="12" r="2" stroke={color} strokeWidth="1.4" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphSearch({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="11" cy="11" r="6.5" stroke={color} strokeWidth="1.75" />
+        <Path d="M16.5 16.5L21 21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphPersonOutlineRing({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" strokeOpacity={0.45} />
+        <Circle cx="12" cy="9" r="3" stroke={color} strokeWidth="1.6" />
+        <Path d="M6.5 19.5v-.5a4 4 0 014-4h3a4 4 0 014 4v.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphHappyOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Path d="M8 14s1.5 2 4 2 4-2 4-2" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <Circle cx="9" cy="10" r="1" fill={color} />
+        <Circle cx="15" cy="10" r="1" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphHardwareChip({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="7" y="7" width="10" height="10" rx="2" stroke={color} strokeWidth="1.6" />
+        <Path d="M7 10H5M7 14H5M19 10h-2M19 14h-2M10 7V5M14 7V5M10 19v-2M14 19v-2" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphHelpCircleOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.65" />
+        <Path d="M9.5 9.5a2.5 2.5 0 014.6-1.2c.6 1.1.1 2.3-1 2.9C12 12 12 12.5 12 13.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <Circle cx="12" cy="17" r="0.75" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphShieldCheck({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 3l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V6l8-3z" stroke={color} strokeWidth="1.55" strokeLinejoin="round" />
+        <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphShieldOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 3l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V6l8-3z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphConstructOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.7-3.7-3-3-3.7 3.7zM3 21l6.6-6.6" stroke={color} strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M11 13l-8 8" stroke={color} strokeWidth="1.55" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphHandLeft({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M8 11V7a2 2 0 114 0v4M8 11H6a2 2 0 100 4h2l6 4v-8l-2-2"
+          stroke={color}
+          strokeWidth="1.55"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphSpeedometer({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 14V8M4.93 10.5a8 8 0 0114.14 0" stroke={color} strokeWidth="1.55" strokeLinecap="round" />
+        <Path d="M3 14c1.5 4.5 5.5 7 9 7s7.5-2.5 9-7" stroke={color} strokeWidth="1.55" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphPause({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="7" y="6" width="3.5" height="12" rx="1" fill={color} />
+        <Rect x="13.5" y="6" width="3.5" height="12" rx="1" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphVolumeHigh({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M11 7L6 11H3v2h3l5 4V7z" fill={color} />
+        <Path d="M15.5 9.5a5 5 0 010 5M17.5 7.5a8 8 0 010 9" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphVolumeMute({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M11 7L6 11H3v2h3l5 4V7z" fill={color} />
+        <Path d="M17 9l4 4M21 9l-4 4" stroke={color} strokeWidth="1.75" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphFingerprint({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M12 3a9 9 0 019 9M12 7a5 5 0 015 5M12 11a1 1 0 011 1M8 21a8 8 0 004-7M16 21a8 8 0 00-1-4"
+          stroke={color}
+          strokeWidth="1.45"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphArrowUp({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphLogoUsd({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.55" />
+        <Path d="M12 6v12M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1.1-3 2.5 1.3 2.5 3 2.5 3 1.1 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5" stroke={color} strokeWidth="1.45" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphDocumentText({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M7 3h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" stroke={color} strokeWidth="1.55" strokeLinejoin="round" />
+        <Path d="M9 12h6M9 16h6M9 8h2" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphMedalOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="9" r="5" stroke={color} strokeWidth="1.55" />
+        <Path d="M8 14l-2 8M16 14l2 8M10 20h4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphCalendarOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="3" y="5" width="18" height="16" rx="2" stroke={color} strokeWidth="1.55" />
+        <Path d="M3 10h18M8 3v4M16 3v4" stroke={color} strokeWidth="1.55" strokeLinecap="round" />
+        <Path d="M8 14h2M12 14h2M16 14h2M8 17h2M12 17h2" stroke={color} strokeWidth="1.35" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphTimerOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="14" r="8" stroke={color} strokeWidth="1.55" />
+        <Path d="M12 14V10M9 3h6M12 3v3" stroke={color} strokeWidth="1.55" strokeLinecap="round" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphEllipseOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="7" stroke={color} strokeWidth="1.65" />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphInstagram({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="3" y="3" width="18" height="18" rx="5" stroke={color} strokeWidth="1.55" />
+        <Circle cx="12" cy="12" r="4" stroke={color} strokeWidth="1.45" />
+        <Circle cx="17.5" cy="6.5" r="1.2" fill={color} />
+      </Svg>
+    </Box>
+  );
+}
+
+function WebGlyphSyncOutline({ size, color }: GProps) {
+  return (
+    <Box size={size}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M4 12a8 8 0 0113.5-5.5M20 12a8 8 0 01-13.5 5.5M20 12V8M4 12v4M4 16H0M20 8h4"
+          stroke={color}
+          strokeWidth="1.55"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Box>
+  );
+}
+
 /** Tier / misc outline icons (names match MATCH_ENTRY_TIERS + common) */
 export function WebGlyphByIonName({ name, size, color }: { name: string; size: number; color: string }) {
   switch (name) {
@@ -340,8 +774,84 @@ export function WebGlyphByIonName({ name, size, color }: { name: string; size: n
       return <WebGlyphStatsChart size={size} color={color} />;
     case 'radio-button-on':
       return <WebGlyphRadioOn size={size} color={color} />;
+    case 'notifications-outline':
+      return <WebGlyphBellOutline size={size} color={color} />;
+    case 'notifications':
+      return <WebGlyphBellSolid size={size} color={color} />;
+    case 'add':
+      return <WebGlyphPlus size={size} color={color} />;
+    case 'play-circle':
+      return <WebGlyphPlayCircle size={size} color={color} />;
+    case 'play':
+      return <WebGlyphPlayTriangle size={size} color={color} />;
+    case 'share-social':
+      return <WebGlyphShareSocial size={size} color={color} />;
+    case 'checkmark':
+      return <WebGlyphCheckmark size={size} color={color} />;
+    case 'settings-outline':
+      return <WebGlyphSettingsOutline size={size} color={color} />;
+    case 'receipt-outline':
+      return <WebGlyphReceiptOutline size={size} color={color} />;
+    case 'log-out-outline':
+      return <WebGlyphLogOutOutline size={size} color={color} />;
+    case 'sparkles-outline':
+    case 'sparkles':
+      return <WebGlyphSparkles size={size} color={color} />;
+    case 'options-outline':
+      return <WebGlyphOptionsSliders size={size} color={color} />;
+    case 'search':
+      return <WebGlyphSearch size={size} color={color} />;
+    case 'person-outline':
+      return <WebGlyphPersonOutlineRing size={size} color={color} />;
+    case 'happy-outline':
+      return <WebGlyphHappyOutline size={size} color={color} />;
+    case 'hardware-chip-outline':
+      return <WebGlyphHardwareChip size={size} color={color} />;
+    case 'help-circle-outline':
+      return <WebGlyphHelpCircleOutline size={size} color={color} />;
+    case 'shield-checkmark-outline':
+      return <WebGlyphShieldCheck size={size} color={color} />;
+    case 'shield-outline':
+      return <WebGlyphShieldOutline size={size} color={color} />;
+    case 'construct-outline':
+      return <WebGlyphConstructOutline size={size} color={color} />;
+    case 'hand-left-outline':
+      return <WebGlyphHandLeft size={size} color={color} />;
+    case 'speedometer-outline':
+      return <WebGlyphSpeedometer size={size} color={color} />;
+    case 'pause':
+      return <WebGlyphPause size={size} color={color} />;
+    case 'volume-mute':
+      return <WebGlyphVolumeMute size={size} color={color} />;
+    case 'volume-high':
+      return <WebGlyphVolumeHigh size={size} color={color} />;
+    case 'finger-print':
+      return <WebGlyphFingerprint size={size} color={color} />;
+    case 'arrow-up':
+      return <WebGlyphArrowUp size={size} color={color} />;
+    case 'logo-usd':
+      return <WebGlyphLogoUsd size={size} color={color} />;
+    case 'document-text-outline':
+      return <WebGlyphDocumentText size={size} color={color} />;
+    case 'medal-outline':
+    case 'medal':
+      return <WebGlyphMedalOutline size={size} color={color} />;
+    case 'calendar':
+    case 'calendar-outline':
+      return <WebGlyphCalendarOutline size={size} color={color} />;
+    case 'ellipse':
+    case 'ellipse-outline':
+      return <WebGlyphEllipseOutline size={size} color={color} />;
+    case 'timer-outline':
+      return <WebGlyphTimerOutline size={size} color={color} />;
+    case 'logo-instagram':
+      return <WebGlyphInstagram size={size} color={color} />;
+    case 'sync-outline':
+      return <WebGlyphSyncOutline size={size} color={color} />;
+    case 'ribbon':
+      return <WebGlyphRibbon size={size} color={color} />;
     default:
-      return <WebGlyphFlash size={size} color={color} />;
+      return <WebGlyphPlaceholder size={size} color={color} />;
   }
 }
 

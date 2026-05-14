@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router';
 
 /**
- * Tap Dash 1v1 challenge hub (async score matchups) — stack under Events.
+ * Async 1v1 challenge hub (open locked scores + same-tier join) — under Events.
  * @see `app/(app)/(tabs)/tournaments/one-vs-one-challenges.tsx`
  */
 export function oneVsOneChallengesHref(): Href {

@@ -135,6 +135,23 @@ export type TournamentRuleRow = {
   created_at: string;
 };
 
+export type H2hAsyncHostPendingRow = {
+  id: string;
+  host_user_id: string;
+  mode: string;
+  game_key: string;
+  entry_fee_wallet_cents: number;
+  listed_prize_usd_cents: number | null;
+  host_score: number;
+  host_game_type: string;
+  duration_ms: number;
+  taps: number;
+  status: string;
+  consumed_match_session_id: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
 export type MatchSessionRow = {
   id: string;
   mode: 'casual' | 'ranked' | 'custom';
@@ -447,6 +464,7 @@ export interface Database {
         Partial<TournamentMatchRow>
       >;
       match_sessions: PublicTable<MatchSessionRow, Partial<MatchSessionRow>, Partial<MatchSessionRow>>;
+      h2h_async_host_pending: PublicTable<H2hAsyncHostPendingRow, never, never>;
       match_results: PublicTable<MatchResultRow, Partial<MatchResultRow>, Partial<MatchResultRow>>;
       minigame_scores: PublicTable<
         MinigameScoreRow,
@@ -656,6 +674,47 @@ export interface Database {
       };
       h2h_maintenance_expire_stale: {
         Args: Record<string, never>;
+        Returns: Json;
+      };
+      h2h_async_host_submit: {
+        Args: {
+          p_mode: string;
+          p_game_key: string;
+          p_entry_fee_wallet_cents: number;
+          p_listed_prize_usd_cents: number;
+          p_host_score: number;
+          p_host_game_type: string;
+          p_duration_ms: number;
+          p_taps: number;
+        };
+        Returns: Json;
+      };
+      h2h_async_host_cancel: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      h2h_maintenance_expire_async_hosts: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      h2h_async_host_list_open_challenges: {
+        Args: { p_game_key?: string | null; p_limit?: number | null };
+        Returns: {
+          id: string;
+          mode: string;
+          game_key: string;
+          entry_fee_wallet_cents: number;
+          listed_prize_usd_cents: number | null;
+          host_score: number;
+          host_game_type: string;
+          duration_ms: number;
+          taps: number;
+          created_at: string;
+          expires_at: string;
+        }[];
+      };
+      h2h_join_specific_async_host_challenge: {
+        Args: { p_pending_id: string };
         Returns: Json;
       };
       h2h_tap_dash_scores_for_match: {

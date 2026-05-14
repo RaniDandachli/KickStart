@@ -7,12 +7,14 @@ export function H2hNeonDanceMatch({
   opponentId,
   opponentDisplayName,
   onComplete,
+  asyncHostSkipSubmit,
 }: {
   matchSessionId: string;
   localPlayerId: string;
   opponentId: string;
   opponentDisplayName: string;
   onComplete: (p: MatchFinishPayload) => void;
+  asyncHostSkipSubmit?: boolean;
 }) {
   return (
     <NeonDanceGame
@@ -22,6 +24,7 @@ export function H2hNeonDanceMatch({
         opponentId,
         opponentDisplayName,
         onComplete,
+        asyncHostSkipSubmit,
       }}
     />
   );

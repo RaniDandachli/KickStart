@@ -4,18 +4,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/ui/Screen';
 import { runit } from '@/lib/runitArcadeTheme';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { H2hSkillContestBundle } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
 
 /**
  * Ball Run uses @react-three/fiber/native + expo-gl (native GL). Web export skips the 3D stack.
  */
 export default function NeonBallRunGame({
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   runSeed?: number;
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   const router = useRouter();
 
@@ -26,6 +28,7 @@ export default function NeonBallRunGame({
         <Text style={styles.body}>
           This game uses native 3D (expo-gl) and is only available in the mobile app. Open Run iT Arcade on iOS or
           Android to play.
+          {asyncH2hQueueSubmit ? ' To finish locking an async contest entry, switch to the mobile app for Ball Run.' : ''}
         </Text>
         <Pressable
           onPress={() => {

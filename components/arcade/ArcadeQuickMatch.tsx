@@ -8,6 +8,7 @@ import {
   runitFont,
   runitGlowCyanSoft,
   runitGlowPinkSoft,
+  runitShell,
   runitTextGlowCyan,
   runitTextGlowPink,
 } from '@/lib/runitArcadeTheme';
@@ -32,19 +33,19 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onMoneyChallenges, on
       <View style={styles.row}>
         <Pressable onPress={onOneVsOne} style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}>
           <LinearGradient
-            colors={[runit.neonPink, 'rgba(255,0,110,0.35)', 'rgba(6,2,14,0.95)']}
+            colors={[runit.neonPink, 'rgba(168,85,247,0.2)', runitShell.scrim96]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={[styles.card1, runitGlowPinkSoft]}
           >
-            <SafeIonicons name="flash" size={28} color="#fff" style={styles.cardIcon} />
+            <SafeIonicons name="play-circle" size={28} color="#fff" style={styles.cardIcon} />
             <Text style={[styles.cardTitle, { fontFamily: runitFont.black }, runitTextGlowPink]}>1v1</Text>
             <Text style={styles.cardSub}>BATTLE</Text>
           </LinearGradient>
         </Pressable>
         <Pressable onPress={onSoloPlay} style={({ pressed }) => [styles.cardOuter, pressed && styles.pressed]}>
           <LinearGradient
-            colors={[runit.neonCyan, 'rgba(0,240,255,0.25)', 'rgba(6,2,14,0.95)']}
+            colors={[runit.neonCyan, 'rgba(255,215,0,0.18)', runitShell.scrim96]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={[styles.card1, runitGlowCyanSoft]}
@@ -58,7 +59,7 @@ export function ArcadeQuickMatch({ onOneVsOne, onSoloPlay, onMoneyChallenges, on
 
       <Pressable onPress={onMoneyChallenges} style={({ pressed }) => [styles.moneyRow, pressed && styles.pressed]}>
         <LinearGradient
-          colors={[runit.neonPink, '#a16207', runit.neonPurple]}
+          colors={[runit.neonPurple, '#27272a', runit.neonPink]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={[styles.eventsGrad, { borderRadius: 14 }]}

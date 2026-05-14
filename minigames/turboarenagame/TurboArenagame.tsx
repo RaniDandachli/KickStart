@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,9 +29,11 @@ import { alertInsufficientPrizeCredits, pushArcadeCreditsShop } from '@/lib/arca
 import { arcade } from '@/lib/arcadeTheme';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { getSupabase } from '@/supabase/client';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import {
   MINIGAME_HUD_MS_MOTION,
   resetMinigameHudClock,
@@ -39,6 +41,7 @@ import {
 } from '@/minigames/core/minigameHudThrottle';
 import { useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { AsyncH2hQueueHostLockOverlay } from '@/minigames/ui/AsyncH2hQueueHostLockOverlay';
 import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { minigameImmersiveStageWidth, minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
@@ -46,7 +49,7 @@ import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
-import type { H2hSkillContestBundle } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
 
 import {
   AiDifficulty,
@@ -305,9 +308,11 @@ function ArenaCanvas({
 export default function TurboArenaGame({
   playMode = 'practice',
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -326,7 +331,9 @@ export default function TurboArenaGame({
   const dialogMax = useMemo(() => minigameStageMaxWidth(360), [sw]);
   const { scale, arenaW, arenaH } = useArenaScale(sw);
 
-  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>(() =>
+    h2hSkillContest?.asyncHostSkipSubmit ? 'over' : 'ready',
+  );
   const [difficulty] = useState<AiDifficulty>('medium');
   const [, setUiTick] = useState(0);
 
@@ -345,15 +352,6 @@ export default function TurboArenaGame({
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
-  const resetRun = useCallback(() => {
-    stateRef.current = null;
-    resetMinigameHudClock(lastHudEmitRef);
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('ready');
-    bump();
-  }, [bump]);
-
   const endGame = useCallback(() => {
     const s = stateRef.current;
     if (!s) return;
@@ -362,11 +360,11 @@ export default function TurboArenaGame({
       durationMs: Math.max(0, Date.now() - startTimeRef.current),
     };
     setPhase('over');
-    if (!h2hSkillContest) {
+    if (!h2hSkillContest && !asyncH2hQueueSubmit) {
       setAutoSubmitSeq((n) => n + 1);
     }
     bump();
-  }, [bump, h2hSkillContest]);
+  }, [asyncH2hQueueSubmit, bump, h2hSkillContest]);
 
   const step = useCallback(
     (dtMs: number) => {
@@ -403,11 +401,53 @@ export default function TurboArenaGame({
     h2hSkillContest,
     phase,
     buildH2hBody,
+    'over',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
+
+  const getAsyncHostStats = useCallback(
+    () => ({
+      score: endStatsRef.current.scoreP1,
+      durationMs: endStatsRef.current.durationMs,
+      taps: 0,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'over',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(h2hSkillContest),
+    getStats: getAsyncHostStats,
+    uid,
+  });
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      endStatsRef.current = { ...endStatsRef.current, scoreP1: data.self_score };
+      bump();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bump, h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId]);
+
+  const resetRun = useCallback(() => {
+    stateRef.current = null;
+    resetMinigameHudClock(lastHudEmitRef);
+    setSubmitOk(false);
+    setSubmitErr(false);
+    if (asyncH2hQueueSubmit) resetAsyncSubmission();
+    setPhase('ready');
+    bump();
+  }, [asyncH2hQueueSubmit, bump, resetAsyncSubmission]);
 
   const startGame = useCallback(() => {
     void (async () => {
-      if (!h2hSkillContest && playMode === 'prize') {
+      if (!h2hSkillContest && !asyncH2hQueueSubmit && playMode === 'prize') {
         if (ENABLE_BACKEND) {
           if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
           const r = await beginMinigamePrizeRun('turbo_arena');
@@ -443,7 +483,7 @@ export default function TurboArenaGame({
       setPhase('playing');
       bump();
     })();
-  }, [playMode, profileQ.data?.prize_credits, bump, h2hSkillContest, router, queryClient, uid]);
+  }, [asyncH2hQueueSubmit, playMode, profileQ.data?.prize_credits, bump, h2hSkillContest, router, queryClient, uid]);
 
   const submitScore = useCallback(async () => {
     const { scoreP1, durationMs } = endStatsRef.current;
@@ -489,7 +529,7 @@ export default function TurboArenaGame({
     phase,
     overValue: 'over',
     runToken: autoSubmitSeq,
-    disabled: Boolean(h2hSkillContest),
+    disabled: Boolean(h2hSkillContest || asyncH2hQueueSubmit),
     onSubmit: submitScore,
   });
 
@@ -524,7 +564,11 @@ export default function TurboArenaGame({
   });
 
   /** Web: game over — Space / ↑ / Enter = Play Again (jump / confirm keys). */
-  useWebGameKeyboard(Platform.OS === 'web' && phase === 'over', {
+  useWebGameKeyboard(
+    Platform.OS === 'web' &&
+      phase === 'over' &&
+      !(asyncH2hQueueSubmit && asyncHostSubmitPhase === 'loading'),
+    {
     Space: (down) => {
       if (!down) return;
       resetRun();
@@ -673,7 +717,17 @@ export default function TurboArenaGame({
         )}
 
         {/* Game over card */}
-        {phase === 'over' && (
+        {phase === 'over' && asyncH2hQueueSubmit && !h2hSkillContest ? (
+          <AsyncH2hQueueHostLockOverlay
+            asyncHostSubmitPhase={asyncHostSubmitPhase}
+            scoreLine={`You ${endStatsRef.current.scoreP1} – ${s?.scoreP2 ?? 0} CPU`}
+            onPlayAgain={resetRun}
+            playAgainDisabled={asyncHostSubmitPhase === 'loading'}
+            minigamesLabel={replacePrimaryLabel}
+            onMinigames={replaceToPrimaryExit}
+            onHome={replaceToHomeTab}
+          />
+        ) : phase === 'over' ? (
           <View style={styles.overlay}>
             <View style={[styles.card, { maxWidth: dialogMax }]}>
               <GameOverExitRow
@@ -770,7 +824,7 @@ export default function TurboArenaGame({
               ) : null}
             </View>
           </View>
-        )}
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -784,7 +838,7 @@ const ORANGE = '#ff6600';
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#02001a' },
-  root: { flex: 1 },
+  root: { flex: 1, position: 'relative' },
 
   topBar: {
     flexDirection: 'row',

@@ -1,5 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,11 +33,6 @@ import {
 } from '@/lib/ticketPayouts';
 import { arcade } from '@/lib/arcadeTheme';
 import { getSupabase } from '@/supabase/client';
-import {
-  MINIGAME_HUD_MS_MOTION,
-  resetMinigameHudClock,
-  shouldEmitMinigameHudFrame,
-} from '@/minigames/core/minigameHudThrottle';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
 import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
@@ -55,6 +52,8 @@ import {
   STACKER_SPEED_START,
   STACKER_WIN_ROWS,
 } from './stackerConstants';
+
+const STORAGE_BEST_ROWS = '@kickclash/stacker_best_rows_v1';
 
 type Seg = { left: number; width: number };
 
@@ -129,7 +128,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const gw = gameSize?.w ?? sw;
   const gh = gameSize?.h ?? Math.max(320, sh - insets.top - insets.bottom);
   const unit = gw / STACKER_GRID_COLS;
-  const rowH = Math.max(8, Math.floor(gh / (STACKER_WIN_ROWS + 2)));
+  const rowH = Math.max(10, Math.round(gh / (STACKER_WIN_ROWS + 2)));
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
   const [, setUiTick] = useState(0);
@@ -143,8 +142,8 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
   const [submitOk, setSubmitOk] = useState(false);
   const [submitErr, setSubmitErr] = useState(false);
   const [autoSubmitSeq, setAutoSubmitSeq] = useState(0);
-  const lastHudEmitRef = useRef(0);
   const prizeRunReservationRef = useRef<string | null>(null);
+  const [bestRows, setBestRows] = useState<number>(0);
 
   const bump = useCallback(() => setUiTick((t) => t + 1), []);
 
@@ -159,6 +158,18 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
       if (playMode === 'prize') {
         awardRedeemTicketsForPrizeRun(ticketsFromStackerPrizeRun(won));
       }
+      void (async () => {
+        try {
+          const prev = await AsyncStorage.getItem(STORAGE_BEST_ROWS);
+          const n = prev != null ? parseInt(prev, 10) || 0 : 0;
+          if (rows > n) {
+            await AsyncStorage.setItem(STORAGE_BEST_ROWS, String(rows));
+            setBestRows(rows);
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
       setPhase('over');
       setAutoSubmitSeq((n) => n + 1);
       bump();
@@ -189,7 +200,7 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
         return true;
       });
 
-      if (g.alive && shouldEmitMinigameHudFrame(lastHudEmitRef, MINIGAME_HUD_MS_MOTION)) bump();
+      if (g.alive) bump();
     },
     [bump],
   );
@@ -202,7 +213,6 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     tapCountRef.current = 0;
     lastTapAtRef.current = 0;
     wonRef.current = false;
-    resetMinigameHudClock(lastHudEmitRef);
     setSubmitOk(false);
     setSubmitErr(false);
     setPhase('ready');
@@ -244,7 +254,6 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
       tapCountRef.current = 0;
       lastTapAtRef.current = 0;
       wonRef.current = false;
-      resetMinigameHudClock(lastHudEmitRef);
       setSubmitOk(false);
       setSubmitErr(false);
       setPhase('playing');
@@ -353,240 +362,555 @@ export default function StackerGame({ playMode = 'practice' }: { playMode?: 'pra
     onSubmit: submitScore,
   });
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const v = await AsyncStorage.getItem(STORAGE_BEST_ROWS);
+        if (v != null) setBestRows(Math.max(0, parseInt(v, 10) || 0));
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
   const g = gameRef.current;
   const target = stackTarget(g.placed);
   const movingW = target.width;
+  const stackDepth = g.placed.length;
+  const cellScore = g.placed.reduce((s, seg) => s + seg.width, 0);
+  const accuracyPct =
+    tapCountRef.current > 0
+      ? Math.min(100, Math.round((100 * stackDepth) / Math.max(1, tapCountRef.current)))
+      : 100;
+  const credits = profileQ.data?.prize_credits;
+  const showSideRails = Platform.OS === 'web' && sw >= 900;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.shell}>
-        {/* Full-screen playfield */}
-        <View style={styles.gameFill} onLayout={onGameLayout}>
-          <View style={[styles.boardWrap, { maxWidth: stageMax }]}>
-            <View style={styles.gridHint}>
-              {Array.from({ length: STACKER_GRID_COLS }, (_, i) => (
-                <View key={i} style={[styles.gridV, { left: i * unit, width: 1 }]} />
-              ))}
-            </View>
-
-            <View style={styles.tower}>
-              <View style={styles.stackCol}>
-                <View
-                  style={[
-                    styles.block,
-                    styles.basePad,
-                    {
-                      width: STACKER_BASE.width * unit - 4,
-                      height: rowH - 4,
-                      left: STACKER_BASE.left * unit + 2,
-                      bottom: 0,
-                    },
-                  ]}
-                />
-                {g.placed.map((seg, idx) => (
-                  <View
-                    key={`p-${idx}`}
-                    style={[
-                      styles.block,
-                      {
-                        width: seg.width * unit - 4,
-                        height: rowH - 4,
-                        left: seg.left * unit + 2,
-                        bottom: (idx + 1) * rowH,
-                        backgroundColor: tierColor(seg.width),
-                        borderColor: 'rgba(248,250,252,0.35)',
-                      },
-                    ]}
-                  />
-                ))}
-                {phase === 'playing' && g.alive ? (
-                  <View
-                    style={[
-                      styles.block,
-                      {
-                        width: movingW * unit - 4,
-                        height: rowH - 4,
-                        left: g.blockLeft * unit + 2,
-                        bottom: (g.placed.length + 1) * rowH,
-                        backgroundColor: tierColor(movingW),
-                        borderColor: '#f8fafc',
-                        zIndex: 4,
-                        elevation: 6,
-                      },
-                    ]}
-                  />
-                ) : null}
+      <LinearGradient colors={['#030510', '#0a0520', '#100828']} style={styles.gradFill} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}>
+        <View
+          style={[
+            styles.headerChrome,
+            {
+              paddingLeft: Math.max(insets.left, 10),
+              paddingRight: Math.max(insets.right, 10),
+            },
+          ]}
+        >
+          <View style={styles.headerLeft}>
+            <Pressable
+              onPress={onHeaderBackPress}
+              hitSlop={10}
+              style={({ pressed }) => [styles.topIconTile, pressed && { opacity: 0.85 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <SafeIonicons name="chevron-back" size={22} color="#f8fafc" />
+            </Pressable>
+            <View style={styles.creditsPill}>
+              <SafeIonicons name="diamond-outline" size={16} color="#c084fc" />
+              <Text style={styles.creditsNum}>{credits != null ? String(credits) : '—'}</Text>
+              <View style={styles.creditsPlus}>
+                <Text style={styles.creditsPlusTxt}>+</Text>
               </View>
             </View>
-
-            {phase === 'ready' ? (
-              <Pressable style={styles.startLayer} onPress={startGame}>
-                <View style={styles.startHint}>
-                  <Text style={styles.startMode}>
-                    {playMode === 'prize'
-                      ? `${STACKER_PRIZE_RUN_ENTRY_CREDITS} credits · ${STACKER_JACKPOT_TICKETS} tickets on full stack only`
-                      : 'Practice — no credits'}
-                  </Text>
-                  <Text style={styles.startTitle}>TAP TO START</Text>
-                  <Text style={styles.startSub}>
-                    Full screen · tap to drop · {STACKER_WIN_ROWS} rows to jackpot · speed ramps hard
-                    {Platform.OS === 'web' ? '\nWeb: Space or Enter to drop' : ''}
-                  </Text>
-                </View>
-              </Pressable>
-            ) : null}
-
-            {phase === 'playing' ? (
-              <Pressable style={StyleSheet.absoluteFill} onPress={onStackTap} accessibilityRole="button" accessibilityLabel="Stack block" />
-            ) : null}
           </View>
-        </View>
 
-        {/* Floating chrome — does not shrink the board */}
-        <View style={[styles.floatTop, { paddingTop: 4, paddingLeft: Math.max(insets.left, 6), paddingRight: Math.max(insets.right, 6) }]} pointerEvents="box-none">
-          <Pressable onPress={onHeaderBackPress} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}>
-            <SafeIonicons name="chevron-back" size={26} color={arcade.gold} />
-            <Text style={styles.backText}>{replacePrimaryLabel}</Text>
-          </Pressable>
-          <View style={styles.hudCluster}>
-            <Text style={styles.hudTitle}>STACKER</Text>
-            <Text style={styles.hudLine}>
-              {g.placed.length}/{STACKER_WIN_ROWS} · {tierLabel(target.width)}
+          <View style={styles.headerCenter}>
+            <View style={styles.titleRow}>
+              <Text style={styles.titleFlair}>‹</Text>
+              <Text style={styles.brandTitle}>STACKER</Text>
+              <Text style={styles.titleFlair}>›</Text>
+            </View>
+            <Text style={styles.headerSubPurple}>
+              {stackDepth} / {STACKER_WIN_ROWS} · {tierLabel(movingW).toUpperCase()}
             </Text>
-            <View style={styles.modePill}>
-              <Text style={styles.modePillText}>
-                {playMode === 'prize' ? `${STACKER_PRIZE_RUN_ENTRY_CREDITS} cr` : 'Practice'}
+            <View style={styles.jackpotPill}>
+              <SafeIonicons name="ribbon-outline" size={14} color="#0f172a" />
+              <Text style={styles.jackpotPillTxt}>
+                {playMode === 'prize' ? `${STACKER_PRIZE_RUN_ENTRY_CREDITS} CR` : 'PRACTICE'}
               </Text>
             </View>
           </View>
-          <View style={{ width: 72 }} />
+
+          <View style={styles.headerRight}>
+            <View style={styles.bestBox}>
+              <Text style={styles.bestLbl}>BEST SCORE</Text>
+              <Text style={styles.bestNum}>{bestRows}</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.topIconTile, pressed && { opacity: 0.85 }]}
+              onPress={() =>
+                Alert.alert(
+                  'Stacker',
+                  'Drop when the sliding row lines up with the stack below. Miss the overlap and the run ends. Reach the top for jackpot (prize mode).',
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel="How Stacker works"
+            >
+              <SafeIonicons name="settings-outline" size={20} color="#e2e8f0" />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.mainRow}>
+          {showSideRails ? (
+            <View style={styles.sideCard}>
+              <Text style={styles.sideTitle}>HOW TO PLAY</Text>
+              <View style={styles.howStep}>
+                <Text style={styles.howNum}>1</Text>
+                <View style={styles.howBlockPurple} />
+                <Text style={styles.howTxt}>TIME IT — tap when aligned.</Text>
+              </View>
+              <View style={styles.howStep}>
+                <Text style={styles.howNum}>2</Text>
+                <View style={styles.howRowGhost}>
+                  <View style={styles.howBlockGold} />
+                  <View style={styles.howGhost} />
+                </View>
+                <Text style={styles.howTxt}>LINE IT UP — match the width below.</Text>
+              </View>
+              <View style={styles.howStep}>
+                <Text style={styles.howNum}>3</Text>
+                <View style={styles.howMiniStack}>
+                  <View style={styles.howMiniSeg} />
+                  <View style={[styles.howMiniSeg, { opacity: 0.85 }]} />
+                  <View style={[styles.howMiniSeg, { opacity: 0.7 }]} />
+                </View>
+                <Text style={styles.howTxt}>STACK HIGH — climb to the jackpot row.</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <View
+            style={[styles.boardStage, !showSideRails ? { maxWidth: stageMax } : null]}
+            onLayout={onGameLayout}
+          >
+            <View style={styles.boardFrame}>
+              <View style={styles.gridHint}>
+                {Array.from({ length: STACKER_GRID_COLS }, (_, i) => (
+                  <View key={i} style={[styles.gridV, { left: i * unit, width: 1 }]} />
+                ))}
+              </View>
+              <View style={styles.dropBeam} pointerEvents="none">
+                <Text style={styles.dropBeamTxt}>▼</Text>
+                <Text style={styles.dropBeamTxt}>▼</Text>
+                <Text style={styles.dropBeamTxt}>▼</Text>
+              </View>
+
+              <View style={styles.tower}>
+                <View style={styles.stackCol}>
+                  <View
+                    style={[
+                      styles.block,
+                      styles.basePad,
+                      {
+                        width: STACKER_BASE.width * unit - 4,
+                        height: rowH - 4,
+                        left: STACKER_BASE.left * unit + 2,
+                        bottom: 0,
+                      },
+                    ]}
+                  />
+                  {g.placed.map((seg, idx) => (
+                    <View
+                      key={`p-${idx}`}
+                      style={[
+                        styles.block,
+                        styles.blockGlow,
+                        {
+                          width: seg.width * unit - 4,
+                          height: rowH - 4,
+                          left: seg.left * unit + 2,
+                          bottom: (idx + 1) * rowH,
+                          backgroundColor: tierColor(seg.width),
+                          borderColor: 'rgba(248,250,252,0.45)',
+                          shadowColor: tierColor(seg.width),
+                        },
+                      ]}
+                    />
+                  ))}
+                  {phase === 'playing' && g.alive ? (
+                    <View
+                      style={[
+                        styles.block,
+                        styles.blockGlow,
+                        styles.blockActive,
+                        {
+                          width: movingW * unit - 4,
+                          height: rowH - 4,
+                          left: g.blockLeft * unit + 2,
+                          bottom: (g.placed.length + 1) * rowH,
+                          backgroundColor: tierColor(movingW),
+                          borderColor: '#fef9c3',
+                          shadowColor: tierColor(movingW),
+                          zIndex: 4,
+                          elevation: 8,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+              </View>
+
+              {phase === 'ready' ? (
+                <Pressable style={styles.startLayer} onPress={startGame}>
+                  <View style={styles.startHint}>
+                    <Text style={styles.startMode}>
+                      {playMode === 'prize'
+                        ? `${STACKER_PRIZE_RUN_ENTRY_CREDITS} credits · ${STACKER_JACKPOT_TICKETS} tickets on full stack only`
+                        : 'Practice — no credits'}
+                    </Text>
+                    <Text style={styles.startTitle}>TAP TO START</Text>
+                    <Text style={styles.startSub}>
+                      {STACKER_WIN_ROWS} rows to jackpot · speed ramps · overlap to stay alive
+                      {Platform.OS === 'web' ? '\nWeb: Space or Enter to drop' : ''}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : null}
+
+              {phase === 'playing' ? (
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  onPress={onStackTap}
+                  accessibilityRole="button"
+                  accessibilityLabel="Stack block"
+                />
+              ) : null}
+            </View>
+          </View>
+
+          {showSideRails ? (
+            <View style={styles.sideCard}>
+              <Text style={styles.sideTitle}>RUN</Text>
+              <View style={styles.statBlock}>
+                <Text style={styles.statLabel}>CELLS STACKED</Text>
+                <Text style={[styles.statValue, { color: '#f8fafc' }]}>{cellScore}</Text>
+              </View>
+              <View style={styles.statBlock}>
+                <Text style={styles.statLabel}>ROWS</Text>
+                <Text style={[styles.statValue, { color: '#FACC15' }]}>{stackDepth}</Text>
+              </View>
+              <View style={styles.statBlock}>
+                <Text style={styles.statLabel}>ACCURACY</Text>
+                <Text style={[styles.statValue, { color: '#7dd3fc' }]}>{accuracyPct}%</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {phase === 'playing' ? (
-          <Text style={[styles.tapHint, { bottom: Math.max(insets.bottom, 10) + 6 }]} pointerEvents="none">
-            {Platform.OS === 'web' ? 'Space / Enter / tap to drop' : 'Tap anywhere to drop'}
-          </Text>
-        ) : null}
-
-        {phase === 'over' ? (
-          <View style={styles.overlay} pointerEvents="box-none">
-            <View style={[styles.card, { maxWidth: dialogMax }]}>
-              <GameOverExitRow
-                minigamesLabel={replacePrimaryLabel}
-                onMinigames={replaceToPrimaryExit}
-                onHome={replaceToHomeTab}
-              />
-              <Text style={styles.goTitle}>{wonRef.current ? 'Jackpot!' : 'Game over'}</Text>
-              <Text style={styles.goScore}>
-                Rows stacked: {endStatsRef.current.rows}/{STACKER_WIN_ROWS}
-              </Text>
-              {playMode === 'prize' ? (
-                <Text style={styles.goTickets}>
-                  {wonRef.current
-                    ? `+${ticketsFromStackerPrizeRun(true)} redeem tickets (jackpot)`
-                    : 'No tickets — reach the top row to earn'}
-                </Text>
-              ) : null}
-              <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
-              {playMode === 'prize' ? (
-                <>
-                  {submitting ? (
-                    <>
-                      <Text style={styles.goTickets}>Saving score…</Text>
-                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
-                    </>
-                  ) : null}
-                  {submitOk ? <Text style={styles.goTickets}>Score saved.</Text> : null}
-                  {submitErr && !submitting ? (
-                    <>
-                      <Text style={styles.goTickets}>Could not save score.</Text>
-                      <AppButton
-                        title="Retry"
-                        variant="secondary"
-                        className="mt-2"
-                        onPress={() => {
-                          setSubmitErr(false);
-                          void submitScore();
-                        }}
-                      />
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  {submitting ? (
-                    <>
-                      <Text style={styles.goTickets}>Saving practice run…</Text>
-                      <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
-                    </>
-                  ) : null}
-                  {submitOk ? (
-                    <Text style={styles.goTickets}>Practice run saved (no prize tickets).</Text>
-                  ) : null}
-                  {submitErr && !submitting ? (
-                    <>
-                      <Text style={styles.goTickets}>Could not save run.</Text>
-                      <AppButton
-                        title="Retry"
-                        variant="secondary"
-                        className="mt-2"
-                        onPress={() => {
-                          setSubmitErr(false);
-                          void submitScore();
-                        }}
-                      />
-                    </>
-                  ) : null}
-                </>
-              )}
+          <View style={[styles.dropBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <SafeIonicons name="hand-left-outline" size={28} color="#f8fafc" />
+            <View style={styles.dropBarTextCol}>
+              <Text style={styles.dropBarLine1}>{Platform.OS === 'web' ? 'TAP / ENTER / SPACE' : 'TAP'}</Text>
+              <Text style={styles.dropBarLine2}>TO DROP</Text>
             </View>
           </View>
         ) : null}
-      </View>
+      </LinearGradient>
+
+      {phase === 'over' ? (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <View style={[styles.card, { maxWidth: dialogMax }]}>
+            <GameOverExitRow
+              minigamesLabel={replacePrimaryLabel}
+              onMinigames={replaceToPrimaryExit}
+              onHome={replaceToHomeTab}
+            />
+            <Text style={styles.goTitle}>{wonRef.current ? 'Jackpot!' : 'Game over'}</Text>
+            <Text style={styles.goScore}>
+              Rows stacked: {endStatsRef.current.rows}/{STACKER_WIN_ROWS}
+            </Text>
+            {playMode === 'prize' ? (
+              <Text style={styles.goTickets}>
+                {wonRef.current
+                  ? `+${ticketsFromStackerPrizeRun(true)} redeem tickets (jackpot)`
+                  : 'No tickets — reach the top row to earn'}
+              </Text>
+            ) : null}
+            <AppButton title="Play Again" onPress={resetRun} className="mb-3" />
+            {playMode === 'prize' ? (
+              <>
+                {submitting ? (
+                  <>
+                    <Text style={styles.goTickets}>Saving score…</Text>
+                    <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                  </>
+                ) : null}
+                {submitOk ? <Text style={styles.goTickets}>Score saved.</Text> : null}
+                {submitErr && !submitting ? (
+                  <>
+                    <Text style={styles.goTickets}>Could not save score.</Text>
+                    <AppButton
+                      title="Retry"
+                      variant="secondary"
+                      className="mt-2"
+                      onPress={() => {
+                        setSubmitErr(false);
+                        void submitScore();
+                      }}
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {submitting ? (
+                  <>
+                    <Text style={styles.goTickets}>Saving practice run…</Text>
+                    <ActivityIndicator color={arcade.gold} style={{ marginTop: 12 }} />
+                  </>
+                ) : null}
+                {submitOk ? (
+                  <Text style={styles.goTickets}>Practice run saved (no prize tickets).</Text>
+                ) : null}
+                {submitErr && !submitting ? (
+                  <>
+                    <Text style={styles.goTickets}>Could not save run.</Text>
+                    <AppButton
+                      title="Retry"
+                      variant="secondary"
+                      className="mt-2"
+                      onPress={() => {
+                        setSubmitErr(false);
+                        void submitScore();
+                      }}
+                    />
+                  </>
+                ) : null}
+              </>
+            )}
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: arcade.navy0 },
-  shell: { flex: 1, width: '100%', position: 'relative' },
-  gameFill: {
-    flex: 1,
-    width: '100%',
-    minHeight: 0,
+  safe: { flex: 1, backgroundColor: '#030510' },
+  gradFill: { flex: 1, width: '100%', minHeight: 0 },
+  headerChrome: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    paddingBottom: 10,
+    zIndex: 30,
   },
-  boardWrap: {
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 152 },
+  headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  headerRight: {
+    width: 152,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  topIconTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+  },
+  creditsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15,23,42,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(196,181,253,0.38)',
+  },
+  creditsNum: { color: '#f8fafc', fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  creditsPlus: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: 'rgba(76,29,149,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditsPlusTxt: { color: '#f8fafc', fontSize: 15, fontWeight: '900', marginTop: -2 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleFlair: { color: '#a855f7', fontSize: 20, fontWeight: '300' },
+  brandTitle: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  headerSubPurple: {
+    marginTop: 4,
+    color: '#d8b4fe',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  jackpotPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#FACC15',
+    borderWidth: 1,
+    borderColor: 'rgba(253,224,71,0.95)',
+  },
+  jackpotPillTxt: { color: '#0f172a', fontSize: 11, fontWeight: '900' },
+  bestBox: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(15,23,42,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.5)',
+    alignItems: 'center',
+  },
+  bestLbl: { color: 'rgba(196,181,253,0.95)', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
+  bestNum: { color: '#f8fafc', fontSize: 18, fontWeight: '900', marginTop: 2, fontVariant: ['tabular-nums'] },
+  mainRow: {
     flex: 1,
-    width: '100%',
-    alignSelf: 'center',
     minHeight: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    backgroundColor: '#030712',
+    flexDirection: 'row',
+    width: '100%',
+    paddingHorizontal: 6,
+    gap: 8,
+  },
+  boardStage: { flex: 1, minWidth: 0, minHeight: 0 },
+  boardFrame: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(56,189,248,0.5)',
+    backgroundColor: '#020617',
     overflow: 'hidden',
+    position: 'relative',
   },
+  sideCard: {
+    width: 168,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: 'rgba(6,8,18,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.5)',
+    alignSelf: 'stretch',
+  },
+  sideTitle: {
+    color: 'rgba(196,181,253,0.95)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  howStep: { marginBottom: 14 },
+  howNum: { color: 'rgba(148,163,184,0.88)', fontSize: 11, fontWeight: '800', marginBottom: 6 },
+  howBlockPurple: {
+    height: 12,
+    width: 52,
+    borderRadius: 4,
+    backgroundColor: '#a855f7',
+    marginBottom: 6,
+  },
+  howRowGhost: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  howBlockGold: { height: 12, width: 42, borderRadius: 4, backgroundColor: '#FACC15' },
+  howGhost: {
+    height: 12,
+    width: 34,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.5)',
+  },
+  howMiniStack: { flexDirection: 'column', gap: 3, marginBottom: 6 },
+  howMiniSeg: { height: 8, width: 58, borderRadius: 3, backgroundColor: '#c084fc' },
+  howTxt: { color: 'rgba(226,232,240,0.9)', fontSize: 11, fontWeight: '600', lineHeight: 15 },
+  statBlock: { marginBottom: 14 },
+  statLabel: { color: 'rgba(148,163,184,0.92)', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  statValue: { fontSize: 22, fontWeight: '900', marginTop: 4 },
+  dropBeam: {
+    position: 'absolute',
+    top: 40,
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  dropBeamTxt: { color: 'rgba(167,139,250,0.45)', fontSize: 11, fontWeight: '900' },
+  dropBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginHorizontal: 14,
+    marginTop: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15,23,42,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+  },
+  dropBarTextCol: { alignItems: 'center' },
+  dropBarLine1: { color: '#f8fafc', fontSize: 15, fontWeight: '900', letterSpacing: 0.8 },
+  dropBarLine2: { color: '#c084fc', fontSize: 13, fontWeight: '800', marginTop: 2, letterSpacing: 2 },
   gridHint: { ...StyleSheet.absoluteFillObject },
   gridV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255,215,0,0.06)',
+    backgroundColor: 'rgba(250,204,21,0.045)',
   },
   tower: { flex: 1, width: '100%', position: 'relative' },
   stackCol: { flex: 1, width: '100%', position: 'relative' },
   block: {
     position: 'absolute',
-    borderRadius: 3,
+    borderRadius: 7,
     borderWidth: 2,
   },
+  blockGlow: {
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.45,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      default: {
+        elevation: 8,
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 0 },
+      },
+    }),
+  },
+  blockActive: {
+    ...Platform.select({
+      ios: { shadowOpacity: 0.75, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+      default: { elevation: 12, shadowOpacity: 0.55, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+    }),
+  },
   basePad: {
-    backgroundColor: 'rgba(51,65,85,0.95)',
-    borderColor: 'rgba(148,163,184,0.6)',
+    backgroundColor: 'rgba(51,65,85,0.96)',
+    borderColor: 'rgba(148,163,184,0.65)',
   },
   startLayer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    backgroundColor: 'rgba(6,13,24,0.72)',
+    backgroundColor: 'rgba(6,13,24,0.78)',
     zIndex: 10,
   },
   startHint: {
@@ -616,58 +940,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: 12,
   },
-  floatTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    zIndex: 20,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: { color: arcade.gold, fontWeight: '800', fontSize: 15 },
-  hudCluster: { alignItems: 'center', flex: 1, paddingHorizontal: 4 },
-  hudTitle: {
-    color: arcade.white,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 3,
-  },
-  hudLine: {
-    color: 'rgba(226,232,240,0.92)',
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  modePill: {
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15,23,42,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(250,204,21,0.35)',
-  },
-  modePillText: { color: 'rgba(226,232,240,0.95)', fontSize: 11, fontWeight: '800' },
-  tapHint: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    color: 'rgba(148,163,184,0.95)',
-    fontSize: 12,
-    fontWeight: '700',
-    zIndex: 12,
-  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(6,13,24,0.9)',
+    backgroundColor: 'rgba(6,13,24,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    zIndex: 40,
+    zIndex: 50,
   },
   card: {
     width: '100%',

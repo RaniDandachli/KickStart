@@ -94,6 +94,6 @@ export const COLORS = {
   neonPurple:       '#9333EA',
   neonPurpleDim:    '#6B21A8',
   metalPanel:       '#12101c',
-  metalEdge:        '#4c1d95',
+    metalEdge:        '#52525b',
   goldBoost:        '#FFD700',
 } as const;

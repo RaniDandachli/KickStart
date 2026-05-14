@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -54,14 +54,16 @@ import { queryKeys } from '@/lib/queryKeys';
 import { weeklyRaceDayKey } from '@/lib/weeklyRace';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
-import type { SoloChallengeBundle } from '@/lib/soloChallenges';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import {
   getSoloTriesUsedToday,
   SOLO_CHALLENGE_MAX_TRIES_PER_DAY,
   tryConsumeSoloChallengeTry,
 } from '@/lib/soloChallengeTries';
+import type { SoloChallengeBundle } from '@/lib/soloChallenges';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { H2hSkillContestBundle, MatchFinishPayload } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle, MatchFinishPayload } from '@/types/match';
 
 /** 60 FPS reference frame duration (ms). */
 const FRAME_MS = 1000 / 60;
@@ -430,6 +432,7 @@ export default function TapDashGame({
   h2hSkillContest,
   soloChallenge,
   weeklyRace = false,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   dailyTournament?: DailyTournamentBundle;
@@ -437,6 +440,8 @@ export default function TapDashGame({
   soloChallenge?: SoloChallengeBundle;
   /** Daily Race leaderboard (practice-mode scoring; server `weekly_race_*`; query `?weeklyRace=1`). */
   weeklyRace?: boolean;
+  /** After a practice run ends, lock wallet + score as async host for this Tap Dash tier (joiners still match live). */
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -472,7 +477,9 @@ export default function TapDashGame({
   const gameW = LANE_W * scale;
   const gameH = LANE_H * scale;
 
-  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>(() =>
+    h2hSkillContest?.asyncHostSkipSubmit ? 'over' : 'ready',
+  );
   useLockNavigatorGesturesWhile(phase === 'playing');
   const [, setUiTick] = useState(0);
   const modelRef = useRef<GameModel>(createGame());
@@ -514,13 +521,42 @@ export default function TapDashGame({
     };
   }, [h2hSkillContest]);
 
+  const bump = useCallback(() => setUiTick((t) => t + 1), []);
+
   const { h2hSubmitPhase, h2hPoll, h2hRetryKey, setH2hRetryKey } = useH2hSkillContestSubmitAndPoll(
     h2hSkillContest,
     phase,
     buildH2hBody,
+    'over',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
 
-  const bump = useCallback(() => setUiTick((t) => t + 1), []);
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      endStatsRef.current = {
+        score: data.self_score,
+        durationMs: endStatsRef.current.durationMs,
+        taps: endStatsRef.current.taps,
+      };
+      bump();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId, bump]);
+
+  const getEndStats = useCallback(() => endStatsRef.current, []);
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'over',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(dailyTournament || h2hSkillContest || soloChallenge),
+    getStats: getEndStats,
+    uid,
+  });
 
   const resetRun = useCallback(() => {
     modelRef.current = createGame();
@@ -528,9 +564,12 @@ export default function TapDashGame({
     startTimeRef.current = 0;
     setSubmitOk(false);
     setSubmitErr(false);
+    if (asyncH2hQueueSubmit) {
+      resetAsyncSubmission();
+    }
     setPhase('ready');
     bump();
-  }, [bump]);
+  }, [asyncH2hQueueSubmit, bump, resetAsyncSubmission]);
 
   const endGame = useCallback(
     (m: GameModel) => {
@@ -549,12 +588,12 @@ export default function TapDashGame({
           `You scored ${m.score} gates (target ${soloChallenge.targetScore}). ${soloChallenge.prizeLabel} — payouts subject to eligibility and verification.`,
         );
       }
-      if (!dailyTournament && !h2hSkillContest && !soloChallenge) {
+      if (!dailyTournament && !h2hSkillContest && !soloChallenge && !asyncH2hQueueSubmit) {
         setAutoSubmitSeq((n) => n + 1);
       }
       bump();
     },
-    [bump, playMode, dailyTournament, h2hSkillContest, soloChallenge, weeklyRace],
+    [bump, playMode, dailyTournament, h2hSkillContest, soloChallenge, weeklyRace, asyncH2hQueueSubmit],
   );
 
   const step = useCallback(
@@ -830,7 +869,7 @@ export default function TapDashGame({
     phase,
     overValue: 'over',
     runToken: autoSubmitSeq,
-    disabled: Boolean(dailyTournament || h2hSkillContest || soloChallenge),
+    disabled: Boolean(dailyTournament || h2hSkillContest || soloChallenge || asyncH2hQueueSubmit),
     onSubmit: submitScore,
   });
 
@@ -859,7 +898,11 @@ export default function TapDashGame({
 
   /** Web: game over — Space / ↑ / Enter = Play Again or (daily) Continue. H2H waits on server — no shortcut. */
   useWebGameKeyboard(
-    Platform.OS === 'web' && phase === 'over' && !h2hSkillContest && (!dailyTournament || !!dailyPayload),
+    Platform.OS === 'web' &&
+      phase === 'over' &&
+      !h2hSkillContest &&
+      (!dailyTournament || !!dailyPayload) &&
+      (!asyncH2hQueueSubmit || asyncHostSubmitPhase !== 'loading'),
     {
       Space: (down) => {
         if (!down) return;
@@ -905,7 +948,7 @@ export default function TapDashGame({
               </Text>
             ) : null}
           </View>
-          {dailyTournament || h2hSkillContest ? (
+          {dailyTournament || h2hSkillContest || asyncH2hQueueSubmit ? (
             <View style={styles.topBarRightSpacer} />
           ) : (
             <Pressable
@@ -1009,7 +1052,9 @@ export default function TapDashGame({
               <Text style={styles.hintMode}>
                 {soloChallenge
                   ? `Solo challenge · reach ${soloChallenge.targetScore} gates · ${soloChallenge.prizeLabel} showcase`
-                  : h2hSkillContest
+                  : asyncH2hQueueSubmit
+                    ? 'Async staked Tap Dash · play now, then we hold your run for the next player on this tier'
+                    : h2hSkillContest
                     ? `Head-to-head · vs ${h2hSkillContest.opponentDisplayName} · server-validated score`
                     : dailyTournament
                       ? `Live event · vs ${dailyTournament.opponentDisplayName}`
@@ -1068,10 +1113,14 @@ export default function TapDashGame({
               />
               <Text style={styles.goTitle}>Run ended</Text>
               <Text style={styles.goScore}>Your gates: {endStatsRef.current.score}</Text>
-              {h2hSubmitPhase === 'loading' ? (
+              {h2hSkillContest.asyncHostSkipSubmit ? (
+                <Text style={styles.practiceNote}>
+                  Your score is already on the server from your async submission. Your opponent is playing live — hang tight while they finish.
+                </Text>
+              ) : h2hSubmitPhase === 'loading' ? (
                 <Text style={styles.practiceNote}>Submitting your run…</Text>
               ) : null}
-              {h2hSubmitPhase === 'error' ? (
+              {!h2hSkillContest.asyncHostSkipSubmit && h2hSubmitPhase === 'error' ? (
                 <>
                   <Text style={styles.practiceNote}>Could not submit this run. Check your connection.</Text>
                   <AppButton
@@ -1092,7 +1141,39 @@ export default function TapDashGame({
             </View>
           </View>
         ) : null}
-        {phase === 'over' && !dailyTournament && !h2hSkillContest ? (
+        {phase === 'over' && asyncH2hQueueSubmit && !h2hSkillContest && !dailyTournament && !soloChallenge ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={[styles.card, { maxWidth: dialogCap }]}>
+              <GameOverExitRow
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
+              />
+              <Text style={styles.goTitle}>Run ended</Text>
+              <Text style={styles.goScore}>Score: {endStatsRef.current.score}</Text>
+              {asyncHostSubmitPhase === 'loading' ? (
+                <Text style={styles.practiceNote}>Locking your contest entry on the server…</Text>
+              ) : null}
+              {asyncHostSubmitPhase === 'ok' ? (
+                <Text style={styles.practiceNote}>
+                  You’re on the stack for this tier. Opponents who pick the same Tap Dash stake row still play live; your run is compared when they finish — not a simultaneous lobby.
+                </Text>
+              ) : null}
+              {asyncHostSubmitPhase === 'error' ? (
+                <Text style={styles.practiceNote}>
+                  We could not charge your wallet or store this run. Check the alert, then tap Play again to retry.
+                </Text>
+              ) : null}
+              <AppButton
+                title="Play again"
+                onPress={resetRun}
+                className="mb-3"
+                disabled={asyncHostSubmitPhase === 'loading'}
+              />
+            </View>
+          </View>
+        ) : null}
+        {phase === 'over' && !dailyTournament && !h2hSkillContest && !asyncH2hQueueSubmit ? (
           <View style={styles.overlay} pointerEvents="box-none">
             <View style={[styles.card, { maxWidth: dialogCap }]}>
               <GameOverExitRow

@@ -367,8 +367,8 @@ export function NeonShipGameIcon({ size = 40 }: IconProps) {
           </SvgLinearGradient>
         </Defs>
         <Rect x="4" y="4" width="40" height="40" rx="10" fill="#12081f" />
-        <Rect x="8" y="10" width="32" height="6" rx="1" fill="#4c1d95" stroke="#e879f9" strokeWidth="0.6" />
-        <Rect x="8" y="32" width="32" height="6" rx="1" fill="#4c1d95" stroke="#e879f9" strokeWidth="0.6" />
+        <Rect x="8" y="10" width="32" height="6" rx="1" fill="#3f3f46" stroke="#e879f9" strokeWidth="0.6" />
+        <Rect x="8" y="32" width="32" height="6" rx="1" fill="#3f3f46" stroke="#e879f9" strokeWidth="0.6" />
         <Rect x="6" y="22" width="10" height="4" rx="1" fill={`url(#${idTrail})`} />
         <Path
           d="M 22 24 L 34 20 L 34 28 Z"

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,13 +9,14 @@ import { Screen } from '@/components/ui/Screen';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { env } from '@/lib/env';
 import {
+  FRIDAY_CUP_FEATURE_ENABLED,
   FRIDAY_CUP_FORFEIT_GRACE_MINUTES,
   FRIDAY_CUP_MAX_PLAYERS,
   FRIDAY_CUP_NAME,
   FRIDAY_CUP_PRIZE_POOL_USD,
   FRIDAY_CUP_START_HOUR_LOCAL,
-  nextFridayAtLocalHour,
   FRIDAY_CUP_ENTRY_USD,
+  nextFridayAtLocalHour,
 } from '@/lib/fridayCashCup';
 import { fridayCupBannerSource } from '@/lib/brandLogo';
 import { runit, runitFont, runitTextGlowPink } from '@/lib/runitArcadeTheme';
@@ -81,6 +82,16 @@ export default function FridayCupScreen() {
     if (!tid) return;
     router.push(`/(app)/(tabs)/tournaments/${tid}/bracket`);
   }, [router, tid]);
+
+  useEffect(() => {
+    if (!FRIDAY_CUP_FEATURE_ENABLED) {
+      router.replace('/(app)/(tabs)/tournaments' as never);
+    }
+  }, [router]);
+
+  if (!FRIDAY_CUP_FEATURE_ENABLED) {
+    return null;
+  }
 
   return (
     <Screen scroll>

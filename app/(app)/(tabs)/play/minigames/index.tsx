@@ -23,8 +23,10 @@ import {
   SHOW_NEON_SHIP_MINIGAME,
   SHOW_SHAPE_DASH_MINIGAME,
   SHOW_STREET_DASH_MINIGAME,
+  SHOW_TURBO_ARENA_MINIGAME,
 } from '@/constants/featureFlags';
 import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
+import { GAME_ROW_SHELL_BG } from '@/lib/homeOpenMatches';
 import { runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import { useRestoreBottomTabBarOnFocus } from '@/minigames/ui/useHidePlayTabBar';
 
@@ -47,7 +49,7 @@ export default function MinigamesHubScreen() {
         title="Cyber Road · NEW"
         entryLabel="Practice or prize run"
         winLabel="PLAY"
-        bgColors={['#030712', '#1f2937', '#0f766e']}
+        bgColors={GAME_ROW_SHELL_BG}
         borderAccent="gold"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<DashDuelGameIcon size={36} />}
@@ -57,7 +59,7 @@ export default function MinigamesHubScreen() {
         title="Tap Dash"
         entryLabel="Practice or prize run"
         winLabel="PLAY"
-        bgColors={['#1e1b4b', '#312e81', '#4c1d95']}
+        bgColors={GAME_ROW_SHELL_BG}
         borderAccent="pink"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TapDashGameIcon size={36} />}
@@ -67,7 +69,7 @@ export default function MinigamesHubScreen() {
         title="Tile Clash"
         entryLabel="Practice or prize run"
         winLabel="PLAY"
-        bgColors={['#0f172a', '#1e1b4b', '#5b21b6']}
+        bgColors={GAME_ROW_SHELL_BG}
         borderAccent="purple"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<TileClashGameIcon size={36} />}
@@ -78,7 +80,7 @@ export default function MinigamesHubScreen() {
           title="Dash Duel"
           entryLabel="Practice or prize run"
           winLabel="PLAY"
-          bgColors={['#020617', '#0c4a6e', '#164e63']}
+          bgColors={GAME_ROW_SHELL_BG}
           borderAccent="gold"
           titleColor="#e2e8f0"
           entryColor="rgba(148,163,184,0.95)"
@@ -91,7 +93,7 @@ export default function MinigamesHubScreen() {
           title="Neon Ball Run"
           entryLabel="Practice or prize run"
           winLabel="PLAY"
-          bgColors={['#1a0b2e', '#4c1d95', '#831843']}
+          bgColors={GAME_ROW_SHELL_BG}
           borderAccent="pink"
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<BallRunGameIcon size={36} />}
@@ -102,7 +104,7 @@ export default function MinigamesHubScreen() {
         title="Neon Dance"
         entryLabel="Practice or prize run"
         winLabel="PLAY"
-        bgColors={['#050508', '#1e1b4b', '#312e81']}
+        bgColors={GAME_ROW_SHELL_BG}
         borderAccent="pink"
         entryColor="rgba(248,250,252,0.9)"
         iconSlot={<NeonDanceGameIcon size={36} />}
@@ -113,7 +115,7 @@ export default function MinigamesHubScreen() {
           title="Street Dash"
           entryLabel="Practice or prize run"
           winLabel="PLAY"
-          bgColors={['#0f172a', '#312e81', '#831843']}
+          bgColors={GAME_ROW_SHELL_BG}
           borderAccent="purple"
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<NeonGridGameIcon size={36} />}
@@ -125,28 +127,30 @@ export default function MinigamesHubScreen() {
           title="Void Glider"
           entryLabel="Practice or prize run"
           winLabel="PLAY"
-          bgColors={['#1a0a2e', '#4c1d95', '#0f0220']}
+          bgColors={GAME_ROW_SHELL_BG}
           borderAccent="pink"
           entryColor="rgba(248,250,252,0.9)"
           iconSlot={<NeonShipGameIcon size={36} />}
         />
       ) : null}
-      <ArcadeMinigameRow
-        gameRoute="turbo-arena"
-        title="Turbo Arena"
-        entryLabel="Practice or prize run"
-        winLabel="PLAY"
-        bgColors={['#020617', '#0c4a6e', '#7c2d12']}
-        borderAccent="gold"
-        entryColor="rgba(226,232,240,0.9)"
-        iconSlot={<TurboArenaGameIcon size={36} />}
-      />
+      {SHOW_TURBO_ARENA_MINIGAME ? (
+        <ArcadeMinigameRow
+          gameRoute="turbo-arena"
+          title="Turbo Arena"
+          entryLabel="Practice or prize run"
+          winLabel="PLAY"
+          bgColors={GAME_ROW_SHELL_BG}
+          borderAccent="gold"
+          entryColor="rgba(226,232,240,0.9)"
+          iconSlot={<TurboArenaGameIcon size={36} />}
+        />
+      ) : null}
       <ArcadeMinigameRow
         gameRoute="stacker"
         title="Stacker"
         entryLabel="Jackpot prize · practice or prize run"
         winLabel="PLAY"
-        bgColors={['#0c0a0f', '#1e1b4b', '#831843']}
+        bgColors={GAME_ROW_SHELL_BG}
         borderAccent="purple"
         entryColor="rgba(226,232,240,0.9)"
         iconSlot={<StackerGameIcon size={36} />}
@@ -156,7 +160,7 @@ export default function MinigamesHubScreen() {
           title="Shape Dash"
           entryLabel="Canvas runner · no prize run"
           winLabel="PLAY"
-          bgColors={['#050a12', '#0c4a6e', '#14532d']}
+          bgColors={GAME_ROW_SHELL_BG}
           borderAccent="gold"
           entryColor="rgba(226,232,240,0.9)"
           iconSlot={<ShapeDashGameIcon size={36} />}

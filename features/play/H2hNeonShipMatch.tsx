@@ -7,12 +7,14 @@ export function H2hNeonShipMatch({
   opponentId,
   opponentDisplayName,
   onComplete,
+  asyncHostSkipSubmit,
 }: {
   matchSessionId: string;
   localPlayerId: string;
   opponentId: string;
   opponentDisplayName: string;
   onComplete: (p: MatchFinishPayload) => void;
+  asyncHostSkipSubmit?: boolean;
 }) {
   return (
     <NeonShipScreen
@@ -22,6 +24,7 @@ export function H2hNeonShipMatch({
         opponentId,
         opponentDisplayName,
         onComplete,
+        asyncHostSkipSubmit,
       }}
     />
   );

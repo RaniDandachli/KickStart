@@ -29,6 +29,7 @@ import {
 } from '@/lib/brandLogo';
 import { formatCountdownHms, getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import {
+  FRIDAY_CUP_FEATURE_ENABLED,
   FRIDAY_CUP_MAX_PLAYERS,
   FRIDAY_CUP_NAME,
   FRIDAY_CUP_PRIZE_POOL_USD,
@@ -304,7 +305,9 @@ export default function TournamentsListScreen() {
         sortMs: msToMidnight(),
         filterTags: { free: true, cash: false, skill: false, upcoming: true, live: false },
       },
-      {
+    ];
+    if (FRIDAY_CUP_FEATURE_ENABLED) {
+      base.push({
         id: 'friday',
         title: FRIDAY_CUP_NAME,
         description:
@@ -321,8 +324,8 @@ export default function TournamentsListScreen() {
         borderAccent: 'gold',
         sortMs: Math.max(0, fridayKickoff.getTime() - Date.now()),
         filterTags: { free: false, cash: true, skill: false, upcoming: true, live: false },
-      },
-    ];
+      });
+    }
     if (ENABLE_WEEKLY_RACE) {
       base.push({
         id: 'daily-race-leader',
@@ -345,11 +348,11 @@ export default function TournamentsListScreen() {
     }
     base.push({
       id: 'one-vs-one',
-      title: '1v1 Challenges',
+      title: 'Async runs',
       description:
-        'Post a score on Tap Dash; matchups settle when others play — async skill runs, not live head-to-head.',
-      metaLine: 'Async matchups · Leaderboard style',
-      cta: 'Enter challenges',
+        'Browse open locked scores by game and tier — match the same entry, play your run, higher validated score wins.',
+      metaLine: 'Async 1v1 · all skill games',
+      cta: 'View open challenges',
       pill: 'SKILL',
       onPress: () => router.push(oneVsOneChallengesHref()),
       imageSource: dailyRaceBannerSource,

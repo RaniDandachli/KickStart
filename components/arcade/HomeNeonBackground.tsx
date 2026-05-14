@@ -1,9 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
-import { arcade } from '@/lib/arcadeTheme';
-
-/** Starry floor + purple / gold light streaks. */
+/** Sparse starfield + very soft light wash (neutral + whisper of brand purple). */
 const STARS: { l: `${number}%`; t: `${number}%`; o: number; s: number }[] = [
   { l: '5%', t: '8%', o: 0.4, s: 2 },
   { l: '18%', t: '22%', o: 0.25, s: 2 },
@@ -18,21 +16,20 @@ const STARS: { l: `${number}%`; t: `${number}%`; o: number; s: number }[] = [
 export function HomeNeonBackground() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Motion streaks — low-opacity cones */}
       <LinearGradient
-        colors={['rgba(124,58,237,0.32)', 'transparent', 'rgba(255,215,0,0.2)']}
+        colors={['rgba(168,85,247,0.06)', 'transparent', 'rgba(255,255,255,0.02)']}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.85, y: 0.95 }}
         style={styles.streakA}
       />
       <LinearGradient
-        colors={['transparent', 'rgba(255,215,0,0.11)', 'transparent']}
+        colors={['transparent', 'rgba(255,255,255,0.03)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.streakB}
       />
       <LinearGradient
-        colors={['rgba(255,215,0,0.12)', 'transparent']}
+        colors={['rgba(255,255,255,0.04)', 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0.3, y: 0.6 }}
         style={styles.streakC}
@@ -59,7 +56,7 @@ export function HomeNeonBackground() {
 const styles = StyleSheet.create({
   streakA: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.9,
+    opacity: 0.85,
   },
   streakB: {
     position: 'absolute',
@@ -78,10 +75,10 @@ const styles = StyleSheet.create({
   star: {
     position: 'absolute',
     borderRadius: 4,
-    backgroundColor: arcade.neonCyan,
-    shadowColor: arcade.neonCyan,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
   },
 });

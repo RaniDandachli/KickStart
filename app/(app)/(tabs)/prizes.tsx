@@ -46,6 +46,7 @@ import {
   runit,
   runitFont,
   runitGlowPinkSoft,
+  runitShell,
 } from '@/lib/runitArcadeTheme';
 
 type ShippingModal =
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
   },
   balanceOuter: { borderRadius: 14, padding: 2, marginBottom: 12 },
   balanceInner: {
-    backgroundColor: 'rgba(6,2,14,0.7)',
+    backgroundColor: runitShell.scrim70,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -606,7 +607,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: appBorderAccentMuted,
-    backgroundColor: 'rgba(12,6,22,0.85)',
+    backgroundColor: runitShell.card85,
     padding: 12,
     marginBottom: 10,
   },
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 1,
     borderColor: appBorderAccent,
-    backgroundColor: 'rgba(12,6,22,0.88)',
+    backgroundColor: runitShell.card88,
     overflow: 'hidden',
     shadowColor: runitGlowPinkSoft.shadowColor,
     shadowOffset: { width: 0, height: 1 },
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalSafe: { maxHeight: '92%' },
   modalCard: {
-    backgroundColor: 'rgba(12,6,22,0.98)',
+    backgroundColor: runitShell.card98,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     padding: 18,

@@ -392,6 +392,14 @@ export default function MatchPlayScreen() {
   }
 
   if (useSkillContestH2h) {
+    const meta = msQ.data?.metadata;
+    const asyncHostPendingId =
+      meta && typeof meta === 'object' && !Array.isArray(meta)
+        ? String((meta as Record<string, unknown>).async_host_pending_id ?? '')
+        : '';
+    const asyncHostSkipSubmit =
+      msQ.data!.player_a_id === userId && asyncHostPendingId.length > 0;
+
     const h2hProps = {
       matchSessionId: matchId!,
       localPlayerId: userId,
@@ -401,25 +409,25 @@ export default function MatchPlayScreen() {
     };
     const game =
       serverGameKey === 'tile-clash' ? (
-        <H2hTileClashMatch {...h2hProps} />
+        <H2hTileClashMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'ball-run' ? (
-        <H2hBallRunMatch {...h2hProps} />
+        <H2hBallRunMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'dash-duel' ? (
-        <H2hDashDuelMatch {...h2hProps} />
+        <H2hDashDuelMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'turbo-arena' ? (
-        <H2hTurboArenaMatch {...h2hProps} />
+        <H2hTurboArenaMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'neon-dance' ? (
-        <H2hNeonDanceMatch {...h2hProps} />
+        <H2hNeonDanceMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'neon-grid' ? (
-        <H2hNeonGridMatch {...h2hProps} />
-      ) :       serverGameKey === 'neon-ship' ? (
-        <H2hNeonShipMatch {...h2hProps} />
+        <H2hNeonGridMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
+      ) : serverGameKey === 'neon-ship' ? (
+        <H2hNeonShipMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'shape-dash' ? (
-        <H2hShapeDashMatch {...h2hProps} />
+        <H2hShapeDashMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : serverGameKey === 'cyber-road' ? (
-        <H2hCyberRoadMatch {...h2hProps} />
+        <H2hCyberRoadMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       ) : (
-        <H2hTapDashMatch {...h2hProps} />
+        <H2hTapDashMatch {...h2hProps} asyncHostSkipSubmit={asyncHostSkipSubmit} />
       );
     return (
       <Screen scroll={false} className="px-0">

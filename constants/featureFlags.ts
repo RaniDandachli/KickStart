@@ -49,3 +49,14 @@ export const SHOW_DASH_DUEL_MINIGAME = false;
 export const SHOW_BALL_RUN_MINIGAME = false;
 /** Street Dash (`neon-grid`). */
 export const SHOW_STREET_DASH_MINIGAME = false;
+
+/**
+ * Turbo Arena (`turbo-arena`). When false: hidden from Arcade / minigames hub / H2H pickers; route redirects to Play.
+ * Match + async flows stay wired for in-flight games. Set true to restore.
+ */
+export const SHOW_TURBO_ARENA_MINIGAME = false;
+
+/**
+ * Extra “GAME MODE” tiles (3-Player, Classic) on Start match + Quick Match. When false, only 1v1 is shown.
+ */
+export const SHOW_H2H_COMING_SOON_MODE_CARDS = false;

@@ -22,6 +22,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
 import { alertInsufficientPrizeCredits } from '@/lib/arcadeCreditsShop';
@@ -40,7 +41,9 @@ import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGe
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
-import type { H2hSkillContestBundle } from '@/types/match';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
+import { AsyncH2hQueueHostLockOverlay } from '@/minigames/ui/AsyncH2hQueueHostLockOverlay';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BGM_ASSET = require('@/assets/sounds/dash-duel-neon-velocity.mp3');
@@ -84,7 +87,8 @@ function queueGapForForward(forward: number, sectorCount: number, ringsPassed: n
   }
   return g;
 }
-const SWIPE_BAR_HEIGHT = 84;
+/** Reserved height for the stacked bottom hint bars (spin + aim). */
+const BOTTOM_HINT_STACK_H = 168;
 
 const MAX_PARTICLES = 28;
 const PASS_PARTICLE_COUNT = 8;
@@ -211,7 +215,7 @@ const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
             y1={stageCenterY}
             x2={stageCenterX + Math.cos(angle) * len}
             y2={stageCenterY + Math.sin(angle) * len}
-            stroke="rgba(148,163,184,0.06)"
+            stroke="rgba(148,163,184,0.1)"
             strokeWidth={1}
           />
         );
@@ -221,18 +225,40 @@ const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
         const baseR = 22 + i * dim * 0.085;
         const breathe = Math.sin(pulsePhase + i * 0.9) * 1.2;
         const r = baseR + breathe;
-        const baseO = 0.04 + i * 0.028;
-        const o = baseO + Math.sin(pulsePhase * 1.3 + i) * 0.015;
+        const baseO = 0.05 + i * 0.032;
+        const o = baseO + Math.sin(pulsePhase * 1.3 + i) * 0.018;
         return (
           <Circle
             key={`tun-${i}`}
             cx={stageCenterX}
             cy={stageCenterY}
             r={r}
-            stroke="rgba(148,163,184,0.4)"
-            strokeWidth={1}
+            stroke={i === TUNNEL_RING_COUNT - 1 ? 'rgba(96,165,250,0.55)' : 'rgba(148,163,184,0.42)'}
+            strokeWidth={i === TUNNEL_RING_COUNT - 1 ? 1.25 : 1}
             fill="none"
             opacity={o}
+          />
+        );
+      })}
+      {/* Outer ring compass ticks — decorative only */}
+      {[
+        { a: -Math.PI / 2 },
+        { a: 0 },
+        { a: Math.PI / 2 },
+        { a: Math.PI },
+      ].map(({ a }, i) => {
+        const r0 = dim * 0.46;
+        const r1 = dim * 0.5;
+        return (
+          <Line
+            key={`tick-${i}`}
+            x1={stageCenterX + Math.cos(a) * r0}
+            y1={stageCenterY + Math.sin(a) * r0}
+            x2={stageCenterX + Math.cos(a) * r1}
+            y2={stageCenterY + Math.sin(a) * r1}
+            stroke="rgba(96,165,250,0.45)"
+            strokeWidth={1.5}
+            strokeLinecap="round"
           />
         );
       })}
@@ -243,9 +269,11 @@ const NeonDanceTunnelRings = memo(function NeonDanceTunnelRings({
 export default function NeonDanceGame({
   playMode = 'practice',
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -261,10 +289,14 @@ export default function NeonDanceGame({
   const profileQ = useProfile(uid);
   const { width: winW, height: winH } = useWindowDimensions();
   const stageW = minigameImmersiveStageWidth(winW);
+  /** Wide web: reference-style left rail (does not change playfield metrics — overlay only). */
+  const showDeckHud = Platform.OS === 'web' && winW >= 900;
 
-  const [phase, setPhase] = useState<'ready' | 'playing' | 'paused' | 'dying' | 'over'>(() =>
-    h2hSkillContest ? 'playing' : 'ready',
-  );
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'paused' | 'dying' | 'over'>(() => {
+    if (h2hSkillContest?.asyncHostSkipSubmit) return 'over';
+    if (h2hSkillContest) return 'playing';
+    return 'ready';
+  });
   useLockNavigatorGesturesWhile(
     phase === 'playing' || phase === 'paused' || phase === 'dying',
   );
@@ -329,7 +361,7 @@ export default function NeonDanceGame({
   const forcedThreeColorRef = useRef(false);
   const insets = useSafeAreaInsets();
 
-  const playAreaH = Math.max(360, winH - 220 - SWIPE_BAR_HEIGHT - Math.min(32, insets.bottom));
+  const playAreaH = Math.max(360, winH - 210 - BOTTOM_HINT_STACK_H - Math.min(32, insets.bottom));
   const ringBase = Math.min(stageW - 24, 320);
   const BALL_R = Math.max(13, ringBase * 0.052);
   const stageCenterX = winW / 2;
@@ -458,7 +490,38 @@ export default function NeonDanceGame({
     phase,
     buildH2hBody,
     'over',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
+
+  const getAsyncHostStats = useCallback(
+    () => ({
+      score: lastRunRef.current.score,
+      durationMs: lastRunRef.current.durationMs,
+      taps: lastRunRef.current.taps,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'over',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(h2hSkillContest),
+    getStats: getAsyncHostStats,
+    uid,
+  });
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      lastRunRef.current = { ...lastRunRef.current, score: data.self_score };
+      setScore(data.self_score);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId]);
 
   const chargePrizeRunIfNeeded = useCallback(async (): Promise<boolean> => {
     if (ENABLE_BACKEND) {
@@ -491,15 +554,16 @@ export default function NeonDanceGame({
 
   const startPlaying = useCallback(() => {
     void (async () => {
+      if (asyncH2hQueueSubmit) resetAsyncSubmission();
       manualPrizeRunRef.current = false;
-      if (!h2hSkillContest && mode === 'prize') {
+      if (!h2hSkillContest && !asyncH2hQueueSubmit && mode === 'prize') {
         const ok = await chargePrizeRunIfNeeded();
         if (!ok) return;
       }
       resetGame();
       setPhase('playing');
     })();
-  }, [chargePrizeRunIfNeeded, h2hSkillContest, mode, resetGame]);
+  }, [asyncH2hQueueSubmit, chargePrizeRunIfNeeded, h2hSkillContest, mode, resetAsyncSubmission, resetGame]);
 
   const startManualPrizeRun = useCallback(() => {
     void (async () => {
@@ -519,6 +583,10 @@ export default function NeonDanceGame({
 
   useEffect(() => {
     if (h2hSkillContest) {
+      if (h2hSkillContest.asyncHostSkipSubmit) {
+        setPhase('over');
+        return;
+      }
       resetGame();
       setPhase('playing');
       return;
@@ -542,7 +610,7 @@ export default function NeonDanceGame({
   }, []);
 
   const runPrizeSubmit = useCallback(() => {
-    if (h2hSkillContest) return;
+    if (h2hSkillContest || asyncH2hQueueSubmit) return;
     const durationMs = lastRunRef.current.durationMs;
     void (async () => {
       let tickets = 0;
@@ -605,7 +673,7 @@ export default function NeonDanceGame({
       manualPrizeRunRef.current = false;
       setTicketsEarned(prizeRunActive ? tickets : 0);
     })();
-  }, [h2hSkillContest, mode, qc, uid]);
+  }, [h2hSkillContest, asyncH2hQueueSubmit, mode, qc, uid]);
 
   const triggerFail = useCallback(() => {
     if (phaseRef.current !== 'playing' || gameOverLockRef.current) return;
@@ -968,7 +1036,7 @@ export default function NeonDanceGame({
 
   return (
     <LinearGradient
-      colors={['#040408', '#08091200', '#100720']}
+      colors={['#050716', '#0a061f', '#100828']}
       style={styles.fill}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
@@ -984,52 +1052,111 @@ export default function NeonDanceGame({
         ]}
       />
       <SafeAreaView style={styles.fill} edges={['top', 'left', 'right']}>
-        <View style={[styles.topBar, { width: stageW }]}>
+        <View style={[styles.topBar, { width: Math.min(stageW, winW) }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={onHeaderBackPress}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
+            style={({ pressed }) => [styles.topBarTile, pressed && { opacity: 0.82 }]}
           >
-            <SafeIonicons name="chevron-back" size={26} color="#e2e8f0" />
+            <SafeIonicons name="chevron-back" size={24} color="#f8fafc" />
           </Pressable>
           <View style={styles.topMid}>
             <Text style={styles.scoreTop}>{score.toLocaleString()}</Text>
-            <Text style={styles.subTop}>
-              ×{hud.streak} streak · {hud.sectors} colors · {hud.ringsPassed} hoops
-            </Text>
+            <View style={styles.subTopRow}>
+              <Text style={styles.subStreak}>×{hud.streak} streak</Text>
+              <Text style={styles.subDot}> · </Text>
+              <Text style={styles.subColors}>{hud.sectors} colors</Text>
+              <Text style={styles.subDot}> · </Text>
+              <Text style={styles.subHoops}>{hud.ringsPassed} hoops</Text>
+            </View>
           </View>
           <View style={styles.topRight}>
             {phase === 'playing' || phase === 'paused' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={muted ? 'Unmute music' : 'Mute music'}
-                onPress={() => setMuted((m) => !m)}
-                style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
-              >
-                <SafeIonicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#cbd5e1" />
-              </Pressable>
-            ) : null}
-            {phase === 'playing' || phase === 'paused' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={phase === 'paused' ? 'Resume' : 'Pause'}
-                onPress={() => setPhase((p) => (p === 'playing' ? 'paused' : 'playing'))}
-                style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
-              >
-                <SafeIonicons name={phase === 'paused' ? 'play' : 'pause'} size={22} color="#e2e8f0" />
-              </Pressable>
+              <>
+                <View style={styles.topStatPill} accessibilityLabel="Active color sectors">
+                  <SafeIonicons name="flash" size={18} color="#facc15" />
+                  <Text style={styles.topStatPillNum}>{hud.sectors}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={muted ? 'Unmute music' : 'Mute music'}
+                  onPress={() => setMuted((m) => !m)}
+                  style={({ pressed }) => [styles.topBarTileSm, pressed && { opacity: 0.82 }]}
+                >
+                  <SafeIonicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#e2e8f0" />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={phase === 'paused' ? 'Resume' : 'Pause'}
+                  onPress={() => setPhase((p) => (p === 'playing' ? 'paused' : 'playing'))}
+                  style={({ pressed }) => [styles.topBarTileSm, pressed && { opacity: 0.82 }]}
+                >
+                  <SafeIonicons name={phase === 'paused' ? 'play' : 'pause'} size={18} color="#f8fafc" />
+                </Pressable>
+              </>
             ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Home"
               onPress={replaceToHomeTab}
-              style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
+              style={({ pressed }) => [styles.topBarTile, pressed && { opacity: 0.82 }]}
             >
-              <SafeIonicons name="home" size={22} color="#e2e8f0" />
+              <SafeIonicons name="home" size={22} color="#f8fafc" />
             </Pressable>
           </View>
         </View>
+
+        {(phase === 'playing' || phase === 'paused' || phase === 'dying') && showDeckHud ? (
+          <View style={styles.sideRail} pointerEvents="box-none">
+            <View style={styles.sideCard} pointerEvents="auto">
+              <Text style={styles.sideCardTitle}>CURRENT RUN</Text>
+              <View style={styles.sideStatRow}>
+                <SafeIonicons name="star" size={16} color="#60a5fa" />
+                <View style={styles.sideStatMid}>
+                  <Text style={styles.sideStatVal}>{hud.streak}</Text>
+                  <Text style={styles.sideStatBest}>Best: {bestStreakRef.current}</Text>
+                </View>
+                <Text style={styles.sideStatLbl}>Streak</Text>
+              </View>
+              <View style={styles.sideStatRow}>
+                <SafeIonicons name="layers-outline" size={16} color="#c084fc" />
+                <View style={styles.sideStatMid}>
+                  <Text style={styles.sideStatVal}>{hud.sectors}</Text>
+                  <Text style={styles.sideStatBest}>Best: {Math.max(2, hud.sectors)}</Text>
+                </View>
+                <Text style={styles.sideStatLbl}>Colors</Text>
+              </View>
+              <View style={styles.sideStatRow}>
+                <SafeIonicons name="radio-button-on" size={16} color="#38bdf8" />
+                <View style={styles.sideStatMid}>
+                  <Text style={styles.sideStatVal}>{hud.ringsPassed}</Text>
+                  <Text style={styles.sideStatBest}>Best: {hud.ringsPassed}</Text>
+                </View>
+                <Text style={styles.sideStatLbl}>Hoops</Text>
+              </View>
+            </View>
+            <View style={[styles.sideCard, styles.sideCardGap]} pointerEvents="auto">
+              <Text style={styles.sideCardTitle}>HOW IT WORKS</Text>
+              <View style={styles.sideHowRow}>
+                <SafeIonicons name="flash" size={14} color="#facc15" />
+                <Text style={styles.sideHowTxt}>Spin to line up colors</Text>
+              </View>
+              <View style={styles.sideHowRow}>
+                <View style={styles.sideHowDot} />
+                <Text style={styles.sideHowTxt}>Match the bright sector</Text>
+              </View>
+              <View style={styles.sideHowRow}>
+                <SafeIonicons name="ellipse-outline" size={14} color="#7dd3fc" />
+                <Text style={styles.sideHowTxt}>Pass through hoops</Text>
+              </View>
+              <View style={styles.sideHowRow}>
+                <SafeIonicons name="trophy" size={14} color="#fbbf24" />
+                <Text style={styles.sideHowTxt}>Build your streak!</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {phase === 'ready' && !h2hSkillContest ? (
           <View style={styles.centerBlock}>
@@ -1190,18 +1317,44 @@ export default function NeonDanceGame({
 
               <View
                 style={[
-                  styles.swipeBar,
+                  styles.bottomHintsWrap,
                   {
                     marginBottom: 10 + insets.bottom,
-                    width: Math.min(stageW, winW) - 20,
+                    width: Math.min(stageW, winW) - 16,
                     zIndex: 2,
                     elevation: 2,
                   },
                 ]}
                 pointerEvents="none"
               >
-                <SafeIonicons name="finger-print" size={26} color="rgba(248,250,252,0.9)" style={styles.swipeIcon} />
-                <Text style={styles.swipeHint}>Drag to spin · line up with the bright sector</Text>
+                <View style={[styles.hintBarPurple, styles.hintBarRow]}>
+                  <View style={styles.hintBarIconPurple}>
+                    <SafeIonicons name="flash" size={22} color="#fff" />
+                  </View>
+                  <View style={styles.hintBarTextCol}>
+                    <Text style={styles.hintBarTitle}>DRAG TO SPIN</Text>
+                    <Text style={styles.hintBarSub}>Line up with the bright sector.</Text>
+                  </View>
+                  <SafeIonicons name="hand-left-outline" size={34} color="rgba(196,181,253,0.9)" />
+                </View>
+                <View style={[styles.hintBarGold, styles.hintBarRow]}>
+                  <View style={[styles.hintBarIconGold, { borderColor: ballGlow }]}>
+                    <View style={[styles.hintBarGoldDot, { backgroundColor: ballColor }]} />
+                  </View>
+                  <View style={styles.hintBarTextCol}>
+                    <Text style={styles.hintBarTitleDark}>DRAG TO AIM</Text>
+                    <Text style={styles.hintBarSubDark}>Match the glowing sector.</Text>
+                  </View>
+                  <View style={styles.hintBarSwipeArt}>
+                    <View style={styles.hintBarTrack} />
+                    <View style={[styles.hintBarKnob, { backgroundColor: ballColor, borderColor: '#fff' }]} />
+                  </View>
+                </View>
+                {hud.streak >= 3 ? (
+                  <Text style={[styles.hintStreakTag, { color: ballColor }]}>
+                    🔥 {hud.streak} streak
+                  </Text>
+                ) : null}
               </View>
 
               <View
@@ -1214,24 +1367,6 @@ export default function NeonDanceGame({
                 onResponderGrant={onTouchGrant}
                 onResponderMove={onTouchMove}
               />
-            </View>
-
-            <View style={styles.hudGlass}>
-              <View
-                accessibilityLabel="Current ball color"
-                importantForAccessibility="yes"
-                style={styles.swatchWrap}
-              >
-                <View style={[styles.swatch, { backgroundColor: ballColor, shadowColor: ballColor }]} />
-              </View>
-              <View style={styles.hudTextBlock}>
-                <Text style={styles.hudTxt}>Drag to aim · match the glowing sector</Text>
-                {hud.streak >= 3 ? (
-                  <Text style={[styles.streakLabel, { color: ballColor }]}>
-                    🔥 {hud.streak} streak
-                  </Text>
-                ) : null}
-              </View>
             </View>
           </View>
         ) : null}
@@ -1261,7 +1396,21 @@ export default function NeonDanceGame({
         />
 
         {phase === 'over' ? (
-          <View style={styles.overLay}>
+          asyncH2hQueueSubmit && !h2hSkillContest ? (
+            <View style={styles.overLay}>
+              <AsyncH2hQueueHostLockOverlay
+                layout="card"
+                asyncHostSubmitPhase={asyncHostSubmitPhase}
+                scoreLine={`${score.toLocaleString()} pts`}
+                onPlayAgain={startPlaying}
+                playAgainDisabled={asyncHostSubmitPhase === 'loading'}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
+              />
+            </View>
+          ) : (
+            <View style={styles.overLay}>
             <Text style={styles.overTitle}>Run ended</Text>
             <Text style={styles.overScore}>{score.toLocaleString()} pts</Text>
             <Text style={styles.statLine}>Hoops cleared · {hud.ringsPassed}</Text>
@@ -1299,7 +1448,8 @@ export default function NeonDanceGame({
                 />
               </>
             ) : null}
-          </View>
+            </View>
+          )
         ) : null}
       </SafeAreaView>
     </LinearGradient>
@@ -1313,15 +1463,93 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     alignSelf: 'center',
-    paddingHorizontal: 8,
-    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    marginBottom: 8,
     zIndex: 20,
   },
+  topBarTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.28)',
+  },
+  topBarTileSm: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    marginRight: 6,
+  },
   topMid: { alignItems: 'center', flex: 1 },
-  subTop: { color: 'rgba(148,163,184,0.95)', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  topRight: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { padding: 8 },
-  scoreTop: { color: '#f8fafc', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  subTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  subDot: { color: 'rgba(100,116,139,0.95)', fontSize: 11, fontWeight: '700' },
+  subStreak: { color: '#60a5fa', fontSize: 11, fontWeight: '800' },
+  subColors: { color: '#facc15', fontSize: 11, fontWeight: '800' },
+  subHoops: { color: '#c084fc', fontSize: 11, fontWeight: '800' },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  topStatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15,23,42,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.4)',
+    marginRight: 4,
+  },
+  topStatPillNum: { color: '#f8fafc', fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  scoreTop: { color: '#f8fafc', fontSize: 28, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  sideRail: {
+    position: 'absolute',
+    left: 10,
+    top: 96,
+    width: 188,
+    zIndex: 18,
+  },
+  sideCard: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(10,14,28,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    ...(Platform.OS === 'web'
+      ? ({ boxShadow: '0 14px 40px rgba(0,0,0,0.5)' } as object)
+      : {}),
+  },
+  sideCardGap: { marginTop: 12 },
+  sideCardTitle: {
+    color: 'rgba(248,250,252,0.5)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+    marginBottom: 10,
+  },
+  sideStatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  sideStatMid: { flex: 1 },
+  sideStatVal: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
+  sideStatBest: { color: 'rgba(148,163,184,0.92)', fontSize: 11, fontWeight: '600', marginTop: 2 },
+  sideStatLbl: { color: 'rgba(148,163,184,0.88)', fontSize: 11, fontWeight: '700', width: 52, textAlign: 'right' },
+  sideHowRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  sideHowDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#facc15' },
+  sideHowTxt: { flex: 1, color: 'rgba(226,232,240,0.92)', fontSize: 12, fontWeight: '600', lineHeight: 17 },
   centerBlock: { paddingHorizontal: 20, paddingTop: 12, gap: 10 },
   logoMark: {
     color: 'rgba(255,215,0,0.9)',
@@ -1345,33 +1573,74 @@ const styles = StyleSheet.create({
     zIndex: 55,
     elevation: 20,
   },
-  stageClip: { overflow: 'hidden', position: 'relative', backgroundColor: 'rgba(2,4,14,0.97)' },
-  swipeBar: {
+  stageClip: { overflow: 'hidden', position: 'relative', backgroundColor: 'rgba(5,8,24,0.98)' },
+  bottomHintsWrap: {
+    alignSelf: 'center',
+    gap: 10,
+    marginTop: 6,
+    paddingHorizontal: 8,
+  },
+  hintBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    minHeight: SWIPE_BAR_HEIGHT,
-    borderRadius: 22,
-    backgroundColor: 'rgba(2,6,23,0.94)',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    gap: 14,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    marginTop: 4,
-    alignSelf: 'center',
-    shadowColor: '#FFD700',
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
   },
-  swipeIcon: { marginRight: 2 },
-  swipeHint: {
-    flex: 1,
-    color: 'rgba(226,232,240,0.92)',
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
+  hintBarPurple: {
+    backgroundColor: 'rgba(76,29,149,0.78)',
+    borderColor: 'rgba(196,181,253,0.38)',
   },
+  hintBarGold: {
+    backgroundColor: 'rgba(250,204,21,0.94)',
+    borderColor: 'rgba(253,224,71,0.98)',
+  },
+  hintBarIconPurple: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(91,33,182,0.98)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintBarIconGold: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(254,249,231,0.98)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  hintBarGoldDot: { width: 22, height: 22, borderRadius: 11 },
+  hintBarTextCol: { flex: 1, gap: 2 },
+  hintBarTitle: { color: '#fafafa', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+  hintBarSub: { color: 'rgba(241,245,249,0.88)', fontSize: 12, fontWeight: '600' },
+  hintBarTitleDark: { color: '#0f172a', fontSize: 15, fontWeight: '900', letterSpacing: 0.4 },
+  hintBarSubDark: { color: 'rgba(15,23,42,0.78)', fontSize: 12, fontWeight: '700' },
+  hintBarSwipeArt: {
+    width: 56,
+    height: 30,
+    justifyContent: 'center',
+    position: 'relative' as const,
+  },
+  hintBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(15,23,42,0.22)',
+  },
+  hintBarKnob: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    right: 6,
+    top: 7,
+  },
+  hintStreakTag: { alignSelf: 'center', fontSize: 13, fontWeight: '900', marginTop: 2 },
   hoopLayer: {
     position: 'absolute',
     ...Platform.select({
@@ -1400,33 +1669,6 @@ const styles = StyleSheet.create({
     zIndex: 500,
     elevation: 500,
   },
-  hudGlass: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(10,15,30,0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.22)',
-  },
-  hudTextBlock: { flex: 1, gap: 2 },
-  swatchWrap: { borderRadius: 24, padding: 2 },
-  swatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.6)',
-    shadowOpacity: 0.9,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  hudTxt: { color: '#94a3b8', fontWeight: '600', fontSize: 12 },
-  streakLabel: { fontSize: 13, fontWeight: '800' },
   hidden: { position: 'absolute', opacity: 0, height: 0, width: 0 },
   graceBanner: {
     position: 'absolute',

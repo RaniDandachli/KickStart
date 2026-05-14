@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   labelLight: {
-    color: '#4c1d95',
+    color: '#3f3f46',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.3,

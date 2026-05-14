@@ -1,5 +1,8 @@
 /** Friday 2pm cash cup — UX constants (server tournament row is configured separately). */
 
+/** When false, hide the cup from Events and redirect `/friday-cup` to the tournaments list. */
+export const FRIDAY_CUP_FEATURE_ENABLED = false;
+
 export const FRIDAY_CUP_NAME = 'Friday 8 · $70 Cup';
 export const FRIDAY_CUP_ENTRY_USD = 10;
 export const FRIDAY_CUP_PRIZE_POOL_USD = 70;

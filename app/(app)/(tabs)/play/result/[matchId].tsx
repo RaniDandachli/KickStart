@@ -14,7 +14,7 @@ import { isUuid } from '@/lib/isUuid';
 import { formatUsdFromCents } from '@/lib/money';
 import { H2H_OPEN_GAMES } from '@/lib/homeOpenMatches';
 import { queryKeys } from '@/lib/queryKeys';
-import { runit, runitFont, runitGlowPinkSoft, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
+import { runit, runitFont, runitGlowPinkSoft, runitShell, runitTextGlowCyan, runitTextGlowPink } from '@/lib/runitArcadeTheme';
 import {
     fetchMatchSessionWithPlayers,
     recordH2hMatchResultViaEdge,
@@ -286,7 +286,7 @@ export default function MatchResultScreen() {
       ) : null}
 
       <LinearGradient
-        colors={[runit.neonPurple, 'rgba(12,6,22,0.95)']}
+        colors={[runit.neonPurple, runitShell.card98]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.card, runitGlowPinkSoft]}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(6,2,14,0.85)',
+    backgroundColor: runitShell.scrim85,
     borderWidth: 1,
     borderColor: 'rgba(0,240,255,0.35)',
   },

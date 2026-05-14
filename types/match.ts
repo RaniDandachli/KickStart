@@ -1,4 +1,5 @@
 import type { QueueKind } from '@/store/matchmakingStore';
+import type { H2hSkillContestGameKey } from '@/lib/h2hSkillContestGames';
 
 /** Client-side match model for H2H placeholder / generic flows. */
 export interface HeadToHeadMatchSession {
@@ -27,6 +28,16 @@ export interface MatchFinishPayload {
   reason: MatchResultReason;
 }
 
+export type AsyncH2hQueueSubmit = {
+  gameKey: H2hSkillContestGameKey;
+  mode: QueueKind;
+  entryFeeWalletCents: number;
+  listedPrizeUsdCents: number;
+};
+
+/** @deprecated use AsyncH2hQueueSubmit */
+export type AsyncH2hTapDashQueueSubmit = AsyncH2hQueueSubmit;
+
 /** Props for embedding a minigame inside an H2H `match_sessions` flow (server-validated score + poll). */
 export type H2hSkillContestBundle = {
   matchSessionId: string;
@@ -34,4 +45,8 @@ export type H2hSkillContestBundle = {
   opponentId: string;
   opponentDisplayName: string;
   onComplete: (p: MatchFinishPayload) => void;
+  /**
+   * Host already has a server score (async host). Skip posting again; poll until opponent finishes.
+   */
+  asyncHostSkipSubmit?: boolean;
 };

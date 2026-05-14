@@ -8,6 +8,13 @@ export const WEB_TOP_TAB_BAR_ROW_HEIGHT_PX = 36;
 
 export type TabBarSafeInsets = { top: number; bottom: number; left?: number; right?: number };
 
+/** Total height of the desktop web top tab strip (must stay in sync with {@link getAppTabBarStyle} `webTopBar`). */
+export function getWebTopTabBarOuterHeightPx(insets: Pick<TabBarSafeInsets, 'top'>): number {
+  const padTop = Math.max(insets.top, 6) + 1;
+  const padBottom = 6;
+  return padTop + WEB_TOP_TAB_BAR_ROW_HEIGHT_PX + padBottom;
+}
+
 export type AppTabBarOptions = {
   /** Desktop-width web only: top tab strip. Narrow web uses the same bottom bar as native. */
   webTopBar?: boolean;

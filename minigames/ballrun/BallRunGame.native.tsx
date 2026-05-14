@@ -27,6 +27,7 @@ import * as THREE from 'three';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { usePrizeCreditsDisplay } from '@/hooks/usePrizeCreditsDisplay';
 import { useProfile } from '@/hooks/useProfile';
@@ -41,14 +42,16 @@ import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
 import { useAutoSubmitOnPhaseOver } from '@/lib/useAutoSubmitOnPhaseOver';
 import { runFixedPhysicsSteps, useRafLoop } from '@/minigames/core/useRafLoop';
 import { GameOverExitRow } from '@/minigames/ui/GameOverExitRow';
+import { AsyncH2hQueueHostLockOverlay } from '@/minigames/ui/AsyncH2hQueueHostLockOverlay';
 import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
 import { useLockNavigatorGesturesWhile } from '@/minigames/ui/useLockNavigatorGesturesWhile';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { H2hSkillContestBundle } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
 
 import { BALL_RUN } from './ballRunConstants';
 import {
@@ -501,7 +504,7 @@ function NeonLights({ stateRef }: { stateRef: React.MutableRefObject<NeonBallRun
     <>
       {/* distance must be 0 — small values black out meshStandard tiles far from the ball */}
       <ambientLight intensity={0.55} color="#221a38" />
-      <hemisphereLight intensity={0.4} color="#8b7aad" groundColor="#050208" />
+      <hemisphereLight intensity={0.4} color="#8b7aad" groundColor="#121214" />
       <pointLight ref={light1Ref} intensity={2.4} distance={0} decay={2} color={CYAN} />
       <pointLight ref={light2Ref} intensity={1.3} distance={0} decay={2} color={PURPLE} />
       <directionalLight position={[6, 16, 10]} intensity={0.65} color="#f0e8ff" />
@@ -595,12 +598,14 @@ export default function NeonBallRunGame({
   runSeed: _runSeed,
   dailyTournament,
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   playMode?: 'practice' | 'prize';
   /** Reserved for deterministic runs / leaderboards (engine is RNG today). */
   runSeed?: number;
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 }) {
   useHidePlayTabBar();
   const router = useRouter();
@@ -616,7 +621,9 @@ export default function NeonBallRunGame({
   const prizeCredits = usePrizeCreditsDisplay();
   const { height: sh } = useWindowDimensions();
 
-  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'playing' | 'over'>(() =>
+    h2hSkillContest?.asyncHostSkipSubmit ? 'over' : 'ready',
+  );
   useLockNavigatorGesturesWhile(phase === 'playing');
   const [, setUiTick] = useState(0);
   const [trackRevision, setTrackRevision] = useState(0);
@@ -642,11 +649,11 @@ export default function NeonBallRunGame({
       durationMs: Math.max(0, Date.now() - startTimeRef.current),
     };
     setPhase('over');
-    if (!dailyTournament && !h2hSkillContest) {
+    if (!dailyTournament && !h2hSkillContest && !asyncH2hQueueSubmit) {
       setAutoSubmitSeq((n) => n + 1);
     }
     bump();
-  }, [bump, dailyTournament, h2hSkillContest]);
+  }, [asyncH2hQueueSubmit, bump, dailyTournament, h2hSkillContest]);
 
   const step = useCallback(
     (totalDtMs: number) => {
@@ -698,11 +705,53 @@ export default function NeonBallRunGame({
     h2hSkillContest,
     phase,
     buildH2hBody,
+    'over',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
+
+  const getAsyncHostStats = useCallback(
+    () => ({
+      score: endStatsRef.current.score,
+      durationMs: endStatsRef.current.durationMs,
+      taps: endStatsRef.current.dodgeCount,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'over',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(h2hSkillContest || dailyTournament),
+    getStats: getAsyncHostStats,
+    uid,
+  });
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      endStatsRef.current = { ...endStatsRef.current, score: data.self_score };
+      bump();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bump, h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId]);
+
+  const resetRun = useCallback(() => {
+    stateRef.current = null;
+    lastTrackSigRef.current = '';
+    setSubmitOk(false);
+    setSubmitErr(false);
+    if (asyncH2hQueueSubmit) resetAsyncSubmission();
+    setPhase('ready');
+    bump();
+  }, [asyncH2hQueueSubmit, bump, resetAsyncSubmission]);
 
   const startGame = useCallback(() => {
     void (async () => {
-      if (!dailyTournament && !h2hSkillContest && playMode === 'prize') {
+      if (!dailyTournament && !h2hSkillContest && !asyncH2hQueueSubmit && playMode === 'prize') {
         if (ENABLE_BACKEND) {
           if (!assertBackendPrizeSignedIn(ENABLE_BACKEND, uid)) return;
           const r = await beginMinigamePrizeRun('ball_run');
@@ -743,16 +792,7 @@ export default function NeonBallRunGame({
       lastHudReactRef.current = 0;
       bump();
     })();
-  }, [playMode, profileQ.data?.prize_credits, bump, dailyTournament, h2hSkillContest, router, queryClient, uid]);
-
-  const resetRun = useCallback(() => {
-    stateRef.current = null;
-    lastTrackSigRef.current = '';
-    setSubmitOk(false);
-    setSubmitErr(false);
-    setPhase('ready');
-    bump();
-  }, [bump]);
+  }, [asyncH2hQueueSubmit, playMode, profileQ.data?.prize_credits, bump, dailyTournament, h2hSkillContest, router, queryClient, uid]);
 
   const submitScore = useCallback(async () => {
     const { score, dodgeCount, durationMs } = endStatsRef.current;
@@ -798,7 +838,7 @@ export default function NeonBallRunGame({
     phase,
     overValue: 'over',
     runToken: autoSubmitSeq,
-    disabled: Boolean(dailyTournament || h2hSkillContest),
+    disabled: Boolean(dailyTournament || h2hSkillContest || asyncH2hQueueSubmit),
     onSubmit: submitScore,
   });
 
@@ -842,7 +882,11 @@ export default function NeonBallRunGame({
 
   /** Web: game over — Space / ↑ / Enter = Roll Again or (daily) Continue. H2H waits on server. */
   useWebGameKeyboard(
-    Platform.OS === 'web' && phase === 'over' && !h2hSkillContest && (!dailyTournament || !!dailyPayload),
+    Platform.OS === 'web' &&
+      phase === 'over' &&
+      !h2hSkillContest &&
+      (!dailyTournament || !!dailyPayload) &&
+      !(asyncH2hQueueSubmit && asyncHostSubmitPhase === 'loading'),
     {
       Space: (down) => {
         if (!down) return;
@@ -971,8 +1015,8 @@ export default function NeonBallRunGame({
           }}
         >
           <View style={styles.overlay}>
-            <View style={styles.card}>
-              {dailyTournament && dailyPayload ? (
+            {dailyTournament && dailyPayload ? (
+              <View style={styles.card}>
                 <>
                   <GameOverExitRow
                     minigamesLabel={replacePrimaryLabel}
@@ -993,7 +1037,20 @@ export default function NeonBallRunGame({
                   </Text>
                   <AppButton title="Continue" onPress={onContinueDaily} />
                 </>
-              ) : h2hSkillContest ? (
+              </View>
+            ) : asyncH2hQueueSubmit && !dailyTournament ? (
+              <AsyncH2hQueueHostLockOverlay
+                layout="card"
+                asyncHostSubmitPhase={asyncHostSubmitPhase}
+                scoreLine={`Score: ${endStatsRef.current.score} · Dodges: ${endStatsRef.current.dodgeCount}`}
+                onPlayAgain={resetRun}
+                playAgainDisabled={asyncHostSubmitPhase === 'loading'}
+                minigamesLabel={replacePrimaryLabel}
+                onMinigames={replaceToPrimaryExit}
+                onHome={replaceToHomeTab}
+              />
+            ) : h2hSkillContest ? (
+              <View style={styles.card}>
                 <>
                   <GameOverExitRow
                     minigamesLabel={replacePrimaryLabel}
@@ -1020,7 +1077,9 @@ export default function NeonBallRunGame({
                     <Text style={styles.practiceNote}>Both runs in — finalizing match…</Text>
                   ) : null}
                 </>
-              ) : (
+              </View>
+            ) : (
+              <View style={styles.card}>
                 <>
                   <GameOverExitRow
                     minigamesLabel={replacePrimaryLabel}
@@ -1089,8 +1148,8 @@ export default function NeonBallRunGame({
                     </>
                   )}
                 </>
-              )}
-            </View>
+              </View>
+            )}
           </View>
         </Modal>
       </View>

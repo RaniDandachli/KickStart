@@ -20,4 +20,6 @@ export const queryKeys = {
   prizeCatalog: () => ['prizeCatalog'] as const,
   matchSession: (matchSessionId: string) => ['matchSession', matchSessionId] as const,
   h2hTapDashScores: (matchSessionId: string) => ['h2hTapDashScores', matchSessionId] as const,
+  myAsyncHostPending: (userId: string) => ['myAsyncHostPending', userId] as const,
+  openAsyncHostChallenges: (gameKey: string | null) => ['openAsyncHostChallenges', gameKey ?? 'all'] as const,
 };

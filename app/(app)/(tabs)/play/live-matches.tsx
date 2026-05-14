@@ -353,6 +353,7 @@ export default function LiveMatchesScreen() {
         <HeadToHeadPlayModal
           visible={!!h2hGate}
           gameTitle={h2hGate?.title ?? ''}
+          gameKey={h2hGate?.gameKey}
           entryUsd={h2hGate?.entryUsd ?? 0}
           prizeUsd={h2hGate?.prizeUsd ?? 0}
           lobbyKind={h2hGate?.lobbyKind ?? 'host_waiting'}
@@ -380,7 +381,7 @@ export default function LiveMatchesScreen() {
             const rt = encodeURIComponent(liveReturn);
             pushCrossTab(
               router,
-              `/(app)/(tabs)/play/casual?${centsPrefix}entry=${e}&prize=${p}&game=${gk}&intent=join&returnTo=${rt}` as never,
+              `/(app)/(tabs)/play/casual?${centsPrefix}entry=${e}&prize=${p}&game=${gk}&intent=join&autoStart=1&returnTo=${rt}` as never,
             );
             setH2hGate(null);
           }}
@@ -403,7 +404,7 @@ export default function LiveMatchesScreen() {
             const rt = encodeURIComponent(liveReturn);
             pushCrossTab(
               router,
-              `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${gk}&intent=start&returnTo=${rt}` as never,
+              `/(app)/(tabs)/play/casual?entryCents=${ec}&prizeCents=${pc}&entry=${e}&prize=${p}&game=${gk}&intent=start&autoStart=1&returnTo=${rt}` as never,
             );
             setTierPick(null);
           }}

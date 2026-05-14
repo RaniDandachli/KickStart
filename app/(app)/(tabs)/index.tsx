@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { HomeNeonBackground } from '@/components/arcade/HomeNeonBackground';
 import { HomePlayHero } from '@/components/arcade/HomePlayHero';
+import { AsyncRunsPromoSection } from '@/components/arcade/AsyncRunsPromoSection';
 import { HowItWorksModal } from '@/components/arcade/HowItWorksModal';
 import {
     BallRunGameIcon,
@@ -47,6 +48,7 @@ import {
     appChromeLinePink,
     runit,
     runitFont,
+    runitShell,
 } from '@/lib/runitArcadeTheme';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
 import { shareAppInvite } from '@/lib/inviteFriends';
@@ -201,6 +203,11 @@ export default function HomeScreen() {
     pushCrossTab(router, `/(app)/(tabs)/play/choose-contest?returnTo=${rt}` as never);
   }
 
+  function goAsyncRun() {
+    const rt = encodeURIComponent('/(app)/(tabs)');
+    pushCrossTab(router, `/(app)/(tabs)/play/async-run?returnTo=${rt}` as never);
+  }
+
   function goDailyTournament() {
     if (ENABLE_DAILY_FREE_TOURNAMENT) {
       pushCrossTab(router, '/(app)/(tabs)/tournaments/daily-free');
@@ -307,6 +314,7 @@ export default function HomeScreen() {
             onH2hCarouselRowPress={openH2hCarouselRow}
             h2hIconFor={h2hIconFor}
             h2hGradients={h2hGradients}
+            onAsyncRun={() => (needAccount ? openGuestPrompt('play') : goAsyncRun())}
           />
         </SafeAreaView>
 
@@ -327,7 +335,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.modalActionMain}>
                   <View style={styles.modalActionIcon}>
-                    <SafeIonicons name="flash" size={18} color={runit.neonCyan} />
+                    <SafeIonicons name="play-circle" size={18} color={runit.neonCyan} />
                   </View>
                   <Text style={styles.modalActionTitle}>Quick Play</Text>
                 </View>
@@ -348,6 +356,24 @@ export default function HomeScreen() {
                   <Text style={styles.modalActionTitle}>Start Your Own Match</Text>
                 </View>
                 <Text style={styles.modalActionSub}>Pick your game + contest tier, then queue for an opponent.</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  if (needAccount) openGuestPrompt('play');
+                  else goAsyncRun();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="flash" size={18} color="#34d399" />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Async Run</Text>
+                </View>
+                <Text style={styles.modalActionSub}>
+                  Play solo now — we save your score and compare when someone joins the same game & tier.
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -438,7 +464,7 @@ export default function HomeScreen() {
               style={({ pressed }) => [styles.playNowBtn, pressed && { opacity: 0.92 }]}
             >
               <LinearGradient colors={[runit.neonPink, runit.neonPurple]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.playNowGrad}>
-                <SafeIonicons name="flash" size={18} color="#fff" />
+                <SafeIonicons name="play-circle" size={18} color="#fff" />
                 <Text style={styles.playNowText}>PLAY NOW</Text>
               </LinearGradient>
             </Pressable>
@@ -468,6 +494,8 @@ export default function HomeScreen() {
               onRowPress={openH2hCarouselRow}
             />
           </HomePlayHero>
+
+          <AsyncRunsPromoSection onStartPress={() => (needAccount ? openGuestPrompt('play') : goAsyncRun())} />
 
           <View style={[styles.sectionLabel, { marginTop: 10 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
@@ -649,7 +677,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.modalActionMain}>
                   <View style={styles.modalActionIcon}>
-                    <SafeIonicons name="flash" size={18} color={runit.neonCyan} />
+                    <SafeIonicons name="play-circle" size={18} color={runit.neonCyan} />
                   </View>
                   <Text style={styles.modalActionTitle}>Quick Play</Text>
                 </View>
@@ -671,6 +699,24 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.modalActionSub}>Pick your game + contest tier, then queue for an opponent.</Text>
               </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPlayNowOpen(false);
+                  if (needAccount) openGuestPrompt('play');
+                  else goAsyncRun();
+                }}
+                style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.modalActionMain}>
+                  <View style={styles.modalActionIcon}>
+                    <SafeIonicons name="flash" size={18} color="#34d399" />
+                  </View>
+                  <Text style={styles.modalActionTitle}>Async Run</Text>
+                </View>
+                <Text style={styles.modalActionSub}>
+                  Play solo now — we save your score and compare when someone joins the same game & tier.
+                </Text>
+              </Pressable>
             </View>
           </View>
         </Modal>
@@ -688,7 +734,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screenRoot: { flex: 1 },
   safe: { flex: 1 },
-  safeLaptop: { flex: 1, maxWidth: 1280, width: '100%', alignSelf: 'center' },
+  safeLaptop: { flex: 1, minHeight: 0, maxWidth: 1280, width: '100%', alignSelf: 'center' },
   scroll: { paddingHorizontal: 16, paddingBottom: 92 },
   scrollWebDesktop: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   homeAlertsStrip: {
@@ -956,7 +1002,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   homeStatsLoading: { flex: 1, color: 'rgba(148,163,184,0.9)', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
   statGrad: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+  statInner: { backgroundColor: runitShell.scrim80, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
   statVal: { fontSize: 22, fontWeight: '900' },
   statLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
   statsFoot: { color: 'rgba(148,163,184,0.85)', fontSize: 12, marginBottom: 14, textAlign: 'center' },

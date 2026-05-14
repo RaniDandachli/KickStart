@@ -37,6 +37,17 @@ export function normalizeQuickMatchAllowedEntries(
   return Array.from(set).sort((a, b) => a - b);
 }
 
+/** Default entry-fee tier (whole cents) for Quick Match when the UI picks a single contest access amount. */
+export function defaultQuickMatchSingleEntryFee(maxAffordableEntryCents: number): number[] {
+  const cap = Math.max(0, Math.floor(maxAffordableEntryCents));
+  const allowed = QUICK_MATCH_KNOWN_ENTRY_CENTS.filter((c) => c <= cap);
+  if (allowed.length === 0) return [0];
+  if (allowed.includes(500)) return [500];
+  const paid = allowed.filter((c) => c > 0);
+  if (paid.length > 0) return [paid[0]!];
+  return [0];
+}
+
 /** Default “I’m OK with any tier I can afford” — callers may narrow in the UI. */
 export function defaultQuickMatchAllowedSelection(maxAffordableEntryCents: number): number[] {
   const cap = Math.max(0, Math.floor(maxAffordableEntryCents));

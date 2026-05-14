@@ -11,12 +11,14 @@ export function H2hShapeDashMatch({
   opponentId,
   opponentDisplayName,
   onComplete,
+  asyncHostSkipSubmit,
 }: {
   matchSessionId: string;
   localPlayerId: string;
   opponentId: string;
   opponentDisplayName: string;
   onComplete: H2hSkillContestBundle['onComplete'];
+  asyncHostSkipSubmit?: boolean;
 }) {
   const h2hSkillContest = useMemo<H2hSkillContestBundle>(
     () => ({
@@ -25,8 +27,9 @@ export function H2hShapeDashMatch({
       opponentId,
       opponentDisplayName,
       onComplete,
+      asyncHostSkipSubmit,
     }),
-    [matchSessionId, localPlayerId, opponentId, opponentDisplayName, onComplete],
+    [matchSessionId, localPlayerId, opponentId, opponentDisplayName, onComplete, asyncHostSkipSubmit],
   );
 
   return <ShapeDashH2hHost h2hSkillContest={h2hSkillContest} />;

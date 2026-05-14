@@ -2,13 +2,14 @@ import type { ComponentType } from 'react';
 import { Platform } from 'react-native';
 
 import type { DailyTournamentBundle } from '@/types/dailyTournamentPlay';
-import type { H2hSkillContestBundle } from '@/types/match';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
 
 export type NeonBallRunGameProps = {
   playMode?: 'practice' | 'prize';
   runSeed?: number;
   dailyTournament?: DailyTournamentBundle;
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 };
 
 const Comp: ComponentType<NeonBallRunGameProps> =

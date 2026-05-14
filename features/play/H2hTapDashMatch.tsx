@@ -7,12 +7,15 @@ export function H2hTapDashMatch({
   opponentId,
   opponentDisplayName,
   onComplete,
+  asyncHostSkipSubmit,
 }: {
   matchSessionId: string;
   localPlayerId: string;
   opponentId: string;
   opponentDisplayName: string;
   onComplete: (p: MatchFinishPayload) => void;
+  /** Host already submitted score when creating async pending — poll only, do not POST again. */
+  asyncHostSkipSubmit?: boolean;
 }) {
   return (
     <TapDashGame
@@ -22,6 +25,7 @@ export function H2hTapDashMatch({
         opponentId,
         opponentDisplayName,
         onComplete,
+        asyncHostSkipSubmit,
       }}
     />
   );

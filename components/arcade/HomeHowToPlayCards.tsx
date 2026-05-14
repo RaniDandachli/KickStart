@@ -35,7 +35,7 @@ export function HomeHowToPlayCards({ onQuickMatch, onBrowseLive, onChooseContest
           <LinearGradient colors={[...PANEL]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardInner}>
             <View style={styles.cardRow}>
               <View style={[styles.iconBox, styles.iconBoxQuick]}>
-                <SafeIonicons name="flash" size={20} color={BRAND_GOLD} />
+                <SafeIonicons name="game-controller" size={20} color={BRAND_GOLD} />
               </View>
               <View style={styles.textCol}>
                 <Text style={[styles.cardTitle, { fontFamily: runitFont.black }]}>Quick match</Text>

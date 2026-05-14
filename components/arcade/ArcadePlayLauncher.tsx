@@ -12,21 +12,11 @@ import {
   STACKER_PRIZE_RUN_ENTRY_CREDITS,
   TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
 } from '@/lib/arcadeEconomy';
+import type { ArcadePlayLauncherRoute } from '@/lib/arcadePlayLauncherRoutes';
 import { ARCADE_HUB_RETURN_PATH, withReturnHref } from '@/lib/minigameReturnHref';
 import { useAuthStore } from '@/store/authStore';
 
-export type ArcadePlayLauncherRoute =
-  | 'tap-dash'
-  | 'tile-clash'
-  | 'dash-duel'
-  | 'ball-run'
-  | 'turbo-arena'
-  | 'neon-pool'
-  | 'stacker'
-  | 'neon-dance'
-  | 'neon-grid'
-  | 'neon-ship'
-  | 'cyber-road';
+export type { ArcadePlayLauncherRoute } from '@/lib/arcadePlayLauncherRoutes';
 
 const BASE = '/(app)/(tabs)/play/minigames';
 
@@ -65,6 +55,7 @@ export function ArcadePlayLauncher({ gameRoute, title, children, style }: Props)
       <ArcadePlayModeModal
         visible={open}
         gameTitle={title}
+        gameRoute={gameRoute}
         prizeEntryCredits={prizeEntryCredits}
         onClose={() => setOpen(false)}
         onBuyCredits={() => {

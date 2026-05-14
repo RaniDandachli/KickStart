@@ -2,15 +2,15 @@ import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useFloatingOnlineCount } from '@/hooks/useFloatingOnlineCount';
 
-import { MATCH_ENTRY_TIERS } from '@/components/arcade/matchEntryTiers';
+import { ContestTierPickCards } from '@/components/arcade/ContestTierPickCards';
 import { runItArcadeLogoSource } from '@/lib/brandLogo';
 import { DEFAULT_ONLINE_PLAYERS } from '@/lib/homeSocialDemo';
 import { arcade } from '@/lib/arcadeTheme';
-import { appBorderAccentMuted, appChromeLinePink, runit, runitFont } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, appChromeLinePink, runit, runitFont, runitShell } from '@/lib/runitArcadeTheme';
 
 const WINNER_ROTATION_MS = 3800;
 /** How often lobby stats nudge (feels “live”). */
@@ -54,15 +54,6 @@ const RECENT_WINNERS_LOOP = [
   { name: 'Sam', amount: 12, mins: 12 },
   { name: 'Riley', amount: 47, mins: 3 },
   { name: 'Casey', amount: 22, mins: 6 },
-] as const;
-
-const TIER_PANEL_STYLES = [
-  { rotate: '-3deg', colors: ['#6B21A8', '#D97706', '#FFD700'] as const, shadow: '#FFD700', iconColor: '#fffbeb' },
-  { rotate: '2deg', colors: ['#1e40af', '#2563eb', '#C4B5FD'] as const, shadow: '#C4B5FD', iconColor: '#eff6ff' },
-  { rotate: '-2deg', colors: ['#7c3aed', '#8b5cf6', '#a78bfa'] as const, shadow: '#a78bfa', iconColor: '#f5f3ff' },
-  { rotate: '3deg', colors: ['#86198f', '#c026d3', '#e879f9'] as const, shadow: '#e879f9', iconColor: '#fdf4ff' },
-  { rotate: '-2deg', colors: ['#b45309', '#d97706', '#fbbf24'] as const, shadow: '#fbbf24', iconColor: '#fffbeb' },
-  { rotate: '2deg', colors: ['#be123c', '#e11d48', '#fb7185'] as const, shadow: '#fb7185', iconColor: '#fff1f2' },
 ] as const;
 
 type Props = {
@@ -282,7 +273,7 @@ export function HomePlayHero({
             style={({ pressed }) => [styles.quickOuter, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
           >
             <LinearGradient colors={['#6B21A8', '#A855F7', '#C4B5FD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickGrad}>
-              <SafeIonicons name="flash" size={26} color="#FFFBEB" />
+              <SafeIonicons name="game-controller" size={26} color="#FFFBEB" />
               <Text style={styles.quickTitle}>QUICK MATCH</Text>
             </LinearGradient>
           </Pressable>
@@ -333,7 +324,7 @@ export function HomePlayHero({
               </View>
               <View style={styles.statCell}>
                 <View style={styles.statRowInline}>
-                  <SafeIonicons name="flash" size={13} color={runit.neonCyan} />
+                  <SafeIonicons name="radio-button-on" size={13} color={runit.neonCyan} />
                   <Text style={styles.statTxtSm} numberOfLines={1}>
                     <Text style={styles.statNum}>{displayLive}</Text> live
                   </Text>
@@ -360,7 +351,6 @@ export function HomeArcadeTierPickRow({
   /** When true, omits the "ARCADE GAMES" row (e.g. hero still shows "Choose contest tier" only). */
   hideArcadeHeading?: boolean;
 }) {
-  const snap = webWideSnap ? 170 : 158;
   return (
     <>
       {!hideArcadeHeading ? (
@@ -372,52 +362,14 @@ export function HomeArcadeTierPickRow({
       ) : null}
       <Text style={styles.pickTier}>Choose contest tier</Text>
       <View style={styles.tiersWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={Platform.OS === 'web'}
-          contentContainerStyle={styles.tiersScroll}
-          style={styles.tiersScrollView}
-          {...(Platform.OS === 'web' ? { snapToInterval: snap, decelerationRate: 'fast' as const } : {})}
-        >
-          {MATCH_ENTRY_TIERS.map((tier, i) => {
-            const v = TIER_PANEL_STYLES[i] ?? TIER_PANEL_STYLES[0];
-            return (
-              <Pressable
-                key={tier.entry}
-                onPress={() => onEntryTierPress(tier.entry, tier.prize)}
-                style={({ pressed }) => [
-                  styles.tierOuter,
-                  webWideSnap && styles.tierOuterWeb,
-                  {
-                    transform: [{ rotate: webWideSnap ? '0deg' : v.rotate }, ...(pressed ? [{ scale: 0.97 }] : [])],
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={[...v.colors]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.tierInner, { shadowColor: v.shadow }, webWideSnap && styles.tierInnerWeb]}
-                >
-                  <View style={styles.tierIconCircle}>
-                    <SafeIonicons name={tier.icon} size={22} color={v.iconColor} />
-                  </View>
-                  <Text style={styles.tierShort}>{tier.shortLabel.toUpperCase()}</Text>
-
-                  <View style={styles.tierAccessBlock}>
-                    <Text style={styles.tierAccessLabel}>Match access</Text>
-                    <Text style={styles.tierAccessAmount}>${tier.entry}</Text>
-                  </View>
-
-                  <View style={styles.tierPrizeBlock}>
-                    <Text style={styles.tierPrizeTitle}>🏆 Top performer prize</Text>
-                    <Text style={styles.tierPrizeAmount}>${tier.prize}</Text>
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <ContestTierPickCards
+          mode="action"
+          onSelectTier={(t) => onEntryTierPress(t.entry, t.prize)}
+          badgeText="Tap to queue"
+          hint="Tap a card to queue for that access + prize tier."
+          webWideSnap={!!webWideSnap}
+          scrollStyle={styles.tiersScrollView}
+        />
       </View>
       <Text style={styles.tierValueHint}>
         Every match gives value — win the listed prize or earn Arcade Credits for the Arcade floor.
@@ -479,7 +431,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(6,2,14,0.72)',
+    backgroundColor: runitShell.scrim72,
     borderRadius: 9,
     paddingVertical: 6,
     paddingHorizontal: 9,
@@ -668,110 +620,6 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   tiersScrollView: { marginHorizontal: -4 },
-  tiersScroll: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingTop: 4,
-    paddingBottom: 4,
-    paddingHorizontal: 4,
-  },
-  tierOuter: {
-    width: Platform.OS === 'web' ? 148 : 118,
-    borderRadius: 14,
-    overflow: 'visible',
-  },
-  tierOuterWeb: {
-    width: 160,
-  },
-  tierInner: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.45)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  tierInnerWeb: {
-    minHeight: 200,
-    paddingVertical: 12,
-  },
-  tierIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    marginBottom: 6,
-  },
-  tierShort: {
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  tierAccessBlock: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    marginBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.22)',
-  },
-  tierAccessLabel: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  tierAccessAmount: {
-    color: '#f1f5f9',
-    fontSize: 17,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  tierPrizeBlock: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 5,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-    borderWidth: 1,
-    borderColor: 'rgba(253,224,71,0.35)',
-  },
-  tierPrizeTitle: {
-    color: 'rgba(254,243,199,0.95)',
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.35,
-    textAlign: 'center',
-    marginBottom: 4,
-    lineHeight: 11,
-  },
-  tierPrizeAmount: {
-    color: '#FDE047',
-    fontSize: 18,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
   tierValueHint: {
     marginTop: 10,
     paddingHorizontal: 10,

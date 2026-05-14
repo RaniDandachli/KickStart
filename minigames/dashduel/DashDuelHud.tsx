@@ -1,5 +1,5 @@
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
-import { runit } from '@/lib/runitArcadeTheme';
+import { runit, runitShell } from '@/lib/runitArcadeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(6,2,14,0.92)',
+    backgroundColor: runitShell.scrim92,
     borderWidth: 1,
     borderColor: 'rgba(255,26,140,0.4)',
     gap: 2,

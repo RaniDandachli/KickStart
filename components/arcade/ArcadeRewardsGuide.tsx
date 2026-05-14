@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { ENABLE_BACKEND, SHOW_TURBO_ARENA_MINIGAME } from '@/constants/featureFlags';
 import {
     DAILY_FREE_PRIZE_CREDITS,
     PRIZE_RUN_ENTRY_CREDITS,
@@ -11,7 +11,7 @@ import {
     TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS,
     WELCOME_PRIZE_CREDITS,
 } from '@/lib/arcadeEconomy';
-import { appBorderAccentMuted, runit, runitFont, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
+import { appBorderAccentMuted, runit, runitFont, runitShell, runitTextGlowCyan } from '@/lib/runitArcadeTheme';
 import {
     ARCADE_TICKET_SCORE_RULES,
     STACKER_JACKPOT_TICKETS,
@@ -32,7 +32,7 @@ export function ArcadeRewardsGuide() {
   const [open, setOpen] = useState(false);
 
   return (
-    <LinearGradient colors={['rgba(15,23,42,0.95)', 'rgba(30,27,75,0.92)']} style={[styles.outer, !open && styles.outerCollapsed]}>
+    <LinearGradient colors={['rgba(24,24,27,0.96)', 'rgba(18,18,20,0.94)']} style={[styles.outer, !open && styles.outerCollapsed]}>
       <View style={[styles.inner, !open && styles.innerCollapsed]}>
         <View style={styles.headerBlock}>
           <Text style={[styles.title, { fontFamily: runitFont.black }, runitTextGlowCyan]}>CREDITS & TICKETS</Text>
@@ -71,13 +71,15 @@ export function ArcadeRewardsGuide() {
                   </Text>
                 </View>
               ))}
-              <View style={styles.row}>
-                <Text style={[styles.cell, styles.cellGame]}>Turbo Arena</Text>
-                <Text style={[styles.cell, styles.cellMid]}>
-                  1 ticket per goal · +{TURBO_ARENA_WIN_BONUS_TICKETS} if you win · HARD AI · {TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS}{' '}
-                  cr. entry
-                </Text>
-              </View>
+              {SHOW_TURBO_ARENA_MINIGAME ? (
+                <View style={styles.row}>
+                  <Text style={[styles.cell, styles.cellGame]}>Turbo Arena</Text>
+                  <Text style={[styles.cell, styles.cellMid]}>
+                    1 ticket per goal · +{TURBO_ARENA_WIN_BONUS_TICKETS} if you win · HARD AI · {TURBO_ARENA_PRIZE_RUN_ENTRY_CREDITS}{' '}
+                    cr. entry
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.row}>
                 <Text style={[styles.cell, styles.cellGame]}>Stacker</Text>
                 <Text style={[styles.cell, styles.cellMid]}>
@@ -115,7 +117,7 @@ const styles = StyleSheet.create({
   },
   inner: {
     borderRadius: 14,
-    backgroundColor: 'rgba(6,2,14,0.55)',
+    backgroundColor: runitShell.scrim55,
     paddingVertical: 14,
     paddingHorizontal: 14,
   },

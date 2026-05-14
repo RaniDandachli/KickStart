@@ -227,7 +227,7 @@ export function BracketPathBoard({
             colors={['rgba(76,29,149,0.95)', 'rgba(49,46,129,0.88)']}
             style={styles.eventBadge}
           >
-            <SafeIonicons name="trophy" size={22} color={runit.gold} />
+            <SafeIonicons name="calendar-outline" size={22} color={runit.gold} />
             <Text style={styles.eventBadgeTitle}>{eventBadge.title}</Text>
             <Text style={styles.eventBadgeSub}>{eventBadge.subtitle}</Text>
           </LinearGradient>
@@ -253,13 +253,13 @@ export function BracketPathBoard({
         ))}
         <View style={styles.trophyCol}>
           <Text style={styles.roundLbl}>CHAMPION</Text>
-          <LinearGradient colors={['rgba(30,27,75,0.95)', 'rgba(15,23,42,0.98)']} style={styles.trophyCard}>
+          <LinearGradient colors={['rgba(24,24,27,0.96)', 'rgba(18,18,20,0.98)']} style={styles.trophyCard}>
             <Text style={styles.laurelLarge}>🏆</Text>
             <Text style={styles.trophyHint}>Final prize</Text>
           </LinearGradient>
         </View>
         <View style={styles.scrollEndChevron} accessibilityLabel="Scroll for more">
-          <LinearGradient colors={[runit.neonPurple, '#4c1d95']} style={styles.scrollEndInner}>
+          <LinearGradient colors={[runit.neonPurple, '#18181B']} style={styles.scrollEndInner}>
             <SafeIonicons name="chevron-forward" size={22} color="#fff" />
           </LinearGradient>
         </View>

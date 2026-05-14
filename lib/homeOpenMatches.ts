@@ -4,7 +4,11 @@ import {
   SHOW_DASH_DUEL_MINIGAME,
   SHOW_NEON_SHIP_MINIGAME,
   SHOW_STREET_DASH_MINIGAME,
+  SHOW_TURBO_ARENA_MINIGAME,
 } from '@/constants/featureFlags';
+
+/** Charcoal game tiles — brand color only on borders / CTAs (see `borderAccent`). */
+export const GAME_ROW_SHELL_BG = ['#121214', '#18181B', '#101012'] as const;
 
 /** Full list (includes vaulted games) — use for titles, server keys, in-flight matches. */
 export const H2H_OPEN_GAMES_ALL = [
@@ -12,57 +16,56 @@ export const H2H_OPEN_GAMES_ALL = [
     gameKey: 'tap-dash' as const,
     title: 'Tap Dash',
     route: '/(app)/(tabs)/play/minigames/tap-dash',
-    /** Purple + brand gold (web hero cards — not teal). */
-    bgColors: ['#0c0618', '#4c1d95', '#a16207'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'tile-clash' as const,
     title: 'Tile Clash',
     route: '/(app)/(tabs)/play/minigames/tile-clash',
-    bgColors: ['#0f172a', '#1e1b4b', '#5b21b6'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'purple' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'dash-duel' as const,
     title: 'Dash Duel',
     route: '/(app)/(tabs)/play/minigames/dash-duel',
-    bgColors: ['#020617', '#0c4a6e', '#164e63'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'ball-run' as const,
     title: 'Neon Ball Run',
     route: '/(app)/(tabs)/play/minigames/ball-run',
-    bgColors: ['#1a0b2e', '#4c1d95', '#831843'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'pink' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'turbo-arena' as const,
     title: 'Turbo Arena',
     route: '/(app)/(tabs)/play/minigames/turbo-arena',
-    bgColors: ['#020617', '#0c4a6e', '#7c2d12'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'neon-dance' as const,
     title: 'Neon Dance',
     route: '/(app)/(tabs)/play/minigames/neon-dance',
-    bgColors: ['#050508', '#1e1b4b', '#312e81'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'pink' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'neon-grid' as const,
     title: 'Street Dash',
     route: '/(app)/(tabs)/play/minigames/neon-grid',
-    bgColors: ['#0f172a', '#312e81', '#831843'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'purple' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'neon-ship' as const,
     title: 'Void Glider',
     route: '/(app)/(tabs)/play/minigames/neon-ship',
-    bgColors: ['#1a0a2e', '#4c1d95', '#0f0220'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'pink' as const satisfies RunitBorderAccent,
   },
   {
@@ -70,14 +73,14 @@ export const H2H_OPEN_GAMES_ALL = [
     title: 'Shape Dash',
     /** Head-to-head: endless Marathon only (single mode for competitive runs). */
     route: '/(app)/(tabs)/play/minigames/shape-dash?mode=marathon',
-    bgColors: ['#061018', '#0e7490', '#155e75'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'gold' as const satisfies RunitBorderAccent,
   },
   {
     gameKey: 'cyber-road' as const,
     title: 'Cyber Road',
     route: '/(app)/(tabs)/play/minigames/cyber-road',
-    bgColors: ['#020617', '#164e63', '#0f172a'] as const,
+    bgColors: GAME_ROW_SHELL_BG,
     borderAccent: 'purple' as const satisfies RunitBorderAccent,
   },
 ] as const;
@@ -90,6 +93,7 @@ export const H2H_OPEN_GAMES = H2H_OPEN_GAMES_ALL.filter((g) => {
   if (g.gameKey === 'dash-duel' && !SHOW_DASH_DUEL_MINIGAME) return false;
   if (g.gameKey === 'ball-run' && !SHOW_BALL_RUN_MINIGAME) return false;
   if (g.gameKey === 'neon-grid' && !SHOW_STREET_DASH_MINIGAME) return false;
+  if (g.gameKey === 'turbo-arena' && !SHOW_TURBO_ARENA_MINIGAME) return false;
   return true;
 });
 

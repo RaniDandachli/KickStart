@@ -4,7 +4,7 @@
 export const theme = {
   colors: {
     background: '#FAF5FF',
-    backgroundDeep: '#1E1B4B',
+    backgroundDeep: '#121214',
     surface: '#FFFFFF',
     surfaceMuted: '#F5F3FF',
     border: '#E9D5FF',

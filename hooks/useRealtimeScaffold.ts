@@ -28,6 +28,7 @@ export function useRealtimeScaffold(userId: string | undefined): void {
         void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
         void qc.invalidateQueries({ queryKey: ['userStats'] });
         void qc.invalidateQueries({ queryKey: ['recentMatches'] });
+        if (userId) void qc.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(userId) });
       })
       .on(
         'postgres_changes',

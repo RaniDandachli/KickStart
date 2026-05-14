@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AppButton } from '@/components/ui/AppButton';
 import { Countdown } from '@/minigames/ui/Countdown';
 import { useHidePlayTabBar } from '@/minigames/ui/useHidePlayTabBar';
+import { useMinigameExitNav } from '@/minigames/ui/useMinigameExitNav';
 import { useWebGameKeyboard } from '@/minigames/ui/useWebGameKeyboard';
 import { minigameStageMaxWidth } from '@/minigames/ui/minigameWebMaxWidth';
 import { DashDuelGame } from '@/minigames/dashduel/DashDuelGame';
@@ -26,11 +27,14 @@ import {
   ticketsFromDashDuelDisplayedScore,
 } from '@/lib/ticketPayouts';
 import { invokeEdgeFunction } from '@/lib/supabaseEdgeInvoke';
+import { useAsyncH2hQueueHostSubmission } from '@/hooks/useAsyncH2hQueueHostSubmission';
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
 import { getSupabase } from '@/supabase/client';
-import type { H2hSkillContestBundle } from '@/types/match';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
+import type { AsyncH2hQueueSubmit, H2hSkillContestBundle } from '@/types/match';
+import { AsyncH2hQueueHostLockOverlay } from '@/minigames/ui/AsyncH2hQueueHostLockOverlay';
 
 type Phase = 'home' | 'lobby' | 'countdown' | 'playing' | 'results';
 
@@ -40,12 +44,15 @@ function nextSeed(): number {
 
 export default function DashDuelScreen({
   h2hSkillContest,
+  asyncH2hQueueSubmit,
 }: {
   h2hSkillContest?: H2hSkillContestBundle;
+  asyncH2hQueueSubmit?: AsyncH2hQueueSubmit;
 } = {}) {
   useHidePlayTabBar();
   useDashDuelNeonVelocityMusic();
   const router = useRouter();
+  const { replaceToPrimaryExit, replacePrimaryLabel, replaceToHomeTab } = useMinigameExitNav();
   const uid = useAuthStore((s) => s.user?.id);
   const profileQ = useProfile(uid);
   const queryClient = useQueryClient();
@@ -56,7 +63,11 @@ export default function DashDuelScreen({
   const lh = Math.min(width, height);
   const isLandscapeLayout = lw > lh;
 
-  const [phase, setPhase] = useState<Phase>(() => (h2hSkillContest ? 'countdown' : 'home'));
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (h2hSkillContest?.asyncHostSkipSubmit) return 'results';
+    if (h2hSkillContest) return 'countdown';
+    return 'home';
+  });
   const [mode, setMode] = useState<'practice' | 'vs'>('practice');
   const [seed, setSeed] = useState(nextSeed);
   const [finalScore, setFinalScore] = useState(0);
@@ -82,9 +93,57 @@ export default function DashDuelScreen({
     phase,
     buildH2hBody,
     'results',
+    { skipSubmit: Boolean(h2hSkillContest?.asyncHostSkipSubmit) },
   );
 
+  const getAsyncHostStats = useCallback(
+    () => ({
+      score: lastRunRef.current.score,
+      durationMs: lastRunRef.current.durationMs,
+      taps: lastRunRef.current.jumpCount,
+    }),
+    [],
+  );
+
+  const { asyncHostSubmitPhase, resetAsyncSubmission } = useAsyncH2hQueueHostSubmission({
+    shouldSubmit: phase === 'results',
+    asyncH2hQueueSubmit,
+    blocked: Boolean(h2hSkillContest),
+    getStats: getAsyncHostStats,
+    uid,
+  });
+
+  useLayoutEffect(() => {
+    if (!h2hSkillContest?.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      lastRunRef.current = {
+        ...lastRunRef.current,
+        score: data.self_score,
+      };
+      setFinalScore(data.self_score);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest?.asyncHostSkipSubmit, h2hSkillContest?.matchSessionId]);
+
+  useEffect(() => {
+    if (!asyncH2hQueueSubmit || h2hSkillContest) return;
+    setMode('practice');
+    setSeed(nextSeed());
+    setPhase('countdown');
+  }, [asyncH2hQueueSubmit, h2hSkillContest]);
+
   const runFlow = phase !== 'home';
+
+  const playAgainAsyncHost = useCallback(() => {
+    resetAsyncSubmission();
+    setMode('practice');
+    setSeed(nextSeed());
+    setPhase('countdown');
+  }, [resetAsyncSubmission]);
 
   const goPractice = useCallback(() => {
     setMode('practice');
@@ -172,6 +231,14 @@ export default function DashDuelScreen({
         setPhase('results');
         return;
       }
+      if (asyncH2hQueueSubmit) {
+        lastRunRef.current = { score, distance, durationMs, jumpCount };
+        setTicketsEarned(0);
+        setFinalScore(score);
+        setFinalDistance(distance);
+        setPhase('results');
+        return;
+      }
       void (async () => {
         let tickets = 0;
         if (mode === 'vs') {
@@ -230,11 +297,11 @@ export default function DashDuelScreen({
         setPhase('results');
       })();
     },
-    [h2hSkillContest, mode, uid, queryClient],
+    [asyncH2hQueueSubmit, h2hSkillContest, mode, uid, queryClient],
   );
 
   const rematch = useCallback(() => {
-    if (h2hSkillContest) return;
+    if (h2hSkillContest || asyncH2hQueueSubmit) return;
     void (async () => {
       if (mode === 'vs') {
         if (ENABLE_BACKEND) {
@@ -270,10 +337,10 @@ export default function DashDuelScreen({
       setSeed(nextSeed());
       setPhase('countdown');
     })();
-  }, [h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, router, uid]);
+  }, [asyncH2hQueueSubmit, h2hSkillContest, mode, profileQ.data?.prize_credits, queryClient, router, uid]);
 
   /** Web: after a run, Space / Enter = Rematch (same as the primary results button). H2H has no rematch. */
-  useWebGameKeyboard(Platform.OS === 'web' && phase === 'results' && !h2hSkillContest, {
+  useWebGameKeyboard(Platform.OS === 'web' && phase === 'results' && !h2hSkillContest && !asyncH2hQueueSubmit, {
     Space: (down) => {
       if (!down) return;
       rematch();
@@ -398,7 +465,7 @@ export default function DashDuelScreen({
               distance={finalDistance}
               seed={seed}
               ticketsEarned={h2hSkillContest ? undefined : mode === 'vs' ? ticketsEarned : undefined}
-              hideRematch={Boolean(h2hSkillContest)}
+              hideRematch={Boolean(h2hSkillContest || asyncH2hQueueSubmit)}
               h2hFooter={
                 h2hSkillContest ? (
                   <View style={{ marginBottom: 12 }}>
@@ -433,6 +500,17 @@ export default function DashDuelScreen({
               }
               onRematch={rematch}
               onExit={exitToMenu}
+            />
+          ) : null}
+          {phase === 'results' && asyncH2hQueueSubmit && !h2hSkillContest ? (
+            <AsyncH2hQueueHostLockOverlay
+              asyncHostSubmitPhase={asyncHostSubmitPhase}
+              scoreLine={`Displayed score: ${finalScore}`}
+              onPlayAgain={playAgainAsyncHost}
+              playAgainDisabled={asyncHostSubmitPhase === 'loading'}
+              minigamesLabel={replacePrimaryLabel}
+              onMinigames={replaceToPrimaryExit}
+              onHome={replaceToHomeTab}
             />
           ) : null}
         </View>

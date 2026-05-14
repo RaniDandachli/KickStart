@@ -27,8 +27,8 @@ export const SPIKE_SPACING_MIN = 130;
 export const SPIKE_SPACING_MAX = 280;
 
 export const COLORS = {
-  skyTop: '#1a0a2e',
-  skyBot: '#0f0220',
+  skyTop: '#161618',
+  skyBot: '#0B0B0D',
   block: '#3b0764',
   blockEdge: '#e879f9',
   shipFill: '#FFD700',

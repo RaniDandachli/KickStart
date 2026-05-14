@@ -42,6 +42,7 @@ import {
   runit,
   runitFont,
   runitGlowPinkSoft,
+  runitShell,
   runitTextGlowCyan,
   runitTextGlowPink,
 } from '@/lib/runitArcadeTheme';
@@ -341,7 +342,7 @@ export default function ProfileScreen() {
             </View>
           </LinearGradient>
           <View style={styles.cameraBadge}>
-            <SafeIonicons name="camera" size={16} color="#050208" />
+            <SafeIonicons name="camera" size={16} color="#0B0B0D" />
           </View>
         </Pressable>
 
@@ -700,7 +701,7 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(6,2,14,0.9)',
+    backgroundColor: runitShell.scrim90,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     padding: 6,
     borderWidth: 2,
-    borderColor: 'rgba(6,2,14,0.95)',
+    borderColor: runitShell.scrim96,
   },
   headerText: { flex: 1, paddingTop: 2 },
   fieldLbl: { color: 'rgba(203,213,225,0.95)', fontSize: 12, fontWeight: '800', letterSpacing: 0.4, marginBottom: 6 },
@@ -745,7 +746,7 @@ const styles = StyleSheet.create({
   clearPhotoText: { color: runit.neonCyan, fontSize: 14, fontWeight: '800' },
   hint: { color: 'rgba(148,163,184,0.75)', fontSize: 11, marginTop: 8, lineHeight: 15 },
   walletOuter: { borderRadius: 18, padding: 2, marginBottom: 20 },
-  walletInner: { borderRadius: 16, backgroundColor: 'rgba(6,2,14,0.72)', paddingVertical: 16, paddingHorizontal: 16 },
+  walletInner: { borderRadius: 16, backgroundColor: runitShell.scrim72, paddingVertical: 16, paddingHorizontal: 16 },
   walletTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   walletTitle: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
   walletBalance: {
@@ -786,7 +787,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: appBorderAccentMuted,
-    backgroundColor: 'rgba(6,2,14,0.6)',
+    backgroundColor: runitShell.scrim60,
     paddingVertical: 8,
     paddingHorizontal: 12,
     minWidth: 80,
@@ -830,14 +831,14 @@ const styles = StyleSheet.create({
   },
   wBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   wBtnPrimary: { backgroundColor: runit.neonPink, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
-  wBtnGhost: { borderWidth: 2, borderColor: appBorderAccent, backgroundColor: 'rgba(255,0,110,0.06)' },
+  wBtnGhost: { borderWidth: 2, borderColor: appBorderAccent, backgroundColor: 'rgba(168,85,247,0.08)' },
   wBtnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
   sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   sectionTitle: { color: runit.neonCyan, fontSize: 12, fontWeight: '900', letterSpacing: 2 },
   sectionLine: { flex: 1, height: 1, backgroundColor: appChromeLinePink },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   statGrad: { flex: 1, borderRadius: 14, padding: 2 },
-  statInner: { backgroundColor: 'rgba(6,2,14,0.8)', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  statInner: { backgroundColor: runitShell.scrim80, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   statVal: { color: '#fff', fontSize: 18, fontWeight: '900' },
   statLbl: { color: 'rgba(148,163,184,0.8)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
   historyRow: {
@@ -846,7 +847,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: 'rgba(12,6,22,0.85)',
+    backgroundColor: runitShell.card85,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 8,

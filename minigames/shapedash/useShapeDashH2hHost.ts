@@ -4,6 +4,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { Platform, useWindowDimensions } from 'react-native';
 
 import { useH2hSkillContestSubmitAndPoll } from '@/hooks/useH2hSkillContestSubmitAndPoll';
+import { fetchH2hTapDashScoresForMatch } from '@/services/api/h2hTapDash';
 import { SHAPE_DASH_INLINE_HTML } from '@/minigames/shapedash/shapeDashInlineHtml.generated';
 import {
   enterWebAppFullscreen,
@@ -43,8 +44,9 @@ export function useShapeDashH2hHost(h2hSkillContest: H2hSkillContestBundle) {
   const minEmbedHeight = Math.max(280, Math.floor(height * 0.55));
   const webPortrait = Platform.OS === 'web' && height > width;
 
-  const [phase, setPhase] = useState<Phase>('playing');
+  const [phase, setPhase] = useState<Phase>(() => (h2hSkillContest.asyncHostSkipSubmit ? 'results' : 'playing'));
   const [wasSubmitted, setWasSubmitted] = useState(false);
+  const [, setAsyncSeedTick] = useState(0);
   const html = useMemo(
     () =>
       buildShapeDashHtml({
@@ -69,6 +71,23 @@ export function useShapeDashH2hHost(h2hSkillContest: H2hSkillContestBundle) {
     };
   }, [h2hSkillContest.matchSessionId]);
 
+  useLayoutEffect(() => {
+    if (!h2hSkillContest.asyncHostSkipSubmit) return;
+    let cancelled = false;
+    void fetchH2hTapDashScoresForMatch(h2hSkillContest.matchSessionId).then((data) => {
+      if (cancelled || data?.self_score == null) return;
+      lastRunRef.current = {
+        score: data.self_score,
+        durationMs: lastRunRef.current.durationMs,
+        taps: lastRunRef.current.taps,
+      };
+      setAsyncSeedTick((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h2hSkillContest.asyncHostSkipSubmit, h2hSkillContest.matchSessionId]);
+
   const focusIframeGame = useCallback(() => {
     try {
       const iframe = iframeRef.current;
@@ -85,6 +104,7 @@ export function useShapeDashH2hHost(h2hSkillContest: H2hSkillContestBundle) {
     phase,
     buildH2hBody,
     'results',
+    { skipSubmit: Boolean(h2hSkillContest.asyncHostSkipSubmit) },
   );
   const submittedScore = lastRunRef.current.score;
   const showResultsOverlay = phase === 'results';

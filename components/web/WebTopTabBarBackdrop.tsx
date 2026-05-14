@@ -8,20 +8,20 @@ import { APP_SCREEN_GRADIENT_LOCATIONS } from '@/lib/runitArcadeTheme';
  * (Solid gradient reads like an opaque “header slab”; this matches the floating icon-tab look.)
  */
 const WEB_TAB_TOP_STRIP_COLORS = [
-  'rgba(7, 11, 24, 0.44)',
-  'rgba(13, 21, 44, 0.38)',
-  'rgba(18, 31, 61, 0.36)',
-  'rgba(6, 9, 20, 0.42)',
+  'rgba(18, 18, 20, 0.5)',
+  'rgba(22, 22, 24, 0.44)',
+  'rgba(16, 16, 18, 0.42)',
+  'rgba(12, 12, 14, 0.48)',
 ] as const;
 
 /**
  * iPhone Safari / narrow web: lighter tint so `backdrop-filter` reads as frosted glass (VAZA-style dock).
  */
 const WEB_TAB_MOBILE_GLASS_COLORS = [
-  'rgba(10, 14, 28, 0.15)',
-  'rgba(18, 28, 52, 0.12)',
-  'rgba(14, 22, 42, 0.11)',
-  'rgba(8, 12, 22, 0.17)',
+  'rgba(24, 24, 27, 0.18)',
+  'rgba(28, 28, 30, 0.14)',
+  'rgba(20, 20, 22, 0.12)',
+  'rgba(18, 18, 20, 0.2)',
 ] as const;
 
 export type WebTabBarBackdropVariant = 'topStrip' | 'mobileBottomGlass';
