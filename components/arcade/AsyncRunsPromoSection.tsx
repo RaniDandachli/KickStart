@@ -102,7 +102,7 @@ export function AsyncRunsPromoSection({ onStartPress, compact = false }: Props) 
                   style={styles.ctaGrad}
                 >
                   <SafeIonicons name="flash" size={20} color="#fff" />
-                  <Text style={[styles.ctaTxt, { fontFamily: runitFont.black }]}>Start an Async Run</Text>
+                  <Text style={[styles.ctaTxt, { fontFamily: runitFont.black }]}>Open 1v1 Battles</Text>
                   <SafeIonicons name="chevron-forward" size={22} color="rgba(255,255,255,0.92)" />
                 </LinearGradient>
               </Pressable>

@@ -8,7 +8,7 @@ export function useOpenAsyncHostChallenges(userId: string | undefined, gameKey?:
   const gk = gameKey?.trim() ? gameKey.trim().toLowerCase() : null;
   return useQuery({
     queryKey: queryKeys.openAsyncHostChallenges(gk),
-    queryFn: () => fetchOpenAsyncHostChallenges({ gameKey: gk, limit: 50 }),
+    queryFn: () => fetchOpenAsyncHostChallenges({ gameKey: gk, limit: 50, excludeHostUserId: userId }),
     enabled: Boolean(ENABLE_BACKEND && userId),
     staleTime: 12_000,
     refetchInterval: 20_000,

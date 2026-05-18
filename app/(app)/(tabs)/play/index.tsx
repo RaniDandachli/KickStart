@@ -5,7 +5,6 @@ import { useLayoutEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArcadeBalanceBar } from '@/components/arcade/ArcadeBalanceBar';
-import { AsyncHostPendingRunsPanel } from '@/components/arcade/AsyncHostPendingRunsPanel';
 import { ArcadeGameRow } from '@/components/arcade/ArcadeGameRow';
 import { ArcadeFloor } from '@/components/arcade/ArcadeFloor';
 import { ArcadeGrantBanner } from '@/components/arcade/ArcadeGrantBanner';
@@ -14,7 +13,6 @@ import { ArcadeMinigameRow } from '@/components/arcade/ArcadeMinigameRow';
 import { ArcadePlayModeModal } from '@/components/arcade/ArcadePlayModeModal';
 import { ArcadePromoBanner } from '@/components/arcade/ArcadePromoBanner';
 import { ArcadeQuickMatch } from '@/components/arcade/ArcadeQuickMatch';
-import { AsyncRunsPromoSection } from '@/components/arcade/AsyncRunsPromoSection';
 import { ArcadeRewardsGuide } from '@/components/arcade/ArcadeRewardsGuide';
 import { ArcadeStatsRow } from '@/components/arcade/ArcadeStatsRow';
 import {
@@ -82,13 +80,6 @@ export default function PlayHubScreen() {
     <View style={styles.root}>
       <ArcadeFloor>
         <BackendModeBanner />
-        {ENABLE_BACKEND && uid ? <AsyncHostPendingRunsPanel userId={uid} /> : null}
-        <AsyncRunsPromoSection
-          onStartPress={() => {
-            if (needAccount) setGuestPrompt('play');
-            else router.push('/(app)/(tabs)/play/async-run' as never);
-          }}
-        />
         <View style={styles.brandBlock}>
           <Text style={[styles.brandArcadeOnly, { fontFamily: runitFont.black }, runitTextGlowCyan]}>Arcade</Text>
         </View>

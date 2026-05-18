@@ -348,11 +348,11 @@ export default function TournamentsListScreen() {
     }
     base.push({
       id: 'one-vs-one',
-      title: 'Async runs',
+      title: '1v1 Battles',
       description:
-        'Browse open locked scores by game and tier — match the same entry, play your run, higher validated score wins.',
-      metaLine: 'Async 1v1 · all skill games',
-      cta: 'View open challenges',
+        'Board of contests waiting to settle — pick a locked score, match the entry, play your run, and try to win the tier.',
+      metaLine: 'Async 1v1 · open score board',
+      cta: 'Open battle board',
       pill: 'SKILL',
       onPress: () => router.push(oneVsOneChallengesHref()),
       imageSource: dailyRaceBannerSource,

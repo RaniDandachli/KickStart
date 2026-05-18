@@ -6,19 +6,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
+import { useMyAsyncHostPendingRuns } from '@/hooks/useMyAsyncHostPendingRuns';
 import { useOpenAsyncHostChallenges } from '@/hooks/useOpenAsyncHostChallenges';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { normalizeH2hSkillContestGameKey } from '@/lib/h2hSkillContestGames';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
 import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
+import { oneVsOneChallengesHref } from '@/lib/tabRoutes';
 import { h2hJoinSpecificAsyncHostChallenge } from '@/services/matchmaking/h2hQueue';
 
 const GREEN = '#34d399';
 
 type Props = {
   userId: string | undefined;
+  /** Override navigation when empty-state CTA is pressed (default: Play → async run, return here). */
+  onPostOwnRunPress?: () => void;
+  /** Screen supplies its own page title / intro (e.g. Events 1v1 battles). */
+  hideBoardHeader?: boolean;
 };
 
 function gameTitle(gameKey: string): string {
@@ -26,11 +33,14 @@ function gameTitle(gameKey: string): string {
   return g ? titleForH2hGameKey(g) : gameKey;
 }
 
-export function OpenAsyncChallengesFeed({ userId }: Props) {
+export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHeader }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const q = useOpenAsyncHostChallenges(userId, null);
+  const myRunsQ = useMyAsyncHostPendingRuns(userId);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  const myWaitingOnBoard = (myRunsQ.data ?? []).some((r) => r.pending.status === 'waiting_opponent');
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +97,15 @@ export function OpenAsyncChallengesFeed({ userId }: Props) {
     [invalidateLists, qc, router, userId],
   );
 
+  const goPostOwnAsyncRun = useCallback(() => {
+    if (onPostOwnRunPress) {
+      onPostOwnRunPress();
+      return;
+    }
+    const rt = encodeURIComponent(String(oneVsOneChallengesHref()));
+    pushCrossTab(router, `/(app)/(tabs)/play/async-run?returnTo=${rt}` as never);
+  }, [onPostOwnRunPress, router]);
+
   if (!ENABLE_BACKEND) return null;
 
   if (!userId) {
@@ -111,9 +130,16 @@ export function OpenAsyncChallengesFeed({ userId }: Props) {
   }
 
   if (q.isError) {
+    const errMsg = q.error instanceof Error ? q.error.message : 'Unknown error';
     return (
       <View style={styles.errBox}>
         <Text style={styles.errTxt}>Could not load open challenges.</Text>
+        <Text style={styles.errDetail} numberOfLines={4}>
+          {errMsg}
+        </Text>
+        <Text style={styles.errHint}>
+          {`If you only see your own score below, that is expected — your run is hidden from you on this board. Other players can challenge it. Apply SQL migration 00063 + 00065 on Supabase if this keeps failing.`}
+        </Text>
         <Pressable onPress={() => void q.refetch()} style={styles.retry}>
           <Text style={styles.retryTxt}>Retry</Text>
         </Pressable>
@@ -125,20 +151,46 @@ export function OpenAsyncChallengesFeed({ userId }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.headRow}>
-        <SafeIonicons name="flash" size={20} color={GREEN} />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>BEAT A POSTED SCORE</Text>
-          <Text style={styles.sectionSub}>
-            {`Each row is another player's locked run: same entry fee, same prize tier. Think you can beat it? Tap below — we open the contest and compare validated scores when you finish.`}
-          </Text>
+      {!hideBoardHeader ? (
+        <View style={styles.headRow}>
+          <SafeIonicons name="flash" size={20} color={GREEN} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>CONTESTS WAITING TO SETTLE</Text>
+            <Text style={styles.sectionSub}>
+              {`Each row is another player's locked run: same entry fee, same prize tier. Think you can beat it? Tap below — we open the contest and compare validated scores when you finish.`}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
       {rows.length === 0 ? (
-        <Text style={styles.empty}>
-          No open runs right now. Post your own from Play → Contests & queue (async) so others can chase your score.
-        </Text>
+        <View style={styles.emptyCard}>
+          <SafeIonicons name="rocket-outline" size={28} color={runit.neonPink} style={styles.emptyIcon} />
+          <Text style={[styles.emptyTitle, { fontFamily: runitFont.black }]}>Nothing to beat yet</Text>
+          <Text style={styles.emptyBody}>
+            {myWaitingOnBoard
+              ? `You already have a run waiting on this tier — other players see it on their board, not yours. When someone joins, you will get a match to settle.`
+              : `No one else has an open run right now. Post your score and others can challenge it from their board.`}
+          </Text>
+          <Pressable
+            onPress={goPostOwnAsyncRun}
+            accessibilityRole="button"
+            accessibilityLabel="Post your async run so others can challenge your score"
+            style={({ pressed }) => [styles.emptyCtaOuter, pressed && { opacity: 0.9 }]}
+          >
+            <LinearGradient
+              colors={['rgba(236,72,153,0.45)', 'rgba(15,23,42,0.96)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.emptyCtaGrad}
+            >
+              <SafeIonicons name="flash" size={18} color={runit.neonPink} />
+              <Text style={[styles.emptyCtaTxt, { fontFamily: runitFont.black }]}>Post my score — async run</Text>
+              <SafeIonicons name="chevron-forward" size={18} color={runit.neonPink} />
+            </LinearGradient>
+          </Pressable>
+          <Text style={styles.emptyHint}>Tap the button above to post the first run on this board.</Text>
+        </View>
       ) : (
         rows.map((row) => {
           const entry = row.entry_fee_wallet_cents > 0 ? formatUsdFromCents(row.entry_fee_wallet_cents) : 'Free';
@@ -211,10 +263,34 @@ const styles = StyleSheet.create({
   loading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
   loadingTxt: { color: 'rgba(148,163,184,0.95)', fontSize: 13 },
   errBox: { marginBottom: 16, gap: 8 },
-  errTxt: { color: '#fda4af', fontSize: 13 },
+  errTxt: { color: '#fda4af', fontSize: 13, fontWeight: '700' },
+  errDetail: { color: 'rgba(253,186,219,0.9)', fontSize: 11, lineHeight: 16, marginTop: 6 },
+  errHint: { color: 'rgba(148,163,184,0.92)', fontSize: 11, lineHeight: 16, marginTop: 8, marginBottom: 4 },
   retry: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12 },
   retryTxt: { color: runit.neonPink, fontWeight: '800' },
-  empty: { color: 'rgba(148,163,184,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  emptyCard: {
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 8,
+    backgroundColor: 'rgba(15,23,42,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,114,182,0.28)',
+    alignItems: 'stretch',
+  },
+  emptyIcon: { alignSelf: 'center', marginBottom: 10 },
+  emptyTitle: { color: '#fce7f3', fontSize: 16, letterSpacing: 0.4, marginBottom: 8, textAlign: 'center' },
+  emptyBody: { color: 'rgba(226,232,240,0.9)', fontSize: 13, lineHeight: 20, marginBottom: 14 },
+  emptyCtaOuter: { borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+  emptyCtaGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  emptyCtaTxt: { flex: 1, color: '#fdf2f8', fontSize: 14, letterSpacing: 0.2 },
+  emptyHint: { color: 'rgba(148,163,184,0.88)', fontSize: 11, lineHeight: 16, textAlign: 'center' },
   card: {
     borderRadius: 14,
     padding: 14,

@@ -37,6 +37,7 @@ import { useTournaments } from '@/hooks/useTournaments';
 import { useWalletDisplayCents } from '@/hooks/useWalletDisplayCents';
 import { useWebUsesTopTabBar } from '@/hooks/useWebUsesTopTabBar';
 import { pushCrossTab } from '@/lib/appNavigation';
+import { oneVsOneChallengesHref } from '@/lib/tabRoutes';
 import { buildHomeH2hCarouselRows } from '@/lib/buildHomeH2hCarouselRows';
 import { getDailyTournamentPrizeUsd, getDailyTournamentRounds, todayYmdLocal } from '@/lib/dailyFreeTournament';
 import { H2H_OPEN_GAMES_ALL, type H2hGameKey } from '@/lib/homeOpenMatches';
@@ -208,6 +209,10 @@ export default function HomeScreen() {
     pushCrossTab(router, `/(app)/(tabs)/play/async-run?returnTo=${rt}` as never);
   }
 
+  function goOneVsOneBattles() {
+    pushCrossTab(router, oneVsOneChallengesHref());
+  }
+
   function goDailyTournament() {
     if (ENABLE_DAILY_FREE_TOURNAMENT) {
       pushCrossTab(router, '/(app)/(tabs)/tournaments/daily-free');
@@ -314,7 +319,7 @@ export default function HomeScreen() {
             onH2hCarouselRowPress={openH2hCarouselRow}
             h2hIconFor={h2hIconFor}
             h2hGradients={h2hGradients}
-            onAsyncRun={() => (needAccount ? openGuestPrompt('play') : goAsyncRun())}
+            onAsyncRun={() => (needAccount ? openGuestPrompt('play') : goOneVsOneBattles())}
           />
         </SafeAreaView>
 
@@ -361,7 +366,7 @@ export default function HomeScreen() {
                 onPress={() => {
                   setPlayNowOpen(false);
                   if (needAccount) openGuestPrompt('play');
-                  else goAsyncRun();
+                  else goOneVsOneBattles();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -369,10 +374,10 @@ export default function HomeScreen() {
                   <View style={styles.modalActionIcon}>
                     <SafeIonicons name="flash" size={18} color="#34d399" />
                   </View>
-                  <Text style={styles.modalActionTitle}>Async Run</Text>
+                  <Text style={styles.modalActionTitle}>1v1 Battles</Text>
                 </View>
                 <Text style={styles.modalActionSub}>
-                  Play solo now — we save your score and compare when someone joins the same game & tier.
+                  Open the score board — challenge a locked run or post your own for others to beat.
                 </Text>
               </Pressable>
             </View>
@@ -495,7 +500,9 @@ export default function HomeScreen() {
             />
           </HomePlayHero>
 
-          <AsyncRunsPromoSection onStartPress={() => (needAccount ? openGuestPrompt('play') : goAsyncRun())} />
+          <AsyncRunsPromoSection
+            onStartPress={() => (needAccount ? openGuestPrompt('play') : goOneVsOneBattles())}
+          />
 
           <View style={[styles.sectionLabel, { marginTop: 10 }]}>
             <Text style={[styles.sectionTitle, { fontFamily: runitFont.black }]}>
@@ -703,7 +710,7 @@ export default function HomeScreen() {
                 onPress={() => {
                   setPlayNowOpen(false);
                   if (needAccount) openGuestPrompt('play');
-                  else goAsyncRun();
+                  else goOneVsOneBattles();
                 }}
                 style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.9 }]}
               >
@@ -711,10 +718,10 @@ export default function HomeScreen() {
                   <View style={styles.modalActionIcon}>
                     <SafeIonicons name="flash" size={18} color="#34d399" />
                   </View>
-                  <Text style={styles.modalActionTitle}>Async Run</Text>
+                  <Text style={styles.modalActionTitle}>1v1 Battles</Text>
                 </View>
                 <Text style={styles.modalActionSub}>
-                  Play solo now — we save your score and compare when someone joins the same game & tier.
+                  Open the score board — challenge a locked run or post your own for others to beat.
                 </Text>
               </Pressable>
             </View>
