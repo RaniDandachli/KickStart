@@ -1,22 +1,22 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
-import { useMyAsyncHostPendingRuns } from '@/hooks/useMyAsyncHostPendingRuns';
-import { useOpenAsyncHostChallenges } from '@/hooks/useOpenAsyncHostChallenges';
+import { useAsyncBattleBoard } from '@/hooks/useOpenAsyncHostChallenges';
 import { pushCrossTab } from '@/lib/appNavigation';
+import { briefError } from '@/lib/briefFeedback';
 import { normalizeH2hSkillContestGameKey } from '@/lib/h2hSkillContestGames';
-import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatUsdFromCents } from '@/lib/money';
 import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
 import { runit, runitFont } from '@/lib/runitArcadeTheme';
 import { oneVsOneChallengesHref } from '@/lib/tabRoutes';
-import { h2hJoinSpecificAsyncHostChallenge } from '@/services/matchmaking/h2hQueue';
+import { invalidateAsyncBattleBoardQueries, type AsyncBattleBoardRow } from '@/services/api/h2hAsyncHostOpenChallenges';
+import { joinAsyncChallengeAndOpenMatch } from '@/services/api/h2hAsyncHostJoinChallenge';
 
 const GREEN = '#34d399';
 
@@ -36,59 +36,53 @@ function gameTitle(gameKey: string): string {
 export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHeader }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
-  const q = useOpenAsyncHostChallenges(userId, null);
-  const myRunsQ = useMyAsyncHostPendingRuns(userId);
+  const q = useAsyncBattleBoard(userId, null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
-  const myWaitingOnBoard = (myRunsQ.data ?? []).some((r) => r.pending.status === 'waiting_opponent');
+  const boardRows = q.data?.rows ?? [];
+  const hasOwnWaiting = boardRows.some((r) => r.isOwnPostedRun);
 
   useFocusEffect(
     useCallback(() => {
-      if (userId && ENABLE_BACKEND) void q.refetch();
-    }, [userId, q.refetch]),
+      if (userId && ENABLE_BACKEND) {
+        void q.refetch();
+        if (userId) void qc.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(userId) });
+      }
+    }, [userId, q.refetch, qc]),
   );
 
   const invalidateLists = useCallback(() => {
-    void qc.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'openAsyncHostChallenges' });
+    invalidateAsyncBattleBoardQueries(qc);
     if (userId) void qc.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(userId) });
   }, [qc, userId]);
 
   const onChallenge = useCallback(
-    async (pendingId: string) => {
+    async (row: AsyncBattleBoardRow) => {
+      if (row.isOwnPostedRun) return;
       if (!ENABLE_BACKEND || !userId) {
-        Alert.alert('Sign in', 'Create an account to accept async challenges and stake the same entry.');
+        briefError('Sign in', 'Create an account to accept async challenges and stake the same entry.');
         return;
       }
-      setJoiningId(pendingId);
+      setJoiningId(row.id);
       try {
-        const r = await h2hJoinSpecificAsyncHostChallenge(pendingId);
-        if (!r.ok) {
-          const code = r.error;
-          const msg =
-            code === 'insufficient_wallet'
-              ? 'Not enough cash in your wallet for this entry. Add funds and try again.'
-              : code === 'async_host_pending'
-                ? 'You already have an open async run waiting for an opponent. Cancel or finish it in Play first.'
-                : code === 'async_already_matched'
-                  ? 'Someone else just picked this one up. Refresh the list.'
-                  : code === 'async_expired'
-                    ? 'This challenge expired. Refresh for newer runs.'
-                    : code === 'cannot_challenge_own_run'
-                      ? 'That is your own posted score — pick a different row.'
-                      : code === 'not_authenticated'
-                        ? 'Sign in to continue.'
-                        : 'Could not join this challenge. Try again.';
-          Alert.alert('Challenge', msg);
+        const result = await joinAsyncChallengeAndOpenMatch({
+          pendingId: row.id,
+          tier: {
+            entryFeeWalletCents: row.entry_fee_wallet_cents,
+            listedPrizeUsdCents: row.listed_prize_usd_cents,
+          },
+          router,
+          queryClient: qc,
+          userId,
+        });
+        if (!result.ok) {
+          briefError('Challenge', result.message);
           invalidateLists();
           return;
         }
-        if (r.matched) {
-          invalidateLists();
-          void invalidateProfileEconomy(qc, userId);
-          router.push(`/(app)/(tabs)/play/match/${r.match_session_id}` as never);
-        }
+        invalidateLists();
       } catch (e) {
-        Alert.alert('Challenge', e instanceof Error ? e.message : 'Something went wrong.');
+        briefError('Challenge', e instanceof Error ? e.message : 'Something went wrong.');
         invalidateLists();
       } finally {
         setJoiningId(null);
@@ -147,10 +141,13 @@ export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHe
     );
   }
 
-  const rows = q.data ?? [];
+  const rows = boardRows;
 
   return (
     <View style={styles.wrap}>
+      {q.data?.loadWarning ? (
+        <Text style={styles.warnTxt}>{q.data.loadWarning}</Text>
+      ) : null}
       {!hideBoardHeader ? (
         <View style={styles.headRow}>
           <SafeIonicons name="flash" size={20} color={GREEN} />
@@ -168,9 +165,9 @@ export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHe
           <SafeIonicons name="rocket-outline" size={28} color={runit.neonPink} style={styles.emptyIcon} />
           <Text style={[styles.emptyTitle, { fontFamily: runitFont.black }]}>Nothing to beat yet</Text>
           <Text style={styles.emptyBody}>
-            {myWaitingOnBoard
-              ? `You already have a run waiting on this tier — other players see it on their board, not yours. When someone joins, you will get a match to settle.`
-              : `No one else has an open run right now. Post your score and others can challenge it from their board.`}
+            {hasOwnWaiting
+              ? `Your run is on the board below — other players can challenge it. You cannot join your own row.`
+              : `No open runs yet. Post your score and it will appear here for others to challenge at the same entry tier.`}
           </Text>
           <Pressable
             onPress={goPostOwnAsyncRun}
@@ -199,43 +196,55 @@ export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHe
               ? formatUsdFromCents(row.listed_prize_usd_cents)
               : '—';
           const busy = joiningId === row.id;
+          const own = row.isOwnPostedRun;
           return (
-            <View key={row.id} style={styles.card}>
+            <View key={row.id} style={[styles.card, own && styles.cardOwn]}>
               <View style={styles.cardTop}>
                 <Text style={[styles.game, { fontFamily: runitFont.bold }]}>{gameTitle(row.game_key)}</Text>
-                <View style={styles.modePill}>
-                  <Text style={styles.modePillTxt}>{row.mode}</Text>
+                <View style={[styles.pill, own ? styles.pillOwn : styles.pillOpen]}>
+                  <Text style={[styles.pillTxt, { color: own ? '#fde68a' : '#86efac' }]}>
+                    {own ? 'Your run · Pending' : 'Open'}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.scoreLine}>
-                Score to beat: <Text style={styles.scoreEm}>{row.host_score.toLocaleString()}</Text>
+                {own ? 'Your locked score' : 'Score to beat'}:{' '}
+                <Text style={styles.scoreEm}>{row.host_score.toLocaleString()}</Text>
               </Text>
               <Text style={styles.meta}>
                 Entry {entry} · Win up to {prize}
               </Text>
-              <Text style={styles.hook}>Match the entry — if your run wins, you take the prize tier (per rules).</Text>
-              <Pressable
-                onPress={() => void onChallenge(row.id)}
-                disabled={busy}
-                style={({ pressed }) => [styles.ctaOuter, (pressed || busy) && { opacity: 0.88 }]}
-              >
-                <LinearGradient
-                  colors={['rgba(52,211,153,0.35)', 'rgba(15,23,42,0.95)']}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.ctaGrad}
+              <Text style={styles.hook}>
+                {own
+                  ? 'Waiting for a challenger — Quick Match or Start Match at this tier can pick this up automatically.'
+                  : 'Match the entry — if your run wins, you take the prize tier (per rules).'}
+              </Text>
+              {own ? null : (
+                <Pressable
+                  onPress={() => void onChallenge(row)}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Challenge ${gameTitle(row.game_key)} for ${entry} entry`}
+                  style={({ pressed }) => [styles.ctaOuter, (pressed || busy) && { opacity: 0.88 }]}
                 >
-                  {busy ? (
-                    <ActivityIndicator color="#ecfdf5" />
-                  ) : (
-                    <>
-                      <SafeIonicons name="trophy" size={18} color={GREEN} />
-                      <Text style={[styles.ctaTxt, { fontFamily: runitFont.black }]}>Think you can beat it?</Text>
-                      <SafeIonicons name="chevron-forward" size={18} color={GREEN} />
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={['rgba(52,211,153,0.35)', 'rgba(15,23,42,0.95)']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.ctaGrad}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#ecfdf5" />
+                    ) : (
+                      <>
+                        <SafeIonicons name="trophy" size={18} color={GREEN} />
+                        <Text style={[styles.ctaTxt, { fontFamily: runitFont.black }]}>Think you can beat it?</Text>
+                        <SafeIonicons name="chevron-forward" size={18} color={GREEN} />
+                      </>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              )}
             </View>
           );
         })
@@ -246,6 +255,13 @@ export function OpenAsyncChallengesFeed({ userId, onPostOwnRunPress, hideBoardHe
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 22 },
+  warnTxt: {
+    color: 'rgba(251,191,36,0.92)',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },
   sectionTitle: { color: '#ecfdf5', fontSize: 14, letterSpacing: 1.2, marginBottom: 6 },
   sectionSub: { color: 'rgba(148,163,184,0.95)', fontSize: 12, lineHeight: 18 },
@@ -299,8 +315,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(52,211,153,0.22)',
   },
+  cardOwn: {
+    borderColor: 'rgba(250,204,21,0.35)',
+    backgroundColor: 'rgba(30,27,12,0.45)',
+  },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
   game: { flex: 1, color: '#f8fafc', fontSize: 16 },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  pillOpen: { backgroundColor: 'rgba(34,197,94,0.18)' },
+  pillOwn: { backgroundColor: 'rgba(250,204,21,0.18)' },
+  pillTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4 },
   modePill: {
     paddingHorizontal: 8,
     paddingVertical: 3,

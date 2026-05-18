@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { invalidateProfileEconomy } from '@/lib/invalidateProfileEconomy';
 import { queryKeys } from '@/lib/queryKeys';
-import { submitAsyncH2hHostSkillRun } from '@/services/api/h2hAsyncHostSubmit';
+import { invalidateAsyncBattleBoardQueries } from '@/services/api/h2hAsyncHostOpenChallenges';
 import type { AsyncH2hQueueSubmit } from '@/types/match';
 
 export type AsyncH2hQueueSubmitPhase = 'idle' | 'loading' | 'ok' | 'error';
@@ -53,6 +53,7 @@ export function useAsyncH2hQueueHostSubmission(opts: {
         setPhase('ok');
         invalidateProfileEconomy(queryClient, opts.uid!);
         void queryClient.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(opts.uid!) });
+        invalidateAsyncBattleBoardQueries(queryClient);
         Alert.alert(
           'Contest locked in',
           'Your wallet entry is held and this run is on record for this tier. Someone who later joins the same stake row still plays live; we compare scores when they finish. You can leave and use Home or notifications when you get a hit.',

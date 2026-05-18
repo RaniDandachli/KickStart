@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { env } from '@/lib/env';
 import { queryKeys } from '@/lib/queryKeys';
+import { invalidateAsyncBattleBoardQueries } from '@/services/api/h2hAsyncHostOpenChallenges';
 import { getSupabase } from '@/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -28,6 +29,13 @@ export function useRealtimeScaffold(userId: string | undefined): void {
         void qc.invalidateQueries({ queryKey: queryKeys.homeH2hBoard() });
         void qc.invalidateQueries({ queryKey: ['userStats'] });
         void qc.invalidateQueries({ queryKey: ['recentMatches'] });
+        if (userId) {
+          void qc.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(userId) });
+          invalidateAsyncBattleBoardQueries(qc);
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'h2h_async_host_pending' }, () => {
+        invalidateAsyncBattleBoardQueries(qc);
         if (userId) void qc.invalidateQueries({ queryKey: queryKeys.myAsyncHostPending(userId) });
       })
       .on(

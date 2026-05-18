@@ -22,4 +22,6 @@ export const queryKeys = {
   h2hTapDashScores: (matchSessionId: string) => ['h2hTapDashScores', matchSessionId] as const,
   myAsyncHostPending: (userId: string) => ['myAsyncHostPending', userId] as const,
   openAsyncHostChallenges: (gameKey: string | null) => ['openAsyncHostChallenges', gameKey ?? 'all'] as const,
+  asyncBattleBoard: (gameKey: string | null, userId: string) =>
+    ['asyncBattleBoard', gameKey ?? 'all', userId] as const,
 };

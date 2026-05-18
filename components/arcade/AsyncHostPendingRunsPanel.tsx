@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeIonicons } from '@/components/icons/SafeIonicons';
 import { ENABLE_BACKEND } from '@/constants/featureFlags';
 import { useMyAsyncHostPendingRuns } from '@/hooks/useMyAsyncHostPendingRuns';
+import { pushCrossTab } from '@/lib/appNavigation';
 import { normalizeH2hSkillContestGameKey } from '@/lib/h2hSkillContestGames';
 import { titleForH2hGameKey } from '@/lib/homeOpenMatches';
 import { formatUsdFromCents } from '@/lib/money';
@@ -200,7 +201,9 @@ export function AsyncHostPendingRunsPanel({ userId, variant = 'default' }: Props
                 ))}
                 {openMatch ? (
                   <Pressable
-                    onPress={() => router.push(`/(app)/(tabs)/play/match/${row.match!.id}`)}
+                    onPress={() =>
+                      pushCrossTab(router, `/(app)/(tabs)/play/match/${row.match!.id}` as never)
+                    }
                     style={({ pressed }) => [styles.cta, pressed && { opacity: 0.88 }]}
                     accessibilityRole="button"
                     accessibilityLabel="Open match"
